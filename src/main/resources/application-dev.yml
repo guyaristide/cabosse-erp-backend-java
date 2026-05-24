@@ -1,0 +1,69 @@
+# ────────────────────────────────────────────────────────────────────────
+#  Dev — Cabosse ERP
+#
+#  Cible : poste développeur, MongoDB local en replica set, JWT signé
+#  avec la paire de clés DEV embarquée. Aucune donnée prod, pas de Vault,
+#  pas de TLS.
+# ────────────────────────────────────────────────────────────────────────
+
+quarkus:
+  log:
+    level: INFO
+    category:
+      "com.ntech.cabosse":
+        level: DEBUG
+
+  mailer:
+    # En dev : par défaut on bascule en mode réel (envoi via Brevo SMTP).
+    # Pour revenir au mode mock (logué uniquement, pas envoyé), mettre
+    # MAILER_MOCK=true dans le .env local. Tous les secrets passent par
+    # variables d'environnement (.env, gitignored — jamais commit).
+    mock: ${MAILER_MOCK:false}
+    from: ${MAILER_FROM:contact@cabosse-erp.com}
+    host: ${MAILER_HOST:smtp-relay.brevo.com}
+    port: ${MAILER_PORT:587}
+    start-tls: ${MAILER_STARTTLS:REQUIRED}
+    username: ${MAILER_USERNAME:}
+    password: ${MAILER_PASSWORD:}
+
+  http:
+    cors:
+      enabled: true
+      origins: "http://localhost:5173,http://localhost:5174"
+      methods: "GET,POST,PUT,DELETE,PATCH,OPTIONS"
+      headers: "Content-Type,Authorization"
+
+  mongodb:
+    connection-string: ${MONGO_URI:mongodb://localhost:27017/?replicaSet=rs0}
+
+mp:
+  jwt:
+    verify:
+      publickey:
+        location: ${JWT_PUBLIC_KEY_LOCATION:META-INF/dev-keys/publicKey.pem}
+      issuer: ${JWT_ISSUER:cabosse-erp-dev}
+
+smallrye:
+  jwt:
+    sign:
+      key:
+        location: ${JWT_PRIVATE_KEY_LOCATION:META-INF/dev-keys/privateKey.pem}
+
+application:
+  # ── Stockage de fichiers — backend local en dev (cf. file-storage.md)
+  file-storage:
+    backend: local
+    local:
+      base-path: ./uploads-dev
+      public-base-url: http://localhost:8088/api/v1/files
+
+  # ── Amorçage du premier compte PLATFORM_ADMIN ──────────────────────────
+  # Credentials connus en dev pour login direct depuis Swagger / le front.
+  # Le compte n'est créé qu'au tout premier démarrage (si aucun
+  # PLATFORM_ADMIN n'existe). Après ça, le bootstrap devient no-op.
+  bootstrap:
+    platform-admin:
+      email: admin@cabosse.local
+      password: Admin123!
+      first-name: Admin
+      last-name: Local

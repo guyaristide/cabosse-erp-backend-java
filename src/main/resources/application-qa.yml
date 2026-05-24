@@ -1,0 +1,60 @@
+# ────────────────────────────────────────────────────────────────────────
+#  QA — Cabosse ERP
+#
+#  Cible : environnement de validation déployé via Docker Compose.
+#  Toutes les valeurs sensibles viennent de variables d'environnement
+#  (cf. CLAUDE.md §2.4).
+# ────────────────────────────────────────────────────────────────────────
+
+quarkus:
+  log:
+    level: INFO
+    category:
+      "com.ntech.cabosse":
+        level: INFO
+
+  http:
+    cors:
+      enabled: true
+      origins: ${CORS_ORIGINS}  # liste blanche stricte fournie en deploy
+      methods: "GET,POST,PUT,DELETE,PATCH,OPTIONS"
+      headers: "Content-Type,Authorization"
+
+  mongodb:
+    connection-string: ${MONGO_URI}
+
+  mailer:
+    from: ${MAILER_FROM}
+    host: ${MAILER_HOST}
+    port: ${MAILER_PORT:587}
+    start-tls: ${MAILER_STARTTLS:REQUIRED}
+    username: ${MAILER_USERNAME}
+    password: ${MAILER_PASSWORD}
+
+mp:
+  jwt:
+    verify:
+      publickey:
+        location: ${JWT_PUBLIC_KEY_LOCATION}
+      issuer: ${JWT_ISSUER}
+
+smallrye:
+  jwt:
+    sign:
+      key:
+        location: ${JWT_PRIVATE_KEY_LOCATION}
+
+application:
+  file-storage:
+    backend: ${FILE_STORAGE_BACKEND:local}
+    local:
+      base-path: ${FILES_BASE_PATH:/var/cabosse/uploads}
+      public-base-url: ${APP_BASE_URL}/api/v1/files
+
+  # Bootstrap du premier admin : env vars exigées au premier déploiement,
+  # à retirer après. Si vides et aucun admin n'existe → l'app refuse de
+  # démarrer (cf. PlatformAdminBootstrap).
+  bootstrap:
+    platform-admin:
+      email: ${BOOTSTRAP_ADMIN_EMAIL:}
+      password: ${BOOTSTRAP_ADMIN_PASSWORD:}

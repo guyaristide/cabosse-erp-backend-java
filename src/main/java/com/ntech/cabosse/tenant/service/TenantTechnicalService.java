@@ -1,0 +1,298 @@
+package com.ntech.cabosse.tenant.service;
+
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoDatabase;
+import com.mongodb.client.model.Filters;
+import com.mongodb.client.model.Sorts;
+import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.persistence.ControlPlane;
+import com.ntech.cabosse.tenant.dto.BackupSnapshotDto;
+import com.ntech.cabosse.tenant.dto.CollectionStatDto;
+import com.ntech.cabosse.tenant.dto.MigrationEntryDto;
+import com.ntech.cabosse.tenant.dto.TenantTechnicalStatusDto;
+import com.ntech.cabosse.tenant.entity.TenantEntity;
+import com.ntech.cabosse.tenant.repository.TenantRepository;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+import org.bson.Document;
+
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+
+/**
+ * Collecte le statut technique d'un tenant pour le back-office plateforme.
+ *
+ * <p>Aucune mutation ici — uniquement des reads contre la base tenant
+ * ({@code db.stats}, {@code collStats}, {@code mongockChangeLog}) et le
+ * control plane ({@code tenant_backups}). Les opérations sont indépendantes
+ * et tolérantes : si une collection est introuvable on l'ignore, on ne
+ * propage pas l'erreur — le diagnostic doit toujours renvoyer un payload
+ * exploitable même si la base est dans un état dégradé.</p>
+ *
+ * <p>Les opérations d'écriture (relancer migrations, déclencher backup)
+ * sont dans des services séparés (Phase D ultérieure).</p>
+ */
+@ApplicationScoped
+public class TenantTechnicalService {
+
+    /**
+     * Catalogue statique des migrations attendues. À tenir à jour à chaque
+     * ajout de {@code @ChangeUnit} dans {@code com.ntech.cabosse.migrations}.
+     * On pourra automatiser ça avec Jandex / IndexView plus tard, mais sur
+     * un projet jeune où on ajoute 1 migration par mois, c'est OK.
+     */
+    private record MigrationDescriptor(String changeId, String order, String author) {}
+
+    private static final List<MigrationDescriptor> CATALOG = List.of(
+            new MigrationDescriptor("bootstrap_tenant_schema", "001", "neiba")
+    );
+
+    /** Fréquence de backup par plan tarifaire (cf. plans.json catalogue). */
+    private static final Map<String, String> BACKUP_FREQUENCY_BY_PLAN = Map.of(
+            "starter",    "weekly",
+            "pro",        "daily",
+            "scale",      "daily",
+            "enterprise", "hourly"
+    );
+
+    @Inject MongoClient mongoClient;
+    @Inject TenantRepository tenants;
+
+    public TenantTechnicalStatusDto getStatus(UUID tenantId) {
+        TenantEntity tenant = tenants.findById(tenantId);
+        if (tenant == null) {
+            throw new NotFoundException("Tenant " + tenantId + " introuvable");
+        }
+
+        MongoDatabase tenantDb = mongoClient.getDatabase(tenant.databaseName);
+
+        // ─── dbStats ───
+        long databaseSizeBytes = 0;
+        try {
+            Document dbStats = tenantDb.runCommand(new Document("dbStats", 1));
+            // dataSize : taille des documents, storageSize : taille disque (avec WT compression).
+            // On expose dataSize qui est plus interprétable côté UI.
+            Number dataSize = (Number) dbStats.get("dataSize");
+            if (dataSize != null) databaseSizeBytes = dataSize.longValue();
+        } catch (RuntimeException ignored) {
+            // Base inaccessible — on reste à 0, l'UI affichera "—".
+        }
+
+        // ─── Collections ───
+        List<CollectionStatDto> collections = collectCollectionStats(tenantDb);
+
+        // ─── Migrations Mongock ───
+        List<MigrationEntryDto> migrations = collectMigrationHistory(tenantDb);
+        String mongockVersion = computeMongockVersion(migrations);
+        String migrationsHealth = computeMigrationsHealth(migrations);
+
+        // ─── Backups ───
+        List<BackupSnapshotDto> recentBackups = collectRecentBackups(tenantId);
+        String backupFrequency = BACKUP_FREQUENCY_BY_PLAN.getOrDefault(tenant.planCode, "weekly");
+
+        return new TenantTechnicalStatusDto(
+                tenant.id,
+                tenant.databaseName,
+                databaseSizeBytes,
+                collections.size(),
+                mongockVersion,
+                migrationsHealth,
+                Instant.now(),
+                collections,
+                migrations,
+                backupFrequency,
+                recentBackups
+        );
+    }
+
+    // ─── Helpers ───
+
+    private List<CollectionStatDto> collectCollectionStats(MongoDatabase db) {
+        List<CollectionStatDto> result = new ArrayList<>();
+        for (String name : db.listCollectionNames()) {
+            try {
+                Document stats = db.runCommand(new Document("collStats", name));
+                long count = ((Number) stats.getOrDefault("count", 0)).longValue();
+                long size = ((Number) stats.getOrDefault("size", 0)).longValue();
+                int nIndexes = ((Number) stats.getOrDefault("nindexes", 0)).intValue();
+                Instant lastWriteAt = readLastWrite(db.getCollection(name));
+                result.add(new CollectionStatDto(name, count, size, nIndexes, lastWriteAt));
+            } catch (RuntimeException ignored) {
+                // collStats peut échouer sur une vue ou collection verrouillée — on saute.
+            }
+        }
+        // tri par taille desc — la plus grosse en haut.
+        result.sort(Comparator.comparingLong(CollectionStatDto::sizeBytes).reversed());
+        return result;
+    }
+
+    /**
+     * Lit la dernière écriture observée d'une collection. Heuristique :
+     * on cherche un champ {@code updatedAt} ou {@code createdAt} en triant
+     * desc ; si la collection n'a aucun de ces deux champs (ex. index
+     * techniques) on renvoie {@code null}.
+     */
+    private Instant readLastWrite(MongoCollection<Document> coll) {
+        for (String field : List.of("updatedAt", "createdAt", "occurredAt", "executedAt", "timestamp")) {
+            try {
+                Document last = coll.find().sort(Sorts.descending(field)).limit(1).first();
+                if (last == null) continue;
+                Object value = last.get(field);
+                if (value instanceof Date d) return d.toInstant();
+                if (value instanceof Instant i) return i;
+            } catch (RuntimeException ignored) {
+                // champ absent / index manquant — on essaie le suivant.
+            }
+        }
+        return null;
+    }
+
+    private List<MigrationEntryDto> collectMigrationHistory(MongoDatabase tenantDb) {
+        MongoCollection<Document> changeLog = tenantDb.getCollection("mongockChangeLog");
+        // Map changeId → derniere entrée pertinente, pour ne pas dupliquer
+        // les sous-événements EXECUTION/BEFORE_EXECUTION/AFTER_EXECUTION.
+        Map<String, Document> latestByChangeId = new HashMap<>();
+        try {
+            for (Document doc : changeLog.find().sort(Sorts.descending("timestamp"))) {
+                String changeId = doc.getString("changeId");
+                if (changeId == null) continue;
+                // Mongock écrit ses propres entrées de bookkeeping
+                // (system-change-*, author=mongock, systemChange=true).
+                // On les masque — l'utilisateur ne veut voir QUE les
+                // changeUnits applicatifs.
+                Boolean systemChange = doc.getBoolean("systemChange");
+                if (Boolean.TRUE.equals(systemChange)) continue;
+                if (changeId.startsWith("system-change-")) continue;
+                // On garde la première entrée vue (la plus récente grâce au tri).
+                latestByChangeId.putIfAbsent(changeId, doc);
+            }
+        } catch (RuntimeException ignored) {
+            // mongockChangeLog n'existe pas encore — base jamais migrée.
+        }
+
+        // Itère sur le catalogue pour produire la liste, dans l'ordre.
+        // Catalogue absent → pending ; catalogue présent → status from log.
+        List<MigrationEntryDto> result = new ArrayList<>();
+        Set<String> catalogIds = new HashSet<>();
+
+        for (MigrationDescriptor desc : CATALOG) {
+            catalogIds.add(desc.changeId());
+            Document doc = latestByChangeId.get(desc.changeId());
+            result.add(toMigrationEntry(desc, doc));
+        }
+
+        // Entrées présentes en base mais absentes du catalogue actuel : on
+        // les affiche en queue pour traçabilité (ex. migration retirée du code).
+        latestByChangeId.forEach((id, doc) -> {
+            if (!catalogIds.contains(id)) {
+                MigrationDescriptor desc = new MigrationDescriptor(
+                        id,
+                        "?",
+                        doc.getString("author") != null ? doc.getString("author") : "—"
+                );
+                result.add(toMigrationEntry(desc, doc));
+            }
+        });
+
+        // tri par ordre asc
+        result.sort(Comparator.comparing(MigrationEntryDto::order));
+        return result;
+    }
+
+    private MigrationEntryDto toMigrationEntry(MigrationDescriptor desc, Document log) {
+        if (log == null) {
+            return new MigrationEntryDto(
+                    desc.changeId(), desc.order(), desc.author(),
+                    "pending", null, null, null
+            );
+        }
+        String state = log.getString("state");
+        String status = mapMongockState(state);
+        Date timestamp = log.getDate("timestamp");
+        Long durationMs = log.get("executionMillis") instanceof Number n ? n.longValue() : null;
+        String errorMessage = log.getString("errorTrace");
+        return new MigrationEntryDto(
+                desc.changeId(),
+                desc.order(),
+                desc.author(),
+                status,
+                timestamp != null ? timestamp.toInstant() : null,
+                durationMs,
+                errorMessage
+        );
+    }
+
+    private static String mapMongockState(String state) {
+        if (state == null) return "pending";
+        return switch (state) {
+            case "EXECUTED" -> "success";
+            case "FAILED", "ROLLED_BACK", "ROLLBACK_FAILED" -> "failed";
+            case "IGNORED" -> "ignored";
+            default -> "pending";
+        };
+    }
+
+    private static String computeMongockVersion(List<MigrationEntryDto> migrations) {
+        // Numéro d'ordre de la dernière migration appliquée avec succès.
+        // Si rien d'appliqué : "0".
+        return migrations.stream()
+                .filter(m -> "success".equals(m.status()))
+                .map(MigrationEntryDto::order)
+                .reduce((a, b) -> b)  // dernier élément après tri asc
+                .orElse("0");
+    }
+
+    private static String computeMigrationsHealth(List<MigrationEntryDto> migrations) {
+        boolean anyFailed = migrations.stream().anyMatch(m -> "failed".equals(m.status()));
+        if (anyFailed) return "failed";
+        boolean anyPending = migrations.stream().anyMatch(m -> "pending".equals(m.status()));
+        if (anyPending) return "pending";
+        return "ok";
+    }
+
+    private List<BackupSnapshotDto> collectRecentBackups(UUID tenantId) {
+        MongoCollection<Document> backups = mongoClient
+                .getDatabase(ControlPlane.DATABASE)
+                .getCollection(ControlPlane.Collections.TENANT_BACKUPS);
+        Map<String, Document> dedupe = new LinkedHashMap<>();
+        try {
+            for (Document doc : backups
+                    .find(Filters.eq("tenantId", tenantId))
+                    .sort(Sorts.descending("executedAt"))
+                    .limit(5)) {
+                Object id = doc.get("_id");
+                if (id != null) dedupe.putIfAbsent(id.toString(), doc);
+            }
+        } catch (RuntimeException ignored) {
+            // collection vide / inexistante — ok, on renvoie liste vide.
+        }
+        return dedupe.values().stream()
+                .map(TenantTechnicalService::toBackupSnapshot)
+                .toList();
+    }
+
+    private static BackupSnapshotDto toBackupSnapshot(Document d) {
+        Date executedAt = d.getDate("executedAt");
+        Number size = (Number) d.getOrDefault("sizeBytes", 0);
+        Number duration = (Number) d.getOrDefault("durationMs", 0);
+        return new BackupSnapshotDto(
+                d.get("_id") != null ? d.get("_id").toString() : null,
+                executedAt != null ? executedAt.toInstant() : null,
+                d.getString("status") != null ? d.getString("status") : "success",
+                size.longValue(),
+                d.getString("planAtTime") != null ? d.getString("planAtTime") : "starter",
+                duration.longValue(),
+                d.getString("errorMessage")
+        );
+    }
+}

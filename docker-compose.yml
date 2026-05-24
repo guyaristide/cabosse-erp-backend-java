@@ -1,0 +1,105 @@
+# ─────────────────────────────────────────────────────────────────────
+#  Cabosse ERP — docker-compose.yml pour déploiement Coolify
+#
+#  Flow :
+#    git push  →  Coolify webhook  →  git pull  →  docker compose up -d --build
+#
+#  Le `build:` du service backend déclenche le multi-stage Dockerfile,
+#  qui compile le JAR sur le serveur Coolify (pas de registry externe).
+#
+#  Variables sensibles : à configurer dans l'UI Coolify (section
+#  "Environment Variables") ou via un fichier `.env` à la racine.
+#  Voir `.env.example` pour la liste complète.
+# ─────────────────────────────────────────────────────────────────────
+
+services:
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cabosse-backend
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      # Profil Quarkus → application-prod.yml est chargé
+      QUARKUS_PROFILE: prod
+
+      # MongoDB — pointe vers le service `mongo` du compose
+      MONGO_URI: mongodb://mongo:27017
+
+      # CORS — origins autorisés (séparés par virgule, sans wildcard)
+      CORS_ORIGINS: ${CORS_ORIGINS}
+
+      # URL publique de l'app (utilisée pour /api/v1/files notamment)
+      APP_BASE_URL: ${APP_BASE_URL}
+
+      # Mailer (SMTP)
+      MAILER_FROM: ${MAILER_FROM}
+      MAILER_HOST: ${MAILER_HOST}
+      MAILER_PORT: ${MAILER_PORT:-587}
+      MAILER_STARTTLS: ${MAILER_STARTTLS:-REQUIRED}
+      MAILER_USERNAME: ${MAILER_USERNAME}
+      MAILER_PASSWORD: ${MAILER_PASSWORD}
+
+      # JWT — clés montées via le volume `secrets`
+      JWT_PUBLIC_KEY_LOCATION: file:/secrets/jwt-public.pem
+      JWT_PRIVATE_KEY_LOCATION: file:/secrets/jwt-private.pem
+      JWT_ISSUER: ${JWT_ISSUER}
+
+      # Stockage fichiers — par défaut local (montage volume).
+      # Bascule à `s3` quand prêt et renseigne les S3_* ci-dessous.
+      FILE_STORAGE_BACKEND: ${FILE_STORAGE_BACKEND:-local}
+      FILES_BASE_PATH: /var/cabosse/uploads
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_REGION: ${S3_REGION:-eu-west-3}
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-}
+
+    volumes:
+      # Secrets (clés JWT) — montés en lecture seule
+      - ./secrets:/secrets:ro
+      # Uploads persistants tant qu'on est en stockage local
+      - cabosse-uploads:/var/cabosse/uploads
+    expose:
+      - "8088"
+    # Coolify gère Traefik et le SSL automatiquement.
+    # Ajouter le label suivant via l'UI Coolify pour exposer le service :
+    #   traefik.http.routers.cabosse-backend.rule=Host(`api.tondomaine.com`)
+    # Ou laisser Coolify gérer via son interface "Domains".
+
+    healthcheck:
+      # /q/openapi est exposé sans auth (smallrye-openapi dans les deps).
+      # Si tu ajoutes quarkus-smallrye-health, bascule sur /q/health/ready.
+      test: ["CMD", "curl", "-fsS", "http://localhost:8088/q/openapi", "-o", "/dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 90s
+
+  mongo:
+    image: mongo:7
+    container_name: cabosse-mongo
+    restart: unless-stopped
+    # Pas d'auth en interne — le réseau Docker isole déjà mongo.
+    # Si tu exposes le port en externe, ajoute MONGO_INITDB_ROOT_USERNAME
+    # et MONGO_INITDB_ROOT_PASSWORD + ajuste MONGO_URI ci-dessus.
+    volumes:
+      - cabosse-mongo-data:/data/db
+    expose:
+      - "27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  cabosse-uploads:
+    name: cabosse-uploads
+  cabosse-mongo-data:
+    name: cabosse-mongo-data

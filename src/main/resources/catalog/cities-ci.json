@@ -1,0 +1,87 @@
+[
+  { "name": "Plateau",         "regionCode": "ABJ", "countryCode": "CI", "isActive": true },
+  { "name": "Cocody",          "regionCode": "ABJ", "countryCode": "CI", "isActive": true },
+  { "name": "Yopougon",        "regionCode": "ABJ", "countryCode": "CI", "isActive": true },
+  { "name": "Treichville",     "regionCode": "ABJ", "countryCode": "CI", "isActive": true },
+  { "name": "Adjamé",          "regionCode": "ABJ", "countryCode": "CI", "isActive": true },
+  { "name": "Marcory",         "regionCode": "ABJ", "countryCode": "CI", "isActive": true },
+  { "name": "Koumassi",        "regionCode": "ABJ", "countryCode": "CI", "isActive": true },
+  { "name": "Port-Bouët",      "regionCode": "ABJ", "countryCode": "CI", "isActive": true },
+  { "name": "Abobo",           "regionCode": "ABJ", "countryCode": "CI", "isActive": true },
+  { "name": "Anyama",          "regionCode": "ABJ", "countryCode": "CI", "isActive": true },
+  { "name": "Bingerville",     "regionCode": "ABJ", "countryCode": "CI", "isActive": true },
+  { "name": "Songon",          "regionCode": "ABJ", "countryCode": "CI", "isActive": true },
+  { "name": "Attécoubé",       "regionCode": "ABJ", "countryCode": "CI", "isActive": true },
+
+  { "name": "Yamoussoukro",    "regionCode": "YAM", "countryCode": "CI", "isActive": true },
+
+  { "name": "Sassandra",       "regionCode": "GBO", "countryCode": "CI", "isActive": true },
+  { "name": "Fresco",          "regionCode": "GBO", "countryCode": "CI", "isActive": true },
+  { "name": "Soubré",          "regionCode": "NAW", "countryCode": "CI", "isActive": true },
+  { "name": "Méagui",          "regionCode": "NAW", "countryCode": "CI", "isActive": true },
+  { "name": "Buyo",            "regionCode": "NAW", "countryCode": "CI", "isActive": true },
+  { "name": "San-Pédro",       "regionCode": "SPE", "countryCode": "CI", "isActive": true },
+  { "name": "Tabou",           "regionCode": "SPE", "countryCode": "CI", "isActive": true },
+
+  { "name": "Abengourou",      "regionCode": "IND", "countryCode": "CI", "isActive": true },
+  { "name": "Agnibilékrou",    "regionCode": "IND", "countryCode": "CI", "isActive": true },
+  { "name": "Aboisso",         "regionCode": "SCM", "countryCode": "CI", "isActive": true },
+  { "name": "Grand-Bassam",    "regionCode": "SCM", "countryCode": "CI", "isActive": true },
+  { "name": "Adiaké",          "regionCode": "SCM", "countryCode": "CI", "isActive": true },
+
+  { "name": "Minignan",        "regionCode": "FOL", "countryCode": "CI", "isActive": true },
+  { "name": "Odienné",         "regionCode": "KAB", "countryCode": "CI", "isActive": true },
+
+  { "name": "Gagnoa",          "regionCode": "GOH", "countryCode": "CI", "isActive": true },
+  { "name": "Oumé",            "regionCode": "GOH", "countryCode": "CI", "isActive": true },
+  { "name": "Divo",            "regionCode": "LDJ", "countryCode": "CI", "isActive": true },
+  { "name": "Lakota",          "regionCode": "LDJ", "countryCode": "CI", "isActive": true },
+
+  { "name": "Toumodi",         "regionCode": "BEL", "countryCode": "CI", "isActive": true },
+  { "name": "Tiébissou",       "regionCode": "BEL", "countryCode": "CI", "isActive": true },
+  { "name": "Daoukro",         "regionCode": "IFF", "countryCode": "CI", "isActive": true },
+  { "name": "Bongouanou",      "regionCode": "MOR", "countryCode": "CI", "isActive": true },
+  { "name": "Dimbokro",        "regionCode": "NZI", "countryCode": "CI", "isActive": true },
+  { "name": "Bocanda",         "regionCode": "NZI", "countryCode": "CI", "isActive": true },
+
+  { "name": "Agboville",       "regionCode": "AGT", "countryCode": "CI", "isActive": true },
+  { "name": "Tiassalé",        "regionCode": "AGT", "countryCode": "CI", "isActive": true },
+  { "name": "Dabou",           "regionCode": "GPO", "countryCode": "CI", "isActive": true },
+  { "name": "Grand-Lahou",     "regionCode": "GPO", "countryCode": "CI", "isActive": true },
+  { "name": "Adzopé",          "regionCode": "LAM", "countryCode": "CI", "isActive": true },
+
+  { "name": "Guiglo",          "regionCode": "CAV", "countryCode": "CI", "isActive": true },
+  { "name": "Toulépleu",       "regionCode": "CAV", "countryCode": "CI", "isActive": true },
+  { "name": "Duékoué",         "regionCode": "GUE", "countryCode": "CI", "isActive": true },
+  { "name": "Bangolo",         "regionCode": "GUE", "countryCode": "CI", "isActive": true },
+  { "name": "Man",             "regionCode": "TON", "countryCode": "CI", "isActive": true },
+  { "name": "Danané",          "regionCode": "TON", "countryCode": "CI", "isActive": true },
+  { "name": "Biankouma",       "regionCode": "TON", "countryCode": "CI", "isActive": true },
+
+  { "name": "Daloa",           "regionCode": "HSA", "countryCode": "CI", "isActive": true },
+  { "name": "Issia",           "regionCode": "HSA", "countryCode": "CI", "isActive": true },
+  { "name": "Vavoua",          "regionCode": "HSA", "countryCode": "CI", "isActive": true },
+  { "name": "Bouaflé",         "regionCode": "MAR", "countryCode": "CI", "isActive": true },
+  { "name": "Sinfra",          "regionCode": "MAR", "countryCode": "CI", "isActive": true },
+  { "name": "Zuénoula",        "regionCode": "MAR", "countryCode": "CI", "isActive": true },
+
+  { "name": "Boundiali",       "regionCode": "BAG", "countryCode": "CI", "isActive": true },
+  { "name": "Tengrela",        "regionCode": "BAG", "countryCode": "CI", "isActive": true },
+  { "name": "Korhogo",         "regionCode": "POR", "countryCode": "CI", "isActive": true },
+  { "name": "Sinématiali",     "regionCode": "POR", "countryCode": "CI", "isActive": true },
+  { "name": "Ferkessédougou",  "regionCode": "TCH", "countryCode": "CI", "isActive": true },
+  { "name": "Ouangolodougou",  "regionCode": "TCH", "countryCode": "CI", "isActive": true },
+
+  { "name": "Bouaké",          "regionCode": "GBE", "countryCode": "CI", "isActive": true },
+  { "name": "Béoumi",          "regionCode": "GBE", "countryCode": "CI", "isActive": true },
+  { "name": "Katiola",         "regionCode": "HAM", "countryCode": "CI", "isActive": true },
+  { "name": "Dabakala",        "regionCode": "HAM", "countryCode": "CI", "isActive": true },
+
+  { "name": "Touba",           "regionCode": "BAF", "countryCode": "CI", "isActive": true },
+  { "name": "Mankono",         "regionCode": "BER", "countryCode": "CI", "isActive": true },
+  { "name": "Séguéla",         "regionCode": "WOR", "countryCode": "CI", "isActive": true },
+
+  { "name": "Bouna",           "regionCode": "BOU", "countryCode": "CI", "isActive": true },
+  { "name": "Bondoukou",       "regionCode": "GTG", "countryCode": "CI", "isActive": true },
+  { "name": "Tanda",           "regionCode": "GTG", "countryCode": "CI", "isActive": true }
+]

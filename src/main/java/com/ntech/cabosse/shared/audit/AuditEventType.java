@@ -1,0 +1,135 @@
+package com.ntech.cabosse.shared.audit;
+
+/**
+ * Types d'événements enregistrés dans
+ * {@code cabosse_control.global_audit}.
+ *
+ * Sérialisation MongoDB : {@code name()} (string en BSON).
+ *
+ * Pas une classe de constantes : un enum, parce que les types d'audit ne
+ * sont jamais utilisés dans une annotation (qui exige une constante de
+ * compilation), donc on profite du type-safe et de l'autocomplete IDE.
+ */
+public enum AuditEventType {
+
+    // === Tenant lifecycle ===
+    TENANT_PROVISIONED,
+    TENANT_PROVISIONING_FAILED,
+    TENANT_UPDATED,
+    TENANT_PLAN_CHANGED,
+    TENANT_SUSPENDED,
+    TENANT_REACTIVATED,
+    TENANT_DELETED,
+    TENANT_MIGRATIONS_RUN,
+    TENANT_BACKUP_REQUESTED,
+
+    // === Utilisateurs / invitations ===
+    INVITATION_SENT,
+    PASSWORD_RESET_REQUESTED,
+    PASSWORD_CHANGED,
+    USER_DISABLED,
+    USER_REACTIVATED,
+    ROLE_GRANTED,
+    ROLE_REVOKED,
+
+    // === Sécurité / authentification ===
+    LOGIN_SUCCEEDED,
+    AUTHENTICATION_FAILED,
+    PERMISSION_DENIED,
+
+    // === Support / cross-tenant ===
+    CROSS_TENANT_ACCESS,
+    IMPERSONATION_STARTED,
+    IMPERSONATION_ENDED,
+
+    // === Support tickets ===
+    TICKET_ASSIGNED,
+    TICKET_PRIORITY_CHANGED,
+    TICKET_STATUS_CHANGED,
+    TICKET_REPLIED,
+    TICKET_NOTE_ADDED,
+
+    // === Configuration plateforme ===
+    CATALOG_UPDATED,
+    PLATFORM_SETTINGS_UPDATED,
+
+    // === Achats (M2) ===
+    PURCHASE_ORDER_CREATED,
+    PURCHASE_ORDER_UPDATED,
+    PURCHASE_ORDER_CONFIRMED,
+    PURCHASE_ORDER_IN_TRANSIT,
+    PURCHASE_ORDER_DELIVERED,
+    PURCHASE_ORDER_CANCELLED,
+
+    // === Réception directe (achats hors BC) ===
+    DIRECT_RECEIPT_CREATED,
+    DIRECT_RECEIPT_UPDATED,
+    DIRECT_RECEIPT_LINE_PAID,
+    DIRECT_RECEIPT_LINE_PAYMENT_REVERTED,
+    DIRECT_RECEIPT_CANCELLED,
+
+    // === Stocks (M5) ===
+    STOCK_MOVEMENT_RECORDED,
+    STOCK_OPENING_RECORDED,
+    STOCK_TRANSFER_RECORDED,
+    STOCK_INVENTORY_COUNTED,
+    STOCK_ADJUSTMENT_RECORDED,
+
+    // === Production (M3) ===
+    MANUFACTURING_ORDER_CREATED,
+    MANUFACTURING_ORDER_UPDATED,
+    MANUFACTURING_ORDER_STARTED,
+    MANUFACTURING_ORDER_STEP_ADVANCED,
+    MANUFACTURING_ORDER_COMPLETED,
+    MANUFACTURING_ORDER_CANCELLED,
+
+    // === Ventes (M4) ===
+    SALE_CREATED,
+    SALE_UPDATED,
+    SALE_QUOTE_VALIDATED,
+    SALE_DELIVERED,
+    SALE_PAYMENT_RECEIVED,
+    SALE_PAYMENT_REVERTED,
+    SALE_CANCELLED,
+
+    // === Export de données ===
+    DATA_EXPORTED;
+
+    /**
+     * Catégorie d'affichage côté UI — permet aux filtres "Tenants /
+     * Utilisateurs / Sécurité / …" de regrouper les événements.
+     */
+    public AuditCategory category() {
+        return switch (this) {
+            case TENANT_PROVISIONED, TENANT_PROVISIONING_FAILED, TENANT_UPDATED,
+                 TENANT_SUSPENDED, TENANT_REACTIVATED, TENANT_DELETED,
+                 TENANT_MIGRATIONS_RUN, TENANT_BACKUP_REQUESTED -> AuditCategory.TENANT;
+            case TENANT_PLAN_CHANGED -> AuditCategory.BILLING;
+            case INVITATION_SENT, PASSWORD_RESET_REQUESTED, PASSWORD_CHANGED,
+                 USER_DISABLED, USER_REACTIVATED, ROLE_GRANTED, ROLE_REVOKED -> AuditCategory.USER;
+            case LOGIN_SUCCEEDED, AUTHENTICATION_FAILED, PERMISSION_DENIED,
+                 CROSS_TENANT_ACCESS -> AuditCategory.SECURITY;
+            case IMPERSONATION_STARTED, IMPERSONATION_ENDED -> AuditCategory.IMPERSONATION;
+            case TICKET_ASSIGNED, TICKET_PRIORITY_CHANGED, TICKET_STATUS_CHANGED,
+                 TICKET_REPLIED, TICKET_NOTE_ADDED -> AuditCategory.SUPPORT;
+            case CATALOG_UPDATED, PLATFORM_SETTINGS_UPDATED -> AuditCategory.CONFIG;
+            case PURCHASE_ORDER_CREATED, PURCHASE_ORDER_UPDATED,
+                 PURCHASE_ORDER_CONFIRMED, PURCHASE_ORDER_IN_TRANSIT,
+                 PURCHASE_ORDER_DELIVERED, PURCHASE_ORDER_CANCELLED -> AuditCategory.OPERATIONS;
+            case DIRECT_RECEIPT_CREATED, DIRECT_RECEIPT_UPDATED,
+                 DIRECT_RECEIPT_LINE_PAID, DIRECT_RECEIPT_LINE_PAYMENT_REVERTED,
+                 DIRECT_RECEIPT_CANCELLED -> AuditCategory.OPERATIONS;
+            case STOCK_MOVEMENT_RECORDED, STOCK_OPENING_RECORDED,
+                 STOCK_TRANSFER_RECORDED, STOCK_INVENTORY_COUNTED,
+                 STOCK_ADJUSTMENT_RECORDED -> AuditCategory.OPERATIONS;
+            case MANUFACTURING_ORDER_CREATED, MANUFACTURING_ORDER_UPDATED,
+                 MANUFACTURING_ORDER_STARTED, MANUFACTURING_ORDER_STEP_ADVANCED,
+                 MANUFACTURING_ORDER_COMPLETED, MANUFACTURING_ORDER_CANCELLED
+                 -> AuditCategory.OPERATIONS;
+            case SALE_CREATED, SALE_UPDATED, SALE_QUOTE_VALIDATED, SALE_DELIVERED,
+                 SALE_PAYMENT_RECEIVED, SALE_PAYMENT_REVERTED, SALE_CANCELLED
+                 -> AuditCategory.OPERATIONS;
+            case DATA_EXPORTED -> AuditCategory.OPERATIONS;
+        };
+    }
+}

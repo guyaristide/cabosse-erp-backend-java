@@ -1,0 +1,59 @@
+package com.ntech.cabosse.article.controller;
+
+import com.ntech.cabosse.shared.export.ExportColumn;
+import com.ntech.cabosse.shared.export.ExportDataset;
+
+import java.util.List;
+
+/**
+ * Construit le {@link ExportDataset} du modèle d'import d'articles —
+ * mêmes en-têtes que ceux attendus par {@code ArticleImportService}, avec
+ * 3 lignes d'exemple pour montrer le format de chaque colonne.
+ */
+final class ArticleImportTemplate {
+
+    private ArticleImportTemplate() {}
+
+    /** Une ligne d'exemple — n exemples = couvre les variantes courantes. */
+    record TemplateRow(
+            String type, String code, String name, String unit, String activity,
+            String stockable, String alertThreshold,
+            String standardCost, String standardSalePrice, String vatRate,
+            String barcode, String description
+    ) {}
+
+    static ExportDataset<TemplateRow> dataset() {
+        List<ExportColumn<TemplateRow>> cols = List.of(
+                ExportColumn.of("Type",          TemplateRow::type),
+                ExportColumn.of("Code",          TemplateRow::code),
+                ExportColumn.of("Nom",           TemplateRow::name),
+                ExportColumn.of("Unité",         TemplateRow::unit),
+                ExportColumn.of("Activité",      TemplateRow::activity),
+                ExportColumn.of("Stockable",     TemplateRow::stockable),
+                ExportColumn.of("Seuil alerte",  TemplateRow::alertThreshold),
+                ExportColumn.of("Coût standard", TemplateRow::standardCost),
+                ExportColumn.of("Prix de vente", TemplateRow::standardSalePrice),
+                ExportColumn.of("TVA (%)",       TemplateRow::vatRate),
+                ExportColumn.of("Code-barres",   TemplateRow::barcode),
+                ExportColumn.of("Description",   TemplateRow::description)
+        );
+        List<TemplateRow> samples = List.of(
+                new TemplateRow(
+                        "Matière première", "cacao-feve", "Fève de cacao",
+                        "kg", "cacao", "Oui", "100", "1800", "", "",
+                        "", "Fève cacao Forastero qualité 1"
+                ),
+                new TemplateRow(
+                        "Consommable", "", "Étiquettes adhésives",
+                        "pcs", "", "Oui", "", "50", "", "18",
+                        "", ""
+                ),
+                new TemplateRow(
+                        "Emballage", "", "Carton 1 kg",
+                        "carton", "", "Oui", "20", "350", "", "18",
+                        "", ""
+                )
+        );
+        return new ExportDataset<>("Modèle d'import articles", cols, samples);
+    }
+}

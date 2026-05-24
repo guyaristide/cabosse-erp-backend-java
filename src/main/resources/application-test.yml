@@ -1,0 +1,53 @@
+# ────────────────────────────────────────────────────────────────────────
+#  Test — Cabosse ERP
+#
+#  Profil activé automatiquement par @QuarkusTest. Mêmes choix que dev
+#  pour la stack JWT et le stockage, mais :
+#   - base path file storage isolé sous ./uploads-test (gitignoré)
+#   - cache tenant-registry court (1s) pour ne pas masquer les changements de statut entre tests
+#   - mailer en mode mock (Quarkus capture les mails dans MockMailbox)
+#   - MongoDB connection-string fournie dynamiquement par MongoReplicaSetTestResource
+# ────────────────────────────────────────────────────────────────────────
+
+quarkus:
+  log:
+    level: INFO
+    category:
+      "com.ntech.cabosse":
+        level: DEBUG
+
+  http:
+    cors:
+      enabled: false
+
+  mailer:
+    # Mode mock — les mails ne partent pas, ils sont capturés par
+    # io.quarkus.mailer.MockMailbox injectable depuis les tests.
+    mock: true
+
+  cache:
+    caffeine:
+      tenant-registry:
+        expire-after-write: 1s
+        maximum-size: 10
+
+mp:
+  jwt:
+    verify:
+      publickey:
+        location: META-INF/dev-keys/publicKey.pem
+      issuer: cabosse-erp-test
+
+smallrye:
+  jwt:
+    sign:
+      key:
+        location: META-INF/dev-keys/privateKey.pem
+
+application:
+  tenant-database-prefix: tenant_test_
+  file-storage:
+    backend: local
+    local:
+      base-path: ./uploads-test
+      public-base-url: http://localhost:8089/api/v1/files

@@ -1,0 +1,96 @@
+plugins {
+    id 'java'
+    id 'io.quarkus'
+}
+
+repositories {
+    mavenCentral()
+    mavenLocal()
+}
+
+dependencies {
+    implementation enforcedPlatform("${quarkusPlatformGroupId}:${quarkusPlatformArtifactId}:${quarkusPlatformVersion}")
+
+    // ── REST + sérialisation ───────────────────────────────────────────────
+    implementation 'io.quarkus:quarkus-rest'
+    implementation 'io.quarkus:quarkus-rest-jackson'
+
+    // ── Config & CDI ───────────────────────────────────────────────────────
+    implementation 'io.quarkus:quarkus-arc'
+    implementation 'io.quarkus:quarkus-config-yaml'
+
+    // ── Persistance MongoDB ────────────────────────────────────────────────
+    // mongodb-client : driver brut utilisé par les providers tenant-scoped
+    //                  (cf. multi-tenant-architecture.md §7)
+    // mongodb-panache : active record limité au plan contrôle uniquement
+    //                   (cf. multi-tenant-architecture.md §8.1)
+    implementation 'io.quarkus:quarkus-mongodb-client'
+    implementation 'io.quarkus:quarkus-mongodb-panache'
+
+    // ── Cache (TenantRegistryCache, ROLE_PERMISSIONS, …) ───────────────────
+    implementation 'io.quarkus:quarkus-cache'
+
+    // ── Scheduler (jobs de cleanup tenant-aware, cf. §11) ──────────────────
+    implementation 'io.quarkus:quarkus-scheduler'
+
+    // ── Sécurité JWT ───────────────────────────────────────────────────────
+    implementation 'io.quarkus:quarkus-smallrye-jwt'
+    implementation 'io.quarkus:quarkus-smallrye-jwt-build'
+
+    // ── Bean Validation (sur les DTO de requête, cf. CLAUDE.md §8.1) ───────
+    implementation 'io.quarkus:quarkus-hibernate-validator'
+
+    // ── OpenAPI (annotations obligatoires sur tout endpoint, §15) ──────────
+    implementation 'io.quarkus:quarkus-smallrye-openapi'
+
+    // ── Mailer + templates Qute (invitation tenant, §12 mail) ──────────────
+    implementation 'io.quarkus:quarkus-mailer'
+    implementation 'io.quarkus:quarkus-rest-qute'
+
+    // ── Mongock pour migrations multi-tenant ───────────────────────────────
+    // (cf. multi-tenant-architecture.md §10)
+    implementation 'io.mongock:mongock-standalone:5.4.4'
+    implementation 'io.mongock:mongodb-sync-v4-driver:5.4.4'
+
+    // ── UUID v7 time-ordered (cf. multi-tenant-architecture.md §4.1) ───────
+    implementation 'com.github.f4b6a3:uuid-creator:5.3.7'
+
+    // ── BCrypt pour hash des mots de passe ─────────────────────────────────
+    implementation 'org.mindrot:jbcrypt:0.4'
+
+    // ── Export (XLSX via Apache POI, PDF via OpenPDF). CSV est écrit
+    //    à la main par shared/export/CsvWriter — pas de lib nécessaire.
+    implementation 'org.apache.poi:poi-ooxml:5.3.0'
+    implementation 'com.github.librepdf:openpdf:2.0.3'
+
+    // ── Tests ──────────────────────────────────────────────────────────────
+    testImplementation 'io.quarkus:quarkus-junit5'
+    testImplementation 'io.quarkus:quarkus-junit5-mockito'
+    testImplementation 'io.rest-assured:rest-assured'
+    testImplementation 'org.testcontainers:mongodb:1.20.4'
+    testImplementation 'org.testcontainers:junit-jupiter:1.20.4'
+    testImplementation 'org.assertj:assertj-core:3.26.3'
+}
+
+group = 'com.ntech.cabosse'
+version = '1.0-SNAPSHOT'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+compileJava {
+    options.encoding = 'UTF-8'
+    // Quarkus requiert -parameters pour certaines extensions (validation, etc.)
+    options.compilerArgs << '-parameters'
+}
+
+compileTestJava {
+    options.encoding = 'UTF-8'
+    options.compilerArgs << '-parameters'
+}
+
+test {
+    systemProperty 'java.util.logging.manager', 'org.jboss.logmanager.LogManager'
+}

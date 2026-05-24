@@ -1,0 +1,79 @@
+package com.ntech.cabosse.achats.entity;
+
+import org.bson.codecs.pojo.annotations.BsonId;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.UUID;
+
+/**
+ * Bon de commande fournisseur (M2 Achats). Tenant-scoped (collection
+ * {@code purchase_orders} dans la base du tenant).
+ *
+ * <p>POJO Mongo non Panache — même pattern que {@code ArticleEntity}.
+ * Le tenant context fournit la base via {@code TenantMongoDatabaseProvider}.</p>
+ *
+ * <p>{@link #ref} est généré côté serveur, format {@code BC-YYYY-NNNN}
+ * (compteur séquentiel par tenant et par année, voir
+ * {@code PurchaseOrderRefService}).</p>
+ */
+public class PurchaseOrderEntity {
+
+    @BsonId
+    public UUID id;
+
+    /** Référence affichable {@code BC-2026-0001}. Unique par tenant. */
+    public String ref;
+
+    /** Site de réception. Initialisé sur le site actif lors de la création. */
+    public UUID siteId;
+
+    // ─── Fournisseur (FK + snapshot) ───
+    public UUID supplierId;
+    public String supplierName;
+    public String supplierLegalName;
+
+    // ─── Dates ───
+    public LocalDate orderDate;
+    public LocalDate deliveryDate;
+    public LocalDate invoiceDate;
+    public String invoiceNumber;
+
+    /** Conditions de paiement (texte libre, snapshot du fournisseur ou override). */
+    public String paymentTerms;
+
+    // ─── Lignes ───
+    public List<PurchaseOrderLine> lines;
+
+    // ─── Totaux ───
+    public BigDecimal subtotalHtFcfa;
+    public BigDecimal transportFcfa;
+    /** Taux TVA en % (0–100). */
+    public BigDecimal vatRatePct;
+    public BigDecimal vatFcfa;
+    public BigDecimal totalTtcFcfa;
+
+    /**
+     * Activités du tenant touchées par ce BC. Dérivé des lignes —
+     * recalculé à chaque save.
+     */
+    public List<String> activityCodes;
+
+    /** Référence vers {@code CloudFileEntity.id} pour la facture jointe. */
+    public UUID attachmentFileId;
+
+    public String notes;
+
+    public BcStatus status = BcStatus.DRAFT;
+    public PurchaseOrderCancellation cancellation;
+
+    public Instant createdAt;
+    public Instant updatedAt;
+    public UUID createdBy;
+    /** Email de l'acteur ayant créé le BC (denorm pour affichage). */
+    public String createdByEmail;
+
+    public PurchaseOrderEntity() {}
+}

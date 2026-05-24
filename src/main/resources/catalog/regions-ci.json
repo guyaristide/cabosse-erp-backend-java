@@ -1,0 +1,47 @@
+[
+  { "code": "ABJ", "name": "Abidjan",            "countryCode": "CI", "districtCode": "D-AB", "isActive": true },
+  { "code": "YAM", "name": "Yamoussoukro",       "countryCode": "CI", "districtCode": "D-YA", "isActive": true },
+
+  { "code": "GBO", "name": "Gbôklé",             "countryCode": "CI", "districtCode": "D-BS", "isActive": true },
+  { "code": "NAW", "name": "Nawa",               "countryCode": "CI", "districtCode": "D-BS", "isActive": true },
+  { "code": "SPE", "name": "San-Pédro",          "countryCode": "CI", "districtCode": "D-BS", "isActive": true },
+
+  { "code": "IND", "name": "Indénié-Djuablin",   "countryCode": "CI", "districtCode": "D-CO", "isActive": true },
+  { "code": "SCM", "name": "Sud-Comoé",          "countryCode": "CI", "districtCode": "D-CO", "isActive": true },
+
+  { "code": "FOL", "name": "Folon",              "countryCode": "CI", "districtCode": "D-DE", "isActive": true },
+  { "code": "KAB", "name": "Kabadougou",         "countryCode": "CI", "districtCode": "D-DE", "isActive": true },
+
+  { "code": "GOH", "name": "Gôh",                "countryCode": "CI", "districtCode": "D-GD", "isActive": true },
+  { "code": "LDJ", "name": "Lôh-Djiboua",        "countryCode": "CI", "districtCode": "D-GD", "isActive": true },
+
+  { "code": "BEL", "name": "Bélier",             "countryCode": "CI", "districtCode": "D-LA", "isActive": true },
+  { "code": "IFF", "name": "Iffou",              "countryCode": "CI", "districtCode": "D-LA", "isActive": true },
+  { "code": "MOR", "name": "Moronou",            "countryCode": "CI", "districtCode": "D-LA", "isActive": true },
+  { "code": "NZI", "name": "N'Zi",               "countryCode": "CI", "districtCode": "D-LA", "isActive": true },
+
+  { "code": "AGT", "name": "Agnéby-Tiassa",      "countryCode": "CI", "districtCode": "D-LG", "isActive": true },
+  { "code": "GPO", "name": "Grands-Ponts",       "countryCode": "CI", "districtCode": "D-LG", "isActive": true },
+  { "code": "LAM", "name": "La Mé",              "countryCode": "CI", "districtCode": "D-LG", "isActive": true },
+
+  { "code": "CAV", "name": "Cavally",            "countryCode": "CI", "districtCode": "D-MO", "isActive": true },
+  { "code": "GUE", "name": "Guémon",             "countryCode": "CI", "districtCode": "D-MO", "isActive": true },
+  { "code": "TON", "name": "Tonkpi",             "countryCode": "CI", "districtCode": "D-MO", "isActive": true },
+
+  { "code": "HSA", "name": "Haut-Sassandra",     "countryCode": "CI", "districtCode": "D-SM", "isActive": true },
+  { "code": "MAR", "name": "Marahoué",           "countryCode": "CI", "districtCode": "D-SM", "isActive": true },
+
+  { "code": "BAG", "name": "Bagoué",             "countryCode": "CI", "districtCode": "D-SV", "isActive": true },
+  { "code": "POR", "name": "Poro",               "countryCode": "CI", "districtCode": "D-SV", "isActive": true },
+  { "code": "TCH", "name": "Tchologo",           "countryCode": "CI", "districtCode": "D-SV", "isActive": true },
+
+  { "code": "GBE", "name": "Gbêkê",              "countryCode": "CI", "districtCode": "D-VB", "isActive": true },
+  { "code": "HAM", "name": "Hambol",             "countryCode": "CI", "districtCode": "D-VB", "isActive": true },
+
+  { "code": "BAF", "name": "Bafing",             "countryCode": "CI", "districtCode": "D-WO", "isActive": true },
+  { "code": "BER", "name": "Béré",               "countryCode": "CI", "districtCode": "D-WO", "isActive": true },
+  { "code": "WOR", "name": "Worodougou",         "countryCode": "CI", "districtCode": "D-WO", "isActive": true },
+
+  { "code": "BOU", "name": "Bounkani",           "countryCode": "CI", "districtCode": "D-ZN", "isActive": true },
+  { "code": "GTG", "name": "Gontougo",           "countryCode": "CI", "districtCode": "D-ZN", "isActive": true }
+]

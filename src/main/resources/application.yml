@@ -1,0 +1,69 @@
+# ────────────────────────────────────────────────────────────────────────
+#  Configuration commune Cabosse ERP — Quarkus
+#
+#  Les valeurs spécifiques à un environnement sont dans application-<env>.yml.
+#  Ce fichier porte uniquement les valeurs strictement communes à tous les
+#  environnements (cf. CLAUDE.md §2.2 — un fichier par environnement).
+#
+#  Le profil actif est piloté par la variable d'env QUARKUS_PROFILE (dev par
+#  défaut). Le %prod, %dev, %qa de Quarkus n'est PAS utilisé ici.
+# ────────────────────────────────────────────────────────────────────────
+
+quarkus:
+  application:
+    name: cabosse-erp
+
+  http:
+    # Port surchargeable par variable d'env APP_HTTP_PORT. Le 8080 est
+    # statistiquement souvent occupé sur un poste dev (autre service Java),
+    # donc on défaut à 8088. En prod/QA le runtime (k8s, docker compose)
+    # injecte APP_HTTP_PORT=8080 si nécessaire.
+    port: ${APP_HTTP_PORT:8088}
+    test-port: ${APP_HTTP_TEST_PORT:8089}
+    # CORS configuré par environnement (cf. CLAUDE.md §2.5).
+
+  mongodb:
+    # connection-string fournie par variable d'environnement, jamais de
+    # secret en dur dans un fichier versionné (cf. CLAUDE.md §2.4).
+    application-name: cabosse-erp
+    write-concern:
+      journal: true
+    read-preference: primary
+    # UUID stockés en BSON binary subtype 4. Indispensable depuis que le
+    # driver Java rend uuid-representation obligatoire à l'encodage.
+    uuid-representation: standard
+    # Pas de database par défaut : on adresse cabosse_control + tenant_*
+    # dynamiquement via les providers (cf. multi-tenant §7).
+
+  smallrye-jwt:
+    enabled: true
+
+  cache:
+    caffeine:
+      # Cache déclaré dans CacheNames.TENANT_REGISTRY — toute valeur
+      # ajoutée à CacheNames doit avoir son entrée ici, validée au démarrage
+      # par ConstantsConsistencyCheck (cf. shared-constants.md §10).
+      tenant-registry:
+        expire-after-write: 5M
+        maximum-size: 1000
+
+  scheduler:
+    enabled: true
+
+  smallrye-openapi:
+    # OpenAPI servi sur /q/openapi, Swagger UI sur /q/swagger-ui en dev.
+    path: /openapi
+
+application:
+  # Préfixe utilisé par TenantProvisioningService pour nommer les bases
+  # tenant (cf. multi-tenant-architecture.md §4.4).
+  tenant-database-prefix: tenant_
+  # Les valeurs sous `application.bootstrap.*` sont définies par
+  # environnement (yml en dev, env vars en qa/prod). Défauts vides
+  # déclarés via @WithDefault dans ApplicationConfig.Bootstrap.
+  platform-settings:
+    # Clé AES-256 (base64, 32 bytes après décodage) utilisée pour
+    # chiffrer les secrets dans cabosse_control.platform_settings.
+    # Générer avec : openssl rand -base64 32
+    # JAMAIS de défaut en clair — la variable d'env doit être posée.
+    encryption-key: ${PLATFORM_SETTINGS_ENCRYPTION_KEY:}

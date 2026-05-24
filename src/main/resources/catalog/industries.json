@@ -1,0 +1,17 @@
+[
+  { "code": "cacao-transformation",     "label": "Transformation de cacao",            "description": "Réception fèves, fermentation, séchage, conditionnement, fabrication de pâte, beurre, poudre et tourteaux.", "isActive": true },
+  { "code": "chocolaterie",             "label": "Chocolaterie",                       "description": "Fabrication de tablettes, bouchées, pralines et produits dérivés à base de cacao.", "isActive": true },
+  { "code": "cafe-transformation",      "label": "Transformation de café",             "description": "Décorticage, torréfaction, mouture et conditionnement de café vert et torréfié.", "isActive": true },
+  { "code": "hevea-caoutchouc",         "label": "Hévéa & caoutchouc naturel",         "description": "Saignée, coagulation, transformation en granulés et balles de caoutchouc naturel.", "isActive": true },
+  { "code": "palmier-huile",            "label": "Palmier à huile",                    "description": "Extraction d'huile de palme brute et raffinage, sous-produits (tourteaux, savons).", "isActive": true },
+  { "code": "noix-cajou",               "label": "Transformation de noix de cajou",    "description": "Décorticage, dépelliculage, calibrage et conditionnement d'amandes de cajou.", "isActive": true },
+  { "code": "coton-egrenage",           "label": "Coton (égrenage)",                   "description": "Réception graine, égrenage, mise en balles, sous-produits (graines, fibres).", "isActive": true },
+  { "code": "manioc-attieke",           "label": "Manioc & attiéké",                   "description": "Production de farine, attiéké, gari, placali, et dérivés du manioc.", "isActive": true },
+  { "code": "mais-cereales",            "label": "Maïs & céréales",                    "description": "Décorticage, mouture, farines, semoules de maïs, mil, sorgho.", "isActive": true },
+  { "code": "riz-decorticage",          "label": "Décorticage du riz",                 "description": "Étuvage, décorticage, blanchissage, conditionnement de riz blanc et étuvé.", "isActive": true },
+  { "code": "transformation-fruits",    "label": "Fruits & jus",                       "description": "Pulpes, jus, confitures, séchage et conditionnement de fruits frais et tropicaux.", "isActive": true },
+  { "code": "savonnerie",               "label": "Savonnerie",                         "description": "Fabrication de savons, gels et produits d'hygiène à partir d'huiles végétales locales.", "isActive": true },
+  { "code": "cosmetique-naturel",       "label": "Cosmétique naturel",                 "description": "Crèmes, baumes, huiles essentielles et produits de soin à base d'ingrédients locaux (karité, cacao, palme, néré).", "isActive": true },
+  { "code": "agro-alimentaire-general", "label": "Agro-alimentaire (autre)",           "description": "Toute activité de transformation alimentaire non couverte par les autres catégories.", "isActive": true },
+  { "code": "cooperative-multi-filiere","label": "Coopérative multi-filière",          "description": "Coopérative gérant plusieurs filières en parallèle (collecte, transformation, distribution).", "isActive": true }
+]

@@ -1,0 +1,73 @@
+package com.ntech.cabosse.reception.entity;
+
+import org.bson.codecs.pojo.annotations.BsonId;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.UUID;
+
+/**
+ * Session de <strong>réception directe</strong> = achat sans BC formel.
+ * Le flux terrain typique : la personne en charge des achats reçoit
+ * plusieurs producteurs sur une même journée pour <em>un même produit</em>
+ * (fèves de cacao, latex, etc.), pèse, fixe le prix unitaire, paie cash
+ * ou note la dette. Tenant-scopé (collection {@code direct_receipts}).
+ *
+ * <p>Pourquoi une entité distincte du BC : le cycle métier diffère
+ * fondamentalement — pas de commande préalable, pas de transit, le
+ * fournisseur arrive avec sa marchandise. Tenter d'utiliser le cycle
+ * BC ici créerait du formalisme inutile.</p>
+ *
+ * <p>L'article est porté par la session : <strong>1 session = 1 article</strong>
+ * (cf. décisions de cadrage 2026-05-21). Une journée d'appro où on
+ * achète à la fois fèves et beurre = deux sessions distinctes.</p>
+ */
+public class DirectReceiptEntity {
+
+    @BsonId
+    public UUID id;
+
+    /** Référence affichable {@code RD-2026-0001}. Unique par tenant. */
+    public String ref;
+
+    /** Site de réception. */
+    public UUID siteId;
+
+    /** Date de réception physique de la marchandise. */
+    public LocalDate receivedDate;
+
+    /** Email du user tenant qui a réceptionné (snapshot du JWT). */
+    public String receiverEmail;
+
+    // ─── Article unique de la session (snapshots) ───
+    public UUID articleId;
+    public String articleCode;
+    public String articleName;
+    public String articleUnit;
+
+    /** Lignes par fournisseur (1+). */
+    public List<DirectReceiptLine> lines;
+
+    /** Somme des {@code totalLineFcfa}. Dérivé. */
+    public BigDecimal subtotalHtFcfa;
+    /** Somme des {@code payment.amountFcfa} des lignes payées. Dérivé. */
+    public BigDecimal totalPaidFcfa;
+
+    /** Statut dérivé du remplissage des paiements. */
+    public DirectReceiptStatus status = DirectReceiptStatus.UNPAID;
+
+    public DirectReceiptCancellation cancellation;
+
+    /** N° de bon de livraison de session (optionnel). */
+    public String deliveryNoteRef;
+
+    public String notes;
+
+    public Instant createdAt;
+    public Instant updatedAt;
+    public UUID createdBy;
+
+    public DirectReceiptEntity() {}
+}
