@@ -267,7 +267,16 @@ docker exec -i cabosse-mongo mongorestore --archive --gzip --drop \
    en boucle, ce qui peut spammer Mongo). Surveiller les logs après
    chaque déploiement qui inclut une nouvelle migration.
 
-6. **Healthcheck temporaire sur `/q/openapi`** : le projet n'inclut
+6. **Mongo en single-node replica set** : le compose démarre mongo avec
+   `--replSet rs0` et le healthcheck initie le RS au premier démarrage.
+   C'est obligatoire car le driver Quarkus + `@Transactional` exige un
+   contexte transactionnel Mongo qui n'existe qu'en RS ou sharded.
+   Si tu repars d'un volume mongo créé en mode standalone (sans
+   `--replSet`), supprime-le d'abord : `docker volume rm cabosse-mongo-data`.
+   Côté client, le `MONGO_URI` doit contenir
+   `?replicaSet=rs0&directConnection=true` (déjà dans le compose).
+
+7. **Healthcheck temporaire sur `/q/openapi`** : le projet n'inclut
    pas encore `quarkus-smallrye-health`. Le healthcheck du Dockerfile
    teste `/q/openapi` (toujours disponible avec smallrye-openapi).
    Pour un healthcheck plus précis (qui vérifie aussi Mongo), ajouter

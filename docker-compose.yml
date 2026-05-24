@@ -27,8 +27,9 @@ services:
       # Profil Quarkus → application-prod.yml est chargé
       QUARKUS_PROFILE: prod
 
-      # MongoDB — pointe vers le service `mongo` du compose
-      MONGO_URI: mongodb://mongo:27017
+      # MongoDB — single-node replica set (rs0) pour supporter les
+      # transactions. Le `?replicaSet=rs0` est OBLIGATOIRE côté client.
+      MONGO_URI: mongodb://mongo:27017/?replicaSet=rs0&directConnection=true
 
       # CORS — origins autorisés (séparés par virgule, sans wildcard)
       CORS_ORIGINS: ${CORS_ORIGINS}
@@ -84,6 +85,10 @@ services:
     image: mongo:7
     container_name: cabosse-mongo
     restart: unless-stopped
+    # Single-node replica set : Mongo standalone refuse les transactions
+    # (driver Quarkus + @Transactional → MongoQueryException code 20).
+    # Tourner en RS d'1 seul nœud résout ça sans coût opérationnel.
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
     # Pas d'auth en interne — le réseau Docker isole déjà mongo.
     # Si tu exposes le port en externe, ajoute MONGO_INITDB_ROOT_USERNAME
     # et MONGO_INITDB_ROOT_PASSWORD + ajuste MONGO_URI ci-dessus.
@@ -92,10 +97,20 @@ services:
     expose:
       - "27017"
     healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
+      # Astuce : le healthcheck initialise aussi le replica set au premier
+      # démarrage. `rs.status()` jette si non initié → on bascule sur
+      # `rs.initiate()`. Idempotent : tant que le RS existe déjà,
+      # `rs.status()` répond OK et on ne re-init pas.
+      test: >
+        mongosh --quiet --eval "
+          try { rs.status().ok }
+          catch (e) {
+            rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'mongo:27017' }] }).ok
+          }
+        "
+      interval: 10s
+      timeout: 10s
+      retries: 5
       start_period: 30s
 
 volumes:
