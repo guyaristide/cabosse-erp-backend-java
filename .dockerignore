@@ -1,5 +1,37 @@
-*
-!build/*-runner
-!build/*-runner.jar
-!build/lib/*
-!build/quarkus-app/*
+# Build outputs — on rebuild dans le container.
+build/
+.gradle/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Tests / dev artifacts
+uploads-dev/
+uploads-test/
+*.log
+logs/
+
+# Git / docs / OS
+.git/
+.gitignore
+.gitattributes
+*.md
+docs/
+README*
+CHANGELOG*
+.DS_Store
+
+# Docker meta (évite récursion + secrets locaux)
+Dockerfile
+.dockerignore
+docker-compose*.yml
+.env
+.env.local
+.env.*.local
+
+# Secrets — jamais dans l'image. Montés via volume `./secrets:/secrets:ro`.
+secrets/
+*.pem
+*.key
