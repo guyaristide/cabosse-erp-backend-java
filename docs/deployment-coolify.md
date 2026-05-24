@@ -54,32 +54,71 @@ externe**.
 
 ---
 
-## 3. Préparer les clés JWT
+## 3. Préparer les clés JWT (volume `cabosse-secrets`)
 
 Le backend signe et vérifie les JWT avec une paire de clés RSA. **Ne
-JAMAIS committer ces clés dans git**.
+JAMAIS committer ces clés dans git** et **ne pas les bind-mount depuis
+le repo cloné** (Coolify peut re-cloner et casser le chemin).
+
+Pattern adopté : un **volume Docker nommé `cabosse-secrets`** monté en
+lecture seule à `/secrets` dans le container. On le peuple **une seule
+fois** sur le serveur Coolify, et il survit à tous les redéploiements
+(Coolify ne wipe pas les volumes nommés).
+
+### 3.1 Générer les clés (en local OU sur le serveur)
 
 ```bash
-# Sur le serveur Coolify (ou en local puis scp), dans le projet :
-mkdir -p secrets
-openssl genrsa -out secrets/jwt-private.pem 2048
-openssl rsa -in secrets/jwt-private.pem -pubout -out secrets/jwt-public.pem
-chmod 600 secrets/*.pem
+mkdir -p /tmp/cabosse-keys
+openssl genrsa -out /tmp/cabosse-keys/jwt-private.pem 2048
+openssl rsa  -in /tmp/cabosse-keys/jwt-private.pem \
+             -pubout -out /tmp/cabosse-keys/jwt-public.pem
+chmod 600 /tmp/cabosse-keys/*.pem
 ```
 
-Le `docker-compose.yml` monte `./secrets:/secrets:ro` dans le container.
-Le Dockerfile pointe `JWT_PUBLIC_KEY_LOCATION=file:/secrets/jwt-public.pem`
-et `JWT_PRIVATE_KEY_LOCATION=file:/secrets/jwt-private.pem`.
+Si générées en local, transférer sur le serveur :
+```bash
+scp /tmp/cabosse-keys/*.pem user@serveur-coolify:/tmp/cabosse-keys/
+```
 
-**Pour Coolify** : la première fois, générer les clés en local puis les
-uploader sur le serveur via SFTP dans le dossier du projet, dans
-`./secrets/`. Coolify ne touche pas à ce dossier (il fait juste un
-`git pull` qui ignore les fichiers non versionnés).
+### 3.2 Peupler le volume `cabosse-secrets` (sur le serveur)
 
-Alternative plus propre : Coolify a un système de "Persistent Storage"
-qui peut monter un volume Coolify-géré vers `/secrets` dans le
-container — à configurer via l'UI si tu veux que les clés survivent à
-un wipe du projet.
+```bash
+# Créer le volume (sinon Docker le crée vide au premier `up`)
+docker volume create cabosse-secrets
+
+# Copier les .pem dans le volume via un container alpine temporaire
+docker run --rm \
+  -v cabosse-secrets:/secrets \
+  -v /tmp/cabosse-keys:/src:ro \
+  alpine sh -c "cp /src/*.pem /secrets/ && chmod 600 /secrets/*.pem"
+
+# Vérifier
+docker run --rm -v cabosse-secrets:/secrets alpine ls -la /secrets
+#   total 16
+#   -rw-------    1 root     root          451 May 24 19:00 jwt-public.pem
+#   -rw-------    1 root     root         1704 May 24 19:00 jwt-private.pem
+
+# Nettoyer les clés en clair sur l'hôte
+rm -rf /tmp/cabosse-keys
+```
+
+### 3.3 Redéployer
+
+Une fois le volume peuplé, déclencher un redéploiement depuis Coolify
+(ou attendre que Coolify retente). Le container backend monte
+`cabosse-secrets:/secrets:ro` et les variables
+`JWT_PUBLIC_KEY_LOCATION=file:/secrets/jwt-public.pem` /
+`JWT_PRIVATE_KEY_LOCATION=file:/secrets/jwt-private.pem` résolvent.
+
+### 3.4 Rotation des clés
+
+Pour roter (par exemple si compromission) :
+1. Générer une nouvelle paire (3.1).
+2. Re-peupler le volume (3.2) — l'opération `cp` écrase les fichiers.
+3. Redémarrer le backend : `docker compose restart backend`.
+4. **Conséquence** : tous les JWT existants sont invalidés. Prévoir
+   une fenêtre de maintenance ou un mécanisme de double-clé si la
+   coupure n'est pas acceptable.
 
 ---
 

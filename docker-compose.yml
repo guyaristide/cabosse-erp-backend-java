@@ -61,8 +61,9 @@ services:
       S3_SECRET_KEY: ${S3_SECRET_KEY:-}
 
     volumes:
-      # Secrets (clés JWT) — montés en lecture seule
-      - ./secrets:/secrets:ro
+      # Secrets (clés JWT) — volume nommé peuplé manuellement une fois
+      # (cf. docs/deployment-coolify.md §3). Lecture seule en runtime.
+      - cabosse-secrets:/secrets:ro
       # Uploads persistants tant qu'on est en stockage local
       - cabosse-uploads:/var/cabosse/uploads
     expose:
@@ -118,3 +119,5 @@ volumes:
     name: cabosse-uploads
   cabosse-mongo-data:
     name: cabosse-mongo-data
+  cabosse-secrets:
+    name: cabosse-secrets
