@@ -61,9 +61,10 @@ services:
       S3_SECRET_KEY: ${S3_SECRET_KEY:-}
 
     volumes:
-      # Secrets (clés JWT) — volume nommé peuplé manuellement une fois
-      # (cf. docs/deployment-coolify.md §3). Lecture seule en runtime.
-      - cabosse-secrets:/secrets:ro
+      # Secrets (clés JWT) — volume nommé persistant. Au 1er démarrage,
+      # l'entrypoint génère la paire RSA-2048 ; les démarrages suivants
+      # la réutilisent. Le volume survit aux redéploiements Coolify.
+      - cabosse-secrets:/secrets
       # Uploads persistants tant qu'on est en stockage local
       - cabosse-uploads:/var/cabosse/uploads
     expose:

@@ -47,13 +47,16 @@ RUN ./gradlew --no-daemon build -x test
 # JRE seul (~80 MB compressé), pas le JDK.
 FROM eclipse-temurin:21-jre
 
-# curl pour le healthcheck (les images temurin ne l'incluent pas).
+# curl pour le healthcheck, openssl pour le bootstrap des clés JWT.
 # Utilisateur non-root pour faire tourner l'app.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends curl \
+ && apt-get install -y --no-install-recommends curl openssl \
  && rm -rf /var/lib/apt/lists/* \
  && groupadd --system --gid 1001 cabosse \
- && useradd  --system --uid 1001 --gid cabosse cabosse
+ && useradd  --system --uid 1001 --gid cabosse cabosse \
+ && mkdir -p /secrets \
+ && chown cabosse:cabosse /secrets \
+ && chmod 700 /secrets
 
 WORKDIR /app
 
@@ -65,6 +68,10 @@ COPY --from=builder --chown=cabosse:cabosse /workspace/build/quarkus-app/lib/   
 COPY --from=builder --chown=cabosse:cabosse /workspace/build/quarkus-app/quarkus/  /app/quarkus/
 COPY --from=builder --chown=cabosse:cabosse /workspace/build/quarkus-app/app/      /app/app/
 COPY --from=builder --chown=cabosse:cabosse /workspace/build/quarkus-app/quarkus-run.jar /app/quarkus-run.jar
+
+# Entrypoint qui auto-génère les clés JWT au 1er démarrage si absentes.
+COPY --chown=cabosse:cabosse docker/entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
 # Variables d'environnement par défaut. Toutes sont écrasables via
 # le `docker-compose.yml` ou l'UI Coolify.
@@ -86,4 +93,4 @@ USER cabosse
 HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=3 \
     CMD curl -fsS http://localhost:8088/q/openapi -o /dev/null || exit 1
 
-ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS_APPEND -jar /app/quarkus-run.jar"]
+ENTRYPOINT ["/app/entrypoint.sh"]

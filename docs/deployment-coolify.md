@@ -54,71 +54,73 @@ externe**.
 
 ---
 
-## 3. Préparer les clés JWT (volume `cabosse-secrets`)
+## 3. Clés JWT — auto-bootstrap au premier démarrage
 
-Le backend signe et vérifie les JWT avec une paire de clés RSA. **Ne
-JAMAIS committer ces clés dans git** et **ne pas les bind-mount depuis
-le repo cloné** (Coolify peut re-cloner et casser le chemin).
+Le backend signe et vérifie les JWT avec une paire RSA. **Aucune
+manipulation manuelle n'est nécessaire** : le script
+[`docker/entrypoint.sh`](../docker/entrypoint.sh) génère la paire dans
+le volume `cabosse-secrets` au tout premier `docker compose up`.
 
-Pattern adopté : un **volume Docker nommé `cabosse-secrets`** monté en
-lecture seule à `/secrets` dans le container. On le peuple **une seule
-fois** sur le serveur Coolify, et il survit à tous les redéploiements
-(Coolify ne wipe pas les volumes nommés).
-
-### 3.1 Générer les clés (en local OU sur le serveur)
-
-```bash
-mkdir -p /tmp/cabosse-keys
-openssl genrsa -out /tmp/cabosse-keys/jwt-private.pem 2048
-openssl rsa  -in /tmp/cabosse-keys/jwt-private.pem \
-             -pubout -out /tmp/cabosse-keys/jwt-public.pem
-chmod 600 /tmp/cabosse-keys/*.pem
+```sh
+# Logique de l'entrypoint (résumé)
+if [ ! -f /secrets/jwt-private.pem ]; then
+  openssl genrsa  -out /secrets/jwt-private.pem 2048
+  openssl rsa -in /secrets/jwt-private.pem -pubout -out /secrets/jwt-public.pem
+  chmod 600 /secrets/*.pem
+fi
+exec java -jar /app/quarkus-run.jar
 ```
 
-Si générées en local, transférer sur le serveur :
+### Persistance
+
+`cabosse-secrets` est un volume Docker **nommé**. Coolify ne le wipe
+jamais — même après un `docker compose down` ou un redéploiement
+complet, les `.pem` sont conservées. Le bootstrap ne se déclenche que
+si les fichiers sont absents (1er boot OU volume supprimé manuellement).
+
+### Vérifier après le 1er déploiement
+
 ```bash
-scp /tmp/cabosse-keys/*.pem user@serveur-coolify:/tmp/cabosse-keys/
+docker logs cabosse-backend | head -5
+# [entrypoint] Génération initiale de la paire JWT RSA-2048...
+# [entrypoint] Clés générées dans /secrets/.
+
+docker exec cabosse-backend ls -la /secrets
+# -rw-------    1 cabosse cabosse  451 May 26 16:00 jwt-public.pem
+# -rw-------    1 cabosse cabosse 1704 May 26 16:00 jwt-private.pem
 ```
 
-### 3.2 Peupler le volume `cabosse-secrets` (sur le serveur)
+### Fournir tes propres clés (optionnel)
+
+Si tu veux contrôler la paire (par ex. pour faire matcher un IdP externe,
+ou pour réutiliser une paire existante), pré-peuple le volume **avant**
+le 1er déploiement :
 
 ```bash
-# Créer le volume (sinon Docker le crée vide au premier `up`)
 docker volume create cabosse-secrets
 
-# Copier les .pem dans le volume via un container alpine temporaire
 docker run --rm \
   -v cabosse-secrets:/secrets \
-  -v /tmp/cabosse-keys:/src:ro \
-  alpine sh -c "cp /src/*.pem /secrets/ && chmod 600 /secrets/*.pem"
-
-# Vérifier
-docker run --rm -v cabosse-secrets:/secrets alpine ls -la /secrets
-#   total 16
-#   -rw-------    1 root     root          451 May 24 19:00 jwt-public.pem
-#   -rw-------    1 root     root         1704 May 24 19:00 jwt-private.pem
-
-# Nettoyer les clés en clair sur l'hôte
-rm -rf /tmp/cabosse-keys
+  -v /tmp/mes-cles:/src:ro \
+  alpine sh -c "cp /src/*.pem /secrets/ && chown 1001:1001 /secrets/*.pem && chmod 600 /secrets/*.pem"
 ```
 
-### 3.3 Redéployer
+L'entrypoint détectera les clés existantes et sautera le bootstrap.
 
-Une fois le volume peuplé, déclencher un redéploiement depuis Coolify
-(ou attendre que Coolify retente). Le container backend monte
-`cabosse-secrets:/secrets:ro` et les variables
-`JWT_PUBLIC_KEY_LOCATION=file:/secrets/jwt-public.pem` /
-`JWT_PRIVATE_KEY_LOCATION=file:/secrets/jwt-private.pem` résolvent.
+### Rotation des clés
 
-### 3.4 Rotation des clés
+Pour roter (compromission, audit annuel, etc.) :
 
-Pour roter (par exemple si compromission) :
-1. Générer une nouvelle paire (3.1).
-2. Re-peupler le volume (3.2) — l'opération `cp` écrase les fichiers.
-3. Redémarrer le backend : `docker compose restart backend`.
-4. **Conséquence** : tous les JWT existants sont invalidés. Prévoir
-   une fenêtre de maintenance ou un mécanisme de double-clé si la
-   coupure n'est pas acceptable.
+```bash
+docker compose stop backend
+docker run --rm -v cabosse-secrets:/secrets alpine rm -f /secrets/*.pem
+docker compose start backend
+# → l'entrypoint regénère une nouvelle paire automatiquement
+```
+
+**Conséquence** : tous les JWT en circulation sont invalidés (les
+utilisateurs devront se reconnecter). Prévoir une fenêtre de maintenance
+ou un mécanisme de double-clé si la coupure n'est pas acceptable.
 
 ---
 
