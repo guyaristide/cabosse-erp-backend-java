@@ -86,11 +86,10 @@ EXPOSE 8088
 
 USER cabosse
 
-# Healthcheck — par défaut on teste le endpoint OpenAPI (smallrye-openapi
-# est dans les deps, donc /q/openapi répond sans auth). Quand
-# quarkus-smallrye-health sera ajouté aux dépendances, basculer sur
-# /q/health/ready (plus précis, inclut Mongo, scheduler, etc.).
-HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=3 \
-    CMD curl -fsS http://localhost:8088/q/openapi -o /dev/null || exit 1
+# Healthcheck via /api/v1/health/ping — endpoint applicatif @PermitAll
+# qui retourne 200 dès que Quarkus répond. Ne touche pas la DB → sert
+# de sonde de vivacité du process (suffit pour Traefik/Coolify).
+HEALTHCHECK --interval=15s --timeout=5s --start-period=90s --retries=5 \
+    CMD curl -fsS http://localhost:8088/api/v1/health/ping -o /dev/null || exit 1
 
 ENTRYPOINT ["/app/entrypoint.sh"]

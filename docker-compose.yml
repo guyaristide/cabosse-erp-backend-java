@@ -75,12 +75,12 @@ services:
     # Ou laisser Coolify gérer via son interface "Domains".
 
     healthcheck:
-      # /q/openapi est exposé sans auth (smallrye-openapi dans les deps).
-      # Si tu ajoutes quarkus-smallrye-health, bascule sur /q/health/ready.
-      test: ["CMD", "curl", "-fsS", "http://localhost:8088/q/openapi", "-o", "/dev/null"]
-      interval: 30s
+      # /api/v1/health/ping — endpoint applicatif @PermitAll défini par
+      # HealthResource. Sonde de vivacité (200 quand Quarkus répond).
+      test: ["CMD", "curl", "-fsS", "http://localhost:8088/api/v1/health/ping", "-o", "/dev/null"]
+      interval: 15s
       timeout: 5s
-      retries: 3
+      retries: 5
       start_period: 90s
 
   mongo:

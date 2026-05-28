@@ -317,17 +317,18 @@ docker exec -i cabosse-mongo mongorestore --archive --gzip --drop \
    Côté client, le `MONGO_URI` doit contenir
    `?replicaSet=rs0&directConnection=true` (déjà dans le compose).
 
-7. **Healthcheck temporaire sur `/q/openapi`** : le projet n'inclut
-   pas encore `quarkus-smallrye-health`. Le healthcheck du Dockerfile
-   teste `/q/openapi` (toujours disponible avec smallrye-openapi).
-   Pour un healthcheck plus précis (qui vérifie aussi Mongo), ajouter
-   au `build.gradle` :
-   ```groovy
-   implementation 'io.quarkus:quarkus-smallrye-health'
+7. **Healthcheck via `/api/v1/health/ping`** : endpoint applicatif
+   `@PermitAll` défini par `HealthResource`. Retourne 200 dès que
+   Quarkus répond (ne touche pas Mongo — sonde de vivacité pure,
+   suffisante pour Traefik/Coolify). Si tu vois `Unhealthy state` dans
+   Coolify, lance ce diagnostic depuis le serveur :
+   ```bash
+   docker exec cabosse-backend curl -i http://localhost:8088/api/v1/health/ping
+   # → HTTP 200 + {"ok":true,"data":"OK"}  → OK
+   # → 401 / 403 → un filtre bloque malgré @PermitAll, vérifier
+   #   TenantContextFilter / TenantStatusGuard (cf. note Quarkus
+   #   `@Authenticated` n'est pas NameBinding)
    ```
-   Puis basculer le healthcheck Dockerfile + docker-compose sur
-   `http://localhost:8088/q/health/ready`. Le check sortira `UP` quand
-   Mongo répond et que tous les schedulers / migrations sont OK.
 
 ---
 
