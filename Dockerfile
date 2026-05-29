@@ -48,15 +48,18 @@ RUN ./gradlew --no-daemon build -x test
 FROM eclipse-temurin:21-jre
 
 # curl pour le healthcheck, openssl pour le bootstrap des clés JWT.
-# Utilisateur non-root pour faire tourner l'app.
+# Utilisateur non-root pour faire tourner l'app. On pré-crée /secrets ET
+# /var/cabosse/uploads avec cabosse:cabosse pour que les volumes Docker
+# montés sur ces paths héritent des bonnes perms au premier mount.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends curl openssl \
  && rm -rf /var/lib/apt/lists/* \
  && groupadd --system --gid 1001 cabosse \
  && useradd  --system --uid 1001 --gid cabosse cabosse \
- && mkdir -p /secrets \
- && chown cabosse:cabosse /secrets \
- && chmod 700 /secrets
+ && mkdir -p /secrets /var/cabosse/uploads \
+ && chown cabosse:cabosse /secrets /var/cabosse/uploads \
+ && chmod 700 /secrets \
+ && chmod 750 /var/cabosse/uploads
 
 WORKDIR /app
 
