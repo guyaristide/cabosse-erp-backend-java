@@ -50,6 +50,10 @@ smallrye:
         location: ${JWT_PRIVATE_KEY_LOCATION:META-INF/dev-keys/privateKey.pem}
 
 application:
+  # URL du front en dev (Vite par défaut sur 5173). Sert à construire les
+  # liens d'activation dans les mails d'invitation.
+  frontend-base-url: ${FRONTEND_BASE_URL:http://localhost:5173}
+
   # ── Stockage de fichiers — backend local en dev (cf. file-storage.md)
   file-storage:
     backend: local

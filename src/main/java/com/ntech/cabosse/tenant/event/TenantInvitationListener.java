@@ -1,6 +1,7 @@
 package com.ntech.cabosse.tenant.event;
 
 import com.ntech.cabosse.settings.mail.PlatformMailerService;
+import com.ntech.cabosse.shared.config.ApplicationConfig;
 import com.ntech.cabosse.shared.events.Events;
 import io.quarkus.qute.Location;
 import io.quarkus.qute.Template;
@@ -9,7 +10,6 @@ import io.vertx.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import io.quarkus.vertx.ConsumeEvent;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 /**
@@ -38,8 +38,7 @@ public class TenantInvitationListener {
     @Location("mail/tenant-invitation.html")
     Template invitationTemplate;
 
-    @ConfigProperty(name = "application.frontend-base-url", defaultValue = "https://cabosse.local")
-    String frontendBaseUrl;
+    @Inject ApplicationConfig appConfig;
 
     @Inject
     Logger log;
@@ -50,7 +49,7 @@ public class TenantInvitationListener {
         try {
             String activationUrl = String.format(
                     "%s/invitation/%s",
-                    frontendBaseUrl,
+                    appConfig.frontendBaseUrl(),
                     event.invitationTokenClearValue()
             );
 

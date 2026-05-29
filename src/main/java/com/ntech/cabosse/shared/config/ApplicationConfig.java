@@ -25,6 +25,14 @@ public interface ApplicationConfig {
     @WithName("tenant-database-prefix")
     String tenantDatabasePrefix();
 
+    /**
+     * URL publique du front (sans trailing slash). Utilisée pour construire
+     * les liens d'activation dans les mails d'invitation
+     * ({@code <frontend-base-url>/invitation/<token>}).
+     */
+    @WithName("frontend-base-url")
+    String frontendBaseUrl();
+
     Bootstrap bootstrap();
 
     @WithName("platform-settings")

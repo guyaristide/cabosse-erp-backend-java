@@ -46,6 +46,7 @@ smallrye:
 
 application:
   tenant-database-prefix: tenant_test_
+  frontend-base-url: http://localhost:5173
   file-storage:
     backend: local
     local:

@@ -13,12 +13,12 @@ import com.ntech.cabosse.user.entity.UserEntity;
 import com.ntech.cabosse.user.entity.UserStatus;
 import com.ntech.cabosse.user.repository.UserRepository;
 import com.ntech.cabosse.settings.mail.PlatformMailerService;
+import com.ntech.cabosse.shared.config.ApplicationConfig;
 import io.quarkus.qute.Location;
 import io.quarkus.qute.Template;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 import java.time.Duration;
@@ -82,8 +82,7 @@ public class TenantUserService {
     @Location("mail/password-reset.html")
     Template passwordResetTemplate;
 
-    @ConfigProperty(name = "application.frontend-base-url", defaultValue = "https://cabosse.local")
-    String frontendBaseUrl;
+    @Inject ApplicationConfig appConfig;
 
     /** Liste les users d'un tenant, triés par date de création desc. */
     public List<TenantUserSummaryDto> listByTenant(UUID tenantId) {
@@ -188,7 +187,7 @@ public class TenantUserService {
     }
 
     private void sendInvitationMail(TenantEntity tenant, UserEntity user, String tokenClear) {
-        String url = "%s/invitation/%s".formatted(frontendBaseUrl, tokenClear);
+        String url = "%s/invitation/%s".formatted(appConfig.frontendBaseUrl(), tokenClear);
         String html = invitationTemplate
                 .data("firstName", user.firstName)
                 .data("tenantName", tenant.name)
@@ -203,7 +202,7 @@ public class TenantUserService {
     }
 
     private void sendPasswordResetMail(TenantEntity tenant, UserEntity user, String tokenClear) {
-        String url = "%s/invitation/%s".formatted(frontendBaseUrl, tokenClear);
+        String url = "%s/invitation/%s".formatted(appConfig.frontendBaseUrl(), tokenClear);
         String html = passwordResetTemplate
                 .data("firstName", user.firstName)
                 .data("tenantName", tenant.name)
