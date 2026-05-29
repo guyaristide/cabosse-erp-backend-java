@@ -45,6 +45,9 @@ smallrye:
         location: ${JWT_PRIVATE_KEY_LOCATION}
 
 application:
+  # URL publique du front (liens d'activation dans les mails).
+  frontend-base-url: ${FRONTEND_BASE_URL}
+
   file-storage:
     backend: ${FILE_STORAGE_BACKEND:local}
     local:

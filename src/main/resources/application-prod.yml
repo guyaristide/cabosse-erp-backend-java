@@ -46,6 +46,11 @@ smallrye:
         location: ${JWT_PRIVATE_KEY_LOCATION}
 
 application:
+  # URL publique du front (utilisée pour générer les liens d'activation
+  # dans les mails d'invitation). Strict : démarrage refusé si manquante,
+  # comme MAILER_FROM / APP_BASE_URL.
+  frontend-base-url: ${FRONTEND_BASE_URL}
+
   # En prod la cible est S3 ; on garde "local" disponible en fallback contrôlé.
   file-storage:
     backend: ${FILE_STORAGE_BACKEND:s3}
