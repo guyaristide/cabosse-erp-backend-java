@@ -116,6 +116,7 @@ public class ManufacturingOrderService {
         e.finishedProductCode = fp.code;
         e.finishedProductName = fp.name;
         e.finishedProductUnit = fp.unit;
+        e.finishedProductUnitWeightGrams = fp.unitWeightGrams;
 
         e.plannedQty = payload.plannedQty();
         e.scheduledDate = payload.scheduledDate();
@@ -294,6 +295,10 @@ public class ManufacturingOrderService {
         e.producedQty = producedQty;
         e.cmupAtCompletionFcfa = cmupPF;
 
+        // KPIs production (optionnels — alimentent les rapports)
+        e.actualDurationHours = payload.actualDurationHours();
+        e.operatorsCount = payload.operatorsCount();
+
         // Entrée PF en stock
         stockService.applyMovement(new MovementInput(
                 e.finishedProductId, e.siteId,
@@ -384,6 +389,103 @@ public class ManufacturingOrderService {
         if (!missing.isEmpty()) {
             throw new BusinessException("Matières insuffisantes : " + String.join(" ; ", missing));
         }
+    }
+
+    // ─── Create depuis import (sans recette) ───────────────────────
+
+    /**
+     * Création d'OF sans recette préalable — cas typique de l'import
+     * historique (le client a déjà fabriqué, on saisit la consommation
+     * directement ligne par ligne). L'OF est toujours créé en
+     * {@link OfStatus#DRAFT} : il faut ensuite transitionner manuellement
+     * via {@code start} / {@code complete} pour générer les mouvements
+     * stock — ces transitions exigent du stock disponible sur les matières
+     * (sauf {@code allowNegativeStock} activé au tenant).
+     *
+     * @param siteId site où la fabrication a eu lieu
+     * @param finishedProductId UUID de l'article PF cible
+     * @param plannedQty quantité visée de PF
+     * @param scheduledDate date (optionnelle) prévue / déclarée
+     * @param lotRef étiquette de lot (vide = auto LOT-YYYY-NNNN)
+     * @param notes notes libres
+     * @param consumptions liste explicite des consommations matière
+     */
+    public ProductionOrderResponseDto createFromImport(
+            UUID siteId,
+            UUID finishedProductId,
+            BigDecimal plannedQty,
+            java.time.LocalDate scheduledDate,
+            String lotRef,
+            String notes,
+            List<ImportConsumption> consumptions) {
+        if (consumptions == null || consumptions.isEmpty()) {
+            throw new BusinessException("Au moins une ligne de consommation est requise.");
+        }
+        SiteEntity site = loadSite(siteId);
+        ArticleEntity fp = loadFinishedProduct(finishedProductId);
+
+        ManufacturingOrderEntity e = new ManufacturingOrderEntity();
+        e.id = UuidCreator.getTimeOrderedEpoch();
+        e.ref = refService.nextOfRef();
+        e.siteId = site.id;
+        e.siteName = site.name;
+        e.status = OfStatus.DRAFT;
+
+        // Pas de recette → tous les snapshots recette restent null/vides.
+        // L'OF n'aura pas de stepHistory non plus (transition complete directe).
+        e.recipeId = null;
+        e.recipeCode = null;
+        e.recipeName = null;
+        e.recipeYieldQty = null;
+        e.recipeYieldUnit = null;
+        e.recipeStepsSnapshot = new ArrayList<>();
+
+        e.finishedProductId = fp.id;
+        e.finishedProductCode = fp.code;
+        e.finishedProductName = fp.name;
+        e.finishedProductUnit = fp.unit;
+        e.finishedProductUnitWeightGrams = fp.unitWeightGrams;
+
+        e.plannedQty = plannedQty;
+        e.scheduledDate = scheduledDate;
+        e.lotRef = (lotRef != null && !lotRef.isBlank())
+                ? lotRef.trim()
+                : refService.nextLotRef();
+        e.notes = blankToNull(notes);
+
+        e.consumptionLines = buildConsumptionLinesFromInput(consumptions);
+        e.createdAt = Instant.now();
+        e.updatedAt = e.createdAt;
+        e.createdBy = safeUserId();
+        e.createdByEmail = actor();
+
+        orders.insert(e);
+        record(e, AuditEventType.MANUFACTURING_ORDER_CREATED,
+                "Création depuis import (sans recette)");
+        return ProductionOrderResponseDto.from(e);
+    }
+
+    /** Paramètre {@link #createFromImport} — 1 consommation matière. */
+    public record ImportConsumption(UUID articleId, BigDecimal plannedQty) {}
+
+    private List<ConsumptionLine> buildConsumptionLinesFromInput(List<ImportConsumption> input) {
+        List<ConsumptionLine> lines = new ArrayList<>();
+        for (ImportConsumption in : input) {
+            if (in == null || in.articleId() == null) continue;
+            ArticleEntity article = articles.findById(in.articleId()).orElseThrow(
+                    () -> new BusinessException("Article " + in.articleId() + " introuvable.")
+            );
+            ConsumptionLine line = new ConsumptionLine();
+            line.id = UuidCreator.getTimeOrderedEpoch();
+            line.articleId = article.id;
+            line.articleCode = article.code;
+            line.articleName = article.name;
+            line.articleUnit = article.unit;
+            line.plannedQty = in.plannedQty();
+            line.consumedQty = in.plannedQty();
+            lines.add(line);
+        }
+        return lines;
     }
 
     private List<ConsumptionLine> buildConsumptionLines(List<RecipeIngredient> ingredients,

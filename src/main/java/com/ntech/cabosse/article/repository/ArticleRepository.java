@@ -45,6 +45,23 @@ public class ArticleRepository {
         return coll().countDocuments(Filters.eq("code", code)) > 0;
     }
 
+    /**
+     * Recherche par nom <em>case-insensitive</em> (et optionnellement
+     * restreinte à un type). Le couple (name, type) permet de distinguer
+     * un article "Lait" matière première d'un éventuel produit fini de
+     * même nom. {@code type} {@code null} = pas de filtre.
+     */
+    public Optional<ArticleEntity> findByName(String name, ArticleType type) {
+        if (name == null || name.isBlank()) return Optional.empty();
+        String regex = "^" + java.util.regex.Pattern.quote(name.trim()) + "$";
+        var filter = type == null
+                ? Filters.regex("name", regex, "i")
+                : Filters.and(
+                        Filters.regex("name", regex, "i"),
+                        Filters.eq("type", type.name()));
+        return Optional.ofNullable(coll().find(filter).first());
+    }
+
     public void insert(ArticleEntity e) {
         coll().insertOne(e);
     }

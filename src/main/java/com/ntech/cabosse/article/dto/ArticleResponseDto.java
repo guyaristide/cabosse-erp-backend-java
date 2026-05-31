@@ -22,6 +22,8 @@ public record ArticleResponseDto(
         BigDecimal alertThreshold,
         String barcode,
         BigDecimal vatRate,
+        /** Poids unitaire en grammes (PF uniquement). {@code null} sinon. */
+        Integer unitWeightGrams,
         /** {@code true} si une image a été uploadée. */
         boolean hasImage,
         /** URL relative à utiliser comme {@code src} d'un {@code <img>} si {@code hasImage}. */
@@ -40,6 +42,7 @@ public record ArticleResponseDto(
                 e.id, e.type, e.code, e.name, e.description, e.unit,
                 e.standardCost, e.standardSalePrice, e.activityCode,
                 e.stockable, e.alertThreshold, e.barcode, e.vatRate,
+                e.unitWeightGrams,
                 hasImage, imageUrl,
                 e.active, e.createdAt, e.updatedAt
         );

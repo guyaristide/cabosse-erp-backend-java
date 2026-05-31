@@ -51,6 +51,13 @@ public class ManufacturingOrderEntity {
     public String finishedProductCode;
     public String finishedProductName;
     public String finishedProductUnit;
+    /**
+     * Poids unitaire du PF en grammes — snapshoté à la création depuis
+     * {@code ArticleEntity.unitWeightGrams}. Sert au calcul du poids total
+     * produit et du rendement. {@code null} si le PF n'a pas de poids
+     * unitaire renseigné au moment de la création.
+     */
+    public Integer finishedProductUnitWeightGrams;
 
     // ─── Planification ───
     /** Quantité de PF demandée. */
@@ -77,6 +84,18 @@ public class ManufacturingOrderEntity {
     public BigDecimal totalMaterialCostFcfa;
     /** CMUP appliqué au mouvement IN du PF à la complétion. */
     public BigDecimal cmupAtCompletionFcfa;
+
+    // ─── KPIs production (saisis à la complétion) ───
+    /**
+     * Durée effective de la production en heures. Saisie au moment de
+     * {@code complete()}. {@code null} pour les OF non terminés.
+     */
+    public Integer actualDurationHours;
+    /**
+     * Nombre d'opérateurs mobilisés sur l'OF. Saisi à {@code complete()}.
+     * {@code null} pour les OF non terminés.
+     */
+    public Integer operatorsCount;
 
     public String notes;
     public ManufacturingOrderCancellation cancellation;

@@ -3,9 +3,12 @@ package com.ntech.cabosse.production.controller;
 import com.ntech.cabosse.production.dto.AdvanceStepDto;
 import com.ntech.cabosse.production.dto.CancelOrderDto;
 import com.ntech.cabosse.production.dto.CompleteOrderDto;
+import com.ntech.cabosse.production.dto.ManufacturingOrderImportDto;
+import com.ntech.cabosse.production.dto.ManufacturingOrderImportResultDto;
 import com.ntech.cabosse.production.dto.ProductionOrderResponseDto;
 import com.ntech.cabosse.production.dto.ProductionOrderUpsertDto;
 import com.ntech.cabosse.production.entity.OfStatus;
+import com.ntech.cabosse.production.service.ManufacturingOrderImportService;
 import com.ntech.cabosse.production.service.ManufacturingOrderService;
 import com.ntech.cabosse.shared.api.ApiResponse;
 import com.ntech.cabosse.shared.export.ExportAudit;
@@ -41,6 +44,7 @@ import java.util.UUID;
 public class ManufacturingOrderResource {
 
     @Inject ManufacturingOrderService service;
+    @Inject ManufacturingOrderImportService importService;
     @Inject ExportAudit exportAudit;
 
     @GET
@@ -63,6 +67,22 @@ public class ManufacturingOrderResource {
         ProductionOrderResponseDto created = service.create(payload);
         return Response.status(Response.Status.CREATED)
                 .entity(ApiResponse.created(created))
+                .build();
+    }
+
+    /**
+     * Import d'un ordre de fabrication depuis un payload structuré
+     * (typiquement issu d'un fichier xlsx parsé côté client). Crée à la
+     * volée le PF et les matières/consommables manquants, puis matérialise
+     * l'OF en DRAFT.
+     */
+    @POST
+    @Path("/import")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    public Response importOne(@Valid ManufacturingOrderImportDto payload) {
+        ManufacturingOrderImportResultDto result = importService.importOne(payload);
+        return Response.status(Response.Status.CREATED)
+                .entity(ApiResponse.created(result))
                 .build();
     }
 

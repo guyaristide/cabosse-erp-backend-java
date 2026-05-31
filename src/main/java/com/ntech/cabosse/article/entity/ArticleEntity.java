@@ -66,6 +66,15 @@ public class ArticleEntity {
      */
     public BigDecimal vatRate;
 
+    /**
+     * Poids unitaire en grammes. Pertinent uniquement pour les
+     * {@link ArticleType#FINISHED_PRODUCT} — sert au calcul du poids
+     * total produit et du rendement d'un OF
+     * ({@code totalWeightKg = producedQty * unitWeightGrams / 1000}).
+     * {@code null} si non renseigné ou non pertinent (matière, conso).
+     */
+    public Integer unitWeightGrams;
+
     public boolean active = true;
 
     /**

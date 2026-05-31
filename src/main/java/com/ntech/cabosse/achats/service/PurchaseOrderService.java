@@ -10,6 +10,7 @@ import com.ntech.cabosse.achats.entity.PurchaseOrderEntity;
 import com.ntech.cabosse.achats.entity.PurchaseOrderLine;
 import com.ntech.cabosse.achats.repository.PurchaseOrderRepository;
 import com.ntech.cabosse.article.entity.ArticleEntity;
+import com.ntech.cabosse.article.entity.ArticleType;
 import com.ntech.cabosse.article.repository.ArticleRepository;
 import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
@@ -145,17 +146,47 @@ public class PurchaseOrderService {
      * Pour chaque ligne du BC livré, déclenche une entrée stock IN.
      * Best-effort sur l'absence de site (BC ancien sans contexte de
      * livraison) : on log silencieusement et on n'impacte pas le stock.
+     *
+     * <p>Les lignes {@code TRANSPORT} ne génèrent pas de mouvement (article
+     * non stockable). Si {@code incorporateFreightInCmup=true}, le coût
+     * transport total est ventilé au prorata du HT sur les autres lignes
+     * et incorporé à leur {@code unitCost} d'entrée — le CMUP reflète
+     * alors le coût d'acquisition complet (matière + transport).</p>
      */
     private void postStockEntries(PurchaseOrderEntity e) {
         if (e.siteId == null) return;
         Instant when = e.deliveryDate != null
                 ? e.deliveryDate.atStartOfDay(java.time.ZoneOffset.UTC).toInstant()
                 : Instant.now();
+
+        // Sous-total HT des lignes éligibles à l'incorporation (= tout sauf TRANSPORT).
+        BigDecimal materialHt = e.lines.stream()
+                .filter(l -> !ArticleType.TRANSPORT.name().equals(l.articleType))
+                .map(l -> l.totalLineFcfa == null ? BigDecimal.ZERO : l.totalLineFcfa)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        boolean incorporate = e.incorporateFreightInCmup
+                && e.transportFcfa != null
+                && e.transportFcfa.signum() > 0
+                && materialHt.signum() > 0;
+
         for (PurchaseOrderLine line : e.lines) {
+            if (ArticleType.TRANSPORT.name().equals(line.articleType)) {
+                continue; // pas de mouvement stock pour une prestation
+            }
+            BigDecimal unitCost = line.unitPriceFcfa;
+            if (incorporate) {
+                // Quote-part du transport pour cette ligne, au prorata HT.
+                BigDecimal share = e.transportFcfa
+                        .multiply(line.totalLineFcfa)
+                        .divide(materialHt, 4, RoundingMode.HALF_UP);
+                // On la ramène en coût unitaire à ajouter au PU.
+                BigDecimal unitShare = share.divide(line.quantity, 4, RoundingMode.HALF_UP);
+                unitCost = unitCost.add(unitShare).setScale(4, RoundingMode.HALF_UP);
+            }
             stockService.applyMovement(new MovementInput(
                     line.articleId, e.siteId,
                     MovementKind.IN,
-                    line.quantity, line.unitPriceFcfa,
+                    line.quantity, unitCost,
                     MovementSource.PURCHASE_ORDER, e.ref, e.id,
                     null, null, null, when
             ));
@@ -259,12 +290,14 @@ public class PurchaseOrderService {
                 ? p.paymentTerms().trim()
                 : supplier.paymentTerms;
         e.notes = blankToNull(p.notes());
-        e.transportFcfa = nonNull(p.transportFcfa());
         e.vatRatePct = nonNull(p.vatRatePct());
+        e.incorporateFreightInCmup = Boolean.TRUE.equals(p.incorporateFreightInCmup());
 
         List<PurchaseOrderLine> lines = new ArrayList<>();
         Set<String> activities = new HashSet<>();
-        BigDecimal subtotal = BigDecimal.ZERO;
+        BigDecimal subtotalMaterial = BigDecimal.ZERO;
+        BigDecimal subtotalTransport = BigDecimal.ZERO;
+        boolean hasTransportLine = false;
         if (p.lines() != null) {
             for (PurchaseOrderLineDto in : p.lines()) {
                 if (in == null || in.articleId() == null) continue;
@@ -276,6 +309,7 @@ public class PurchaseOrderService {
                 line.articleId = art.id;
                 line.articleCode = art.code;
                 line.designation = art.name;
+                line.articleType = art.type;
                 line.quantity = nonNull(in.quantity());
                 line.unit = art.unit;
                 line.unitPriceFcfa = nonNull(in.unitPriceFcfa());
@@ -290,13 +324,21 @@ public class PurchaseOrderService {
                         : List.of();
                 activities.addAll(line.activityCodes);
                 lines.add(line);
-                subtotal = subtotal.add(line.totalLineFcfa);
+                if (ArticleType.TRANSPORT.name().equals(art.type)) {
+                    subtotalTransport = subtotalTransport.add(line.totalLineFcfa);
+                    hasTransportLine = true;
+                } else {
+                    subtotalMaterial = subtotalMaterial.add(line.totalLineFcfa);
+                }
             }
         }
         e.lines = lines;
         e.activityCodes = new ArrayList<>(activities);
-        e.subtotalHtFcfa = subtotal;
-        BigDecimal taxable = subtotal.add(e.transportFcfa);
+        e.subtotalHtFcfa = subtotalMaterial;
+        // Transport : dérivé des lignes TRANSPORT si présentes, sinon respecte
+        // la saisie legacy du payload (compat avec UI non encore migrée).
+        e.transportFcfa = hasTransportLine ? subtotalTransport : nonNull(p.transportFcfa());
+        BigDecimal taxable = e.subtotalHtFcfa.add(e.transportFcfa);
         e.vatFcfa = taxable.multiply(e.vatRatePct)
                 .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
         e.totalTtcFcfa = taxable.add(e.vatFcfa);

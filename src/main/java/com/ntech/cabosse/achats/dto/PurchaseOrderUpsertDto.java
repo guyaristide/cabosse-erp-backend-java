@@ -48,6 +48,14 @@ public record PurchaseOrderUpsertDto(
         BigDecimal vatRatePct,
 
         @Size(max = 2000, message = "Notes trop longues (2000 caractères max)")
-        String notes
+        String notes,
+
+        /**
+         * Si {@code true}, les frais transport seront ventilés au prorata HT
+         * sur les lignes matière au moment du markDelivered et incorporés
+         * au CMUP. {@code null}/{@code false} = comportement par défaut
+         * (transport en dépense séparée). Gelé après DELIVERED.
+         */
+        Boolean incorporateFreightInCmup
 
 ) {}

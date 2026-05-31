@@ -65,7 +65,28 @@ public record PurchaseOrderImportDto(
         BigDecimal vatRatePct,
 
         @Size(max = 2000)
-        String notes
+        String notes,
+
+        /**
+         * Si {@code true}, le BC sera créé avec
+         * {@code incorporateFreightInCmup=true} : les lignes TRANSPORT
+         * de l'import seront ventilées au prorata HT sur les autres
+         * lignes au markDelivered. Défaut {@code null}/{@code false}.
+         */
+        Boolean incorporateFreightInCmup,
+
+        /**
+         * Statut cible après import. {@code null}/DRAFT = BC créé en
+         * brouillon. CONFIRMED / IN_TRANSIT / DELIVERED appliquent les
+         * transitions correspondantes. DELIVERED déclenche aussi
+         * l'écriture des mouvements stock. CANCELLED crée puis annule
+         * (la contre-passation n'a pas d'effet si CONFIRMED, mais permet
+         * de garder l'historique).
+         */
+        @jakarta.validation.constraints.Pattern(
+                regexp = "^$|^(DRAFT|CONFIRMED|IN_TRANSIT|DELIVERED|CANCELLED)$",
+                message = "Statut autorisé : DRAFT | CONFIRMED | IN_TRANSIT | DELIVERED | CANCELLED")
+        String initialStatus
 
 ) {
 
@@ -151,7 +172,11 @@ public record PurchaseOrderImportDto(
             @Size(max = 40)
             String code,
 
-            /** {@code RAW_MATERIAL} | {@code CONSUMABLE} | {@code PACKAGING}. */
+            /**
+             * {@code RAW_MATERIAL} | {@code CONSUMABLE} | {@code PACKAGING}
+             * | {@code TRANSPORT}. Pour TRANSPORT, l'article est
+             * automatiquement marqué non stockable côté service.
+             */
             @NotBlank(message = "Type de l'article requis")
             String type,
 

@@ -202,7 +202,8 @@ public class ArticleImportService {
                         n.stockable(),
                         n.alertThreshold(),
                         n.barcode(),
-                        n.vatRate()
+                        n.vatRate(),
+                        /* unitWeightGrams */ null
                 );
                 ArticleResponseDto created = articleService.create(payload);
                 createdIds.add(created.id());

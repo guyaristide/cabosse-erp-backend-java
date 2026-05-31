@@ -23,6 +23,7 @@ final class ArticleExportColumns {
             case FINISHED_PRODUCT -> "Produits finis";
             case CONSUMABLE       -> "Consommables";
             case PACKAGING        -> "Emballages";
+            case TRANSPORT        -> "Prestations transport";
         };
     }
 

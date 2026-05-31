@@ -2,6 +2,7 @@ package com.ntech.cabosse.article.dto;
 
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -12,8 +13,8 @@ import java.math.BigDecimal;
 @Schema(description = "Payload d'écriture article")
 public record ArticleUpsertDto(
 
-        @Pattern(regexp = "^$|^(RAW_MATERIAL|FINISHED_PRODUCT|CONSUMABLE|PACKAGING)$",
-                message = "Type autorisé : RAW_MATERIAL | FINISHED_PRODUCT | CONSUMABLE | PACKAGING")
+        @Pattern(regexp = "^$|^(RAW_MATERIAL|FINISHED_PRODUCT|CONSUMABLE|PACKAGING|TRANSPORT)$",
+                message = "Type autorisé : RAW_MATERIAL | FINISHED_PRODUCT | CONSUMABLE | PACKAGING | TRANSPORT")
         String type,
 
         @Pattern(regexp = "^$|^[A-Za-z0-9-]{2,40}$",
@@ -53,6 +54,13 @@ public record ArticleUpsertDto(
 
         @DecimalMin(value = "0", message = "Taux de TVA négatif interdit")
         @DecimalMax(value = "100", message = "Taux de TVA supérieur à 100 % interdit")
-        BigDecimal vatRate
+        BigDecimal vatRate,
+
+        /**
+         * Poids unitaire en grammes (PF). {@code null} accepté ; sert au
+         * calcul du poids total produit et du rendement d'un OF.
+         */
+        @Min(value = 1, message = "Poids unitaire doit être strictement positif")
+        Integer unitWeightGrams
 
 ) {}

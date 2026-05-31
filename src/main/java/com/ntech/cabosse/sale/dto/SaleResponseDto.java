@@ -46,6 +46,7 @@ public record SaleResponseDto(
 
         List<PaymentView> payments,
         BigDecimal totalPaidFcfa,
+        BigDecimal balanceDueFcfa,
         PaymentStatus paymentStatus,
 
         SaleStatus status,
@@ -78,6 +79,9 @@ public record SaleResponseDto(
     ) {}
 
     public static SaleResponseDto from(SaleEntity e) {
+        BigDecimal totalTtc = e.totalTtcFcfa == null ? BigDecimal.ZERO : e.totalTtcFcfa;
+        BigDecimal totalPaid = e.totalPaidFcfa == null ? BigDecimal.ZERO : e.totalPaidFcfa;
+        BigDecimal balanceDue = totalTtc.subtract(totalPaid);
         return new SaleResponseDto(
                 e.id, e.ref, e.siteId, e.siteName, e.channel,
                 e.customerId, e.customerCode, e.customerName, e.customerLegalName,
@@ -86,7 +90,7 @@ public record SaleResponseDto(
                 e.subtotalHtFcfa, e.discountPct, e.discountFcfa, e.vatRatePct, e.vatFcfa,
                 e.totalTtcFcfa, e.totalCostFcfa, e.grossMarginFcfa,
                 e.payments == null ? List.of() : e.payments.stream().map(SaleResponseDto::paymentView).toList(),
-                e.totalPaidFcfa, e.paymentStatus,
+                e.totalPaidFcfa, balanceDue, e.paymentStatus,
                 e.status,
                 e.cancellation == null ? null : cancellationView(e.cancellation),
                 e.invoiceNumber, e.notes,

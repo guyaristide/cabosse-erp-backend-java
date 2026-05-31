@@ -22,6 +22,13 @@ public class PurchaseOrderLine {
     public String articleCode;
     /** Snapshot {@code ArticleEntity.name}. */
     public String designation;
+    /**
+     * Snapshot {@code ArticleEntity.type} (nom de l'enum). Permet de
+     * distinguer les lignes TRANSPORT (pas d'entrée stock, traitement
+     * spécial pour la ventilation au CMUP) sans re-fetch de l'article.
+     * Nullable pour les BC créés avant l'introduction du champ.
+     */
+    public String articleType;
 
     public BigDecimal quantity;
     /** Snapshot {@code ArticleEntity.unit}. */

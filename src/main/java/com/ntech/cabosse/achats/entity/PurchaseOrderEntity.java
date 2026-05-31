@@ -49,6 +49,11 @@ public class PurchaseOrderEntity {
 
     // ─── Totaux ───
     public BigDecimal subtotalHtFcfa;
+    /**
+     * Frais de transport totaux du BC. Calculé automatiquement comme la
+     * somme des lignes {@code articleType=TRANSPORT} si présentes ; sinon
+     * respecte la valeur fournie par le payload (compat legacy).
+     */
     public BigDecimal transportFcfa;
     /** Taux TVA en % (0–100). */
     public BigDecimal vatRatePct;
@@ -65,6 +70,15 @@ public class PurchaseOrderEntity {
     public UUID attachmentFileId;
 
     public String notes;
+
+    /**
+     * Si {@code true} au moment du {@code markDelivered}, les frais
+     * transport sont ventilés au prorata HT sur les lignes matière /
+     * conso / packaging et incorporés à leur {@code unitCost} d'entrée
+     * stock (ajustant le CMUP). Sinon le transport reste une dépense
+     * dissociée du coût matière. Gelé après DELIVERED.
+     */
+    public boolean incorporateFreightInCmup = false;
 
     public BcStatus status = BcStatus.DRAFT;
     public PurchaseOrderCancellation cancellation;

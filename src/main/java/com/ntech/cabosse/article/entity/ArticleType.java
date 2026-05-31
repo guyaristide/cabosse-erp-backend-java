@@ -12,6 +12,11 @@ package com.ntech.cabosse.article.entity;
  *       carburant, fournitures de bureau). Pas dans les recettes.</li>
  *   <li>{@code PACKAGING} — emballage (sachet, bouteille, étiquette).
  *       Peut entrer dans une recette ou être consommé à la vente.</li>
+ *   <li>{@code TRANSPORT} — prestation logistique (livraison, fret,
+ *       affrètement). Pas de stock, pas de CMUP propre. Apparaît comme
+ *       ligne dans les BC ; selon le toggle {@code incorporateFreightInCmup}
+ *       du BC, son montant est ventilé au prorata HT sur les autres
+ *       lignes pour ajuster leur CMUP d'entrée stock.</li>
  * </ul>
  *
  * <p>Sérialisé en String pour résister aux renames.</p>
@@ -20,5 +25,6 @@ public enum ArticleType {
     RAW_MATERIAL,
     FINISHED_PRODUCT,
     CONSUMABLE,
-    PACKAGING;
+    PACKAGING,
+    TRANSPORT;
 }

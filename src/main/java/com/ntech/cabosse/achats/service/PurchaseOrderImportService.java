@@ -6,11 +6,15 @@ import com.ntech.cabosse.achats.dto.PurchaseOrderImportResultDto.CreatedArticleR
 import com.ntech.cabosse.achats.dto.PurchaseOrderLineDto;
 import com.ntech.cabosse.achats.dto.PurchaseOrderResponseDto;
 import com.ntech.cabosse.achats.dto.PurchaseOrderUpsertDto;
+import com.ntech.cabosse.achats.entity.BcStatus;
 import com.ntech.cabosse.article.dto.ArticleResponseDto;
 import com.ntech.cabosse.article.dto.ArticleUpsertDto;
+import com.ntech.cabosse.article.entity.ArticleType;
+import com.ntech.cabosse.article.repository.ArticleRepository;
 import com.ntech.cabosse.article.service.ArticleService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.supplier.dto.SupplierUpsertDto;
+import com.ntech.cabosse.supplier.repository.SupplierRepository;
 import com.ntech.cabosse.supplier.service.SupplierService;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -22,31 +26,36 @@ import java.util.UUID;
 /**
  * Orchestre un import BC depuis un fichier (CSV ou Excel) parsé côté
  * client. Crée à la volée les référentiels manquants (fournisseur et/ou
- * articles), puis matérialise le BC via {@link PurchaseOrderService}.
+ * articles), applique le statut cible via les transitions standards
+ * du {@link PurchaseOrderService}, et retourne le BC matérialisé.
+ *
+ * <p><strong>Resolve-or-create</strong> : pour le fournisseur et chaque
+ * article, on cherche d'abord par nom (case-insensitive) avant de créer.
+ * Évite les {@code ConflictException} sur doublons quand plusieurs BC
+ * référencent le même prestataire ou la même matière.</p>
+ *
+ * <p><strong>initialStatus</strong> : si renseigné dans le payload, on
+ * applique les transitions appropriées juste après {@code create()}.
+ * Cas {@code DELIVERED} : déclenche aussi l'écriture des mouvements
+ * stock IN via {@code PurchaseOrderService.deliver()}.</p>
  *
  * <p>L'opération est <strong>best-effort transactionnelle</strong> :
  * MongoDB n'offre pas de transaction multi-collection sans replica set
  * en standalone (cas dev). En cas d'échec partiel, les référentiels
- * créés au début ne sont pas rollbackés — ce qui est acceptable
- * (ils restent visibles dans le catalogue, l'utilisateur peut les
- * supprimer si besoin).</p>
- *
- * <p><strong>WIP</strong> : pas encore branché tant que le format de
- * fichier n'est pas figé. Le squelette est en place pour brancher
- * l'endpoint quand le client aura mappé les colonnes.</p>
+ * créés au début ne sont pas rollbackés.</p>
  */
 @ApplicationScoped
 public class PurchaseOrderImportService {
 
     @Inject SupplierService supplierService;
+    @Inject SupplierRepository supplierRepository;
     @Inject ArticleService articleService;
+    @Inject ArticleRepository articleRepository;
     @Inject PurchaseOrderService purchaseOrderService;
 
     public PurchaseOrderImportResultDto importOne(PurchaseOrderImportDto payload, UUID siteId) {
-        // 1. Fournisseur : existe-t-il déjà ou à créer ?
         ResolvedSupplier resolvedSupplier = resolveSupplier(payload.supplier());
 
-        // 2. Articles : pour chaque ligne, soit on a un id existant, soit on crée.
         List<CreatedArticleRef> createdArticles = new ArrayList<>();
         List<ResolvedLine> resolvedLines = new ArrayList<>();
         for (int i = 0; i < payload.lines().size(); i++) {
@@ -57,18 +66,19 @@ public class PurchaseOrderImportService {
                     throw new BusinessException(
                             "Ligne " + (i + 1) + " : ni article existant ni nouveau article fourni.");
                 }
-                ArticleResponseDto created = createArticle(line.newArticle());
-                createdArticles.add(new CreatedArticleRef(
-                        created.id(), created.code(), created.name(), created.type()
-                ));
-                articleId = created.id();
+                ResolvedArticle resolved = resolveArticle(line.newArticle());
+                if (resolved.created()) {
+                    createdArticles.add(new CreatedArticleRef(
+                            resolved.id(), resolved.code(), resolved.name(), resolved.type()
+                    ));
+                }
+                articleId = resolved.id();
             }
             resolvedLines.add(new ResolvedLine(
                     articleId, line.quantity(), line.unitPriceFcfa(), line.discountPct()
             ));
         }
 
-        // 3. Créer le BC via le service standard.
         PurchaseOrderUpsertDto bcPayload = new PurchaseOrderUpsertDto(
                 resolvedSupplier.supplierId(),
                 payload.orderDate(),
@@ -84,9 +94,13 @@ public class PurchaseOrderImportService {
                         .toList(),
                 payload.transportFcfa(),
                 payload.vatRatePct(),
-                payload.notes()
+                payload.notes(),
+                payload.incorporateFreightInCmup()
         );
         PurchaseOrderResponseDto bc = purchaseOrderService.create(bcPayload, siteId);
+
+        // Application du statut cible via les transitions standards.
+        bc = applyInitialStatus(bc, payload.initialStatus());
 
         return new PurchaseOrderImportResultDto(
                 bc,
@@ -97,13 +111,22 @@ public class PurchaseOrderImportService {
         );
     }
 
+    /**
+     * Recherche le fournisseur par {@code id} si fourni ; sinon par nom
+     * exact (case-insensitive) ; sinon crée. Évite les doublons à
+     * l'import multi-BC référençant le même prestataire.
+     */
     private ResolvedSupplier resolveSupplier(PurchaseOrderImportDto.ImportedSupplier s) {
         if (s.id() != null) {
-            // Existing — on suppose qu'il est valide (PurchaseOrderService va valider).
             return new ResolvedSupplier(s.id(), s.name() != null ? s.name() : "—", false);
         }
         if (s.name() == null || s.name().isBlank()) {
             throw new BusinessException("Nom du fournisseur requis pour création.");
+        }
+        var existing = supplierRepository.findByName(s.name());
+        if (existing.isPresent()) {
+            var found = existing.get();
+            return new ResolvedSupplier(found.id, found.name, false);
         }
         SupplierUpsertDto create = new SupplierUpsertDto(
                 /* code */ null,
@@ -123,7 +146,24 @@ public class PurchaseOrderImportService {
         return new ResolvedSupplier(created.id(), created.name(), true);
     }
 
-    private ArticleResponseDto createArticle(PurchaseOrderImportDto.ImportedArticle a) {
+    /**
+     * Cherche l'article par nom + type (case-insensitive). Si trouvé,
+     * retourne l'existant. Sinon crée. Pour la combinaison (nom, type),
+     * deux articles différents peuvent partager un nom (ex : "Lait"
+     * matière vs "Lait" produit fini), mais c'est ultra-rare en pratique.
+     */
+    private ResolvedArticle resolveArticle(PurchaseOrderImportDto.ImportedArticle a) {
+        ArticleType type;
+        try {
+            type = ArticleType.valueOf(a.type());
+        } catch (IllegalArgumentException ex) {
+            throw new BusinessException("Type d'article invalide : " + a.type());
+        }
+        var existing = articleRepository.findByName(a.name(), type);
+        if (existing.isPresent()) {
+            var found = existing.get();
+            return new ResolvedArticle(found.id, found.code, found.name, found.type, false);
+        }
         ArticleUpsertDto create = new ArticleUpsertDto(
                 a.type(),
                 blankToNull(a.code()),
@@ -136,9 +176,52 @@ public class PurchaseOrderImportService {
                 /* stockable */ Boolean.TRUE,
                 /* alertThreshold */ null,
                 /* barcode */ null,
-                /* vatRate */ null
+                /* vatRate */ null,
+                /* unitWeightGrams */ null
         );
-        return articleService.create(create);
+        var created = articleService.create(create);
+        return new ResolvedArticle(created.id(), created.code(), created.name(), created.type(), true);
+    }
+
+    /**
+     * Applique le statut cible en chaînant les transitions standards
+     * exposées par {@link PurchaseOrderService} :
+     *
+     * <ul>
+     *   <li>{@code null} ou {@code DRAFT} → no-op</li>
+     *   <li>{@code CONFIRMED} → confirm()</li>
+     *   <li>{@code IN_TRANSIT} → confirm() + transit()</li>
+     *   <li>{@code DELIVERED} → confirm() + deliver() (déclenche les
+     *       mouvements stock IN + ventilation transport au CMUP si toggle)</li>
+     *   <li>{@code CANCELLED} → confirm() + cancel() (BC marqué annulé
+     *       sans effet stock, mais l'historique source est conservé)</li>
+     * </ul>
+     */
+    private PurchaseOrderResponseDto applyInitialStatus(
+            PurchaseOrderResponseDto bc, String initialStatus) {
+        if (initialStatus == null || initialStatus.isBlank()) return bc;
+        BcStatus target;
+        try {
+            target = BcStatus.valueOf(initialStatus);
+        } catch (IllegalArgumentException ex) {
+            throw new BusinessException("Statut initial invalide : " + initialStatus);
+        }
+        return switch (target) {
+            case DRAFT -> bc;
+            case CONFIRMED -> purchaseOrderService.confirm(bc.id());
+            case IN_TRANSIT -> {
+                purchaseOrderService.confirm(bc.id());
+                yield purchaseOrderService.transit(bc.id());
+            }
+            case DELIVERED -> {
+                purchaseOrderService.confirm(bc.id());
+                yield purchaseOrderService.deliver(bc.id());
+            }
+            case CANCELLED -> {
+                purchaseOrderService.confirm(bc.id());
+                yield purchaseOrderService.cancel(bc.id(), "Statut Annulé importé depuis fichier");
+            }
+        };
     }
 
     private static String blankToNull(String s) {
@@ -146,6 +229,8 @@ public class PurchaseOrderImportService {
     }
 
     private record ResolvedSupplier(UUID supplierId, String supplierName, boolean created) {}
+
+    private record ResolvedArticle(UUID id, String code, String name, String type, boolean created) {}
 
     private record ResolvedLine(UUID articleId, java.math.BigDecimal quantity,
                                 java.math.BigDecimal unitPriceFcfa,

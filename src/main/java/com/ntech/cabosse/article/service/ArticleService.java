@@ -97,10 +97,16 @@ public class ArticleService {
         if (p.stockable() != null) {
             e.stockable = p.stockable();
         }
+        // Les articles TRANSPORT ne sont jamais stockés (prestations de service).
+        // Le toggle stockable=true serait incohérent → on le force.
+        if (ArticleType.TRANSPORT.name().equals(e.type)) {
+            e.stockable = false;
+        }
         // Si non stockable, on neutralise le seuil pour éviter les incohérences.
         e.alertThreshold = e.stockable ? p.alertThreshold() : null;
         e.barcode = blankToNull(p.barcode());
         e.vatRate = p.vatRate();
+        e.unitWeightGrams = p.unitWeightGrams();
     }
 
     private void audit(ArticleEntity e, String action) {

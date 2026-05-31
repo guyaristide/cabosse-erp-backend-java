@@ -289,8 +289,11 @@ public class StockService {
         Document setDefaults = new Document()
                 .append("_id", new Document("$ifNull", List.of("$_id", newDocId)))
                 .append("createdAt", new Document("$ifNull", List.of("$createdAt", now)))
-                .append("alertThreshold", new Document("$ifNull", List.of(
+                .append("alertThreshold", new Document("$ifNull", java.util.Arrays.asList(
                         "$alertThreshold",
+                        // Arrays.asList accepte les null — contrairement à List.of qui
+                        // jette NPE. Un article sans seuil saisi (typiquement auto-créé
+                        // à l'import BC) doit pouvoir entrer en stock sans planter.
                         article.alertThreshold != null
                                 ? new Decimal128(article.alertThreshold)
                                 : null
@@ -399,8 +402,11 @@ public class StockService {
         Document setDefaults = new Document()
                 .append("_id", new Document("$ifNull", List.of("$_id", newDocId)))
                 .append("createdAt", new Document("$ifNull", List.of("$createdAt", now)))
-                .append("alertThreshold", new Document("$ifNull", List.of(
+                .append("alertThreshold", new Document("$ifNull", java.util.Arrays.asList(
                         "$alertThreshold",
+                        // Arrays.asList accepte les null — contrairement à List.of qui
+                        // jette NPE. Un article sans seuil saisi (typiquement auto-créé
+                        // à l'import BC) doit pouvoir entrer en stock sans planter.
                         article.alertThreshold != null
                                 ? new Decimal128(article.alertThreshold)
                                 : null

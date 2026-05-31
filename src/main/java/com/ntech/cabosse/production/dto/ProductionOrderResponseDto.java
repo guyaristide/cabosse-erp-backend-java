@@ -36,6 +36,8 @@ public record ProductionOrderResponseDto(
         String finishedProductCode,
         String finishedProductName,
         String finishedProductUnit,
+        /** Poids unitaire du PF en grammes — snapshoté à la création. */
+        Integer finishedProductUnitWeightGrams,
 
         // Planification
         BigDecimal plannedQty,
@@ -53,6 +55,29 @@ public record ProductionOrderResponseDto(
         List<ConsumptionLineView> consumptionLines,
         BigDecimal totalMaterialCostFcfa,
         BigDecimal cmupAtCompletionFcfa,
+
+        // KPIs production (saisis ou dérivés à la complétion)
+        Integer actualDurationHours,
+        Integer operatorsCount,
+        /** Poids total produit en kg ({@code null} si pas de poids unitaire ou pas produit). */
+        BigDecimal totalWeightKg,
+        /** Taux de réalisation = producedQty / plannedQty × 100 ({@code null} avant complétion). */
+        BigDecimal completionRatePct,
+        /**
+         * Poids total matière consommée en kg — somme des
+         * {@code consumptionLines.plannedQty} dont l'unité est {@code kg}.
+         * Les lignes en unités/cartons/sachets sont ignorées (pas de
+         * conversion universelle vers kg). {@code null} si aucune ligne
+         * en kg.
+         */
+        BigDecimal totalMaterialWeightKg,
+        /**
+         * Rendement matière en pourcentage = {@code totalWeightKg /
+         * totalMaterialWeightKg × 100}. C'est le KPI au sens "fichier
+         * client" (sortie / entrée en masse). {@code null} si l'un des
+         * deux poids n'est pas calculable.
+         */
+        BigDecimal materialYieldPct,
 
         String notes,
         CancellationView cancellation,
@@ -79,6 +104,7 @@ public record ProductionOrderResponseDto(
                         ? List.of()
                         : e.recipeStepsSnapshot.stream().map(ProductionOrderResponseDto::stepView).toList(),
                 e.finishedProductId, e.finishedProductCode, e.finishedProductName, e.finishedProductUnit,
+                e.finishedProductUnitWeightGrams,
                 e.plannedQty, e.producedQty, e.lotRef, e.scheduledDate, e.startedAt, e.completedAt,
                 e.currentStepIndex,
                 e.stepHistory == null
@@ -88,6 +114,9 @@ public record ProductionOrderResponseDto(
                         ? List.of()
                         : e.consumptionLines.stream().map(ProductionOrderResponseDto::lineView).toList(),
                 e.totalMaterialCostFcfa, e.cmupAtCompletionFcfa,
+                e.actualDurationHours, e.operatorsCount,
+                totalWeightKg(e), completionRatePct(e),
+                totalMaterialWeightKg(e), materialYieldPct(e),
                 e.notes,
                 e.cancellation == null ? null : new CancellationView(
                         e.cancellation.reason, e.cancellation.cancelledByEmail,
@@ -95,6 +124,70 @@ public record ProductionOrderResponseDto(
                 ),
                 e.createdAt, e.updatedAt, e.createdByEmail
         );
+    }
+
+    /**
+     * Poids total produit en kg = {@code producedQty × unitWeightGrams / 1000}.
+     * {@code null} si l'un des deux est absent. Pertinent surtout pour les
+     * PF unitaires (tablettes, boîtes, sachets) — en kg/L l'unité est
+     * déjà la masse.
+     */
+    private static BigDecimal totalWeightKg(ManufacturingOrderEntity e) {
+        if (e.producedQty == null || e.finishedProductUnitWeightGrams == null) return null;
+        return e.producedQty
+                .multiply(BigDecimal.valueOf(e.finishedProductUnitWeightGrams))
+                .divide(BigDecimal.valueOf(1000), 3, java.math.RoundingMode.HALF_UP);
+    }
+
+    /**
+     * Somme des {@code plannedQty} des lignes de consommation dont
+     * l'unité est {@code kg} (case-insensitive). Les autres unités
+     * (unité, sachet, carton, planche, rouleau, forfait…) n'ont pas
+     * de conversion universelle vers kg et sont donc exclues du calcul
+     * — c'est intentionnel, sinon le rendement matière serait faussé.
+     * Retourne {@code null} si aucune ligne en kg.
+     */
+    private static BigDecimal totalMaterialWeightKg(ManufacturingOrderEntity e) {
+        if (e.consumptionLines == null || e.consumptionLines.isEmpty()) return null;
+        BigDecimal total = BigDecimal.ZERO;
+        boolean hasAny = false;
+        for (var line : e.consumptionLines) {
+            if (line.plannedQty == null) continue;
+            String unit = line.articleUnit == null ? "" : line.articleUnit.trim().toLowerCase();
+            if ("kg".equals(unit)) {
+                total = total.add(line.plannedQty);
+                hasAny = true;
+            }
+        }
+        return hasAny ? total : null;
+    }
+
+    /**
+     * Rendement matière en pourcentage = {@code totalWeightKg /
+     * totalMaterialWeightKg × 100}. Aligné sur le KPI du fichier client
+     * (sortie produite vs entrée matière, en masse). {@code null} si
+     * l'un des deux poids manque.
+     */
+    private static BigDecimal materialYieldPct(ManufacturingOrderEntity e) {
+        BigDecimal output = totalWeightKg(e);
+        BigDecimal input = totalMaterialWeightKg(e);
+        if (output == null || input == null || input.signum() == 0) return null;
+        return output
+                .multiply(BigDecimal.valueOf(100))
+                .divide(input, 2, java.math.RoundingMode.HALF_UP);
+    }
+
+    /**
+     * Taux de réalisation en pourcentage = {@code producedQty / plannedQty × 100}.
+     * Mesure le rendement quantitatif basique de l'OF — différent du
+     * rendement matière (qui compare poids produit vs poids consommé,
+     * laissé au calcul client pour l'instant).
+     */
+    private static BigDecimal completionRatePct(ManufacturingOrderEntity e) {
+        if (e.producedQty == null || e.plannedQty == null || e.plannedQty.signum() == 0) return null;
+        return e.producedQty
+                .multiply(BigDecimal.valueOf(100))
+                .divide(e.plannedQty, 2, java.math.RoundingMode.HALF_UP);
     }
 
     private static RecipeStepView stepView(RecipeStep s) {

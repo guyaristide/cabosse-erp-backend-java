@@ -30,10 +30,21 @@ final class SaleExportColumns {
                 ExportColumn.of("Coût matière",      SaleResponseDto::totalCostFcfa),
                 ExportColumn.of("Marge brute",       SaleResponseDto::grossMarginFcfa),
                 ExportColumn.of("Total payé",        SaleResponseDto::totalPaidFcfa),
+                ExportColumn.of("Solde facture",     SaleResponseDto::balanceDueFcfa),
+                ExportColumn.of("Etat facture",      r -> invoiceState(r.paymentStatus())),
                 ExportColumn.of("N° facture",        SaleResponseDto::invoiceNumber),
                 ExportColumn.of("Créé par",          SaleResponseDto::createdByEmail),
                 ExportColumn.of("Créé le",           SaleResponseDto::createdAt)
         );
+    }
+
+    /**
+     * État facture côté client : "Soldée" si entièrement payée, sinon
+     * "Non soldée" (couvre les statuts UNPAID et PARTIAL). Aligné sur
+     * le format attendu dans le template Excel client.
+     */
+    private static String invoiceState(PaymentStatus p) {
+        return p == PaymentStatus.PAID ? "Soldée" : "Non soldée";
     }
 
     private static String humanChannel(SaleChannel c) {

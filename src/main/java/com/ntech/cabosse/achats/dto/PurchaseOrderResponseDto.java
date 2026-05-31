@@ -36,6 +36,8 @@ public record PurchaseOrderResponseDto(
         /** URL relative à utiliser pour récupérer la facture jointe (authentifié). */
         String attachmentUrl,
         String notes,
+        /** Si {@code true}, transport ventilé au CMUP au markDelivered. */
+        boolean incorporateFreightInCmup,
         BcStatus status,
         CancellationDto cancellation,
         String createdByEmail,
@@ -47,6 +49,8 @@ public record PurchaseOrderResponseDto(
             UUID articleId,
             String articleCode,
             String designation,
+            /** Type d'article (RAW_MATERIAL | FINISHED_PRODUCT | CONSUMABLE | PACKAGING | TRANSPORT). */
+            String articleType,
             BigDecimal quantity,
             String unit,
             BigDecimal unitPriceFcfa,
@@ -56,7 +60,7 @@ public record PurchaseOrderResponseDto(
     ) {
         static LineDto from(PurchaseOrderLine l) {
             return new LineDto(
-                    l.id, l.articleId, l.articleCode, l.designation,
+                    l.id, l.articleId, l.articleCode, l.designation, l.articleType,
                     l.quantity, l.unit, l.unitPriceFcfa, l.discountPct,
                     l.totalLineFcfa, l.activityCodes
             );
@@ -89,6 +93,7 @@ public record PurchaseOrderResponseDto(
                 e.activityCodes == null ? List.of() : e.activityCodes,
                 hasAttachment, attachmentUrl,
                 e.notes,
+                e.incorporateFreightInCmup,
                 e.status,
                 e.cancellation == null ? null : CancellationDto.from(e.cancellation),
                 e.createdByEmail, e.createdAt, e.updatedAt

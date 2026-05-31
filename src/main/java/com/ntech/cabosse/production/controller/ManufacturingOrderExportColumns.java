@@ -26,6 +26,10 @@ final class ManufacturingOrderExportColumns {
                 ExportColumn.of("Lot",              ProductionOrderResponseDto::lotRef),
                 ExportColumn.of("Coût matière",     ProductionOrderResponseDto::totalMaterialCostFcfa),
                 ExportColumn.of("CMUP PF",          ProductionOrderResponseDto::cmupAtCompletionFcfa),
+                ExportColumn.of("Poids total (kg)", ProductionOrderResponseDto::totalWeightKg),
+                ExportColumn.of("Rendement (%)",    ProductionOrderResponseDto::completionRatePct),
+                ExportColumn.of("Durée (h)",        ProductionOrderResponseDto::actualDurationHours),
+                ExportColumn.of("Nb opérateurs",    ProductionOrderResponseDto::operatorsCount),
                 ExportColumn.of("Acteur",           ProductionOrderResponseDto::createdByEmail),
                 ExportColumn.of("Créé le",          ProductionOrderResponseDto::createdAt)
         );
