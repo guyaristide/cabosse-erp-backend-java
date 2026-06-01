@@ -25,9 +25,12 @@ import com.ntech.cabosse.stock.entity.MovementSource;
 import com.ntech.cabosse.stock.service.StockService;
 import com.ntech.cabosse.supplier.entity.SupplierEntity;
 import com.ntech.cabosse.supplier.repository.SupplierRepository;
+import com.ntech.cabosse.tenant.entity.TenantEntity;
+import com.ntech.cabosse.tenant.repository.TenantRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.jwt.JsonWebToken;
+import org.jboss.logging.Logger;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -55,11 +58,19 @@ import java.util.UUID;
 @ApplicationScoped
 public class DirectReceiptService {
 
+    private static final Logger LOG = Logger.getLogger(DirectReceiptService.class);
+
+    /** Échelle interne pour les multiplications TVA (avant le scale CMUP du stock). */
+    private static final int VAT_RATIO_SCALE = 6;
+    /** Précision unitaire d'entrée stock — alignée sur StockService.CMUP_SCALE. */
+    private static final int UNIT_COST_SCALE = 4;
+
     @Inject DirectReceiptRepository receipts;
     @Inject DirectReceiptRefService refService;
     @Inject ArticleRepository articles;
     @Inject SupplierRepository suppliers;
     @Inject TenantContext tenantContext;
+    @Inject TenantRepository tenants;
     @Inject AuditService audit;
     @Inject StockService stockService;
     @Inject JsonWebToken jwt;
@@ -68,14 +79,42 @@ public class DirectReceiptService {
         try { return jwt.getName(); } catch (Exception e) { return null; }
     }
 
+    /**
+     * Lit la préférence tenant {@code vatRecoverable}. Défaut {@code true}
+     * si le tenant est introuvable ou si la sous-structure preferences
+     * n'est pas hydratée (tenant historique antérieur à l'introduction
+     * du flag).
+     */
+    private boolean tenantVatRecoverable() {
+        try {
+            TenantEntity t = tenants.findById(tenantContext.tenantId());
+            if (t == null || t.preferences == null) return true;
+            return t.preferences.vatRecoverable();
+        } catch (Exception ex) {
+            return true;
+        }
+    }
+
+    /**
+     * Résolution effective : override RD s'il est fourni, sinon préférence
+     * tenant courante.
+     */
+    private boolean resolveVatRecoverable(DirectReceiptEntity e) {
+        return e.vatRecoverableOverride != null
+                ? e.vatRecoverableOverride
+                : tenantVatRecoverable();
+    }
+
     public List<DirectReceiptResponseDto> list(DirectReceiptStatus status, String q) {
+        // Une seule lecture tenant pour toute la liste — évite N lookups.
+        boolean tenantDefault = tenantVatRecoverable();
         return receipts.search(status, q).stream()
-                .map(DirectReceiptResponseDto::from)
+                .map(e -> DirectReceiptResponseDto.from(e, tenantDefault))
                 .toList();
     }
 
     public DirectReceiptResponseDto getById(UUID id) {
-        return DirectReceiptResponseDto.from(loadOrFail(id));
+        return DirectReceiptResponseDto.from(loadOrFail(id), tenantVatRecoverable());
     }
 
     // ─── Create ─────────────────────────────────────────────────────
@@ -94,6 +133,11 @@ public class DirectReceiptService {
         e.articleUnit = article.unit;
         e.deliveryNoteRef = blankToNull(payload.deliveryNoteRef());
         e.notes = blankToNull(payload.notes());
+        // Règles TVA — défaut 0% (cas terrain courant : producteur paysan
+        // non assujetti). L'override null signifie "hériter du tenant" à
+        // la résolution dans postStockEntries.
+        e.vatRatePct = nz(payload.vatRatePct());
+        e.vatRecoverableOverride = payload.vatRecoverableOverride();
         e.createdAt = Instant.now();
         e.updatedAt = e.createdAt;
         e.createdBy = safeUserId();
@@ -101,7 +145,7 @@ public class DirectReceiptService {
         receipts.insert(e);
         postStockEntries(e);
         record(e, AuditEventType.DIRECT_RECEIPT_CREATED, "Création");
-        return DirectReceiptResponseDto.from(e);
+        return DirectReceiptResponseDto.from(e, tenantVatRecoverable());
     }
 
     /**
@@ -111,17 +155,44 @@ public class DirectReceiptService {
      * actif), on log silencieusement et on n'impacte pas le stock —
      * cela évite un échec dur sur un cas qui n'arrive pas en
      * production normale.
+     *
+     * <p><strong>TVA non récupérable</strong> : si la résolution
+     * {@link #resolveVatRecoverable(DirectReceiptEntity)} renvoie
+     * {@code false} et qu'un taux TVA &gt; 0 est saisi sur la session,
+     * le coût unitaire envoyé au stock est majoré par
+     * {@code (1 + vatRate/100)}. Le stockage en base reste inchangé —
+     * {@code unitPriceFcfa} sur la ligne demeure HT, seul le
+     * {@code unitCost} dérivé pour le stock est ajusté. Pattern symétrique
+     * à {@code PurchaseOrderService.postStockEntries}.</p>
      */
     private void postStockEntries(DirectReceiptEntity e) {
         if (e.siteId == null) return;
         Instant when = e.receivedDate != null
                 ? e.receivedDate.atStartOfDay(java.time.ZoneOffset.UTC).toInstant()
                 : e.createdAt;
+
+        boolean vatRecoverable = resolveVatRecoverable(e);
+        BigDecimal vatRate = e.vatRatePct == null ? BigDecimal.ZERO : e.vatRatePct;
+        boolean applyVatToCmup = !vatRecoverable && vatRate.signum() > 0;
+        BigDecimal vatCoefficient = applyVatToCmup
+                ? BigDecimal.ONE.add(vatRate.divide(BigDecimal.valueOf(100), VAT_RATIO_SCALE, RoundingMode.HALF_UP))
+                : BigDecimal.ONE;
+
+        if (applyVatToCmup) {
+            LOG.infof("RD %s : TVA non récupérable (taux %s%%) incorporée au CMUP (coefficient %s)",
+                    e.ref, vatRate.toPlainString(), vatCoefficient.toPlainString());
+        }
+
         for (DirectReceiptLine line : e.lines) {
+            BigDecimal unitCost = line.unitPriceFcfa;
+            if (applyVatToCmup) {
+                unitCost = unitCost.multiply(vatCoefficient)
+                        .setScale(UNIT_COST_SCALE, RoundingMode.HALF_UP);
+            }
             stockService.applyMovement(new MovementInput(
                     e.articleId, e.siteId,
                     MovementKind.IN,
-                    line.quantity, line.unitPriceFcfa,
+                    line.quantity, unitCost,
                     MovementSource.DIRECT_RECEIPT, e.ref, e.id,
                     null, null, null, when
             ));
@@ -148,11 +219,13 @@ public class DirectReceiptService {
         e.receivedDate = payload.receivedDate();
         e.deliveryNoteRef = blankToNull(payload.deliveryNoteRef());
         e.notes = blankToNull(payload.notes());
+        e.vatRatePct = nz(payload.vatRatePct());
+        e.vatRecoverableOverride = payload.vatRecoverableOverride();
         applyLinesAndRecompute(e, payload.lines());
         e.updatedAt = Instant.now();
         receipts.replace(e);
         record(e, AuditEventType.DIRECT_RECEIPT_UPDATED, "Modification");
-        return DirectReceiptResponseDto.from(e);
+        return DirectReceiptResponseDto.from(e, tenantVatRecoverable());
     }
 
     // ─── Payment ────────────────────────────────────────────────────
@@ -182,7 +255,7 @@ public class DirectReceiptService {
         record(e, AuditEventType.DIRECT_RECEIPT_LINE_PAID,
                 "Paiement enregistré (" + line.supplierName + ", "
                         + payment.amountFcfa + " FCFA, BP " + payment.paymentNoteRef + ")");
-        return DirectReceiptResponseDto.from(e);
+        return DirectReceiptResponseDto.from(e, tenantVatRecoverable());
     }
 
     public DirectReceiptResponseDto removePayment(UUID id, UUID lineId) {
@@ -200,7 +273,7 @@ public class DirectReceiptService {
         receipts.replace(e);
         record(e, AuditEventType.DIRECT_RECEIPT_LINE_PAYMENT_REVERTED,
                 "Paiement annulé (" + line.supplierName + ")");
-        return DirectReceiptResponseDto.from(e);
+        return DirectReceiptResponseDto.from(e, tenantVatRecoverable());
     }
 
     // ─── Cancel (contre-passation) ─────────────────────────────────
@@ -221,7 +294,7 @@ public class DirectReceiptService {
         receipts.replace(e);
         postStockCompensations(e, c.reason);
         record(e, AuditEventType.DIRECT_RECEIPT_CANCELLED, "Contre-passation : " + c.reason);
-        return DirectReceiptResponseDto.from(e);
+        return DirectReceiptResponseDto.from(e, tenantVatRecoverable());
     }
 
     /**

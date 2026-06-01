@@ -62,6 +62,16 @@ public class SaleRepository {
         coll().replaceOne(Filters.eq("_id", e.id), e);
     }
 
+    /**
+     * Suppression définitive d'une vente — usage limité aux scénarios de
+     * rollback applicatif (ex : échec d'une étape post-création à l'import).
+     * Le flux normal d'annulation passe par {@code SaleService.cancel()}
+     * qui conserve l'historique et déclenche les contre-passations.
+     */
+    public void deleteById(UUID id) {
+        coll().deleteOne(Filters.eq("_id", id));
+    }
+
     public List<SaleEntity> search(SaleStatus status, String q,
                                     UUID siteId, UUID customerId) {
         List<Bson> filters = new ArrayList<>();

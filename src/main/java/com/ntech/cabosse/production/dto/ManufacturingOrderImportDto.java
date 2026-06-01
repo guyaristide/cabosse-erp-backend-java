@@ -53,7 +53,15 @@ public record ManufacturingOrderImportDto(
         String notes,
 
         @NotEmpty(message = "Au moins une ligne de consommation requise")
-        List<@Valid ImportedConsumption> consumptions
+        List<@Valid ImportedConsumption> consumptions,
+
+        /**
+         * Si {@code true}, l'auto-création de produit fini ou d'article
+         * consommé est désactivée — un référentiel inconnu fait échouer
+         * l'OF avec un message explicite. Sert à éviter les doublons
+         * d'orthographe sur les imports massifs (« lait » vs « lait cru »).
+         */
+        Boolean strictMode
 
 ) {
 

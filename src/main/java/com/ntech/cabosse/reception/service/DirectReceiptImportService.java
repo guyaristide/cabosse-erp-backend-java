@@ -353,7 +353,11 @@ public class DirectReceiptImportService {
                 ));
             }
             DirectReceiptUpsertDto upsert = new DirectReceiptUpsertDto(
-                    article.id, date, null, lines, null
+                    article.id, date, null, lines, null,
+                    // Pas de TVA imposée par l'import — la majorité des RD
+                    // sont auprès de producteurs non assujettis. Si besoin,
+                    // l'opérateur édite la RD juste après l'import.
+                    null, null
             );
             try {
                 DirectReceiptResponseDto created = receiptService.create(upsert, siteId);

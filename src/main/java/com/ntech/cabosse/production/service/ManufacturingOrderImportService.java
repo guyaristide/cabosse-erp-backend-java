@@ -45,7 +45,8 @@ public class ManufacturingOrderImportService {
     @Inject ManufacturingOrderService manufacturingOrderService;
 
     public ManufacturingOrderImportResultDto importOne(ManufacturingOrderImportDto payload) {
-        ResolvedFinishedProduct fp = resolveFinishedProduct(payload.finishedProduct());
+        boolean strict = Boolean.TRUE.equals(payload.strictMode());
+        ResolvedFinishedProduct fp = resolveFinishedProduct(payload.finishedProduct(), strict);
 
         List<CreatedArticleRef> createdConsumables = new ArrayList<>();
         List<ManufacturingOrderService.ImportConsumption> resolvedConsumptions = new ArrayList<>();
@@ -57,7 +58,7 @@ public class ManufacturingOrderImportService {
                     throw new BusinessException(
                             "Ligne " + (i + 1) + " : ni article existant ni nouveau article fourni.");
                 }
-                ResolvedConsumable resolved = resolveConsumable(c.newArticle());
+                ResolvedConsumable resolved = resolveConsumable(c.newArticle(), strict);
                 if (resolved.created()) {
                     createdConsumables.add(new CreatedArticleRef(
                             resolved.id(), resolved.code(), resolved.name(), resolved.type()
@@ -96,7 +97,7 @@ public class ManufacturingOrderImportService {
      * silencieusement une saisie manuelle précédente.
      */
     private ResolvedFinishedProduct resolveFinishedProduct(
-            ManufacturingOrderImportDto.ImportedFinishedProduct fp) {
+            ManufacturingOrderImportDto.ImportedFinishedProduct fp, boolean strict) {
         if (fp.id() != null) {
             ArticleEntity existing = articleRepository.findById(fp.id()).orElseThrow(
                     () -> new BusinessException("Produit fini " + fp.id() + " introuvable.")
@@ -110,6 +111,11 @@ public class ManufacturingOrderImportService {
         if (existing.isPresent()) {
             var found = existing.get();
             return new ResolvedFinishedProduct(found.id, found.name, false);
+        }
+        if (strict) {
+            throw new BusinessException(
+                    "Mode strict : produit fini « " + fp.name().trim()
+                    + " » introuvable. Créer le référentiel avant d'importer.");
         }
         ArticleUpsertDto create = new ArticleUpsertDto(
                 ArticleType.FINISHED_PRODUCT.name(),
@@ -134,7 +140,8 @@ public class ManufacturingOrderImportService {
      * Résout (ou crée) un article consommé (matière, conso, packaging).
      * Cherche par nom + type avant de créer.
      */
-    private ResolvedConsumable resolveConsumable(ManufacturingOrderImportDto.ImportedArticle a) {
+    private ResolvedConsumable resolveConsumable(
+            ManufacturingOrderImportDto.ImportedArticle a, boolean strict) {
         ArticleType type;
         try {
             type = ArticleType.valueOf(a.type());
@@ -145,6 +152,11 @@ public class ManufacturingOrderImportService {
         if (existing.isPresent()) {
             var found = existing.get();
             return new ResolvedConsumable(found.id, found.code, found.name, found.type, false);
+        }
+        if (strict) {
+            throw new BusinessException(
+                    "Mode strict : article « " + a.name().trim() + " » (" + a.type()
+                    + ") introuvable. Créer le référentiel avant d'importer.");
         }
         ArticleUpsertDto create = new ArticleUpsertDto(
                 a.type(),

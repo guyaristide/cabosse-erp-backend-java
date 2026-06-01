@@ -55,6 +55,27 @@ public class DirectReceiptEntity {
     /** Somme des {@code payment.amountFcfa} des lignes payées. Dérivé. */
     public BigDecimal totalPaidFcfa;
 
+    /**
+     * Taux TVA appliqué à la session (0–100, défaut 0). Une RD adressée à
+     * un producteur paysan non assujetti reste à 0 — c'est le cas le plus
+     * fréquent. La présence du champ permet de gérer le cas d'une RD à un
+     * fournisseur formel sans BC. Aligné sémantiquement sur
+     * {@code PurchaseOrderEntity.vatRatePct}.
+     */
+    public BigDecimal vatRatePct;
+
+    /**
+     * Surcharge du flag tenant {@code vatRecoverable} pour cette RD.
+     * null = utiliser le défaut tenant. false = TVA intégrée au CMUP
+     * à la livraison stock (PU effectif = PU × (1 + vatRatePct/100)).
+     *
+     * <p>Symétrique de {@link com.ntech.cabosse.achats.entity.PurchaseOrderEntity#vatRecoverableOverride}.</p>
+     *
+     * <p>Stocké en {@code Boolean} (nullable) précisément pour distinguer
+     * "non précisé / hériter du tenant" de "explicitement à false".</p>
+     */
+    public Boolean vatRecoverableOverride;
+
     /** Statut dérivé du remplissage des paiements. */
     public DirectReceiptStatus status = DirectReceiptStatus.UNPAID;
 

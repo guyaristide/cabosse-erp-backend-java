@@ -142,31 +142,37 @@ public class SaleImportService {
         );
         SaleResponseDto sale = saleService.create(saleDto, /* asQuote */ true);
 
-        // ── 6. Application du statut cible
-        sale = applyInitialStatus(sale, payload.initialStatus());
+        // ── 6+7. Application du statut cible puis paiement, sous rollback
+        //         applicatif : si une de ces étapes échoue (typiquement
+        //         markDelivered avec stock insuffisant, ou recordPayment
+        //         avec montant invalide), on supprime la vente créée pour
+        //         ne pas laisser de doublon facture qui bloquerait un
+        //         nouvel import après correction.
+        try {
+            sale = applyInitialStatus(sale, payload.initialStatus());
 
-        // ── 7. Création du paiement si montant déjà payé > 0
-        if (payload.totalPaidFcfa() != null
-                && payload.totalPaidFcfa().compareTo(BigDecimal.ZERO) > 0
-                && sale.status() != SaleStatus.CANCELLED
-                && sale.status() != SaleStatus.QUOTE) {
-            BigDecimal balance = sale.balanceDueFcfa() != null
-                    ? sale.balanceDueFcfa() : BigDecimal.ZERO;
-            // Plafonné par balanceDue : un fichier peut porter un montant
-            // payé > total (rare, mais on est défensif). On garde le min
-            // pour ne pas tomber sur la BusinessException de SaleService.
-            BigDecimal amount = payload.totalPaidFcfa().min(balance);
-            if (amount.compareTo(BigDecimal.ZERO) > 0) {
-                PaymentMethod method = parsePaymentMethod(payload.paymentMethod());
-                SalePaymentDto paymentDto = new SalePaymentDto(
-                        payload.saleDate(),
-                        amount,
-                        method,
-                        /* paymentNoteRef */ null,
-                        /* notes */ "Import"
-                );
-                sale = saleService.recordPayment(sale.id(), paymentDto);
+            if (payload.totalPaidFcfa() != null
+                    && payload.totalPaidFcfa().compareTo(BigDecimal.ZERO) > 0
+                    && sale.status() != SaleStatus.CANCELLED
+                    && sale.status() != SaleStatus.QUOTE) {
+                BigDecimal balance = sale.balanceDueFcfa() != null
+                        ? sale.balanceDueFcfa() : BigDecimal.ZERO;
+                BigDecimal amount = payload.totalPaidFcfa().min(balance);
+                if (amount.compareTo(BigDecimal.ZERO) > 0) {
+                    PaymentMethod method = parsePaymentMethod(payload.paymentMethod());
+                    SalePaymentDto paymentDto = new SalePaymentDto(
+                            payload.saleDate(),
+                            amount,
+                            method,
+                            /* paymentNoteRef */ null,
+                            /* notes */ "Import"
+                    );
+                    sale = saleService.recordPayment(sale.id(), paymentDto);
+                }
             }
+        } catch (RuntimeException ex) {
+            saleRepository.deleteById(sale.id());
+            throw ex;
         }
 
         return SaleImportResultDto.created(
@@ -284,9 +290,18 @@ public class SaleImportService {
     }
 
     /**
-     * Applique le statut cible en chaînant les transitions exposées par
-     * {@link SaleService} : QUOTE → CONFIRMED (validateQuote) → DELIVERED
-     * (markDelivered, OUT stock) ou QUOTE → CONFIRMED → CANCELLED.
+     * Applique le statut cible en chaînant les transitions standards.
+     *
+     * <p><strong>Cas DELIVERED à l'import :</strong> on s'arrête volontairement
+     * à {@code CONFIRMED} et on ne déclenche pas {@code markDelivered}. La
+     * raison : un import historique restaure des ventes passées sans que
+     * le stock correspondant existe encore en BD — la sortie OUT
+     * échouerait sur la garde {@code Stock insuffisant} de {@code StockService}.
+     * L'utilisateur transitionne manuellement la vente vers DELIVERED via
+     * la fiche détail, une fois le stock approvisionné (BC ou stock
+     * d'ouverture).</p>
+     *
+     * <p>Les autres statuts gardent leur sémantique standard.</p>
      */
     private SaleResponseDto applyInitialStatus(SaleResponseDto sale, String initialStatus) {
         if (initialStatus == null || initialStatus.isBlank()) return sale;
@@ -296,14 +311,9 @@ public class SaleImportService {
         } catch (IllegalArgumentException ex) {
             throw new BusinessException("Statut initial invalide : " + initialStatus);
         }
-        // DRAFT n'existe pas dans l'enum vente — on l'aligne sur QUOTE.
         return switch (target) {
             case QUOTE -> sale;
-            case CONFIRMED -> saleService.validateQuote(sale.id());
-            case DELIVERED -> {
-                saleService.validateQuote(sale.id());
-                yield saleService.markDelivered(sale.id());
-            }
+            case CONFIRMED, DELIVERED -> saleService.validateQuote(sale.id());
             case CANCELLED -> {
                 saleService.validateQuote(sale.id());
                 yield saleService.cancel(sale.id(), "Statut Annulé importé depuis fichier");
