@@ -113,6 +113,7 @@ public class SaleService {
         e.customerCode = customer.code;
         e.customerName = customer.name;
         e.customerLegalName = customer.legalName;
+        e.channelTypeSnapshot = customer.channelType;
 
         e.saleDate = payload.saleDate() != null ? payload.saleDate() : LocalDate.now();
         e.dueDate = payload.dueDate();
@@ -152,6 +153,8 @@ public class SaleService {
         e.customerCode = customer.code;
         e.customerName = customer.name;
         e.customerLegalName = customer.legalName;
+        // QUOTE encore modifiable : le snapshot canal suit le client résolu.
+        e.channelTypeSnapshot = customer.channelType;
         e.channel = payload.channel();
         e.saleDate = payload.saleDate() != null ? payload.saleDate() : e.saleDate;
         e.dueDate = payload.dueDate();

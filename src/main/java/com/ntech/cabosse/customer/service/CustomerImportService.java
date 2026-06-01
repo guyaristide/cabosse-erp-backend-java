@@ -132,6 +132,7 @@ public class CustomerImportService {
             try {
                 CustomerUpsertDto payload = new CustomerUpsertDto(
                         n.code(), n.name(), n.type(),
+                        null, // canal non géré dans l'import legacy — renseigné via l'écran d'édition
                         n.legalName(), n.taxNumber(),
                         n.email(), n.phone(), n.addressLine(), n.cityName(), n.countryCode(),
                         n.contactName(), n.creditLimit(), n.notes()

@@ -56,6 +56,15 @@ public record PurchaseOrderUpsertDto(
          * au CMUP. {@code null}/{@code false} = comportement par défaut
          * (transport en dépense séparée). Gelé après DELIVERED.
          */
-        Boolean incorporateFreightInCmup
+        Boolean incorporateFreightInCmup,
+
+        /**
+         * Surcharge ponctuelle de la préférence tenant {@code vatRecoverable}
+         * pour ce BC. {@code null} (défaut) = suit la préférence tenant
+         * courante au moment du markDelivered. {@code true} = la TVA de ce
+         * BC est récupérable (CMUP = HT). {@code false} = la TVA de ce BC
+         * est non récupérable (CMUP = TTC).
+         */
+        Boolean vatRecoverableOverride
 
 ) {}

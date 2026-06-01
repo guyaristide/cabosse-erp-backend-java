@@ -39,12 +39,18 @@ final class SaleExportColumns {
     }
 
     /**
-     * État facture côté client : "Soldée" si entièrement payée, sinon
-     * "Non soldée" (couvre les statuts UNPAID et PARTIAL). Aligné sur
-     * le format attendu dans le template Excel client.
+     * État facture côté client : "Soldée" si entièrement payée,
+     * "Partielle" si en partie réglée, "Impayée" sinon. Libellés
+     * alignés sur le template Excel attendu par l'expert métier — à
+     * garder cohérents avec {@link #humanPayment(PaymentStatus)}.
      */
     private static String invoiceState(PaymentStatus p) {
-        return p == PaymentStatus.PAID ? "Soldée" : "Non soldée";
+        if (p == null) return "Impayée";
+        return switch (p) {
+            case PAID    -> "Soldée";
+            case PARTIAL -> "Partielle";
+            case UNPAID  -> "Impayée";
+        };
     }
 
     private static String humanChannel(SaleChannel c) {
@@ -56,7 +62,7 @@ final class SaleExportColumns {
         return switch (s) {
             case QUOTE     -> "Devis";
             case CONFIRMED -> "Confirmée";
-            case DELIVERED -> "Livrée";
+            case DELIVERED -> "Finalisée";
             case CANCELLED -> "Annulée";
         };
     }
@@ -64,9 +70,9 @@ final class SaleExportColumns {
     private static String humanPayment(PaymentStatus p) {
         if (p == null) return "";
         return switch (p) {
-            case UNPAID  -> "Dû";
-            case PARTIAL -> "Partiel";
-            case PAID    -> "Payé";
+            case UNPAID  -> "Impayée";
+            case PARTIAL -> "Partielle";
+            case PAID    -> "Soldée";
         };
     }
 }

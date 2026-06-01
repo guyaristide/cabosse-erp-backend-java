@@ -23,9 +23,12 @@ import com.ntech.cabosse.stock.entity.MovementSource;
 import com.ntech.cabosse.stock.service.StockService;
 import com.ntech.cabosse.supplier.entity.SupplierEntity;
 import com.ntech.cabosse.supplier.repository.SupplierRepository;
+import com.ntech.cabosse.tenant.entity.TenantEntity;
+import com.ntech.cabosse.tenant.repository.TenantRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.jwt.JsonWebToken;
+import org.jboss.logging.Logger;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -56,11 +59,19 @@ import java.util.UUID;
 @ApplicationScoped
 public class PurchaseOrderService {
 
+    private static final Logger LOG = Logger.getLogger(PurchaseOrderService.class);
+
+    /** Échelle interne pour les multiplications TVA (avant le scale CMUP du stock). */
+    private static final int VAT_RATIO_SCALE = 6;
+    /** Précision unitaire d'entrée stock — alignée sur StockService.CMUP_SCALE. */
+    private static final int UNIT_COST_SCALE = 4;
+
     @Inject PurchaseOrderRepository orders;
     @Inject PurchaseOrderRefService refService;
     @Inject SupplierRepository suppliers;
     @Inject ArticleRepository articles;
     @Inject TenantContext tenantContext;
+    @Inject TenantRepository tenants;
     @Inject AuditService audit;
     @Inject StockService stockService;
     @Inject JsonWebToken jwt;
@@ -69,14 +80,46 @@ public class PurchaseOrderService {
         try { return jwt.getName(); } catch (Exception e) { return null; }
     }
 
+    /**
+     * Lit la préférence tenant {@code vatRecoverable}. Défaut {@code true}
+     * si le tenant est introuvable ou si la sous-structure preferences
+     * n'est pas hydratée (tenant historique antérieur à l'introduction
+     * du flag).
+     */
+    private boolean tenantVatRecoverable() {
+        try {
+            TenantEntity t = tenants.findById(tenantContext.tenantId());
+            if (t == null || t.preferences == null) return true;
+            return t.preferences.vatRecoverable();
+        } catch (Exception ex) {
+            return true;
+        }
+    }
+
+    /**
+     * Résolution effective : override BC s'il est fourni, sinon préférence
+     * tenant courante.
+     */
+    private boolean resolveVatRecoverable(PurchaseOrderEntity e) {
+        return e.vatRecoverableOverride != null
+                ? e.vatRecoverableOverride
+                : tenantVatRecoverable();
+    }
+
+    private PurchaseOrderResponseDto toDto(PurchaseOrderEntity e) {
+        return PurchaseOrderResponseDto.from(e, tenantVatRecoverable());
+    }
+
     public List<PurchaseOrderResponseDto> list(BcStatus status, String q) {
+        // Une seule lecture tenant pour toute la liste — évite N lookups.
+        boolean tenantDefault = tenantVatRecoverable();
         return orders.search(status, q).stream()
-                .map(PurchaseOrderResponseDto::from)
+                .map(e -> PurchaseOrderResponseDto.from(e, tenantDefault))
                 .toList();
     }
 
     public PurchaseOrderResponseDto getById(UUID id) {
-        return PurchaseOrderResponseDto.from(loadOrFail(id));
+        return toDto(loadOrFail(id));
     }
 
     public PurchaseOrderResponseDto create(PurchaseOrderUpsertDto payload, UUID siteId) {
@@ -98,7 +141,7 @@ public class PurchaseOrderService {
         orders.insert(e);
 
         record(e, AuditEventType.PURCHASE_ORDER_CREATED, "Création");
-        return PurchaseOrderResponseDto.from(e);
+        return toDto(e);
     }
 
     public PurchaseOrderResponseDto update(UUID id, PurchaseOrderUpsertDto payload) {
@@ -115,7 +158,7 @@ public class PurchaseOrderService {
         orders.replace(e);
 
         record(e, AuditEventType.PURCHASE_ORDER_UPDATED, "Modification");
-        return PurchaseOrderResponseDto.from(e);
+        return toDto(e);
     }
 
     public PurchaseOrderResponseDto confirm(UUID id) {
@@ -139,7 +182,7 @@ public class PurchaseOrderService {
         orders.replace(e);
         postStockEntries(e);
         record(e, AuditEventType.PURCHASE_ORDER_DELIVERED, "Réception livraison");
-        return PurchaseOrderResponseDto.from(e);
+        return toDto(e);
     }
 
     /**
@@ -152,6 +195,18 @@ public class PurchaseOrderService {
      * transport total est ventilé au prorata du HT sur les autres lignes
      * et incorporé à leur {@code unitCost} d'entrée — le CMUP reflète
      * alors le coût d'acquisition complet (matière + transport).</p>
+     *
+     * <p><strong>TVA non récupérable</strong> : si la résolution
+     * {@link #resolveVatRecoverable(PurchaseOrderEntity)} renvoie
+     * {@code false} et qu'un taux TVA &gt; 0 est saisi, le coût unitaire
+     * envoyé au stock est majoré par {@code (1 + vatRate/100)}. Cas
+     * combiné avec le transport incorporé : la TVA est appliquée
+     * <em>après</em> la ventilation transport (coefficient sur le total
+     * matière + quote-part transport), ce qui revient à dire qu'on
+     * incorpore la TVA payée sur l'ensemble des frais d'acquisition.
+     * Le stockage en base reste inchangé — {@code unitPriceFcfa} sur la
+     * ligne demeure HT, seul le {@code unitCost} dérivé pour le stock
+     * est ajusté.</p>
      */
     private void postStockEntries(PurchaseOrderEntity e) {
         if (e.siteId == null) return;
@@ -169,6 +224,19 @@ public class PurchaseOrderService {
                 && e.transportFcfa.signum() > 0
                 && materialHt.signum() > 0;
 
+        boolean vatRecoverable = resolveVatRecoverable(e);
+        BigDecimal vatRate = e.vatRatePct == null ? BigDecimal.ZERO : e.vatRatePct;
+        boolean applyVatToCmup = !vatRecoverable && vatRate.signum() > 0;
+        // Coefficient multiplicateur (1 + vatRate/100) — calculé une fois.
+        BigDecimal vatCoefficient = applyVatToCmup
+                ? BigDecimal.ONE.add(vatRate.divide(BigDecimal.valueOf(100), VAT_RATIO_SCALE, RoundingMode.HALF_UP))
+                : BigDecimal.ONE;
+
+        if (applyVatToCmup) {
+            LOG.infof("BC %s : TVA non récupérable (taux %s%%) incorporée au CMUP (coefficient %s)",
+                    e.ref, vatRate.toPlainString(), vatCoefficient.toPlainString());
+        }
+
         for (PurchaseOrderLine line : e.lines) {
             if (ArticleType.TRANSPORT.name().equals(line.articleType)) {
                 continue; // pas de mouvement stock pour une prestation
@@ -178,10 +246,18 @@ public class PurchaseOrderService {
                 // Quote-part du transport pour cette ligne, au prorata HT.
                 BigDecimal share = e.transportFcfa
                         .multiply(line.totalLineFcfa)
-                        .divide(materialHt, 4, RoundingMode.HALF_UP);
+                        .divide(materialHt, UNIT_COST_SCALE, RoundingMode.HALF_UP);
                 // On la ramène en coût unitaire à ajouter au PU.
-                BigDecimal unitShare = share.divide(line.quantity, 4, RoundingMode.HALF_UP);
-                unitCost = unitCost.add(unitShare).setScale(4, RoundingMode.HALF_UP);
+                BigDecimal unitShare = share.divide(line.quantity, UNIT_COST_SCALE, RoundingMode.HALF_UP);
+                unitCost = unitCost.add(unitShare).setScale(UNIT_COST_SCALE, RoundingMode.HALF_UP);
+            }
+            if (applyVatToCmup) {
+                // Appliqué APRES la ventilation transport : la TVA porte sur
+                // l'ensemble des coûts d'acquisition (matière + quote-part
+                // transport quand applicable), ce qui reflète la réalité
+                // comptable d'une TVA non déductible portant sur tout l'achat.
+                unitCost = unitCost.multiply(vatCoefficient)
+                        .setScale(UNIT_COST_SCALE, RoundingMode.HALF_UP);
             }
             stockService.applyMovement(new MovementInput(
                     line.articleId, e.siteId,
@@ -217,7 +293,7 @@ public class PurchaseOrderService {
             postStockCompensations(e, c.reason);
         }
         record(e, AuditEventType.PURCHASE_ORDER_CANCELLED, "Contre-passation : " + c.reason);
-        return PurchaseOrderResponseDto.from(e);
+        return toDto(e);
     }
 
     /** Mouvements OUT compensatoires miroirs des IN posés au moment du DELIVER. */
@@ -257,7 +333,7 @@ public class PurchaseOrderService {
         e.updatedAt = Instant.now();
         orders.replace(e);
         record(e, event, label);
-        return PurchaseOrderResponseDto.from(e);
+        return toDto(e);
     }
 
     private PurchaseOrderEntity loadOrFail(UUID id) {
@@ -292,6 +368,9 @@ public class PurchaseOrderService {
         e.notes = blankToNull(p.notes());
         e.vatRatePct = nonNull(p.vatRatePct());
         e.incorporateFreightInCmup = Boolean.TRUE.equals(p.incorporateFreightInCmup());
+        // Override TVA non récupérable : on stocke tel quel (null = hériter
+        // du tenant au moment du markDelivered, true/false = forcer).
+        e.vatRecoverableOverride = p.vatRecoverableOverride();
 
         List<PurchaseOrderLine> lines = new ArrayList<>();
         Set<String> activities = new HashSet<>();

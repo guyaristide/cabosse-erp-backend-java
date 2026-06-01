@@ -10,6 +10,10 @@ public record TenantPreferencesDto(
         @Schema(description = "ISO 639-1", example = "fr")
         String language,
         @Schema(description = "IANA Time Zone", example = "Africa/Abidjan")
-        String timezone
+        String timezone,
+        @Schema(description = "Si vrai, l'entreprise récupère la TVA sur ses achats (CMUP = HT). "
+                + "Si faux, la TVA devient une charge incorporée au coût (CMUP = TTC).",
+                example = "true", defaultValue = "true")
+        boolean vatRecoverable
 
 ) {}

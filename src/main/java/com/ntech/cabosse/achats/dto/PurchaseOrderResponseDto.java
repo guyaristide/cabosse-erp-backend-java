@@ -38,6 +38,18 @@ public record PurchaseOrderResponseDto(
         String notes,
         /** Si {@code true}, transport ventilé au CMUP au markDelivered. */
         boolean incorporateFreightInCmup,
+        /**
+         * Surcharge tenant {@code vatRecoverable} pour ce BC. {@code null}
+         * = hérite du tenant. Cf.
+         * {@link com.ntech.cabosse.achats.entity.PurchaseOrderEntity#vatRecoverableOverride}.
+         */
+        Boolean vatRecoverableOverride,
+        /**
+         * Valeur effectivement appliquée (override si présent, sinon
+         * préférence tenant courante). Pré-calculée côté serveur pour
+         * éviter au front de reconstruire la résolution.
+         */
+        boolean vatRecoverableEffective,
         BcStatus status,
         CancellationDto cancellation,
         String createdByEmail,
@@ -78,11 +90,23 @@ public record PurchaseOrderResponseDto(
         }
     }
 
-    public static PurchaseOrderResponseDto from(PurchaseOrderEntity e) {
+    /**
+     * Variante avec contexte tenant : permet de pré-calculer
+     * {@code vatRecoverableEffective} côté serveur.
+     *
+     * @param tenantDefaultVatRecoverable préférence tenant courante,
+     *        utilisée comme fallback quand {@code vatRecoverableOverride}
+     *        est null.
+     */
+    public static PurchaseOrderResponseDto from(PurchaseOrderEntity e,
+                                                 boolean tenantDefaultVatRecoverable) {
         boolean hasAttachment = e.attachmentFileId != null;
         String attachmentUrl = hasAttachment
                 ? "/api/v1/purchase-orders/" + e.id + "/attachment"
                 : null;
+        boolean effective = e.vatRecoverableOverride != null
+                ? e.vatRecoverableOverride
+                : tenantDefaultVatRecoverable;
         return new PurchaseOrderResponseDto(
                 e.id, e.ref, e.siteId,
                 e.supplierId, e.supplierName, e.supplierLegalName,
@@ -94,9 +118,22 @@ public record PurchaseOrderResponseDto(
                 hasAttachment, attachmentUrl,
                 e.notes,
                 e.incorporateFreightInCmup,
+                e.vatRecoverableOverride,
+                effective,
                 e.status,
                 e.cancellation == null ? null : CancellationDto.from(e.cancellation),
                 e.createdByEmail, e.createdAt, e.updatedAt
         );
+    }
+
+    /**
+     * Variante sans contexte tenant — défaut legacy {@code true}
+     * (compatible historique : la majorité des entreprises récupèrent
+     * la TVA). À éviter dans les nouveaux call-sites ; les services
+     * doivent injecter la préférence tenant et utiliser la variante à
+     * deux arguments.
+     */
+    public static PurchaseOrderResponseDto from(PurchaseOrderEntity e) {
+        return from(e, true);
     }
 }

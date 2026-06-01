@@ -3,6 +3,7 @@ package com.ntech.cabosse.customer.service;
 import com.github.f4b6a3.uuid.UuidCreator;
 import com.ntech.cabosse.customer.dto.CustomerResponseDto;
 import com.ntech.cabosse.customer.dto.CustomerUpsertDto;
+import com.ntech.cabosse.customer.entity.CustomerChannelType;
 import com.ntech.cabosse.customer.entity.CustomerEntity;
 import com.ntech.cabosse.customer.entity.CustomerType;
 import com.ntech.cabosse.customer.repository.CustomerRepository;
@@ -84,6 +85,7 @@ public class CustomerService {
 
     private void apply(CustomerEntity e, CustomerUpsertDto p) {
         e.name = p.name().trim();
+        e.channelType = normalizeChannel(p.channelType());
         e.legalName = blank(p.legalName());
         e.taxNumber = blank(p.taxNumber());
         e.email = blank(p.email());
@@ -106,6 +108,18 @@ public class CustomerService {
     }
 
     private static String blank(String s) { return (s == null || s.isBlank()) ? null : s.trim(); }
+
+    /**
+     * Valide et normalise la valeur de canal. Renvoie {@code null} si
+     * vide (champ optionnel) — l'export et le snapshot ventes traitent
+     * {@code null} comme « non renseigné ». Lève {@link IllegalArgumentException}
+     * en cas de valeur inconnue (la regex du DTO bloque déjà ce cas,
+     * mais on garde la garde-fou à la frontière du domaine).
+     */
+    private static String normalizeChannel(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        return CustomerChannelType.valueOf(raw.trim()).name();
+    }
 
     private static String slugify(String name) {
         if (name == null) return "client";

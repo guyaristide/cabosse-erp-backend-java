@@ -91,6 +91,13 @@ public class TenantUpdateService {
         preferences.currency = payload.preferences().currency().toUpperCase();
         preferences.language = payload.preferences().language().toLowerCase();
         preferences.timezone = payload.preferences().timezone();
+        // null → conserve la valeur courante (semantique patch sur ce champ
+        // pour éviter de casser les clients qui n'envoient pas encore le flag).
+        if (payload.preferences().vatRecoverable() != null) {
+            preferences.vatRecoverable = payload.preferences().vatRecoverable();
+        } else if (tenant.preferences != null) {
+            preferences.vatRecoverable = tenant.preferences.vatRecoverable();
+        }
         tenant.preferences = preferences;
 
         // ─── Activités ───

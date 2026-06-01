@@ -35,6 +35,25 @@ public class SaleRepository {
         return coll().countDocuments(Filters.eq("ref", ref)) > 0;
     }
 
+    /**
+     * Match exact case-insensitive sur {@code invoiceNumber} (tenant-scopé
+     * par construction). Utilisé par l'import pour détecter les doublons
+     * de factures déjà importées et éviter de re-créer des ventes / lignes
+     * en double.
+     *
+     * <p>Renvoie {@code Optional.empty()} si {@code invoiceNumber} est
+     * null ou blanc : un fichier source sans n° facture sur une ligne ne
+     * peut pas être dédoublonné — chaque ligne devient alors une vente
+     * isolée côté front.</p>
+     */
+    public Optional<SaleEntity> findByInvoiceNumber(String invoiceNumber) {
+        if (invoiceNumber == null || invoiceNumber.isBlank()) return Optional.empty();
+        String trimmed = invoiceNumber.trim();
+        String escaped = java.util.regex.Pattern.quote(trimmed);
+        return Optional.ofNullable(
+                coll().find(Filters.regex("invoiceNumber", "^" + escaped + "$", "i")).first());
+    }
+
     public void insert(SaleEntity e) {
         coll().insertOne(e);
     }

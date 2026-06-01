@@ -20,6 +20,15 @@ public record CustomerUpsertDto(
                 message = "Type autorisé : INDIVIDUAL | COMPANY")
         String type,
 
+        /**
+         * Canal de distribution (optionnel). Vide ou {@code null} =
+         * non renseigné ; sera traité comme « Autre » à l'affichage
+         * humanisé.
+         */
+        @Pattern(regexp = "^$|^(GMS|HOTELLERIE|B2B|B2C|RETAIL|OTHER)$",
+                message = "Canal autorisé : GMS | HOTELLERIE | B2B | B2C | RETAIL | OTHER")
+        String channelType,
+
         @Size(max = 150) String legalName,
         @Size(max = 60)  String taxNumber,
 

@@ -36,6 +36,17 @@ public class CustomerRepository {
         return coll().countDocuments(Filters.eq("code", code)) > 0;
     }
 
+    /**
+     * Recherche par nom <em>case-insensitive</em>, trim implicite côté
+     * appelant. Utile à l'import vente pour faire un resolve-or-create.
+     */
+    public Optional<CustomerEntity> findByName(String name) {
+        if (name == null || name.isBlank()) return Optional.empty();
+        String regex = "^" + java.util.regex.Pattern.quote(name.trim()) + "$";
+        return Optional.ofNullable(
+                coll().find(Filters.regex("name", regex, "i")).first());
+    }
+
     public void insert(CustomerEntity e) { coll().insertOne(e); }
     public void replace(CustomerEntity e) { coll().replaceOne(Filters.eq("_id", e.id), e); }
 

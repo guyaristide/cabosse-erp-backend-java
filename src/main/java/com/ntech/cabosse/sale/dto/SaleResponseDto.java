@@ -28,6 +28,7 @@ public record SaleResponseDto(
         String customerCode,
         String customerName,
         String customerLegalName,
+        String channelTypeSnapshot,
 
         LocalDate saleDate,
         LocalDate dueDate,
@@ -85,6 +86,7 @@ public record SaleResponseDto(
         return new SaleResponseDto(
                 e.id, e.ref, e.siteId, e.siteName, e.channel,
                 e.customerId, e.customerCode, e.customerName, e.customerLegalName,
+                e.channelTypeSnapshot,
                 e.saleDate, e.dueDate, e.deliveryDate,
                 e.lines == null ? List.of() : e.lines.stream().map(SaleResponseDto::lineView).toList(),
                 e.subtotalHtFcfa, e.discountPct, e.discountFcfa, e.vatRatePct, e.vatFcfa,

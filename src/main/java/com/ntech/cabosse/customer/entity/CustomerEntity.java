@@ -18,6 +18,14 @@ public class CustomerEntity {
     /** {@link CustomerType} sérialisé en String. */
     public String type;
 
+    /**
+     * {@link CustomerChannelType} sérialisé en String (nullable). Aucune
+     * migration Mongock requise : les clients existants restent à
+     * {@code null} jusqu'à édition, et l'export les traite comme
+     * « canal vide » sans erreur.
+     */
+    public String channelType;
+
     public String legalName;
     public String taxNumber;
 

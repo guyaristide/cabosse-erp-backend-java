@@ -58,6 +58,18 @@ public class SiteRepository {
         return sites().countDocuments(Filters.eq("code", code)) > 0;
     }
 
+    /**
+     * Recherche par nom <em>case-insensitive</em>. Utilisé par l'import
+     * vente pour résoudre le site depuis le libellé brut du fichier
+     * (ex : « Méagui »). Trim implicite côté appelant.
+     */
+    public Optional<SiteEntity> findByName(String name) {
+        if (name == null || name.isBlank()) return Optional.empty();
+        String regex = "^" + java.util.regex.Pattern.quote(name.trim()) + "$";
+        return Optional.ofNullable(
+                sites().find(Filters.regex("name", regex, "i")).first());
+    }
+
     public long count() {
         return sites().countDocuments();
     }

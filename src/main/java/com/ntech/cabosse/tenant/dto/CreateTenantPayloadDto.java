@@ -122,7 +122,12 @@ public record CreateTenantPayloadDto(
             @NotBlank @Pattern(regexp = "^[A-Z]{3}$", message = "ISO 4217 attendu") String currency,
             @NotBlank @Pattern(regexp = "^[a-z]{2}$", message = "ISO 639-1 attendu") String language,
             @NotBlank String timezone,
-            @Min(1) @Max(50) int initialSitesCount
+            @Min(1) @Max(50) int initialSitesCount,
+            @Schema(description = "Si vrai (défaut), l'entreprise récupère la TVA sur les achats ; "
+                    + "le CMUP des matières utilise le PU HT. Si faux, la TVA devient une charge "
+                    + "incorporée au coût d'acquisition.",
+                    defaultValue = "true")
+            Boolean vatRecoverable
     ) {}
 
     @Schema(description = "Sous-payload activité économique")

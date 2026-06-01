@@ -7,6 +7,7 @@ import com.ntech.cabosse.achats.dto.PurchaseOrderLineDto;
 import com.ntech.cabosse.achats.dto.PurchaseOrderResponseDto;
 import com.ntech.cabosse.achats.dto.PurchaseOrderUpsertDto;
 import com.ntech.cabosse.achats.entity.BcStatus;
+import com.ntech.cabosse.achats.repository.PurchaseOrderRepository;
 import com.ntech.cabosse.article.dto.ArticleResponseDto;
 import com.ntech.cabosse.article.dto.ArticleUpsertDto;
 import com.ntech.cabosse.article.entity.ArticleType;
@@ -52,9 +53,25 @@ public class PurchaseOrderImportService {
     @Inject ArticleService articleService;
     @Inject ArticleRepository articleRepository;
     @Inject PurchaseOrderService purchaseOrderService;
+    @Inject PurchaseOrderRepository purchaseOrderRepository;
 
     public PurchaseOrderImportResultDto importOne(PurchaseOrderImportDto payload, UUID siteId) {
-        ResolvedSupplier resolvedSupplier = resolveSupplier(payload.supplier());
+        // Dédoublonnage par numéro de facture : si renseigné et déjà présent
+        // pour ce tenant, on saute (sans créer fournisseur ni article — un BC
+        // existant pour cette facture implique que ses référentiels existent
+        // déjà). Si invoiceNumber est null/blanc, pas de dédoublonnage.
+        if (payload.invoiceNumber() != null && !payload.invoiceNumber().isBlank()) {
+            var dup = purchaseOrderRepository.findByInvoiceNumber(payload.invoiceNumber());
+            if (dup.isPresent()) {
+                var existing = dup.get();
+                return PurchaseOrderImportResultDto.skipped(
+                        payload.invoiceNumber().trim(), existing.ref, existing.id
+                );
+            }
+        }
+
+        boolean strict = Boolean.TRUE.equals(payload.strictMode());
+        ResolvedSupplier resolvedSupplier = resolveSupplier(payload.supplier(), strict);
 
         List<CreatedArticleRef> createdArticles = new ArrayList<>();
         List<ResolvedLine> resolvedLines = new ArrayList<>();
@@ -66,7 +83,7 @@ public class PurchaseOrderImportService {
                     throw new BusinessException(
                             "Ligne " + (i + 1) + " : ni article existant ni nouveau article fourni.");
                 }
-                ResolvedArticle resolved = resolveArticle(line.newArticle());
+                ResolvedArticle resolved = resolveArticle(line.newArticle(), strict);
                 if (resolved.created()) {
                     createdArticles.add(new CreatedArticleRef(
                             resolved.id(), resolved.code(), resolved.name(), resolved.type()
@@ -95,14 +112,15 @@ public class PurchaseOrderImportService {
                 payload.transportFcfa(),
                 payload.vatRatePct(),
                 payload.notes(),
-                payload.incorporateFreightInCmup()
+                payload.incorporateFreightInCmup(),
+                payload.vatRecoverableOverride()
         );
         PurchaseOrderResponseDto bc = purchaseOrderService.create(bcPayload, siteId);
 
         // Application du statut cible via les transitions standards.
         bc = applyInitialStatus(bc, payload.initialStatus());
 
-        return new PurchaseOrderImportResultDto(
+        return PurchaseOrderImportResultDto.created(
                 bc,
                 resolvedSupplier.created(),
                 resolvedSupplier.supplierId(),
@@ -115,8 +133,12 @@ public class PurchaseOrderImportService {
      * Recherche le fournisseur par {@code id} si fourni ; sinon par nom
      * exact (case-insensitive) ; sinon crée. Évite les doublons à
      * l'import multi-BC référençant le même prestataire.
+     *
+     * <p>Si {@code strict == true} et que le fournisseur doit être créé,
+     * une {@link BusinessException} est levée pour forcer la pré-création
+     * manuelle (évite les doublons d'orthographe).</p>
      */
-    private ResolvedSupplier resolveSupplier(PurchaseOrderImportDto.ImportedSupplier s) {
+    private ResolvedSupplier resolveSupplier(PurchaseOrderImportDto.ImportedSupplier s, boolean strict) {
         if (s.id() != null) {
             return new ResolvedSupplier(s.id(), s.name() != null ? s.name() : "—", false);
         }
@@ -127,6 +149,11 @@ public class PurchaseOrderImportService {
         if (existing.isPresent()) {
             var found = existing.get();
             return new ResolvedSupplier(found.id, found.name, false);
+        }
+        if (strict) {
+            throw new BusinessException(
+                    "Mode strict : fournisseur « " + s.name().trim() + " » introuvable. "
+                    + "Créer le référentiel avant d'importer.");
         }
         SupplierUpsertDto create = new SupplierUpsertDto(
                 /* code */ null,
@@ -151,8 +178,12 @@ public class PurchaseOrderImportService {
      * retourne l'existant. Sinon crée. Pour la combinaison (nom, type),
      * deux articles différents peuvent partager un nom (ex : "Lait"
      * matière vs "Lait" produit fini), mais c'est ultra-rare en pratique.
+     *
+     * <p>Si {@code strict == true} et que l'article doit être créé,
+     * une {@link BusinessException} est levée pour forcer la pré-création
+     * manuelle (évite les doublons d'orthographe à l'import massif).</p>
      */
-    private ResolvedArticle resolveArticle(PurchaseOrderImportDto.ImportedArticle a) {
+    private ResolvedArticle resolveArticle(PurchaseOrderImportDto.ImportedArticle a, boolean strict) {
         ArticleType type;
         try {
             type = ArticleType.valueOf(a.type());
@@ -163,6 +194,11 @@ public class PurchaseOrderImportService {
         if (existing.isPresent()) {
             var found = existing.get();
             return new ResolvedArticle(found.id, found.code, found.name, found.type, false);
+        }
+        if (strict) {
+            throw new BusinessException(
+                    "Mode strict : article « " + a.name().trim() + " » (" + a.type()
+                    + ") introuvable. Créer le référentiel avant d'importer.");
         }
         ArticleUpsertDto create = new ArticleUpsertDto(
                 a.type(),

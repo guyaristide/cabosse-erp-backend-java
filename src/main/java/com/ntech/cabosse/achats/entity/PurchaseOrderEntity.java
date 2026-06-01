@@ -80,6 +80,20 @@ public class PurchaseOrderEntity {
      */
     public boolean incorporateFreightInCmup = false;
 
+    /**
+     * Surcharge ponctuelle de la préférence tenant {@code vatRecoverable}.
+     *
+     * <p>{@code null} (défaut) : on suit la préférence tenant courante au
+     * moment du markDelivered. {@code true} : ce BC bénéficie d'une TVA
+     * récupérable (CMUP = HT) même si le tenant en règle générale ne la
+     * récupère pas. {@code false} : la TVA de ce BC est non récupérable
+     * (CMUP = TTC) même si le tenant la récupère habituellement.</p>
+     *
+     * <p>Stocké en {@code Boolean} (nullable) précisément pour distinguer
+     * "non précisé / hériter du tenant" de "explicitement à false".</p>
+     */
+    public Boolean vatRecoverableOverride;
+
     public BcStatus status = BcStatus.DRAFT;
     public PurchaseOrderCancellation cancellation;
 

@@ -77,6 +77,11 @@ public final class CreateTenantMapper {
         preferences.currency = payload.preferences().currency().toUpperCase();
         preferences.language = payload.preferences().language().toLowerCase();
         preferences.timezone = payload.preferences().timezone();
+        // null → conserve le défaut entité (true, comportement legacy compatible
+        // pour la majorité des entreprises qui récupèrent leur TVA en amont).
+        if (payload.preferences().vatRecoverable() != null) {
+            preferences.vatRecoverable = payload.preferences().vatRecoverable();
+        }
         entity.preferences = preferences;
 
         entity.activities = new ArrayList<>();

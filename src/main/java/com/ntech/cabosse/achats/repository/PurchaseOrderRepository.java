@@ -59,6 +59,22 @@ public class PurchaseOrderRepository {
         return coll().countDocuments(Filters.eq("ref", ref)) > 0;
     }
 
+    /**
+     * Match exact case-insensitive sur {@code invoiceNumber} (tenant-scopé
+     * via la collection). Sert au dédoublonnage à l'import : si une facture
+     * portant le même numéro existe déjà, on saute le BC plutôt que de créer
+     * un doublon. Retourne {@code Optional.empty()} si la chaîne est nulle
+     * ou blanche.
+     */
+    public Optional<PurchaseOrderEntity> findByInvoiceNumber(String invoiceNumber) {
+        if (invoiceNumber == null || invoiceNumber.isBlank()) return Optional.empty();
+        String trimmed = invoiceNumber.trim();
+        String escaped = java.util.regex.Pattern.quote(trimmed);
+        return Optional.ofNullable(
+                coll().find(Filters.regex("invoiceNumber", "^" + escaped + "$", "i")).first()
+        );
+    }
+
     public void insert(PurchaseOrderEntity e) {
         coll().insertOne(e);
     }

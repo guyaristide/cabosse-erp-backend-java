@@ -124,7 +124,8 @@ public final class TenantMapper {
         return new TenantPreferencesDto(
                 entity.preferences.currency,
                 entity.preferences.language,
-                entity.preferences.timezone
+                entity.preferences.timezone,
+                entity.preferences.vatRecoverable()
         );
     }
 

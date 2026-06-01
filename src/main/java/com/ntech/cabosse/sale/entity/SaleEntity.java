@@ -41,6 +41,15 @@ public class SaleEntity {
     public String customerName;
     public String customerLegalName;
 
+    /**
+     * Canal de distribution du client figé au moment de la création de la
+     * vente (valeur de {@code CustomerChannelType}, {@code null} si non
+     * renseigné). Un changement ultérieur du canal côté fiche client ne
+     * doit pas modifier le reporting historique : les ventes passées
+     * conservent leur canal d'origine.
+     */
+    public String channelTypeSnapshot;
+
     public LocalDate saleDate;
     /** Échéance de paiement (B2B essentiellement). */
     public LocalDate dueDate;

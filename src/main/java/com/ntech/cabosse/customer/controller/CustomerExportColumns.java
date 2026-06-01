@@ -14,6 +14,7 @@ final class CustomerExportColumns {
                 ExportColumn.of("Code",           CustomerResponseDto::code),
                 ExportColumn.of("Nom",            CustomerResponseDto::name),
                 ExportColumn.of("Type",           c -> humanType(c.type())),
+                ExportColumn.of("Canal",          c -> humanChannel(c.channelType())),
                 ExportColumn.of("Raison sociale", CustomerResponseDto::legalName),
                 ExportColumn.of("N° fiscal",      CustomerResponseDto::taxNumber),
                 ExportColumn.of("Contact",        CustomerResponseDto::contactName),
@@ -33,6 +34,19 @@ final class CustomerExportColumns {
         return switch (code) {
             case "INDIVIDUAL" -> "Particulier";
             case "COMPANY"    -> "Entreprise";
+            default           -> code;
+        };
+    }
+
+    private static String humanChannel(String code) {
+        if (code == null) return "";
+        return switch (code) {
+            case "GMS"        -> "GMS";
+            case "HOTELLERIE" -> "Hôtellerie";
+            case "B2B"        -> "B2B";
+            case "B2C"        -> "B2C";
+            case "RETAIL"     -> "Retail";
+            case "OTHER"      -> "Autre";
             default           -> code;
         };
     }

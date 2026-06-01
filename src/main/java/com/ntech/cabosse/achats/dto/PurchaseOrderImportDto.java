@@ -76,6 +76,13 @@ public record PurchaseOrderImportDto(
         Boolean incorporateFreightInCmup,
 
         /**
+         * Surcharge tenant {@code vatRecoverable} pour ce BC importé.
+         * {@code null} = hérite du tenant. Cf.
+         * {@link PurchaseOrderUpsertDto#vatRecoverableOverride()}.
+         */
+        Boolean vatRecoverableOverride,
+
+        /**
          * Statut cible après import. {@code null}/DRAFT = BC créé en
          * brouillon. CONFIRMED / IN_TRANSIT / DELIVERED appliquent les
          * transitions correspondantes. DELIVERED déclenche aussi
@@ -86,7 +93,17 @@ public record PurchaseOrderImportDto(
         @jakarta.validation.constraints.Pattern(
                 regexp = "^$|^(DRAFT|CONFIRMED|IN_TRANSIT|DELIVERED|CANCELLED)$",
                 message = "Statut autorisé : DRAFT | CONFIRMED | IN_TRANSIT | DELIVERED | CANCELLED")
-        String initialStatus
+        String initialStatus,
+
+        /**
+         * Si {@code true}, l'import refuse de créer à la volée des
+         * fournisseurs ou articles : tout référentiel inconnu fait échouer
+         * le BC. Utile pour éviter les doublons d'orthographe (« poudre de
+         * cacao » vs « poudres de cacao ») quand l'opérateur veut forcer la
+         * pré-création manuelle des référentiels. {@code null}/{@code false}
+         * = comportement par défaut (resolve-or-create).
+         */
+        Boolean strictMode
 
 ) {
 

@@ -10,6 +10,7 @@ import java.util.UUID;
 @Schema(description = "Client du tenant")
 public record CustomerResponseDto(
         UUID id, String code, String name, String type,
+        String channelType,
         String legalName, String taxNumber,
         String email, String phone,
         String addressLine, String cityName, String countryCode,
@@ -18,7 +19,8 @@ public record CustomerResponseDto(
 ) {
     public static CustomerResponseDto from(CustomerEntity e) {
         return new CustomerResponseDto(
-                e.id, e.code, e.name, e.type, e.legalName, e.taxNumber,
+                e.id, e.code, e.name, e.type, e.channelType,
+                e.legalName, e.taxNumber,
                 e.email, e.phone, e.addressLine, e.cityName, e.countryCode,
                 e.contactName, e.creditLimit, e.notes,
                 e.active, e.createdAt, e.updatedAt

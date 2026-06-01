@@ -115,7 +115,9 @@ class TenantsCreateTest extends AbstractIntegrationTest {
         assertThat(newAdmin.invitationExpiresAt).isAfter(Instant.now());
 
         // ─── And : CloudFile métadonnées créées + bytes accessibles ───
-        CloudFileEntity cloudFile = cloudFiles.findById(persisted.branding.logoFileId);
+        CloudFileEntity cloudFile = cloudFiles.findById(
+                com.ntech.cabosse.shared.storage.CloudFileScope.PLATFORM,
+                persisted.branding.logoFileId);
         assertThat(cloudFile).isNotNull();
         assertThat(cloudFile.mimeType).isEqualTo("image/png");
         assertThat(cloudFile.sizeBytes).isEqualTo((long) logo.length);
@@ -185,7 +187,8 @@ class TenantsCreateTest extends AbstractIntegrationTest {
                         "XOF",
                         "fr",
                         "Africa/Abidjan",
-                        1
+                        1,
+                        null
                 ),
                 List.of(new CreateTenantPayloadDto.ActivityPayload(
                         "chocolaterie",
