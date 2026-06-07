@@ -107,6 +107,20 @@ public class SaleRepository {
                 .into(new ArrayList<>());
     }
 
+    /**
+     * Ventes confirmées ou livrées dont la {@code saleDate} tombe dans
+     * l'intervalle [from, to] inclus. Sert l'agrégation période du
+     * tableau de bord direction (CA, marge).
+     */
+    public List<SaleEntity> listConfirmedInRange(LocalDate from, LocalDate to) {
+        Bson filter = Filters.and(
+                Filters.in("status", SaleStatus.CONFIRMED.name(), SaleStatus.DELIVERED.name()),
+                Filters.gte("saleDate", from),
+                Filters.lte("saleDate", to)
+        );
+        return coll().find(filter).into(new ArrayList<>());
+    }
+
     /** Toutes les créances ouvertes (échues ou non) — pour synthèse. */
     public List<SaleEntity> listOpenReceivables() {
         Bson filter = Filters.and(

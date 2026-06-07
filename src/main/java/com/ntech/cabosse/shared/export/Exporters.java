@@ -11,17 +11,23 @@ import com.lowagie.text.Image;
 import com.lowagie.text.pdf.PdfPCell;
 import com.lowagie.text.pdf.PdfPTable;
 import com.lowagie.text.pdf.PdfWriter;
+import org.apache.poi.ss.usermodel.BorderStyle;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.ClientAnchor;
 import org.apache.poi.ss.usermodel.CreationHelper;
-import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.DataFormat;
 import org.apache.poi.ss.usermodel.Drawing;
+import org.apache.poi.ss.usermodel.FillPatternType;
+import org.apache.poi.ss.usermodel.HorizontalAlignment;
 import org.apache.poi.ss.usermodel.Picture;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.VerticalAlignment;
 import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.xssf.usermodel.XSSFCellStyle;
+import org.apache.poi.xssf.usermodel.XSSFColor;
+import org.apache.poi.xssf.usermodel.XSSFFont;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import java.io.IOException;
@@ -106,47 +112,73 @@ public final class Exporters {
 
     // ─── XLSX ─────────────────────────────────────────────────────
 
+    /**
+     * Style cible (uniforme tous exports xlsx, aligné sur les templates
+     * d'import frontend ExcelJS) :
+     * <ul>
+     *   <li>En-tête : fond beige {@code #EAE5DA}, texte {@code #1A1A1A} gras 11 pt,
+     *       centré, hauteur 32 pt, bordure basse {@code medium} {@code #B8AE99},
+     *       les trois autres côtés en {@code thin} {@code #B8AE99}.</li>
+     *   <li>Cellules : bordures {@code thin} {@code #D4CFC4}, alignement vertical centre,
+     *       horizontal centre (texte) ou droite (numérique), hauteur 22 pt.</li>
+     *   <li>Formats colonne par type détecté : argent FCFA {@code #,##0}, qty
+     *       {@code #,##0.##}, pourcentage {@code 0.0"%"}, dates {@code dd/mm/yyyy}.</li>
+     *   <li>Freeze pane sur la 1ʳᵉ ligne. Largeurs ≈ {@code max(label.length, valeur.length)+2}.</li>
+     * </ul>
+     *
+     * <p>Stratégie de typage des colonnes :</p>
+     * <ol>
+     *   <li>Première passe sur toutes les lignes pour détecter le type Java
+     *       dominant (Number/BigDecimal/Date/LocalDate/Instant/texte).</li>
+     *   <li>Pour les colonnes numériques, sous-type (money / qty / pct)
+     *       déterminé par heuristique sur l'en-tête. Money est le défaut.</li>
+     * </ol>
+     */
     public static <T> void writeXlsx(ExportDataset<T> dataset, OutputStream out) {
         try (Workbook wb = new XSSFWorkbook()) {
             String sheetName = safeSheetName(dataset.title());
             Sheet sheet = wb.createSheet(sheetName);
-
-            // Styles
-            CellStyle headerStyle = wb.createCellStyle();
-            org.apache.poi.ss.usermodel.Font bold = wb.createFont();
-            bold.setBold(true);
-            headerStyle.setFont(bold);
-
-            CellStyle dateStyle = wb.createCellStyle();
             DataFormat fmt = wb.createDataFormat();
-            dateStyle.setDataFormat(fmt.getFormat("dd/mm/yyyy"));
+            CreationHelper helper = wb.getCreationHelper();
 
-            CellStyle numberStyle = wb.createCellStyle();
-            numberStyle.setDataFormat(fmt.getFormat("#,##0.00"));
+            final int colCount = dataset.columns().size();
 
-            // Header row
+            // ─── Détection des types de colonnes (1re passe non destructive) ─
+            ColumnKind[] kinds = detectColumnKinds(dataset);
+            boolean[] isImageCol = new boolean[colCount];
+
+            // ─── Styles partagés ──────────────────────────────────────────
+            CellStyle headerStyle = buildHeaderStyle(wb);
+            // Styles de données par couple (kind, isFirst column? non — couleur de bordure unique).
+            // Un style par sous-type suffit : on les construit paresseusement.
+            CellStyle textStyle  = buildBodyStyle(wb, fmt, ColumnKind.TEXT);
+            CellStyle moneyStyle = buildBodyStyle(wb, fmt, ColumnKind.NUMBER_MONEY);
+            CellStyle qtyStyle   = buildBodyStyle(wb, fmt, ColumnKind.NUMBER_QTY);
+            CellStyle pctStyle   = buildBodyStyle(wb, fmt, ColumnKind.NUMBER_PCT);
+            CellStyle dateStyle  = buildBodyStyle(wb, fmt, ColumnKind.DATE);
+
+            // ─── Ligne d'en-tête ──────────────────────────────────────────
             Row header = sheet.createRow(0);
-            for (int i = 0; i < dataset.columns().size(); i++) {
+            header.setHeightInPoints(32f);
+            for (int i = 0; i < colCount; i++) {
                 Cell cell = header.createCell(i);
                 cell.setCellValue(dataset.columns().get(i).header());
                 cell.setCellStyle(headerStyle);
             }
 
-            // Repérer les colonnes image — elles auront leur largeur figée
-            // (POI.autoSizeColumn ne sait pas évaluer les images) et chaque
-            // ligne portant une image aura sa hauteur augmentée.
-            boolean[] isImageCol = new boolean[dataset.columns().size()];
-
-            // Drawing : créé paresseusement quand on rencontre la 1re image.
+            // ─── Corps : écriture des lignes + ancrage d'éventuelles images ─
             Drawing<?> drawing = null;
-            CreationHelper helper = wb.getCreationHelper();
+            int[] maxLen = new int[colCount];
+            for (int i = 0; i < colCount; i++) {
+                maxLen[i] = lengthOf(dataset.columns().get(i).header());
+            }
 
-            // Body
             int rowIdx = 1;
             for (T row : dataset.rows()) {
                 Row sheetRow = sheet.createRow(rowIdx);
+                sheetRow.setHeightInPoints(22f);
                 boolean rowHasImage = false;
-                for (int i = 0; i < dataset.columns().size(); i++) {
+                for (int i = 0; i < colCount; i++) {
                     Object v = dataset.columns().get(i).extractor().apply(row);
                     Cell c = sheetRow.createCell(i);
                     if (v instanceof ExportImage img && img.bytes() != null && img.bytes().length > 0) {
@@ -154,21 +186,35 @@ public final class Exporters {
                         rowHasImage = true;
                         if (drawing == null) drawing = sheet.createDrawingPatriarch();
                         embedXlsxImage(wb, drawing, helper, img, i, rowIdx);
+                        // Cellule support stylée pour conserver bordures même sans valeur.
+                        c.setCellStyle(textStyle);
                     } else {
-                        applyXlsxValue(c, v instanceof ExportImage ? null : v, dateStyle, numberStyle);
+                        Object printable = v instanceof ExportImage ? null : v;
+                        CellStyle cs = switch (kinds[i]) {
+                            case NUMBER_MONEY -> moneyStyle;
+                            case NUMBER_QTY   -> qtyStyle;
+                            case NUMBER_PCT   -> pctStyle;
+                            case DATE         -> dateStyle;
+                            case TEXT         -> textStyle;
+                        };
+                        applyXlsxValue(c, printable, cs);
+                        int len = printableLength(printable);
+                        if (len > maxLen[i]) maxLen[i] = len;
                     }
                 }
                 if (rowHasImage) sheetRow.setHeightInPoints(48f);
                 rowIdx++;
             }
 
-            // Auto-size pour les colonnes non-image. Les images ont une
-            // largeur fixe ~10 caractères.
-            for (int i = 0; i < dataset.columns().size(); i++) {
+            // ─── Largeurs de colonne (heuristique : longueur+2, bornée) ────
+            // Les images : largeur fixe ~10 chars. Sinon : maxLen+2 clampé
+            // entre 8 et 60 pour éviter les colonnes ridicules ou géantes.
+            for (int i = 0; i < colCount; i++) {
                 if (isImageCol[i]) {
                     sheet.setColumnWidth(i, 10 * 256);
                 } else {
-                    sheet.autoSizeColumn(i);
+                    int chars = Math.max(8, Math.min(60, maxLen[i] + 2));
+                    sheet.setColumnWidth(i, chars * 256);
                 }
             }
             sheet.createFreezePane(0, 1);
@@ -178,6 +224,202 @@ public final class Exporters {
         } catch (IOException e) {
             throw new BusinessException("Erreur d'écriture XLSX : " + e.getMessage(), e);
         }
+    }
+
+    /** Catégorie de format appliquée au niveau colonne. */
+    private enum ColumnKind { TEXT, NUMBER_MONEY, NUMBER_QTY, NUMBER_PCT, DATE }
+
+    /**
+     * Détermine la nature de chaque colonne. Approche prudente :
+     * <ul>
+     *   <li>1re passe : type Java dominant des valeurs non-{@code null}
+     *       (un seul {@link Number}/{@link BigDecimal} suffit à classer
+     *       la colonne en numérique ; une date suffit pour la classer date).
+     *       En cas de conflit (numérique + texte), texte gagne.</li>
+     *   <li>Sous-type numérique : heuristique sur l'en-tête.
+     *       Mots-clés « % », « pct », « tva », « taux », « marge », « pourcent »
+     *       → {@link ColumnKind#NUMBER_PCT}.
+     *       Mots-clés « qté », « quantité », « qty », « seuil », « stock »
+     *       → {@link ColumnKind#NUMBER_QTY}.
+     *       Tout le reste → {@link ColumnKind#NUMBER_MONEY} (cas dominant, FCFA).</li>
+     * </ul>
+     */
+    private static <T> ColumnKind[] detectColumnKinds(ExportDataset<T> dataset) {
+        int n = dataset.columns().size();
+        ColumnKind[] kinds = new ColumnKind[n];
+        boolean[] sawNumber = new boolean[n];
+        boolean[] sawDate   = new boolean[n];
+        boolean[] sawText   = new boolean[n];
+
+        for (T row : dataset.rows()) {
+            for (int i = 0; i < n; i++) {
+                Object v = dataset.columns().get(i).extractor().apply(row);
+                if (v == null) continue;
+                if (v instanceof ExportImage) continue;
+                if (v instanceof Number || v instanceof BigDecimal) {
+                    sawNumber[i] = true;
+                } else if (v instanceof LocalDate || v instanceof Instant || v instanceof Date) {
+                    sawDate[i] = true;
+                } else if (v instanceof Boolean) {
+                    sawText[i] = true;
+                } else {
+                    sawText[i] = true;
+                }
+            }
+        }
+
+        for (int i = 0; i < n; i++) {
+            String header = dataset.columns().get(i).header();
+            if (sawText[i]) {
+                kinds[i] = ColumnKind.TEXT;            // texte gagne en cas de conflit
+            } else if (sawDate[i]) {
+                kinds[i] = ColumnKind.DATE;
+            } else if (sawNumber[i]) {
+                kinds[i] = numericKindFromHeader(header);
+            } else {
+                kinds[i] = headerOnlyKind(header);     // colonne vide : tente l'en-tête
+            }
+        }
+        return kinds;
+    }
+
+    /** Pour une colonne entièrement vide, on regarde uniquement l'en-tête. */
+    private static ColumnKind headerOnlyKind(String header) {
+        if (header == null) return ColumnKind.TEXT;
+        String h = header.toLowerCase(FR);
+        if (looksLikeDate(h))    return ColumnKind.DATE;
+        if (looksLikePct(h))     return ColumnKind.NUMBER_PCT;
+        if (looksLikeQty(h))     return ColumnKind.NUMBER_QTY;
+        if (looksLikeMoney(h))   return ColumnKind.NUMBER_MONEY;
+        return ColumnKind.TEXT;
+    }
+
+    private static ColumnKind numericKindFromHeader(String header) {
+        if (header == null) return ColumnKind.NUMBER_MONEY;
+        String h = header.toLowerCase(FR);
+        if (looksLikePct(h)) return ColumnKind.NUMBER_PCT;
+        if (looksLikeQty(h)) return ColumnKind.NUMBER_QTY;
+        return ColumnKind.NUMBER_MONEY;
+    }
+
+    private static boolean looksLikePct(String h) {
+        return h.contains("%")
+                || h.contains("pct")
+                || h.contains("pourcent")
+                || h.contains("taux")
+                || h.contains("tva")
+                || h.contains("marge")
+                || h.contains("remise");
+    }
+
+    private static boolean looksLikeQty(String h) {
+        return h.contains("qté")
+                || h.contains("qte")
+                || h.contains("quantité")
+                || h.contains("quantite")
+                || h.contains("qty")
+                || h.contains("seuil")
+                || h.contains("stock")
+                || h.contains("nombre")
+                || h.contains("nb ");
+    }
+
+    private static boolean looksLikeMoney(String h) {
+        return h.contains("fcfa")
+                || h.contains("xof")
+                || h.contains("montant")
+                || h.contains("total")
+                || h.contains("prix")
+                || h.contains("coût")
+                || h.contains("cout")
+                || h.contains("cmup")
+                || h.contains("solde")
+                || h.contains("payé")
+                || h.contains("paye");
+    }
+
+    private static boolean looksLikeDate(String h) {
+        return h.contains("date") || h.contains("échéance") || h.contains("echeance")
+                || h.contains("créé le") || h.contains("cree le") || h.contains("modifié le");
+    }
+
+    /** Style en-tête : voir Javadoc de {@link #writeXlsx}. */
+    private static CellStyle buildHeaderStyle(Workbook wb) {
+        XSSFCellStyle s = (XSSFCellStyle) wb.createCellStyle();
+        XSSFFont font = (XSSFFont) wb.createFont();
+        font.setBold(true);
+        font.setFontHeightInPoints((short) 11);
+        font.setColor(new XSSFColor(hex(0x1A, 0x1A, 0x1A), null));
+        s.setFont(font);
+        s.setFillForegroundColor(new XSSFColor(hex(0xEA, 0xE5, 0xDA), null));
+        s.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        s.setAlignment(HorizontalAlignment.CENTER);
+        s.setVerticalAlignment(VerticalAlignment.CENTER);
+        s.setWrapText(true);
+        XSSFColor borderColor = new XSSFColor(hex(0xB8, 0xAE, 0x99), null);
+        s.setBorderTop(BorderStyle.THIN);
+        s.setBorderLeft(BorderStyle.THIN);
+        s.setBorderRight(BorderStyle.THIN);
+        s.setBorderBottom(BorderStyle.MEDIUM);
+        s.setTopBorderColor(borderColor);
+        s.setLeftBorderColor(borderColor);
+        s.setRightBorderColor(borderColor);
+        s.setBottomBorderColor(borderColor);
+        return s;
+    }
+
+    /** Style cellule de données pour une catégorie. */
+    private static CellStyle buildBodyStyle(Workbook wb, DataFormat fmt, ColumnKind kind) {
+        XSSFCellStyle s = (XSSFCellStyle) wb.createCellStyle();
+        s.setVerticalAlignment(VerticalAlignment.CENTER);
+        switch (kind) {
+            case NUMBER_MONEY -> {
+                s.setDataFormat(fmt.getFormat("#,##0"));
+                s.setAlignment(HorizontalAlignment.RIGHT);
+            }
+            case NUMBER_QTY -> {
+                s.setDataFormat(fmt.getFormat("#,##0.##"));
+                s.setAlignment(HorizontalAlignment.RIGHT);
+            }
+            case NUMBER_PCT -> {
+                // Valeurs stockées en pourcentage entier (18 pour 18 %) →
+                // suffixe " %" littéral plutôt que le format de Excel qui
+                // multiplierait par 100. Cohérent avec les templates d'import.
+                s.setDataFormat(fmt.getFormat("0.0\" %\""));
+                s.setAlignment(HorizontalAlignment.RIGHT);
+            }
+            case DATE -> {
+                s.setDataFormat(fmt.getFormat("dd/mm/yyyy"));
+                s.setAlignment(HorizontalAlignment.CENTER);
+            }
+            case TEXT -> {
+                s.setAlignment(HorizontalAlignment.CENTER);
+                s.setWrapText(true);
+            }
+        }
+        XSSFColor borderColor = new XSSFColor(hex(0xD4, 0xCF, 0xC4), null);
+        s.setBorderTop(BorderStyle.THIN);
+        s.setBorderLeft(BorderStyle.THIN);
+        s.setBorderRight(BorderStyle.THIN);
+        s.setBorderBottom(BorderStyle.THIN);
+        s.setTopBorderColor(borderColor);
+        s.setLeftBorderColor(borderColor);
+        s.setRightBorderColor(borderColor);
+        s.setBottomBorderColor(borderColor);
+        return s;
+    }
+
+    private static byte[] hex(int r, int g, int b) {
+        return new byte[] { (byte) r, (byte) g, (byte) b };
+    }
+
+    /** Longueur visuelle de l'objet une fois formaté texte (heuristique largeur). */
+    private static int printableLength(Object v) {
+        return lengthOf(formatForText(v));
+    }
+
+    private static int lengthOf(String s) {
+        return s == null ? 0 : s.length();
     }
 
     /** Embarque une image dans une cellule Excel (ancrage cellule unique). */
@@ -204,36 +446,41 @@ public final class Exporters {
         @SuppressWarnings("unused") Object _ignore = pic;
     }
 
-    private static void applyXlsxValue(org.apache.poi.ss.usermodel.Cell cell, Object v,
-                                       CellStyle dateStyle, CellStyle numberStyle) {
+    /**
+     * Pose la valeur dans la cellule en respectant son type Java, et applique
+     * le style de colonne pré-calculé. Le style porte déjà l'alignement, les
+     * bordures, et le format (#,##0 / dd/mm/yyyy / …) ; on n'a plus à
+     * basculer entre styles ici.
+     *
+     * <p>Cas {@code null} : la cellule reste vide (mais reçoit quand même
+     * le style, sinon les bordures de la grille seraient cassées sur la
+     * cellule absente).</p>
+     */
+    private static void applyXlsxValue(Cell cell, Object v, CellStyle style) {
+        cell.setCellStyle(style);
         if (v == null) { cell.setBlank(); return; }
         if (v instanceof Number n) {
             cell.setCellValue(n.doubleValue());
-            cell.setCellStyle(numberStyle);
             return;
         }
         if (v instanceof BigDecimal bd) {
             cell.setCellValue(bd.doubleValue());
-            cell.setCellStyle(numberStyle);
             return;
         }
         if (v instanceof Boolean b) {
-            cell.setCellValue(b);
+            cell.setCellValue(b ? "Oui" : "Non");
             return;
         }
         if (v instanceof LocalDate d) {
             cell.setCellValue(Date.from(d.atStartOfDay(UTC).toInstant()));
-            cell.setCellStyle(dateStyle);
             return;
         }
         if (v instanceof Instant i) {
             cell.setCellValue(Date.from(i));
-            cell.setCellStyle(dateStyle);
             return;
         }
         if (v instanceof Date d) {
             cell.setCellValue(d);
-            cell.setCellStyle(dateStyle);
             return;
         }
         cell.setCellValue(v.toString());

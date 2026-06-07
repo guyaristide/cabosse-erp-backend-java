@@ -6,6 +6,8 @@ import com.ntech.cabosse.achats.dto.PurchaseOrderResponseDto;
 import com.ntech.cabosse.achats.dto.PurchaseOrderUpsertDto;
 import com.ntech.cabosse.achats.entity.BcStatus;
 import com.ntech.cabosse.achats.entity.PurchaseOrderCancellation;
+import com.ntech.cabosse.accounting.entity.PostingSourceType;
+import com.ntech.cabosse.accounting.service.AccountingService;
 import com.ntech.cabosse.achats.entity.PurchaseOrderEntity;
 import com.ntech.cabosse.achats.entity.PurchaseOrderLine;
 import com.ntech.cabosse.achats.repository.PurchaseOrderRepository;
@@ -74,6 +76,7 @@ public class PurchaseOrderService {
     @Inject TenantRepository tenants;
     @Inject AuditService audit;
     @Inject StockService stockService;
+    @Inject AccountingService accounting;
     @Inject JsonWebToken jwt;
 
     private String actor() {
@@ -181,6 +184,7 @@ public class PurchaseOrderService {
         e.updatedAt = Instant.now();
         orders.replace(e);
         postStockEntries(e);
+        accounting.postFromPurchaseOrder(e, resolveVatRecoverable(e));
         record(e, AuditEventType.PURCHASE_ORDER_DELIVERED, "Réception livraison");
         return toDto(e);
     }
@@ -291,6 +295,7 @@ public class PurchaseOrderService {
         // Le stock n'a été impacté que si le BC avait été livré.
         if (previous == BcStatus.DELIVERED) {
             postStockCompensations(e, c.reason);
+            accounting.reverseFrom(PostingSourceType.PURCHASE_ORDER, e.id, c.reason);
         }
         record(e, AuditEventType.PURCHASE_ORDER_CANCELLED, "Contre-passation : " + c.reason);
         return toDto(e);

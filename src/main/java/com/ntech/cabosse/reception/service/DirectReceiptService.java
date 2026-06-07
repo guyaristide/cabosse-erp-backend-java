@@ -1,7 +1,10 @@
 package com.ntech.cabosse.reception.service;
 
 import com.github.f4b6a3.uuid.UuidCreator;
+import com.ntech.cabosse.accounting.entity.PostingSourceType;
+import com.ntech.cabosse.accounting.service.AccountingService;
 import com.ntech.cabosse.article.entity.ArticleEntity;
+import com.ntech.cabosse.article.entity.ArticleType;
 import com.ntech.cabosse.article.repository.ArticleRepository;
 import com.ntech.cabosse.reception.dto.DirectReceiptLineDto;
 import com.ntech.cabosse.reception.dto.DirectReceiptPaymentDto;
@@ -73,6 +76,7 @@ public class DirectReceiptService {
     @Inject TenantRepository tenants;
     @Inject AuditService audit;
     @Inject StockService stockService;
+    @Inject AccountingService accounting;
     @Inject JsonWebToken jwt;
 
     private String actor() {
@@ -144,8 +148,19 @@ public class DirectReceiptService {
         applyLinesAndRecompute(e, payload.lines());
         receipts.insert(e);
         postStockEntries(e);
+        accounting.postFromDirectReceipt(e, resolveArticleType(article), resolveVatRecoverable(e));
+        // Si des paiements ont été saisis dès la création, comptabiliser chacun.
+        for (DirectReceiptLine line : e.lines) {
+            if (line.payment != null) accounting.postFromDirectReceiptPayment(e, line);
+        }
         record(e, AuditEventType.DIRECT_RECEIPT_CREATED, "Création");
         return DirectReceiptResponseDto.from(e, tenantVatRecoverable());
+    }
+
+    private ArticleType resolveArticleType(ArticleEntity article) {
+        if (article == null || article.type == null) return ArticleType.RAW_MATERIAL;
+        try { return ArticleType.valueOf(article.type); }
+        catch (IllegalArgumentException ex) { return ArticleType.RAW_MATERIAL; }
     }
 
     /**
@@ -251,6 +266,7 @@ public class DirectReceiptService {
         recomputeStatus(e);
         e.updatedAt = Instant.now();
         receipts.replace(e);
+        accounting.postFromDirectReceiptPayment(e, line);
 
         record(e, AuditEventType.DIRECT_RECEIPT_LINE_PAID,
                 "Paiement enregistré (" + line.supplierName + ", "
@@ -271,6 +287,11 @@ public class DirectReceiptService {
         recomputeStatus(e);
         e.updatedAt = Instant.now();
         receipts.replace(e);
+        accounting.reverseFrom(
+                PostingSourceType.DIRECT_RECEIPT_PAYMENT,
+                AccountingService.directReceiptPaymentSurrogateId(e.id, line.id),
+                "Retrait paiement"
+        );
         record(e, AuditEventType.DIRECT_RECEIPT_LINE_PAYMENT_REVERTED,
                 "Paiement annulé (" + line.supplierName + ")");
         return DirectReceiptResponseDto.from(e, tenantVatRecoverable());
@@ -293,6 +314,18 @@ public class DirectReceiptService {
         e.updatedAt = Instant.now();
         receipts.replace(e);
         postStockCompensations(e, c.reason);
+        // Contre-passer les paiements liés (s'il y en avait) AVANT la RD elle-même
+        // pour que le grand-livre reflète l'ordre chronologique des annulations.
+        for (DirectReceiptLine line : e.lines) {
+            if (line.payment != null) {
+                accounting.reverseFrom(
+                        PostingSourceType.DIRECT_RECEIPT_PAYMENT,
+                        AccountingService.directReceiptPaymentSurrogateId(e.id, line.id),
+                        c.reason
+                );
+            }
+        }
+        accounting.reverseFrom(PostingSourceType.DIRECT_RECEIPT, e.id, c.reason);
         record(e, AuditEventType.DIRECT_RECEIPT_CANCELLED, "Contre-passation : " + c.reason);
         return DirectReceiptResponseDto.from(e, tenantVatRecoverable());
     }

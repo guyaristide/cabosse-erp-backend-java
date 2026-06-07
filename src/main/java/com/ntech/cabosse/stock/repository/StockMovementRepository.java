@@ -110,6 +110,40 @@ public class StockMovementRepository {
                 .into(new ArrayList<>());
     }
 
+    /**
+     * Tous les mouvements rattachés à un {@code lotRef} donné — usage
+     * traçabilité. Le {@code lotRef} est porté par le mvt IN du PF
+     * produit, et par les mvts OUT lors des ventes consommatrices. Index
+     * sparse {@code idx_stock_movements_lotRef} (M009).
+     */
+    public List<StockMovementEntity> findByLotRef(String lotRef) {
+        return coll().find(Filters.eq("lotRef", lotRef))
+                .sort(new Document("occurredAt", 1))
+                .into(new ArrayList<>());
+    }
+
+    /**
+     * Mouvements d'entrée (IN, OPENING, TRANSFER_IN) antérieurs à une date
+     * donnée, pour un couple (article, site), triés du plus récent au plus
+     * ancien. Sert l'inférence FIFO en traçabilité : "d'où viennent les
+     * matières que cet OF a consommées au démarrage ?"
+     */
+    public List<StockMovementEntity> findRecentInsBefore(UUID articleId, UUID siteId,
+                                                         Instant before, int limit) {
+        return coll().find(Filters.and(
+                        Filters.eq("articleId", articleId),
+                        Filters.eq("siteId", siteId),
+                        Filters.in("kind",
+                                com.ntech.cabosse.stock.entity.MovementKind.IN.name(),
+                                com.ntech.cabosse.stock.entity.MovementKind.OPENING.name(),
+                                com.ntech.cabosse.stock.entity.MovementKind.TRANSFER_IN.name()),
+                        Filters.lte("occurredAt", before)
+                ))
+                .sort(new Document("occurredAt", -1))
+                .limit(Math.max(1, Math.min(limit, 50)))
+                .into(new ArrayList<>());
+    }
+
     public long countByArticleAndSite(UUID articleId, UUID siteId) {
         return coll().countDocuments(Filters.and(
                 Filters.eq("articleId", articleId),

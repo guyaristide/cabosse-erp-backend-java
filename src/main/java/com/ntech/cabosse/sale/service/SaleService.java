@@ -60,6 +60,7 @@ public class SaleService {
     @Inject SiteRepository sites;
     @Inject StockService stockService;
     @Inject StockItemRepository stockItems;
+    @Inject com.ntech.cabosse.accounting.service.AccountingService accounting;
     @Inject AuditService audit;
     @Inject TenantContext tenantContext;
     @Inject JsonWebToken jwt;
@@ -130,6 +131,11 @@ public class SaleService {
 
         applyLinesAndTotals(e, payload.lines());
         sales.insert(e);
+        // Vente créée directement en CONFIRMED → comptabiliser dès maintenant.
+        // Le devis (QUOTE) n'a aucun impact comptable jusqu'à validation.
+        if (!asQuote) {
+            accounting.postFromSale(e);
+        }
 
         record(e, AuditEventType.SALE_CREATED,
                 (asQuote ? "Création devis" : "Création vente") + " pour " + e.customerName);
@@ -183,6 +189,7 @@ public class SaleService {
         e.status = SaleStatus.CONFIRMED;
         e.updatedAt = Instant.now();
         sales.replace(e);
+        accounting.postFromSale(e);
         record(e, AuditEventType.SALE_QUOTE_VALIDATED, "Devis validé");
         return SaleResponseDto.from(e);
     }
@@ -249,6 +256,7 @@ public class SaleService {
         recomputePaymentStatus(e);
         e.updatedAt = Instant.now();
         sales.replace(e);
+        accounting.postFromSalePayment(e, p);
 
         record(e, AuditEventType.SALE_PAYMENT_RECEIVED,
                 "Paiement " + amount + " FCFA (" + p.method
@@ -268,6 +276,11 @@ public class SaleService {
         recomputePaymentStatus(e);
         e.updatedAt = Instant.now();
         sales.replace(e);
+        accounting.reverseFrom(
+                com.ntech.cabosse.accounting.entity.PostingSourceType.SALE_PAYMENT,
+                paymentId,
+                "Retrait paiement"
+        );
         record(e, AuditEventType.SALE_PAYMENT_REVERTED, "Paiement retiré");
         return SaleResponseDto.from(e);
     }
@@ -305,6 +318,23 @@ public class SaleService {
         e.status = SaleStatus.CANCELLED;
         e.updatedAt = when;
         sales.replace(e);
+
+        // Contre-passations comptables — uniquement si la vente était passée
+        // par CONFIRMED (un devis n'a jamais été comptabilisé).
+        if (previous != SaleStatus.QUOTE) {
+            for (SalePayment payment : e.payments) {
+                accounting.reverseFrom(
+                        com.ntech.cabosse.accounting.entity.PostingSourceType.SALE_PAYMENT,
+                        payment.id,
+                        c.reason
+                );
+            }
+            accounting.reverseFrom(
+                    com.ntech.cabosse.accounting.entity.PostingSourceType.SALE,
+                    e.id,
+                    c.reason
+            );
+        }
 
         record(e, AuditEventType.SALE_CANCELLED,
                 "Contre-passation depuis " + previous + " : " + c.reason);
