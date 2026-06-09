@@ -66,6 +66,7 @@ public class ManufacturingOrderService {
     @Inject StockService stockService;
     @Inject StockItemRepository stockItems;
     @Inject TenantContext tenantContext;
+    @Inject com.ntech.cabosse.shared.money.MoneyFormatter money;
     @Inject AuditService audit;
     @Inject JsonWebToken jwt;
 
@@ -220,7 +221,7 @@ public class ManufacturingOrderService {
         e.updatedAt = Instant.now();
         orders.replace(e);
         record(e, AuditEventType.MANUFACTURING_ORDER_STARTED,
-                "Démarrage — " + totalCost + " FCFA matières consommées");
+                "Démarrage — " + money.format(totalCost, tenantContext.currency()) + " matières consommées");
         return ProductionOrderResponseDto.from(e);
     }
 
@@ -316,7 +317,7 @@ public class ManufacturingOrderService {
 
         record(e, AuditEventType.MANUFACTURING_ORDER_COMPLETED,
                 "Terminé — " + producedQty + " " + e.finishedProductUnit
-                        + " · CMUP " + cmupPF + " FCFA · lot " + e.lotRef);
+                        + " · CMUP " + money.format(cmupPF, tenantContext.currency()) + " · lot " + e.lotRef);
         return ProductionOrderResponseDto.from(e);
     }
 

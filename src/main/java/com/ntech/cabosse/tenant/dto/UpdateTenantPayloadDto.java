@@ -7,6 +7,7 @@ import com.ntech.cabosse.tenant.dto.CreateTenantPayloadDto.ContactPayload;
 import com.ntech.cabosse.tenant.dto.CreateTenantPayloadDto.LegalPayload;
 import com.ntech.cabosse.tenant.dto.CreateTenantPayloadDto.PreferencesPayload;
 import com.ntech.cabosse.tenant.entity.CommercialStatus;
+import com.ntech.cabosse.tenant.entity.TenantOrganizationModel;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -60,6 +61,11 @@ public record UpdateTenantPayloadDto(
 
         @NotBlank String planCode,
         @NotNull CommercialStatus commercialStatus,
-        @Min(1) @Max(90) Integer trialDurationDays
+        @Min(1) @Max(90) Integer trialDurationDays,
+
+        @NotNull(message = "Modèle organisationnel requis")
+        @Schema(description = "Structure juridique. Pilote l'activation des capacités hasMembers et hasSustainability.",
+                example = "COOPERATIVE")
+        TenantOrganizationModel organizationModel
 
 ) {}

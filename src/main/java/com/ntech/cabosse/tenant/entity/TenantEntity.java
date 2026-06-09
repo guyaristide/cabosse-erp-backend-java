@@ -45,6 +45,15 @@ public class TenantEntity extends PanacheMongoEntityBase {
     /** Renseigné seulement si {@code commercialStatus == TRIAL}. */
     public Integer trialDurationDays;
 
+    /**
+     * Structure juridique du tenant. Orthogonale aux {@link #activities}.
+     * Pilote l'activation des capacités {@code hasMembers} et
+     * {@code hasSustainability} indépendamment de la filière.
+     * Défaut {@link TenantOrganizationModel#PRIVATE_COMPANY} si non
+     * précisé (cas des tenants historiques antérieurs à NEIBA-TECH-2026-003).
+     */
+    public TenantOrganizationModel organizationModel = TenantOrganizationModel.PRIVATE_COMPANY;
+
     /** Code du plan tarifaire (FK vers {@link com.ntech.cabosse.plan.entity.PlanEntity#code}). */
     public String planCode;
 

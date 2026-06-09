@@ -77,6 +77,7 @@ public class DirectReceiptService {
     @Inject AuditService audit;
     @Inject StockService stockService;
     @Inject AccountingService accounting;
+    @Inject com.ntech.cabosse.shared.money.MoneyFormatter money;
     @Inject JsonWebToken jwt;
 
     private String actor() {
@@ -270,7 +271,8 @@ public class DirectReceiptService {
 
         record(e, AuditEventType.DIRECT_RECEIPT_LINE_PAID,
                 "Paiement enregistré (" + line.supplierName + ", "
-                        + payment.amountFcfa + " FCFA, BP " + payment.paymentNoteRef + ")");
+                        + money.format(payment.amountFcfa, tenantContext.currency())
+                        + ", BP " + payment.paymentNoteRef + ")");
         return DirectReceiptResponseDto.from(e, tenantVatRecoverable());
     }
 

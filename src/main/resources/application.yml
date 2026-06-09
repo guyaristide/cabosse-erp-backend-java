@@ -46,6 +46,11 @@ quarkus:
       tenant-registry:
         expire-after-write: 5M
         maximum-size: 1000
+      # Descripteur de devise (catalogue currencies) — cache long, les
+      # devises ne changent quasiment jamais.
+      currency-descriptor:
+        expire-after-write: 1H
+        maximum-size: 50
 
   scheduler:
     enabled: true

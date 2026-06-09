@@ -26,4 +26,12 @@ public final class JwtClaims {
      * Présent uniquement sur les JWT d'impersonation.
      */
     public static final String IMPERSONATED_BY = "impersonatedBy";
+
+    /**
+     * Code ISO 4217 de la devise active du tenant ({@code "XOF"},
+     * {@code "EUR"}…). Embarqué dans le JWT pour éviter une lecture du
+     * control plane à chaque requête de formatage de montant. Décision
+     * NEIBA-TECH-2026-003 §3.
+     */
+    public static final String TENANT_CURRENCY = "tenantCurrency";
 }

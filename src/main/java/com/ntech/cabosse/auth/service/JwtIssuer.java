@@ -45,12 +45,16 @@ public class JwtIssuer {
      */
     public IssuedToken issueAccessToken(UserEntity user, TenantEntity tenant) {
         Instant expiresAt = Instant.now().plus(ACCESS_TOKEN_TTL);
+        String currency = tenant.preferences != null && tenant.preferences.currency != null
+                ? tenant.preferences.currency
+                : "XOF";
         String jwt = Jwt.issuer(issuer)
                 .subject(user.id.toString())
                 .upn(user.email)
                 .groups(user.roles)
                 .claim(JwtClaims.TENANT_ID, tenant.id.toString())
                 .claim(JwtClaims.TENANT_DATABASE_NAME, tenant.databaseName)
+                .claim(JwtClaims.TENANT_CURRENCY, currency)
                 .expiresAt(expiresAt)
                 .sign();
         return new IssuedToken(jwt, expiresAt);
@@ -69,12 +73,16 @@ public class JwtIssuer {
     public IssuedToken issueImpersonationToken(UserEntity targetUser, TenantEntity targetTenant,
                                                java.util.UUID superAdminId, Duration ttl) {
         Instant expiresAt = Instant.now().plus(ttl);
+        String currency = targetTenant.preferences != null && targetTenant.preferences.currency != null
+                ? targetTenant.preferences.currency
+                : "XOF";
         String jwt = Jwt.issuer(issuer)
                 .subject(targetUser.id.toString())
                 .upn(targetUser.email)
                 .groups(targetUser.roles)
                 .claim(JwtClaims.TENANT_ID, targetTenant.id.toString())
                 .claim(JwtClaims.TENANT_DATABASE_NAME, targetTenant.databaseName)
+                .claim(JwtClaims.TENANT_CURRENCY, currency)
                 .claim(JwtClaims.IMPERSONATED_BY, superAdminId.toString())
                 .expiresAt(expiresAt)
                 .sign();

@@ -1,0 +1,50 @@
+package com.ntech.cabosse.agriculture.parcel.dto;
+
+import com.ntech.cabosse.agriculture.parcel.entity.ParcelEntity;
+import com.ntech.cabosse.agriculture.parcel.entity.ParcelStatus;
+import org.bson.Document;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
+
+public record ParcelResponseDto(
+        UUID id,
+        String code,
+        String name,
+        BigDecimal surfaceHa,
+        List<List<List<Double>>> gpsPolygonCoordinates,
+        List<Double> gpsCenter,
+        String variety,
+        Integer plantingYear,
+        List<String> certifications,
+        UUID memberId,
+        String memberName,
+        ParcelStatus status,
+        String notes,
+        Instant createdAt,
+        Instant updatedAt
+) {
+    public static ParcelResponseDto from(ParcelEntity e) {
+        return new ParcelResponseDto(
+                e.id, e.code, e.name, e.surfaceHa,
+                extractPolygonCoordinates(e.gpsPolygon),
+                e.gpsCenter != null ? List.copyOf(e.gpsCenter) : null,
+                e.variety, e.plantingYear,
+                e.certifications != null ? List.copyOf(e.certifications) : List.of(),
+                e.memberId, e.memberName, e.status,
+                e.notes, e.createdAt, e.updatedAt
+        );
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<List<List<Double>>> extractPolygonCoordinates(Document polygon) {
+        if (polygon == null) return null;
+        Object coords = polygon.get("coordinates");
+        if (coords instanceof List) {
+            return (List<List<List<Double>>>) coords;
+        }
+        return null;
+    }
+}

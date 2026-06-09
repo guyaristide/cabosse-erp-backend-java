@@ -316,7 +316,7 @@ public class CatalogAdminResource {
     public Response listIndustries() {
         List<IndustryAdminDto> body = industries.listAll().stream()
                 .sorted(Comparator.comparing((IndustryEntity i) -> i.label))
-                .map(i -> new IndustryAdminDto(i.code, i.label, i.description, i.isActive))
+                .map(CatalogAdminResource::toIndustryDto)
                 .toList();
         return Response.ok(ApiResponse.ok(body)).build();
     }
@@ -370,10 +370,32 @@ public class CatalogAdminResource {
         entity.label = p.label().trim();
         entity.description = p.description() != null ? p.description().trim() : null;
         entity.isActive = p.isActive();
+        // Validation : chaque code activates[] doit être une valeur valide de
+        // TenantCapability ; sinon le calcul de capacités l'ignore mais on
+        // refuse à la saisie pour éviter les coquilles.
+        if (p.activates() != null) {
+            List<String> normalized = new java.util.ArrayList<>();
+            for (String capName : p.activates()) {
+                if (capName == null || capName.isBlank()) continue;
+                String trimmed = capName.trim();
+                try {
+                    com.ntech.cabosse.tenant.capability.TenantCapability.valueOf(trimmed);
+                } catch (IllegalArgumentException ex) {
+                    throw new BusinessException("Capacité inconnue : " + trimmed);
+                }
+                if (!normalized.contains(trimmed)) normalized.add(trimmed);
+            }
+            entity.activates = normalized;
+        } else {
+            entity.activates = new java.util.ArrayList<>();
+        }
     }
 
     private static IndustryAdminDto toIndustryDto(IndustryEntity i) {
-        return new IndustryAdminDto(i.code, i.label, i.description, i.isActive);
+        return new IndustryAdminDto(
+                i.code, i.label, i.description, i.isActive,
+                i.activates != null ? List.copyOf(i.activates) : List.of()
+        );
     }
 
     // ─── Plans ───────────────────────────────────────────────────────

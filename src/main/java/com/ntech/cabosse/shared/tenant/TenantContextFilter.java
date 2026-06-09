@@ -58,6 +58,7 @@ public class TenantContextFilter implements ContainerRequestFilter {
         }
 
         String impersonatedBy = jwt.getClaim(JwtClaims.IMPERSONATED_BY);
+        String currency = jwt.getClaim(JwtClaims.TENANT_CURRENCY);
         Set<String> roles = jwt.getGroups() != null ? jwt.getGroups() : Set.of();
 
         tenantContext.initialize(
@@ -65,7 +66,8 @@ public class TenantContextFilter implements ContainerRequestFilter {
                 databaseName,
                 UUID.fromString(jwt.getSubject()),
                 roles,
-                impersonatedBy != null ? UUID.fromString(impersonatedBy) : null
+                impersonatedBy != null ? UUID.fromString(impersonatedBy) : null,
+                currency
         );
     }
 }

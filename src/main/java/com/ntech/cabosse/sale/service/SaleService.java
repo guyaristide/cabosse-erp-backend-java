@@ -61,6 +61,7 @@ public class SaleService {
     @Inject StockService stockService;
     @Inject StockItemRepository stockItems;
     @Inject com.ntech.cabosse.accounting.service.AccountingService accounting;
+    @Inject com.ntech.cabosse.shared.money.MoneyFormatter money;
     @Inject AuditService audit;
     @Inject TenantContext tenantContext;
     @Inject JsonWebToken jwt;
@@ -241,7 +242,7 @@ public class SaleService {
         BigDecimal balance = balance(e);
         if (amount.compareTo(balance) > 0) {
             throw new BusinessException(
-                    "Montant supérieur au reste à payer (" + balance + " FCFA).");
+                    "Montant supérieur au reste à payer (" + money.format(balance, tenantContext.currency()) + ").");
         }
         SalePayment p = new SalePayment();
         p.id = UuidCreator.getTimeOrderedEpoch();
@@ -259,7 +260,7 @@ public class SaleService {
         accounting.postFromSalePayment(e, p);
 
         record(e, AuditEventType.SALE_PAYMENT_RECEIVED,
-                "Paiement " + amount + " FCFA (" + p.method
+                "Paiement " + money.format(amount, tenantContext.currency()) + " (" + p.method
                         + (p.paymentNoteRef != null ? " · BR " + p.paymentNoteRef : "") + ")");
         return SaleResponseDto.from(e);
     }

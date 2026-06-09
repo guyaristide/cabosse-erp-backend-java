@@ -9,6 +9,7 @@ import com.ntech.cabosse.tenant.entity.TenantBranding;
 import com.ntech.cabosse.tenant.entity.TenantContact;
 import com.ntech.cabosse.tenant.entity.TenantEntity;
 import com.ntech.cabosse.tenant.entity.TenantLegal;
+import com.ntech.cabosse.tenant.entity.TenantOrganizationModel;
 import com.ntech.cabosse.tenant.entity.TenantPreferences;
 
 import java.util.ArrayList;
@@ -40,6 +41,9 @@ public final class CreateTenantMapper {
         entity.trialDurationDays = payload.trialDurationDays();
         entity.planCode = payload.planCode();
         entity.initialSitesCount = payload.initialSitesCount();
+        entity.organizationModel = payload.organizationModel() != null
+                ? payload.organizationModel()
+                : TenantOrganizationModel.PRIVATE_COMPANY;
 
         entity.branding = new TenantBranding(
                 payload.brandColor() != null ? payload.brandColor() : "#1A1A1A"

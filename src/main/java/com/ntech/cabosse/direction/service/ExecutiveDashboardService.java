@@ -49,6 +49,8 @@ public class ExecutiveDashboardService {
     @Inject StockItemRepository stockItems;
     @Inject JournalPieceRepository pieces;
     @Inject BankAccountRepository banks;
+    @Inject com.ntech.cabosse.shared.tenant.TenantContext tenantContext;
+    @Inject com.ntech.cabosse.shared.money.MoneyFormatter money;
 
     public ExecutiveDashboardDto build(String periodRaw) {
         Period period = Period.parseOrDefault(periodRaw);
@@ -66,15 +68,16 @@ public class ExecutiveDashboardService {
         // sans agrégation lourde. Au MVP, "previous" = même valeur (delta = 0).
         BigDecimal stockValueBefore = stockValueNow;
 
+        String currency = tenantContext.currency();
         List<ExecutiveKpiDto> kpis = List.of(
                 new ExecutiveKpiDto("revenue", "Chiffre d'affaires",
-                        currentSales.revenue, previousSales.revenue, "FCFA"),
+                        currentSales.revenue, previousSales.revenue, currency),
                 new ExecutiveKpiDto("margin", "Marge brute",
-                        currentSales.margin, previousSales.margin, "FCFA"),
+                        currentSales.margin, previousSales.margin, currency),
                 new ExecutiveKpiDto("cash", "Trésorerie disponible",
-                        cashNow, cashBefore, "FCFA"),
+                        cashNow, cashBefore, currency),
                 new ExecutiveKpiDto("stockValue", "Valeur stock",
-                        stockValueNow, stockValueBefore, "FCFA")
+                        stockValueNow, stockValueBefore, currency)
         );
 
         List<ExecutiveAlertDto> alerts = buildAlerts(cashNow);
@@ -157,7 +160,7 @@ public class ExecutiveDashboardService {
                     "overdue-receivables",
                     overdue.size() >= 5 ? "danger" : "warning",
                     overdue.size() + " facture" + (overdue.size() > 1 ? "s" : "") + " en retard",
-                    "Encours échu : " + totalDue.toPlainString() + " FCFA"
+                    "Encours échu : " + money.format(totalDue, tenantContext.currency())
             ));
         }
 
@@ -196,7 +199,7 @@ public class ExecutiveDashboardService {
                     "cash-negative",
                     "danger",
                     "Trésorerie négative",
-                    "Solde net banque + caisse : " + cashNow.toPlainString() + " FCFA"
+                    "Solde net banque + caisse : " + money.format(cashNow, tenantContext.currency())
             ));
         }
 

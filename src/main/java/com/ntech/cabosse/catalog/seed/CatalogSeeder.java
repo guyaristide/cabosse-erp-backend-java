@@ -3,10 +3,12 @@ package com.ntech.cabosse.catalog.seed;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ntech.cabosse.catalog.entity.CityEntity;
 import com.ntech.cabosse.catalog.entity.CountryEntity;
+import com.ntech.cabosse.catalog.entity.CurrencyEntity;
 import com.ntech.cabosse.catalog.entity.IndustryEntity;
 import com.ntech.cabosse.catalog.entity.RegionEntity;
 import com.ntech.cabosse.catalog.repository.CityRepository;
 import com.ntech.cabosse.catalog.repository.CountryRepository;
+import com.ntech.cabosse.catalog.repository.CurrencyRepository;
 import com.ntech.cabosse.catalog.repository.IndustryRepository;
 import com.ntech.cabosse.catalog.repository.RegionRepository;
 import com.ntech.cabosse.plan.entity.PlanEntity;
@@ -43,6 +45,7 @@ public class CatalogSeeder {
     @Inject RegionRepository regions;
     @Inject CityRepository cities;
     @Inject IndustryRepository industries;
+    @Inject CurrencyRepository currencies;
     @Inject PlanRepository plans;
     @Inject IdGenerator idGenerator;
     @Inject ObjectMapper objectMapper;
@@ -55,8 +58,9 @@ public class CatalogSeeder {
         int v = seedCities();
         int i = seedIndustries();
         int p = seedPlans();
-        log.infof("Catalog seed — countries:%d, regions:%d, cities:%d, industries:%d, plans:%d",
-                c, r, v, i, p);
+        int cur = seedCurrencies();
+        log.infof("Catalog seed — countries:%d, regions:%d, cities:%d, industries:%d, plans:%d, currencies:%d",
+                c, r, v, i, p, cur);
     }
 
     private int seedCountries() {
@@ -112,6 +116,17 @@ public class CatalogSeeder {
         for (PlanEntity e : read("/catalog/plans.json", PlanEntity.class)) {
             if (plans.findByCode(e.code).isEmpty()) {
                 plans.persist(e);
+                created++;
+            }
+        }
+        return created;
+    }
+
+    private int seedCurrencies() {
+        int created = 0;
+        for (CurrencyEntity e : read("/catalog/currencies.json", CurrencyEntity.class)) {
+            if (!currencies.codeExists(e.code)) {
+                currencies.persist(e);
                 created++;
             }
         }

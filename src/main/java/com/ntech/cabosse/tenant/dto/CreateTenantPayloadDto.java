@@ -3,6 +3,7 @@ package com.ntech.cabosse.tenant.dto;
 import com.ntech.cabosse.tenant.entity.BillingCycle;
 import com.ntech.cabosse.tenant.entity.CommercialStatus;
 import com.ntech.cabosse.tenant.entity.LegalForm;
+import com.ntech.cabosse.tenant.entity.TenantOrganizationModel;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Max;
@@ -77,6 +78,12 @@ public record CreateTenantPayloadDto(
         @NotBlank(message = "Plan requis") String planCode,
         @NotNull(message = "Statut commercial requis") CommercialStatus commercialStatus,
         @Min(1) @Max(90) Integer trialDurationDays,
+
+        // ─── Structure organisationnelle ───
+        @NotNull(message = "Modèle organisationnel requis")
+        @Schema(description = "Structure juridique. Pilote l'activation des capacités hasMembers et hasSustainability.",
+                example = "PRIVATE_COMPANY")
+        TenantOrganizationModel organizationModel,
 
         // ─── Admin du tenant ───
         @Valid @NotNull(message = "Admin du tenant requis") AdminPayload admin

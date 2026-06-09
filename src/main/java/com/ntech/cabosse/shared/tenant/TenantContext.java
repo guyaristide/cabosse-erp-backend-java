@@ -22,11 +22,15 @@ import java.util.UUID;
 @RequestScoped
 public class TenantContext {
 
+    /** Devise fallback si le claim {@code tenantCurrency} est absent du JWT (ex. anciens tokens). */
+    public static final String DEFAULT_CURRENCY = "XOF";
+
     private UUID tenantId;
     private String databaseName;
     private UUID userId;
     private Set<String> roles;
     private UUID impersonatedBy;
+    private String currency;
 
     public UUID tenantId() {
         return require(tenantId, "tenantId");
@@ -49,6 +53,15 @@ public class TenantContext {
         return impersonatedBy;
     }
 
+    /**
+     * Devise active du tenant (code ISO 4217). Retourne {@link #DEFAULT_CURRENCY}
+     * si le claim est absent du JWT — couvre le cas des tokens émis avant
+     * l'introduction du claim.
+     */
+    public String currency() {
+        return currency != null && !currency.isBlank() ? currency : DEFAULT_CURRENCY;
+    }
+
     public boolean isInitialized() {
         return tenantId != null && databaseName != null;
     }
@@ -59,12 +72,13 @@ public class TenantContext {
      * métier.
      */
     void initialize(UUID tenantId, String databaseName, UUID userId,
-                    Set<String> roles, UUID impersonatedBy) {
+                    Set<String> roles, UUID impersonatedBy, String currency) {
         this.tenantId = tenantId;
         this.databaseName = databaseName;
         this.userId = userId;
         this.roles = roles;
         this.impersonatedBy = impersonatedBy;
+        this.currency = currency;
     }
 
     /**
@@ -73,7 +87,7 @@ public class TenantContext {
      */
     public void initializeForExecutor(UUID tenantId, String databaseName,
                                       UUID userId, Set<String> roles) {
-        initialize(tenantId, databaseName, userId, roles, null);
+        initialize(tenantId, databaseName, userId, roles, null, null);
     }
 
     private <T> T require(T value, String name) {

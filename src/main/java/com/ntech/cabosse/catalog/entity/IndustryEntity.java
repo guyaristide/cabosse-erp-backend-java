@@ -27,5 +27,21 @@ public class IndustryEntity extends PanacheMongoEntityBase {
 
     public boolean isActive;
 
+    /**
+     * Capacités fonctionnelles activées par cette filière. Chaque entrée
+     * est le nom (string) d'une valeur de
+     * {@link com.ntech.cabosse.tenant.capability.TenantCapability}.
+     *
+     * <p>Le service {@code TenantCapabilityService.capabilitiesOf()}
+     * agrège ces capacités sur l'ensemble des activités déclarées par
+     * le tenant, puis y ajoute celles dérivées de
+     * {@code TenantEntity.organizationModel} (notamment HAS_MEMBERS et
+     * HAS_SUSTAINABILITY pour COOPERATIVE).</p>
+     *
+     * <p>Vide ou {@code null} si la filière n'active aucune capacité
+     * spécifique (le tenant utilise seulement le cœur agnostique).</p>
+     */
+    public java.util.List<String> activates = new java.util.ArrayList<>();
+
     public IndustryEntity() {}
 }

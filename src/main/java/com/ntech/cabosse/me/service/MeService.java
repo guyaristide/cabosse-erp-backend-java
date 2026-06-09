@@ -36,11 +36,28 @@ public class MeService {
     @Inject TenantRepository tenants;
     @Inject PasswordHasher passwordHasher;
     @Inject com.ntech.cabosse.shared.audit.AuditService audit;
+    @Inject com.ntech.cabosse.tenant.capability.TenantCapabilityService capabilityService;
+
+    /** Devise par défaut si le tenant n'a pas explicitement choisi. */
+    private static final String DEFAULT_CURRENCY = "XOF";
 
     /** Renvoie le profil de l'utilisateur courant. */
     public MeResponseDto getCurrent() {
         UserEntity user = loadCurrent();
         TenantEntity tenant = tenants.findById(user.tenantId);
+        String currency = tenant != null && tenant.preferences != null && tenant.preferences.currency != null
+                ? tenant.preferences.currency
+                : DEFAULT_CURRENCY;
+        var caps = capabilityService.capabilitiesOf(tenant);
+        var capsDto = new MeResponseDto.TenantCapabilitiesDto(
+                caps.contains(com.ntech.cabosse.tenant.capability.TenantCapability.HAS_MEMBERS),
+                caps.contains(com.ntech.cabosse.tenant.capability.TenantCapability.HAS_PARCELS),
+                caps.contains(com.ntech.cabosse.tenant.capability.TenantCapability.HAS_FERMENTATION),
+                caps.contains(com.ntech.cabosse.tenant.capability.TenantCapability.HAS_DRYING),
+                caps.contains(com.ntech.cabosse.tenant.capability.TenantCapability.HAS_ROASTING),
+                caps.contains(com.ntech.cabosse.tenant.capability.TenantCapability.HAS_EUDR_COMPLIANCE),
+                caps.contains(com.ntech.cabosse.tenant.capability.TenantCapability.HAS_SUSTAINABILITY)
+        );
         return new MeResponseDto(
                 user.id,
                 user.email,
@@ -51,6 +68,8 @@ public class MeService {
                 List.copyOf(user.roles),
                 user.tenantId,
                 tenant != null ? tenant.name : null,
+                currency,
+                capsDto,
                 user.lastLoginAt
         );
     }

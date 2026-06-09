@@ -11,6 +11,7 @@ import com.ntech.cabosse.tenant.entity.TenantBilling;
 import com.ntech.cabosse.tenant.entity.TenantContact;
 import com.ntech.cabosse.tenant.entity.TenantEntity;
 import com.ntech.cabosse.tenant.entity.TenantLegal;
+import com.ntech.cabosse.tenant.entity.TenantOrganizationModel;
 import com.ntech.cabosse.tenant.entity.TenantPreferences;
 import com.ntech.cabosse.tenant.repository.TenantRepository;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -116,6 +117,16 @@ public class TenantUpdateService {
         tenant.planCode = payload.planCode();
         tenant.commercialStatus = payload.commercialStatus();
         tenant.trialDurationDays = payload.trialDurationDays();
+
+        // ─── Structure organisationnelle ───
+        // Pilote l'activation des capacités fonctionnelles hasMembers et
+        // hasSustainability. Les données déjà saisies restent en base si
+        // la capacité retombe à false ; les modules deviennent juste
+        // masqués au prochain login (cf. CapabilityMigrationGuard pour
+        // les nouvelles activations).
+        tenant.organizationModel = payload.organizationModel() != null
+                ? payload.organizationModel()
+                : TenantOrganizationModel.PRIVATE_COMPANY;
 
         // ─── Audit ───
         tenant.updatedAt = Instant.now();

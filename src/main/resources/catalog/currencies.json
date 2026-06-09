@@ -1,0 +1,10 @@
+[
+  { "code": "XOF", "label": "Franc CFA (UEMOA)",    "symbol": "FCFA", "decimalPlaces": 0, "position": "AFTER",  "isActive": true },
+  { "code": "XAF", "label": "Franc CFA (CEMAC)",    "symbol": "FCFA", "decimalPlaces": 0, "position": "AFTER",  "isActive": true },
+  { "code": "EUR", "label": "Euro",                  "symbol": "€",    "decimalPlaces": 2, "position": "AFTER",  "isActive": true },
+  { "code": "USD", "label": "Dollar américain",      "symbol": "$",    "decimalPlaces": 2, "position": "BEFORE", "isActive": true },
+  { "code": "GHS", "label": "Cedi ghanéen",          "symbol": "₵",    "decimalPlaces": 2, "position": "BEFORE", "isActive": true },
+  { "code": "NGN", "label": "Naira nigérian",        "symbol": "₦",    "decimalPlaces": 2, "position": "BEFORE", "isActive": true },
+  { "code": "MAD", "label": "Dirham marocain",       "symbol": "DH",   "decimalPlaces": 2, "position": "AFTER",  "isActive": true },
+  { "code": "CHF", "label": "Franc suisse",          "symbol": "CHF",  "decimalPlaces": 2, "position": "AFTER",  "isActive": true }
+]

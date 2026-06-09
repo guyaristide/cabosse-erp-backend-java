@@ -44,7 +44,7 @@ import java.util.UUID;
  *       l'a déjà via l'index unique {@code (sourceType, sourceId)}.</li>
  * </ol>
  *
- * <p><strong>Règle TVA non récupérable</strong> (cf. mémoire Tilo) : si
+ * <p><strong>Règle TVA non récupérable</strong> : si
  * la résolution renvoie {@code false}, la TVA n'est pas portée sur 4456 ;
  * elle est intégrée au montant débité sur les comptes de charges, ligne
  * par ligne, au prorata HT. Le coefficient {@code (1 + vatRate/100)}
@@ -203,7 +203,7 @@ public class AccountingService {
      * d'article) ; débit 4456 si TVA récupérable ; crédit 401 TTC global.
      *
      * <p>Cas TVA non récupérable : on intègre la TVA dans le débit des
-     * comptes de charges au prorata HT de chaque ligne (règle Tilo). Le
+     * comptes de charges au prorata HT de chaque ligne. Le
      * crédit 401 reste TTC.</p>
      */
     public Optional<JournalPieceEntity> postFromPurchaseOrder(PurchaseOrderEntity bc, boolean vatRecoverable) {

@@ -26,13 +26,22 @@ public class TenantMigrationRunner {
     @Inject
     MongoClient mongoClient;
 
-    /** Applique toutes les migrations en attente sur la base spécifiée. */
+    /**
+     * Applique toutes les migrations en attente sur la base spécifiée.
+     *
+     * <p>Le {@link MongoClient} est exposé en dépendance Mongock pour que
+     * les changeUnits conditionnelles (cf.
+     * {@code com.ntech.cabosse.shared.migration.CapabilityMigrationGuard})
+     * puissent l'injecter et interroger le control plane afin de vérifier
+     * les capacités du tenant avant exécution.</p>
+     */
     public void runMigrationsFor(String databaseName) {
         MongoSync4Driver driver = MongoSync4Driver.withDefaultLock(
                 mongoClient, databaseName);
 
         MongockStandalone.builder()
                 .setDriver(driver)
+                .addDependency(MongoClient.class, mongoClient)
                 .addMigrationScanPackage(MIGRATION_PACKAGE)
                 .setTrackIgnored(true)
                 .buildRunner()

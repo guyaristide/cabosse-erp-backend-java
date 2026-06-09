@@ -7,6 +7,7 @@ import com.ntech.cabosse.tenant.entity.BillingCycle;
 import com.ntech.cabosse.tenant.entity.CommercialStatus;
 import com.ntech.cabosse.tenant.entity.LegalForm;
 import com.ntech.cabosse.tenant.entity.TenantEntity;
+import com.ntech.cabosse.tenant.entity.TenantOrganizationModel;
 import com.ntech.cabosse.test.AbstractIntegrationTest;
 import com.ntech.cabosse.test.MongoReplicaSetTestResource;
 import com.ntech.cabosse.test.TestFixtures;
@@ -200,6 +201,7 @@ class TenantsCreateTest extends AbstractIntegrationTest {
                 "starter",
                 CommercialStatus.TRIAL,
                 14,
+                TenantOrganizationModel.COOPERATIVE,
                 new CreateTenantPayloadDto.AdminPayload(
                         adminEmail,
                         "Aïcha",

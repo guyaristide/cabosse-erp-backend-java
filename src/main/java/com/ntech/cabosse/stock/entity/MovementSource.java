@@ -29,5 +29,14 @@ public enum MovementSource {
     TRANSFER,
 
     /** Mouvement saisi manuellement par un opérateur, hors processus métier. */
-    MANUAL
+    MANUAL,
+
+    /**
+     * Validation d'un contrôle qualité agricole (M1 Production amont :
+     * QC fèves post-séchage → entrée stock avec lotRef LOT-FEVE-YYYY-NNNN).
+     * Distinct de {@link #DIRECT_RECEIPT} (achat direct au producteur sans
+     * passer par fermentation/séchage internes) et de {@link #PRODUCTION}
+     * (atelier de transformation aval).
+     */
+    AGRICULTURAL_QC
 }

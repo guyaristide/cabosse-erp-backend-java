@@ -24,5 +24,32 @@ public record MeResponseDto(
         List<String> roles,
         UUID tenantId,
         String tenantName,
+        /** Devise active du tenant (code ISO 4217, ex. {@code "XOF"}, {@code "EUR"}). */
+        String tenantCurrency,
+        /** Capacités filière (packs activés selon les activités du tenant). */
+        TenantCapabilitiesDto capabilities,
         Instant lastLoginAt
-) {}
+) {
+
+    /**
+     * Drapeaux de capacités fonctionnelles du tenant. Dérivés par
+     * {@code TenantCapabilityService} depuis deux sources orthogonales :
+     * la structure organisationnelle (COOPERATIVE → HAS_MEMBERS) et les
+     * activités économiques déclarées (chaque industry active certaines
+     * capacités via son champ {@code activates}).
+     *
+     * <p>Le front utilise ces flags pour activer/désactiver routes,
+     * sections de sidebar et composants des modules optionnels (membres,
+     * parcelles, EUDR, etc.).</p>
+     */
+    @Schema(description = "Capacités fonctionnelles activées pour le tenant")
+    public record TenantCapabilitiesDto(
+            boolean hasMembers,
+            boolean hasParcels,
+            boolean hasFermentation,
+            boolean hasDrying,
+            boolean hasRoasting,
+            boolean hasEudrCompliance,
+            boolean hasSustainability
+    ) {}
+}
