@@ -46,15 +46,45 @@ import java.util.UUID;
 public class TenantTechnicalService {
 
     /**
-     * Catalogue statique des migrations attendues. À tenir à jour à chaque
-     * ajout de {@code @ChangeUnit} dans {@code com.ntech.cabosse.migrations}.
-     * On pourra automatiser ça avec Jandex / IndexView plus tard, mais sur
-     * un projet jeune où on ajoute 1 migration par mois, c'est OK.
+     * Catalogue statique des migrations attendues — reflète exactement les
+     * {@code @ChangeUnit} de {@code com.ntech.cabosse.migrations} (mêmes
+     * {@code id}/{@code order}/{@code author}). Le {@code changeId} doit
+     * correspondre au {@code id} de l'annotation, car c'est la clé sous
+     * laquelle Mongock écrit dans {@code mongockChangeLog} ; toute
+     * divergence ferait apparaître la migration comme « pending » à tort.
+     *
+     * <p><strong>À tenir à jour à chaque ajout de {@code @ChangeUnit}.</strong>
+     * Automatisation possible plus tard via un scan Jandex / IndexView ;
+     * en attendant, un test de cohérence peut comparer ce catalogue au
+     * package des migrations pour bloquer toute dérive.</p>
      */
     private record MigrationDescriptor(String changeId, String order, String author) {}
 
     private static final List<MigrationDescriptor> CATALOG = List.of(
-            new MigrationDescriptor("bootstrap_tenant_schema", "001", "neiba")
+            new MigrationDescriptor("bootstrap_tenant_schema", "001", "neiba"),
+            new MigrationDescriptor("create_sites_collection", "002", "neiba"),
+            new MigrationDescriptor("create_referentiel_collections", "003", "neiba"),
+            new MigrationDescriptor("backfill_article_stockable", "004", "neiba"),
+            new MigrationDescriptor("create_cloud_files_collection", "005", "neiba"),
+            new MigrationDescriptor("create_purchase_orders_collection", "006", "neiba"),
+            new MigrationDescriptor("create_direct_receipts_collection", "007", "neiba"),
+            new MigrationDescriptor("create_stocks_collections", "008", "neiba"),
+            new MigrationDescriptor("create_production_collection", "009", "neiba"),
+            new MigrationDescriptor("create_sales_collection", "010", "neiba"),
+            new MigrationDescriptor("create_accounting_collections", "011", "neiba"),
+            new MigrationDescriptor("create_tva_declarations_collection", "012", "neiba"),
+            new MigrationDescriptor("create_bank_reconciliation_collections", "013", "neiba"),
+            new MigrationDescriptor("create_members_collection", "014", "neiba"),
+            new MigrationDescriptor("create_parcels_collection", "015", "neiba"),
+            new MigrationDescriptor("create_eudr_dossiers_collection", "016", "neiba"),
+            new MigrationDescriptor("create_deforestation_alerts_collection", "017", "neiba"),
+            new MigrationDescriptor("create_due_diligence_statements_collection", "018", "neiba"),
+            new MigrationDescriptor("create_harvests_collection", "019", "neiba"),
+            new MigrationDescriptor("create_fermentation_batches_collection", "020", "neiba"),
+            new MigrationDescriptor("create_drying_batches_collection", "021", "neiba"),
+            new MigrationDescriptor("create_bean_quality_checks_collection", "022", "neiba"),
+            new MigrationDescriptor("create_campaigns_collection", "023", "neiba"),
+            new MigrationDescriptor("normalize_stock_item_cmup_scale", "024", "neiba")
     );
 
     /** Fréquence de backup par plan tarifaire (cf. plans.json catalogue). */

@@ -15,6 +15,7 @@ import com.ntech.cabosse.tenant.dto.TenantTechnicalStatusDto;
 import com.ntech.cabosse.tenant.dto.TenantUserSummaryDto;
 import com.ntech.cabosse.tenant.dto.UpdateTenantPayloadDto;
 import com.ntech.cabosse.tenant.service.TenantLogoService;
+import com.ntech.cabosse.tenant.service.TenantMigrationService;
 import com.ntech.cabosse.tenant.service.TenantProvisioningService;
 import com.ntech.cabosse.tenant.service.TenantRegistryService;
 import com.ntech.cabosse.tenant.service.TenantTechnicalService;
@@ -76,6 +77,7 @@ public class TenantsResource {
     @Inject TenantUpdateService updateService;
     @Inject TenantLogoService logoService;
     @Inject TenantTechnicalService technicalService;
+    @Inject TenantMigrationService migrationService;
     @Inject TenantUserService userService;
     @Inject TenantContext tenantContext;
     @Inject com.ntech.cabosse.shared.audit.AuditService audit;
@@ -275,6 +277,22 @@ public class TenantsResource {
             content = @Content(schema = @Schema(implementation = TenantTechnicalStatusDto.class)))
     @APIResponse(responseCode = "404", description = "Tenant introuvable")
     public Response getTechnicalStatus(@PathParam("tenantId") UUID tenantId) {
+        return Response.ok(ApiResponse.ok(technicalService.getStatus(tenantId))).build();
+    }
+
+    @POST
+    @Path("/{tenantId}/migrations")
+    @Operation(summary = "Relance les migrations Mongock d'un tenant",
+            description = "Applique les migrations en attente sur la base du tenant. Idempotent "
+                    + "(un changeUnit déjà appliqué n'est pas rejoué). Réservé à la reprise après "
+                    + "échec ou à l'application ciblée en debug — le démarrage de l'application "
+                    + "migre déjà automatiquement tous les tenants opérationnels. Renvoie le "
+                    + "statut technique rafraîchi.")
+    @APIResponse(responseCode = "200", description = "Migrations appliquées, statut technique à jour",
+            content = @Content(schema = @Schema(implementation = TenantTechnicalStatusDto.class)))
+    @APIResponse(responseCode = "404", description = "Tenant introuvable")
+    public Response runMigrations(@PathParam("tenantId") UUID tenantId) {
+        migrationService.runMigrationsFor(tenantId);
         return Response.ok(ApiResponse.ok(technicalService.getStatus(tenantId))).build();
     }
 

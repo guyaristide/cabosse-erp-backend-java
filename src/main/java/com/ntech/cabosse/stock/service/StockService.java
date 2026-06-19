@@ -30,6 +30,7 @@ import org.bson.types.Decimal128;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -67,6 +68,12 @@ public class StockService {
 
     /** Précision du CMUP en BD (4 décimales — suffit pour FCFA). */
     private static final int CMUP_SCALE = 4;
+
+    /** Précision des quantités persistées. */
+    private static final int QTY_SCALE = 4;
+
+    /** Précision des montants totaux persistés. */
+    private static final int MONEY_SCALE = 4;
 
     @Inject ArticleRepository articles;
     @Inject SiteRepository sites;
@@ -185,7 +192,7 @@ public class StockService {
         mvt.articleUnit = article.unit;
         mvt.siteName = site.name;
         mvt.kind = input.kind();
-        mvt.quantitySigned = signedQty;
+        mvt.quantitySigned = bounded(signedQty, QTY_SCALE);
         // Le PU mémorisé sur le mvt :
         //   - entrée : PU d'achat fourni
         //   - sortie : CMUP courant snapshoté (= cmupAfter ici car
@@ -194,15 +201,15 @@ public class StockService {
         if (input.kind() == MovementKind.ADJUSTMENT) {
             mvt.unitPriceFcfa = null;
         } else if (isEntry) {
-            mvt.unitPriceFcfa = puIn;
+            mvt.unitPriceFcfa = bounded(puIn, CMUP_SCALE);
         } else {
-            mvt.unitPriceFcfa = updated.cmupFcfa;
+            mvt.unitPriceFcfa = bounded(updated.cmupFcfa, CMUP_SCALE);
         }
         mvt.totalFcfa = (mvt.unitPriceFcfa != null)
-                ? signedQty.abs().multiply(mvt.unitPriceFcfa)
+                ? bounded(signedQty.abs().multiply(mvt.unitPriceFcfa), MONEY_SCALE)
                 : null;
-        mvt.quantityAfter = updated.quantity;
-        mvt.cmupAfterFcfa = updated.cmupFcfa;
+        mvt.quantityAfter = bounded(updated.quantity, QTY_SCALE);
+        mvt.cmupAfterFcfa = bounded(updated.cmupFcfa, CMUP_SCALE);
         mvt.sourceType = input.sourceType();
         mvt.sourceRef = input.sourceRef();
         mvt.sourceEntityId = input.sourceEntityId();
@@ -335,17 +342,24 @@ public class StockService {
         Document innerVars = new Document()
                 .append("newQty", new Document("$add", List.of("$$oldQty", "$$inQty")));
 
-        Document innerIn = new Document("$cond", new Document()
-                .append("if", new Document("$lte", List.of("$$newQty", zero)))
-                .append("then", zero)
-                .append("else", new Document("$divide", List.of(
-                        new Document("$add", List.of(
-                                new Document("$multiply", List.of("$$oldQty", "$$oldCmup")),
-                                new Document("$multiply", List.of("$$inQty", "$$inPu"))
-                        )),
-                        "$$newQty"
-                )))
-        );
+        // Le $divide peut produire un décimal non terminant (ex. 264200/7).
+        // On le borne à CMUP_SCALE décimales via $round, sinon le résultat
+        // hérite de toute la précision de Decimal128 (34 chiffres) et déborde
+        // dès qu'on le multiplie en aval (totalFcfa) → erreur d'encodage BSON.
+        Document innerIn = new Document("$round", List.of(
+                new Document("$cond", new Document()
+                        .append("if", new Document("$lte", List.of("$$newQty", zero)))
+                        .append("then", zero)
+                        .append("else", new Document("$divide", List.of(
+                                new Document("$add", List.of(
+                                        new Document("$multiply", List.of("$$oldQty", "$$oldCmup")),
+                                        new Document("$multiply", List.of("$$inQty", "$$inPu"))
+                                )),
+                                "$$newQty"
+                        )))
+                ),
+                CMUP_SCALE
+        ));
 
         Document outerVars = new Document()
                 .append("oldQty", new Document("$ifNull", List.of("$quantity", zero)))
@@ -725,6 +739,17 @@ public class StockService {
                                   BigDecimal quantity, BigDecimal cmupFcfa) {}
 
     // ─── Helpers ────────────────────────────────────────────────────
+
+    /**
+     * Borne un {@link BigDecimal} à un nombre fixe de décimales avant
+     * persistance. Indispensable : un CMUP issu d'une division non
+     * terminante (ex. 264200/7) traîne sinon la pleine précision de
+     * Decimal128 (34 chiffres) et son produit ({@code totalFcfa}) déborde
+     * la capacité d'encodage BSON. Préserve {@code null}.
+     */
+    private static BigDecimal bounded(BigDecimal v, int scale) {
+        return v == null ? null : v.setScale(scale, RoundingMode.HALF_UP);
+    }
 
     private static boolean isEntryKind(MovementKind k) {
         return k == MovementKind.IN

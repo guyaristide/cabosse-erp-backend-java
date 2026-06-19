@@ -57,7 +57,12 @@ public class StockItemEntity {
      * Coût Moyen Unitaire Pondéré courant en FCFA. Recalculé à chaque
      * entrée selon la formule :
      * {@code CMUP_after = (qty_before * CMUP_before + qty_in * pu_in) / qty_after}.
-     * Inchangé sur les sorties et ajustements. Vaut 0 si quantity == 0.
+     * Inchangé sur les sorties et ajustements — y compris quand la
+     * sortie épuise le stock : c'est un CMUP <em>réel</em>, pas un
+     * historique. La valeur reste persistée pour servir de base
+     * cohérente à la prochaine entrée. La liste {@code stocks} masque
+     * néanmoins les couples (article, site) à quantité nulle ; le CMUP
+     * vivace ne ressort que lorsqu'il y a au moins une unité en stock.
      */
     public BigDecimal cmupFcfa = BigDecimal.ZERO;
 

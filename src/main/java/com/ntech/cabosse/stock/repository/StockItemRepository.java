@@ -60,6 +60,13 @@ public class StockItemRepository {
      *   <li>{@code belowThresholdOnly} : ne retourne que les items dont
      *       la quantité est strictement sous le seuil d'alerte</li>
      * </ul>
+     *
+     * <p>Les items à {@code quantity == 0} sont systématiquement filtrés
+     * (un article épuisé ne doit pas apparaître dans la situation des
+     * stocks ni dans son export). Le CMUP reste persisté en base — c'est
+     * une valeur réelle, pas un historique : il sera réutilisé tel quel
+     * à la prochaine entrée. Les quantités négatives (anomalies) restent
+     * visibles pour permettre leur correction.</p>
      */
     public List<StockItemEntity> listBySite(UUID siteId, String q,
                                             ArticleType articleType,
@@ -83,7 +90,12 @@ public class StockItemRepository {
                     new Document("$lt", List.of("$quantity", "$alertThreshold"))
             ));
         }
-        Bson filter = filters.isEmpty() ? new Document() : Filters.and(filters);
+        // Exclure les items totalement épuisés (quantity == 0). Comparaison
+        // numérique via $expr pour gérer correctement Decimal128 vs literal.
+        filters.add(Filters.expr(
+                new Document("$ne", List.of("$quantity", 0))
+        ));
+        Bson filter = Filters.and(filters);
         return coll().find(filter)
                 .sort(new Document("articleName", 1))
                 .into(new ArrayList<>());
