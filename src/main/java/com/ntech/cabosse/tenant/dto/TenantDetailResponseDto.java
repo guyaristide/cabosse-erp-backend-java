@@ -22,6 +22,8 @@ public record TenantDetailResponseDto(
         CommercialStatus commercialStatus,
         Integer trialDurationDays,
         String planCode,
+        @Schema(description = "Abonnement actif (plan + période). Null si aucun abonnement posé.")
+        TenantSubscriptionDto subscription,
 
         TenantBrandingDto branding,
         TenantLegalDto legal,

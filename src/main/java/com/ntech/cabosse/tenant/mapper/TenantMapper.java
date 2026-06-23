@@ -8,6 +8,7 @@ import com.ntech.cabosse.tenant.dto.TenantContactDto;
 import com.ntech.cabosse.tenant.dto.TenantDetailResponseDto;
 import com.ntech.cabosse.tenant.dto.TenantLegalDto;
 import com.ntech.cabosse.tenant.dto.TenantPreferencesDto;
+import com.ntech.cabosse.tenant.dto.TenantSubscriptionDto;
 import com.ntech.cabosse.tenant.dto.TenantSummaryResponseDto;
 import com.ntech.cabosse.tenant.entity.TenantEntity;
 
@@ -48,6 +49,7 @@ public final class TenantMapper {
                 entity.commercialStatus,
                 entity.trialDurationDays,
                 entity.planCode,
+                subscriptionDto(entity),
                 brandingDto(entity),
                 legalDto(entity),
                 addressDto(entity),
@@ -116,6 +118,19 @@ public final class TenantMapper {
         return new TenantBillingDto(
                 entity.billing.email,
                 entity.billing.cycle
+        );
+    }
+
+    private static TenantSubscriptionDto subscriptionDto(TenantEntity entity) {
+        if (entity.subscription == null) return null;
+        return new TenantSubscriptionDto(
+                entity.subscription.planCode,
+                entity.subscription.cycle,
+                entity.subscription.periods,
+                entity.subscription.startDate,
+                entity.subscription.endDate,
+                entity.subscription.activatedAt,
+                entity.subscription.activatedByEmail
         );
     }
 

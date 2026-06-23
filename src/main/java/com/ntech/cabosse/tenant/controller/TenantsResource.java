@@ -7,6 +7,7 @@ import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.security.Roles;
 import com.ntech.cabosse.shared.tenant.TenantStatus;
 import com.ntech.cabosse.shared.tenant.TenantContext;
+import com.ntech.cabosse.tenant.dto.ActivateSubscriptionPayloadDto;
 import com.ntech.cabosse.tenant.dto.CreateTenantPayloadDto;
 import com.ntech.cabosse.tenant.dto.InviteTenantUserPayloadDto;
 import com.ntech.cabosse.tenant.dto.TenantDetailResponseDto;
@@ -17,6 +18,7 @@ import com.ntech.cabosse.tenant.dto.UpdateTenantPayloadDto;
 import com.ntech.cabosse.tenant.service.TenantLogoService;
 import com.ntech.cabosse.tenant.service.TenantMigrationService;
 import com.ntech.cabosse.tenant.service.TenantProvisioningService;
+import com.ntech.cabosse.tenant.service.TenantSubscriptionService;
 import com.ntech.cabosse.tenant.service.TenantRegistryService;
 import com.ntech.cabosse.tenant.service.TenantTechnicalService;
 import com.ntech.cabosse.tenant.service.TenantUpdateService;
@@ -78,6 +80,7 @@ public class TenantsResource {
     @Inject TenantLogoService logoService;
     @Inject TenantTechnicalService technicalService;
     @Inject TenantMigrationService migrationService;
+    @Inject TenantSubscriptionService subscriptionService;
     @Inject TenantUserService userService;
     @Inject TenantContext tenantContext;
     @Inject com.ntech.cabosse.shared.audit.AuditService audit;
@@ -294,6 +297,24 @@ public class TenantsResource {
     public Response runMigrations(@PathParam("tenantId") UUID tenantId) {
         migrationService.runMigrationsFor(tenantId);
         return Response.ok(ApiResponse.ok(technicalService.getStatus(tenantId))).build();
+    }
+
+    @POST
+    @Path("/{tenantId}/subscription")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Operation(summary = "Active l'abonnement d'un tenant",
+            description = "Attache un plan tarifaire sur une période bornée (plan + cycle + nombre "
+                    + "de cycles) et bascule le tenant en PRODUCTION. Réactive l'accès si le tenant "
+                    + "était suspendu. Réservé au super-admin : geste commercial, reprise d'un "
+                    + "abonnement client échoué, correction manuelle. Renvoie la fiche à jour.")
+    @APIResponse(responseCode = "200", description = "Abonnement activé, tenant à jour",
+            content = @Content(schema = @Schema(implementation = TenantDetailResponseDto.class)))
+    @APIResponse(responseCode = "404", description = "Tenant introuvable")
+    @APIResponse(responseCode = "422", description = "Tenant non opérationnel ou plan inconnu/inactif")
+    public Response activateSubscription(@PathParam("tenantId") UUID tenantId,
+                                         @Valid ActivateSubscriptionPayloadDto payload) {
+        subscriptionService.activate(tenantId, payload);
+        return Response.ok(ApiResponse.ok(registry.getById(tenantId))).build();
     }
 
     @GET

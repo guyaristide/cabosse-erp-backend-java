@@ -57,6 +57,13 @@ public class TenantEntity extends PanacheMongoEntityBase {
     /** Code du plan tarifaire (FK vers {@link com.ntech.cabosse.plan.entity.PlanEntity#code}). */
     public String planCode;
 
+    /**
+     * Abonnement actif (plan + période). Renseigné par l'action « activer
+     * l'abonnement » du super-admin ; {@code null} tant qu'aucun abonnement
+     * n'a été posé (ex. tenant en essai). Voir {@link TenantSubscription}.
+     */
+    public TenantSubscription subscription;
+
     // ─── Sub-documents ───
     public TenantBranding branding;
     public TenantLegal legal;
