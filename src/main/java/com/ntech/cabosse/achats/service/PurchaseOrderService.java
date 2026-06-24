@@ -90,13 +90,13 @@ public class PurchaseOrderService {
      * du flag).
      */
     private boolean tenantVatRecoverable() {
-        try {
-            TenantEntity t = tenants.findById(tenantContext.tenantId());
-            if (t == null || t.preferences == null) return true;
-            return t.preferences.vatRecoverable();
-        } catch (Exception ex) {
-            return true;
-        }
+        // Cas attendu (tenant absent / préférences non hydratées) → récupérable
+        // par défaut. On ne masque PAS les autres erreurs (panne DB) derrière
+        // un défaut : un faux « récupérable » fausserait la ventilation TVA et
+        // le CMUP en aval, sans aucune trace.
+        TenantEntity t = tenants.findById(tenantContext.tenantId());
+        if (t == null || t.preferences == null) return true;
+        return t.preferences.vatRecoverable();
     }
 
     /**

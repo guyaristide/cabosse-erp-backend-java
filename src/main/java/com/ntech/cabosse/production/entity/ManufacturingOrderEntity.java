@@ -105,5 +105,8 @@ public class ManufacturingOrderEntity {
     public UUID createdBy;
     public String createdByEmail;
 
+    /** Lock optimiste — incrémenté à chaque écriture (cf. ManufacturingOrderRepository.replace). */
+    public long version = 0L;
+
     public ManufacturingOrderEntity() {}
 }

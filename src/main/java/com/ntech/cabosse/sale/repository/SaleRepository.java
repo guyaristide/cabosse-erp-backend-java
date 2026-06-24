@@ -4,6 +4,8 @@ import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Filters;
 import com.ntech.cabosse.sale.entity.SaleEntity;
 import com.ntech.cabosse.sale.entity.SaleStatus;
+import com.ntech.cabosse.shared.exception.ConflictException;
+import com.ntech.cabosse.shared.persistence.ListCap;
 import com.ntech.cabosse.shared.persistence.TenantMongoDatabaseProvider;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -58,8 +60,31 @@ public class SaleRepository {
         coll().insertOne(e);
     }
 
+    /**
+     * Remplace la vente avec <strong>lock optimiste</strong> sur
+     * {@code version} : l'écriture n'aboutit que si la version en base est
+     * celle lue, puis incrémente. Sinon, {@link ConflictException} (→ 409)
+     * plutôt qu'un écrasement silencieux — ferme la race read-modify-write
+     * (notamment {@code recordPayment}).
+     *
+     * <p>Filtre tolérant aux ventes historiques sans champ {@code version}
+     * (traitées comme version 0 sur leur première écriture), donc pas de
+     * backfill requis.</p>
+     */
     public void replace(SaleEntity e) {
-        coll().replaceOne(Filters.eq("_id", e.id), e);
+        long expected = e.version;
+        e.version = expected + 1;
+        Bson versionMatch = expected == 0L
+                ? Filters.or(Filters.eq("version", 0L), Filters.exists("version", false))
+                : Filters.eq("version", expected);
+        long matched = coll()
+                .replaceOne(Filters.and(Filters.eq("_id", e.id), versionMatch), e)
+                .getMatchedCount();
+        if (matched != 1L) {
+            e.version = expected; // restaure la cohérence de l'objet en mémoire
+            throw new ConflictException(
+                    "La vente a été modifiée par une autre opération entre-temps. Réessayez.");
+        }
     }
 
     /**
@@ -87,9 +112,10 @@ public class SaleRepository {
             ));
         }
         Bson filter = filters.isEmpty() ? new Document() : Filters.and(filters);
-        return coll().find(filter)
+        return ListCap.warnIfCapped(coll().find(filter)
                 .sort(new Document("saleDate", -1).append("createdAt", -1))
-                .into(new ArrayList<>());
+                .limit(ListCap.MAX)
+                .into(new ArrayList<>()), "ventes");
     }
 
     /**

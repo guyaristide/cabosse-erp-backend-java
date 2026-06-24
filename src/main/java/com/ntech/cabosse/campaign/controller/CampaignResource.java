@@ -4,7 +4,9 @@ import com.ntech.cabosse.campaign.dto.CampaignResponseDto;
 import com.ntech.cabosse.campaign.dto.CampaignUpsertDto;
 import com.ntech.cabosse.campaign.service.CampaignService;
 import com.ntech.cabosse.shared.api.ApiResponse;
+import com.ntech.cabosse.shared.security.Roles;
 import io.quarkus.security.Authenticated;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.Consumes;
@@ -59,6 +61,7 @@ public class CampaignResource {
     }
 
     @POST
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response create(@Valid CampaignUpsertDto payload) {
         var created = service.create(payload);
         return Response.status(Response.Status.CREATED)
@@ -68,6 +71,7 @@ public class CampaignResource {
 
     @PUT
     @Path("/{id}")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response update(@PathParam("id") UUID id, @Valid CampaignUpsertDto payload) {
         var updated = service.update(id, payload);
         return Response.ok(ApiResponse.ok(CampaignResponseDto.from(updated))).build();
@@ -75,6 +79,7 @@ public class CampaignResource {
 
     @POST
     @Path("/{id}/close")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response close(@PathParam("id") UUID id) {
         var closed = service.close(id);
         return Response.ok(ApiResponse.ok(CampaignResponseDto.from(closed))).build();

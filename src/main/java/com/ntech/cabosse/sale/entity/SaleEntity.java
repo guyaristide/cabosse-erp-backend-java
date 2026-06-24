@@ -88,5 +88,13 @@ public class SaleEntity {
     public UUID createdBy;
     public String createdByEmail;
 
+    /**
+     * Lock optimiste — incrémenté à chaque écriture via
+     * {@link com.ntech.cabosse.sale.repository.SaleRepository#replace}.
+     * Ferme la race de {@code recordPayment} (lecture solde → écriture) :
+     * deux paiements concurrents ne peuvent plus s'écraser silencieusement.
+     */
+    public long version = 0L;
+
     public SaleEntity() {}
 }

@@ -4,6 +4,8 @@ import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Filters;
 import com.ntech.cabosse.production.entity.ManufacturingOrderEntity;
 import com.ntech.cabosse.production.entity.OfStatus;
+import com.ntech.cabosse.shared.exception.ConflictException;
+import com.ntech.cabosse.shared.persistence.ListCap;
 import com.ntech.cabosse.shared.persistence.TenantMongoDatabaseProvider;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -31,9 +33,10 @@ public class ManufacturingOrderRepository {
     }
 
     public List<ManufacturingOrderEntity> listAll() {
-        return coll().find()
+        return ListCap.warnIfCapped(coll().find()
                 .sort(new Document("scheduledDate", -1))
-                .into(new ArrayList<>());
+                .limit(ListCap.MAX)
+                .into(new ArrayList<>()), "ordres de fabrication");
     }
 
     /** Recherche filtrée pour la liste UI (par statut, par recherche libre, par site). */
@@ -55,9 +58,10 @@ public class ManufacturingOrderRepository {
             ));
         }
         Bson filter = filters.isEmpty() ? new Document() : Filters.and(filters);
-        return coll().find(filter)
+        return ListCap.warnIfCapped(coll().find(filter)
                 .sort(new Document("scheduledDate", -1).append("createdAt", -1))
-                .into(new ArrayList<>());
+                .limit(ListCap.MAX)
+                .into(new ArrayList<>()), "ordres de fabrication");
     }
 
     public List<ManufacturingOrderEntity> listByRecipe(UUID recipeId) {
@@ -86,7 +90,26 @@ public class ManufacturingOrderRepository {
         coll().insertOne(e);
     }
 
+    /**
+     * Remplace l'OF avec <strong>lock optimiste</strong> sur {@code version}
+     * (n'écrit que si la version en base est celle lue, puis incrémente ;
+     * sinon {@link ConflictException} → 409). Filtre tolérant aux OF
+     * historiques sans champ {@code version}. Ferme la race read-modify-write
+     * sur les transitions (démarrage / étape / clôture / annulation).
+     */
     public void replace(ManufacturingOrderEntity e) {
-        coll().replaceOne(Filters.eq("_id", e.id), e);
+        long expected = e.version;
+        e.version = expected + 1;
+        Bson versionMatch = expected == 0L
+                ? Filters.or(Filters.eq("version", 0L), Filters.exists("version", false))
+                : Filters.eq("version", expected);
+        long matched = coll()
+                .replaceOne(Filters.and(Filters.eq("_id", e.id), versionMatch), e)
+                .getMatchedCount();
+        if (matched != 1L) {
+            e.version = expected;
+            throw new ConflictException(
+                    "L'ordre de fabrication a été modifié par une autre opération entre-temps. Réessayez.");
+        }
     }
 }

@@ -4,6 +4,8 @@ import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Filters;
 import com.ntech.cabosse.achats.entity.BcStatus;
 import com.ntech.cabosse.achats.entity.PurchaseOrderEntity;
+import com.ntech.cabosse.shared.exception.ConflictException;
+import com.ntech.cabosse.shared.persistence.ListCap;
 import com.ntech.cabosse.shared.persistence.TenantMongoDatabaseProvider;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -27,9 +29,10 @@ public class PurchaseOrderRepository {
     }
 
     public List<PurchaseOrderEntity> listAll() {
-        return coll().find()
+        return ListCap.warnIfCapped(coll().find()
                 .sort(new Document("createdAt", -1))
-                .into(new ArrayList<>());
+                .limit(ListCap.MAX)
+                .into(new ArrayList<>()), "bons de commande");
     }
 
     public List<PurchaseOrderEntity> search(BcStatus status, String q) {
@@ -46,9 +49,10 @@ public class PurchaseOrderRepository {
             ));
         }
         Bson filter = filters.isEmpty() ? new Document() : Filters.and(filters);
-        return coll().find(filter)
+        return ListCap.warnIfCapped(coll().find(filter)
                 .sort(new Document("createdAt", -1))
-                .into(new ArrayList<>());
+                .limit(ListCap.MAX)
+                .into(new ArrayList<>()), "bons de commande");
     }
 
     public Optional<PurchaseOrderEntity> findById(UUID id) {
@@ -79,7 +83,26 @@ public class PurchaseOrderRepository {
         coll().insertOne(e);
     }
 
+    /**
+     * Remplace le BC avec <strong>lock optimiste</strong> sur {@code version}
+     * (n'écrit que si la version en base est celle lue, puis incrémente ;
+     * sinon {@link ConflictException} → 409). Filtre tolérant aux BC
+     * historiques sans champ {@code version}. Ferme la race read-modify-write
+     * sur les transitions de statut concurrentes.
+     */
     public void replace(PurchaseOrderEntity e) {
-        coll().replaceOne(Filters.eq("_id", e.id), e);
+        long expected = e.version;
+        e.version = expected + 1;
+        Bson versionMatch = expected == 0L
+                ? Filters.or(Filters.eq("version", 0L), Filters.exists("version", false))
+                : Filters.eq("version", expected);
+        long matched = coll()
+                .replaceOne(Filters.and(Filters.eq("_id", e.id), versionMatch), e)
+                .getMatchedCount();
+        if (matched != 1L) {
+            e.version = expected;
+            throw new ConflictException(
+                    "Le bon de commande a été modifié par une autre opération entre-temps. Réessayez.");
+        }
     }
 }

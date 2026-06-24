@@ -87,7 +87,8 @@ public class TenantTechnicalService {
             new MigrationDescriptor("normalize_stock_item_cmup_scale", "024", "neiba"),
             new MigrationDescriptor("create_units_collection", "025", "neiba"),
             new MigrationDescriptor("create_localities_collection", "026", "neiba"),
-            new MigrationDescriptor("create_varieties_collection", "027", "neiba")
+            new MigrationDescriptor("create_varieties_collection", "027", "neiba"),
+            new MigrationDescriptor("create_operators_collection", "028", "neiba")
     );
 
     /** Fréquence de backup par plan tarifaire (cf. plans.json catalogue). */

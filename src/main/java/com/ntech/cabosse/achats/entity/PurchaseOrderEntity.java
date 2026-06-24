@@ -103,5 +103,8 @@ public class PurchaseOrderEntity {
     /** Email de l'acteur ayant créé le BC (denorm pour affichage). */
     public String createdByEmail;
 
+    /** Lock optimiste — incrémenté à chaque écriture (cf. PurchaseOrderRepository.replace). */
+    public long version = 0L;
+
     public PurchaseOrderEntity() {}
 }

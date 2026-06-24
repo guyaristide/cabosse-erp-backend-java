@@ -1,7 +1,9 @@
 package com.ntech.cabosse.migrations;
 
 import com.github.f4b6a3.uuid.UuidCreator;
+import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
+import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.model.Indexes;
 import com.ntech.cabosse.unit.entity.UnitEntity;
@@ -48,11 +50,19 @@ public class M025_CreateUnitsCollection {
                 new IndexOptions().unique(true).name("uniq_units_code")
         );
 
+        // Seed idempotent au niveau données : on n'insère que les codes
+        // absents (l'unicité finale est garantie par l'index, mais cette garde
+        // évite tout doublon si le changeUnit est rejoué manuellement —
+        // pattern aligné sur M011).
+        MongoCollection<UnitEntity> coll = database.getCollection("units", UnitEntity.class);
         Instant now = Instant.now();
-        List<UnitEntity> seed = BASE_UNITS.stream()
+        List<UnitEntity> toInsert = BASE_UNITS.stream()
+                .filter(s -> coll.countDocuments(Filters.eq("code", s.code())) == 0)
                 .map(s -> new UnitEntity(UuidCreator.getTimeOrderedEpoch(), s.code(), s.name(), now))
                 .toList();
-        database.getCollection("units", UnitEntity.class).insertMany(seed);
+        if (!toInsert.isEmpty()) {
+            coll.insertMany(toInsert);
+        }
     }
 
     @RollbackExecution

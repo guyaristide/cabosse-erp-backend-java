@@ -228,9 +228,14 @@ class SaleImportServiceTest {
 
     // ─── Tests ───────────────────────────────────────────────────────
 
-    /** Cas 1 : import simple — vente livrée payée intégralement. */
+    /**
+     * Cas 1 : import simple — vente confirmée et payée intégralement.
+     * À l'import, un statut « DELIVERED » s'arrête volontairement à
+     * CONFIRMED (pas de {@code markDelivered} : la livraison, qui sort le
+     * stock, se fait manuellement ensuite — cf. {@code SaleImportService}).
+     */
     @Test
-    void shouldImportSimpleSale_existingCustomer_deliveredAndPaidInFull() {
+    void shouldImportSimpleSale_existingCustomer_confirmedAndPaidInFull() {
         // Article existant
         when(articleRepository.findByName("Tablette 100g", ArticleType.FINISHED_PRODUCT))
                 .thenReturn(Optional.of(existingArticleEntity(ARTICLE_ID, "Tablette 100g", "tablette-100g")));
@@ -244,11 +249,7 @@ class SaleImportServiceTest {
                 new BigDecimal("5900"), BigDecimal.ZERO, PaymentStatus.UNPAID, 1);
         when(saleService.validateQuote(SALE_ID)).thenReturn(confirmed);
 
-        SaleResponseDto delivered = saleResponse(SaleStatus.DELIVERED,
-                new BigDecimal("5900"), BigDecimal.ZERO, PaymentStatus.UNPAID, 1);
-        when(saleService.markDelivered(SALE_ID)).thenReturn(delivered);
-
-        SaleResponseDto paid = saleResponse(SaleStatus.DELIVERED,
+        SaleResponseDto paid = saleResponse(SaleStatus.CONFIRMED,
                 new BigDecimal("5900"), new BigDecimal("5900"), PaymentStatus.PAID, 1);
         when(saleService.recordPayment(eq(SALE_ID), any(SalePaymentDto.class))).thenReturn(paid);
 
@@ -269,14 +270,14 @@ class SaleImportServiceTest {
 
         assertThat(result.skipped()).isFalse();
         assertThat(result.sale()).isNotNull();
-        assertThat(result.sale().status()).isEqualTo(SaleStatus.DELIVERED);
+        assertThat(result.sale().status()).isEqualTo(SaleStatus.CONFIRMED);
         assertThat(result.sale().paymentStatus()).isEqualTo(PaymentStatus.PAID);
         assertThat(result.customerCreated()).isFalse();
         assertThat(result.customerId()).isEqualTo(CUSTOMER_ID);
         assertThat(result.createdArticles()).isEmpty();
 
         verify(saleService).validateQuote(SALE_ID);
-        verify(saleService).markDelivered(SALE_ID);
+        verify(saleService, never()).markDelivered(SALE_ID);
         verify(saleService).recordPayment(eq(SALE_ID), any(SalePaymentDto.class));
         verify(customerService, never()).create(any());
         verify(articleService, never()).create(any());

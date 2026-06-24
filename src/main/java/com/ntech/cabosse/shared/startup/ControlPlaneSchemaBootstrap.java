@@ -92,6 +92,18 @@ public class ControlPlaneSchemaBootstrap {
                         new IndexOptions().name("idx_audit_tenantId")
                 );
 
+        // ─── tenant backups ───
+        // Lu par TenantTechnicalService (statut technique d'un tenant) :
+        // filtre par tenantId + tri executedAt desc.
+        controlPlane.collection(ControlPlane.Collections.TENANT_BACKUPS, Document.class)
+                .createIndex(
+                        Indexes.compoundIndex(
+                                Indexes.ascending("tenantId"),
+                                Indexes.descending("executedAt")
+                        ),
+                        new IndexOptions().name("idx_backups_tenantId_executedAt")
+                );
+
         // ─── catalogues partagés ───
         // countries : _id = code ISO-2 (clé naturelle), pas d'index supplémentaire
         // mais on indexe isActive pour les filtres rapides côté API.

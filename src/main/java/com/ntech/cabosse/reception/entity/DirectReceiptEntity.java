@@ -90,5 +90,8 @@ public class DirectReceiptEntity {
     public Instant updatedAt;
     public UUID createdBy;
 
+    /** Lock optimiste — incrémenté à chaque écriture (cf. DirectReceiptRepository.replace). */
+    public long version = 0L;
+
     public DirectReceiptEntity() {}
 }
