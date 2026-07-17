@@ -41,4 +41,47 @@ public class RefreshTokenRepository implements PanacheMongoRepositoryBase<Refres
         );
         return result.getModifiedCount();
     }
+
+    /**
+     * Révocation atomique d'un token par hash, seulement s'il n'est pas
+     * déjà révoqué. Mono-document et conditionnelle : deux appels
+     * concurrents (double logout, logout pendant un refresh) se
+     * sérialisent sur le document au lieu de provoquer un
+     * {@code WriteConflict} transactionnel.
+     *
+     * @return {@code true} si ce call a effectivement révoqué le token.
+     */
+    public boolean revokeByHash(String tokenHash, Instant revokedAt, String reason) {
+        UpdateResult result = mongoCollection().updateOne(
+                Filters.and(
+                        Filters.eq("tokenHash", tokenHash),
+                        Filters.eq("revokedAt", null)
+                ),
+                Updates.combine(
+                        Updates.set("revokedAt", revokedAt),
+                        Updates.set("revokedReason", reason)
+                )
+        );
+        return result.getModifiedCount() == 1;
+    }
+
+    /**
+     * Marque un token comme rotaté, seulement s'il ne l'est pas déjà et
+     * qu'il n'est pas révoqué. C'est le point de sérialisation des
+     * rotations : sur N rotations concurrentes du même token, une seule
+     * voit {@code true} — les autres doivent être traitées comme un rejeu.
+     *
+     * @return {@code true} si ce call a gagné la rotation.
+     */
+    public boolean markRotated(UUID id, Instant rotatedAt) {
+        UpdateResult result = mongoCollection().updateOne(
+                Filters.and(
+                        Filters.eq("_id", id),
+                        Filters.eq("rotatedAt", null),
+                        Filters.eq("revokedAt", null)
+                ),
+                Updates.set("rotatedAt", rotatedAt)
+        );
+        return result.getModifiedCount() == 1;
+    }
 }

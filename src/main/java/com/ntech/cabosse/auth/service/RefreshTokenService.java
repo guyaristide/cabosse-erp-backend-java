@@ -6,7 +6,6 @@ import com.ntech.cabosse.shared.exception.UnauthorizedException;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import jakarta.transaction.Transactional;
 import org.jboss.logging.Logger;
 
 import java.nio.charset.StandardCharsets;
@@ -17,7 +16,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.HexFormat;
-import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -32,6 +30,14 @@ import java.util.UUID;
  * {@code rotatedAt} et un nouveau est inséré dans la même famille. Si un
  * token déjà rotaté est représenté, c'est qu'il a été volé OU rejoué : on
  * révoque toute la famille (RFC 6749 §10.4 — refresh token reuse).</p>
+ *
+ * <p><strong>Aucune transaction multi-documents ici.</strong> Toutes les
+ * écritures sont des {@code updateOne} conditionnels mono-document,
+ * atomiques par construction côté MongoDB : deux requêtes concurrentes
+ * sur le même token (logout pendant un refresh, double clic, deux
+ * onglets) se sérialisent sur le document. Les anciennes versions
+ * transactionnelles (read-modify-replace sous {@code @Transactional})
+ * provoquaient des {@code WriteConflict} transitoires → 500 en prod.</p>
  */
 @ApplicationScoped
 public class RefreshTokenService {
@@ -58,7 +64,6 @@ public class RefreshTokenService {
      * Émet un nouveau refresh token pour un user (cas login). Démarre une
      * nouvelle famille de rotation.
      */
-    @Transactional
     public IssuedRefreshToken issueNew(UUID userId, UUID tenantId, String userAgent, String ipAddress) {
         return persistNew(userId, tenantId, idGenerator.newId(), userAgent, ipAddress);
     }
@@ -67,16 +72,11 @@ public class RefreshTokenService {
      * Échange un refresh token valide contre un nouveau. Détecte les rejeux
      * et révoque la famille en cas de fraude.
      *
-     * <p>{@code dontRollbackOn = UnauthorizedException} pour garantir que
-     * la révocation cascade (cas reuse) reste persistée même si on throw
-     * juste après. Sans ça, l'attaquant et la victime peuvent réutiliser
-     * leurs tokens indéfiniment.</p>
-     *
      * @throws UnauthorizedException si le token est inconnu, expiré, révoqué
      *                                ou s'il s'agit d'un rejeu d'un token
-     *                                déjà rotaté.
+     *                                déjà rotaté (y compris une rotation
+     *                                concurrente perdue).
      */
-    @Transactional(dontRollbackOn = UnauthorizedException.class)
     public RotatedRefresh rotate(String presentedSecret, String userAgent, String ipAddress) {
         Instant now = Instant.now();
         RefreshTokenEntity old = repo.findByHash(hash(presentedSecret))
@@ -90,15 +90,19 @@ public class RefreshTokenService {
         }
         if (old.rotatedAt != null) {
             // Reuse detected — révocation en cascade de toute la famille.
-            long affected = repo.revokeFamily(old.familyId, now, "reuse_detected");
-            log.warnf("Refresh token reuse detected (familyId=%s, userId=%s) — %d tokens revoked",
-                    old.familyId, old.userId, affected);
+            revokeFamilyForReuse(old, now);
             throw new UnauthorizedException("Refresh token réutilisé — toutes les sessions ont été invalidées.");
         }
 
-        // Rotation atomique : on marque l'ancien rotated et on insère le nouveau.
-        old.rotatedAt = now;
-        repo.update(old);
+        // Point de sérialisation : une seule rotation gagne l'updateOne
+        // conditionnel. Un perdant signifie qu'un autre appel vient de
+        // rotater (ou révoquer) ce token entre notre lecture et ici —
+        // même traitement qu'un rejeu : la famille est révoquée.
+        if (!repo.markRotated(old.id, now)) {
+            revokeFamilyForReuse(old, now);
+            throw new UnauthorizedException("Refresh token réutilisé — toutes les sessions ont été invalidées.");
+        }
+
         return new RotatedRefresh(
                 persistNew(old.userId, old.tenantId, old.familyId, userAgent, ipAddress),
                 old.userId,
@@ -106,18 +110,22 @@ public class RefreshTokenService {
         );
     }
 
+    private void revokeFamilyForReuse(RefreshTokenEntity token, Instant now) {
+        long affected = repo.revokeFamily(token.familyId, now, "reuse_detected");
+        log.warnf("Refresh token reuse detected (familyId=%s, userId=%s) — %d tokens revoked",
+                token.familyId, token.userId, affected);
+    }
+
     public record RotatedRefresh(IssuedRefreshToken token, UUID userId, UUID tenantId) {}
 
-    /** Révoque un refresh token (logout). Idempotent — silencieux si introuvable. */
-    @Transactional
+    /**
+     * Révoque un refresh token (logout). Idempotent — silencieux si le
+     * token est introuvable ou déjà révoqué. Écriture conditionnelle
+     * mono-document : aucun conflit possible avec un refresh ou un autre
+     * logout simultané.
+     */
     public void revoke(String presentedSecret, String reason) {
-        Optional<RefreshTokenEntity> opt = repo.findByHash(hash(presentedSecret));
-        if (opt.isEmpty()) return;
-        RefreshTokenEntity t = opt.get();
-        if (t.revokedAt != null) return;
-        t.revokedAt = Instant.now();
-        t.revokedReason = reason;
-        repo.update(t);
+        repo.revokeByHash(hash(presentedSecret), Instant.now(), reason);
     }
 
     // ─── Internals ───
