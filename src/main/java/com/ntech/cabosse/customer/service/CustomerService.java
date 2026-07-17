@@ -7,6 +7,8 @@ import com.ntech.cabosse.customer.entity.CustomerChannelType;
 import com.ntech.cabosse.customer.entity.CustomerEntity;
 import com.ntech.cabosse.customer.entity.CustomerType;
 import com.ntech.cabosse.customer.repository.CustomerRepository;
+import com.ntech.cabosse.shared.api.PageRequest;
+import com.ntech.cabosse.shared.api.Pagination;
 import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.ConflictException;
@@ -32,8 +34,19 @@ public class CustomerService {
 
     private String actor() { try { return jwt.getName(); } catch (Exception e) { return null; } }
 
+    /** Liste complète, réservée aux exports — l'API de liste passe par {@link #page}. */
     public List<CustomerResponseDto> list() {
         return repo.listAll().stream().map(CustomerResponseDto::from).toList();
+    }
+
+    public Pagination<CustomerResponseDto> page(String q, PageRequest pr) {
+        long total = repo.countSearch(q);
+        List<CustomerResponseDto> items = repo.search(q, pr.skip(), pr.perPage()).stream()
+                .map(CustomerResponseDto::from)
+                .toList();
+        java.util.Map<String, String> filters = new java.util.HashMap<>();
+        if (q != null && !q.isBlank()) filters.put("q", q.trim());
+        return Pagination.of(total, pr, new String[]{"name"}, "asc", filters, items);
     }
 
     public CustomerResponseDto getById(UUID id) {

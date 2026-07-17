@@ -10,6 +10,7 @@ import com.ntech.cabosse.sale.entity.SaleStatus;
 import com.ntech.cabosse.sale.service.SaleImportService;
 import com.ntech.cabosse.sale.service.SaleService;
 import com.ntech.cabosse.shared.api.ApiResponse;
+import com.ntech.cabosse.shared.api.PageRequest;
 import com.ntech.cabosse.shared.export.ExportAudit;
 import com.ntech.cabosse.shared.export.ExportDataset;
 import com.ntech.cabosse.shared.export.ExportFormat;
@@ -52,9 +53,12 @@ public class SaleResource {
     public Response list(@QueryParam("status") String statusRaw,
                          @QueryParam("q") String q,
                          @QueryParam("siteId") UUID siteId,
-                         @QueryParam("customerId") UUID customerId) {
+                         @QueryParam("customerId") UUID customerId,
+                         @QueryParam("page") @DefaultValue("0") int page,
+                         @QueryParam("perPage") @DefaultValue("20") int perPage) {
         SaleStatus status = parseStatus(statusRaw);
-        return Response.ok(ApiResponse.ok(service.list(status, q, siteId, customerId))).build();
+        return Response.ok(ApiResponse.ok(
+                service.page(status, q, siteId, customerId, PageRequest.of(page, perPage)))).build();
     }
 
     @GET

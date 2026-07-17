@@ -14,6 +14,8 @@ import com.ntech.cabosse.achats.repository.PurchaseOrderRepository;
 import com.ntech.cabosse.article.entity.ArticleEntity;
 import com.ntech.cabosse.article.entity.ArticleType;
 import com.ntech.cabosse.article.repository.ArticleRepository;
+import com.ntech.cabosse.shared.api.PageRequest;
+import com.ntech.cabosse.shared.api.Pagination;
 import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
@@ -36,8 +38,10 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -113,12 +117,26 @@ public class PurchaseOrderService {
         return PurchaseOrderResponseDto.from(e, tenantVatRecoverable());
     }
 
+    /** Liste complète, réservée aux exports — l'API de liste passe par {@link #page}. */
     public List<PurchaseOrderResponseDto> list(BcStatus status, String q) {
         // Une seule lecture tenant pour toute la liste — évite N lookups.
         boolean tenantDefault = tenantVatRecoverable();
         return orders.search(status, q).stream()
                 .map(e -> PurchaseOrderResponseDto.from(e, tenantDefault))
                 .toList();
+    }
+
+    public Pagination<PurchaseOrderResponseDto> page(BcStatus status, String q, PageRequest pr) {
+        boolean tenantDefault = tenantVatRecoverable();
+        long total = orders.countSearch(status, q);
+        List<PurchaseOrderResponseDto> items = orders.search(status, q, pr.skip(), pr.perPage())
+                .stream()
+                .map(e -> PurchaseOrderResponseDto.from(e, tenantDefault))
+                .toList();
+        Map<String, String> filters = new HashMap<>();
+        if (status != null) filters.put("status", status.name());
+        if (q != null && !q.isBlank()) filters.put("q", q.trim());
+        return Pagination.of(total, pr, new String[]{"createdAt"}, "desc", filters, items);
     }
 
     public PurchaseOrderResponseDto getById(UUID id) {

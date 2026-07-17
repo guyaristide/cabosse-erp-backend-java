@@ -39,7 +39,19 @@ public class MemberRepository {
         return Optional.ofNullable(coll().find(Filters.eq("supplierId", supplierId)).first());
     }
 
-    public List<MemberEntity> search(String q, MemberStatus statusFilter) {
+    public long countSearch(String q, MemberStatus statusFilter) {
+        return coll().countDocuments(searchFilter(q, statusFilter));
+    }
+
+    public List<MemberEntity> search(String q, MemberStatus statusFilter, int skip, int limit) {
+        return coll().find(searchFilter(q, statusFilter))
+                .sort(new Document("name", 1))
+                .skip(skip)
+                .limit(limit)
+                .into(new ArrayList<>());
+    }
+
+    private static Bson searchFilter(String q, MemberStatus statusFilter) {
         List<Bson> filters = new ArrayList<>();
         if (statusFilter != null) filters.add(Filters.eq("status", statusFilter.name()));
         if (q != null && !q.isBlank()) {
@@ -51,10 +63,7 @@ public class MemberRepository {
                     Filters.regex("phone", escaped, "i")
             ));
         }
-        Bson filter = filters.isEmpty() ? new Document() : Filters.and(filters);
-        return coll().find(filter)
-                .sort(new Document("name", 1))
-                .into(new ArrayList<>());
+        return filters.isEmpty() ? new Document() : Filters.and(filters);
     }
 
     public long count() {

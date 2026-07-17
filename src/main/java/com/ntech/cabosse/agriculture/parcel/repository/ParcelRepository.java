@@ -41,7 +41,20 @@ public class ParcelRepository {
                 .into(new ArrayList<>());
     }
 
-    public List<ParcelEntity> search(String q, ParcelStatus statusFilter, UUID memberId) {
+    public long countSearch(String q, ParcelStatus statusFilter, UUID memberId) {
+        return coll().countDocuments(searchFilter(q, statusFilter, memberId));
+    }
+
+    public List<ParcelEntity> search(String q, ParcelStatus statusFilter, UUID memberId,
+                                     int skip, int limit) {
+        return coll().find(searchFilter(q, statusFilter, memberId))
+                .sort(new Document("name", 1))
+                .skip(skip)
+                .limit(limit)
+                .into(new ArrayList<>());
+    }
+
+    private static Bson searchFilter(String q, ParcelStatus statusFilter, UUID memberId) {
         List<Bson> filters = new ArrayList<>();
         if (statusFilter != null) filters.add(Filters.eq("status", statusFilter.name()));
         if (memberId != null) filters.add(Filters.eq("memberId", memberId));
@@ -54,10 +67,7 @@ public class ParcelRepository {
                     Filters.regex("memberName", escaped, "i")
             ));
         }
-        Bson filter = filters.isEmpty() ? new Document() : Filters.and(filters);
-        return coll().find(filter)
-                .sort(new Document("name", 1))
-                .into(new ArrayList<>());
+        return filters.isEmpty() ? new Document() : Filters.and(filters);
     }
 
     public void insert(ParcelEntity e) { coll().insertOne(e); }

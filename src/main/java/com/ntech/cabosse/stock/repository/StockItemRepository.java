@@ -71,6 +71,27 @@ public class StockItemRepository {
     public List<StockItemEntity> listBySite(UUID siteId, String q,
                                             ArticleType articleType,
                                             boolean belowThresholdOnly) {
+        return coll().find(siteFilter(siteId, q, articleType, belowThresholdOnly))
+                .sort(new Document("articleName", 1))
+                .into(new ArrayList<>());
+    }
+
+    public long countBySite(UUID siteId, String q, ArticleType articleType,
+                            boolean belowThresholdOnly) {
+        return coll().countDocuments(siteFilter(siteId, q, articleType, belowThresholdOnly));
+    }
+
+    public List<StockItemEntity> listBySite(UUID siteId, String q, ArticleType articleType,
+                                            boolean belowThresholdOnly, int skip, int limit) {
+        return coll().find(siteFilter(siteId, q, articleType, belowThresholdOnly))
+                .sort(new Document("articleName", 1))
+                .skip(skip)
+                .limit(limit)
+                .into(new ArrayList<>());
+    }
+
+    private static Bson siteFilter(UUID siteId, String q, ArticleType articleType,
+                                   boolean belowThresholdOnly) {
         List<Bson> filters = new ArrayList<>();
         if (siteId != null) filters.add(Filters.eq("siteId", siteId));
         if (articleType != null) {
@@ -95,10 +116,7 @@ public class StockItemRepository {
         filters.add(Filters.expr(
                 new Document("$ne", List.of("$quantity", 0))
         ));
-        Bson filter = Filters.and(filters);
-        return coll().find(filter)
-                .sort(new Document("articleName", 1))
-                .into(new ArrayList<>());
+        return Filters.and(filters);
     }
 
     /** Tous les sites pour un article — utile pour vue "où ai-je du stock ?". */

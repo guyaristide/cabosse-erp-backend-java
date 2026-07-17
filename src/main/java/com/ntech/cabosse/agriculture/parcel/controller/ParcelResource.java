@@ -5,6 +5,7 @@ import com.ntech.cabosse.agriculture.parcel.dto.ParcelUpsertDto;
 import com.ntech.cabosse.agriculture.parcel.entity.ParcelStatus;
 import com.ntech.cabosse.agriculture.parcel.service.ParcelService;
 import com.ntech.cabosse.shared.api.ApiResponse;
+import com.ntech.cabosse.shared.api.PageRequest;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.security.Roles;
 import com.ntech.cabosse.shared.tenant.TenantContext;
@@ -15,6 +16,7 @@ import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
@@ -51,11 +53,14 @@ public class ParcelResource {
     @GET
     public Response list(@QueryParam("q") String q,
                          @QueryParam("status") String statusRaw,
-                         @QueryParam("memberId") String memberIdRaw) {
+                         @QueryParam("memberId") String memberIdRaw,
+                         @QueryParam("page") @DefaultValue("0") int page,
+                         @QueryParam("perPage") @DefaultValue("20") int perPage) {
         ensureCapability();
         ParcelStatus statusFilter = parseStatus(statusRaw);
         UUID memberId = parseUuid(memberIdRaw);
-        return Response.ok(ApiResponse.ok(service.list(q, statusFilter, memberId))).build();
+        return Response.ok(ApiResponse.ok(
+                service.page(q, statusFilter, memberId, PageRequest.of(page, perPage)))).build();
     }
 
     @GET

@@ -13,6 +13,8 @@ import com.ntech.cabosse.eudr.service.DeforestationCheckService;
 import com.ntech.cabosse.eudr.service.DueDiligenceService;
 import com.ntech.cabosse.eudr.service.EudrDossierService;
 import com.ntech.cabosse.shared.api.ApiResponse;
+import com.ntech.cabosse.shared.api.PageRequest;
+import com.ntech.cabosse.shared.api.Pagination;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.security.Roles;
 import com.ntech.cabosse.shared.tenant.TenantContext;
@@ -23,6 +25,7 @@ import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
@@ -69,13 +72,21 @@ public class EudrResource {
     @GET
     @Path("/dossiers")
     public Response listDossiers(@QueryParam("status") String statusRaw,
-                                 @QueryParam("q") String q) {
+                                 @QueryParam("q") String q,
+                                 @QueryParam("page") @DefaultValue("0") int page,
+                                 @QueryParam("perPage") @DefaultValue("20") int perPage) {
         ensureCapability();
         EudrStatus filter = parseEnum(EudrStatus.class, statusRaw);
-        var list = dossierService.list(filter, q).stream()
+        PageRequest pr = PageRequest.of(page, perPage);
+        long total = dossierService.count(filter, q);
+        var items = dossierService.list(filter, q, pr.skip(), pr.perPage()).stream()
                 .map(EudrDossierResponseDto::from)
                 .toList();
-        return Response.ok(ApiResponse.ok(list)).build();
+        java.util.Map<String, String> appliedFilters = new java.util.HashMap<>();
+        if (filter != null) appliedFilters.put("status", filter.name());
+        if (q != null && !q.isBlank()) appliedFilters.put("q", q.trim());
+        return Response.ok(ApiResponse.ok(Pagination.of(
+                total, pr, new String[]{"parcelCode"}, "asc", appliedFilters, items))).build();
     }
 
     @GET
@@ -135,14 +146,22 @@ public class EudrResource {
     @GET
     @Path("/alerts")
     public Response listAlerts(@QueryParam("status") String statusRaw,
-                               @QueryParam("parcelId") String parcelIdRaw) {
+                               @QueryParam("parcelId") String parcelIdRaw,
+                               @QueryParam("page") @DefaultValue("0") int page,
+                               @QueryParam("perPage") @DefaultValue("20") int perPage) {
         ensureCapability();
         DeforestationAlertStatus filter = parseEnum(DeforestationAlertStatus.class, statusRaw);
         UUID parcelId = parseUuid(parcelIdRaw);
-        var list = deforestationService.list(filter, parcelId).stream()
+        PageRequest pr = PageRequest.of(page, perPage);
+        long total = deforestationService.count(filter, parcelId);
+        var items = deforestationService.list(filter, parcelId, pr.skip(), pr.perPage()).stream()
                 .map(DeforestationAlertResponseDto::from)
                 .toList();
-        return Response.ok(ApiResponse.ok(list)).build();
+        java.util.Map<String, String> appliedFilters = new java.util.HashMap<>();
+        if (filter != null) appliedFilters.put("status", filter.name());
+        if (parcelId != null) appliedFilters.put("parcelId", parcelId.toString());
+        return Response.ok(ApiResponse.ok(Pagination.of(
+                total, pr, new String[]{"detectedAt"}, "desc", appliedFilters, items))).build();
     }
 
     public record ManualAlertPayload(

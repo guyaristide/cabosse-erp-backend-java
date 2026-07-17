@@ -6,6 +6,8 @@ import com.ntech.cabosse.article.dto.ArticleUpsertDto;
 import com.ntech.cabosse.article.entity.ArticleEntity;
 import com.ntech.cabosse.article.entity.ArticleType;
 import com.ntech.cabosse.article.repository.ArticleRepository;
+import com.ntech.cabosse.shared.api.PageRequest;
+import com.ntech.cabosse.shared.api.Pagination;
 import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
@@ -18,8 +20,10 @@ import org.eclipse.microprofile.jwt.JsonWebToken;
 
 import java.text.Normalizer;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 
 @ApplicationScoped
@@ -34,9 +38,20 @@ public class ArticleService {
         try { return jwt.getName(); } catch (Exception e) { return null; }
     }
 
+    /** Liste complète, réservée aux exports — l'API de liste passe par {@link #page}. */
     public List<ArticleResponseDto> list(ArticleType type) {
         List<ArticleEntity> entities = (type == null) ? articles.listAll() : articles.listByType(type);
         return entities.stream().map(ArticleResponseDto::from).toList();
+    }
+
+    public Pagination<ArticleResponseDto> page(ArticleType type, String q, PageRequest pr) {
+        long total = articles.countSearch(type, q);
+        List<ArticleResponseDto> items = articles.search(type, q, pr.skip(), pr.perPage())
+                .stream().map(ArticleResponseDto::from).toList();
+        Map<String, String> filters = new HashMap<>();
+        if (type != null) filters.put("type", type.name());
+        if (q != null && !q.isBlank()) filters.put("q", q.trim());
+        return Pagination.of(total, pr, new String[]{"type", "name"}, "asc", filters, items);
     }
 
     public ArticleResponseDto getById(UUID id) {

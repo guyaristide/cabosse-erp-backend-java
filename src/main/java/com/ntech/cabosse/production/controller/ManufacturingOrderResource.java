@@ -11,6 +11,7 @@ import com.ntech.cabosse.production.entity.OfStatus;
 import com.ntech.cabosse.production.service.ManufacturingOrderImportService;
 import com.ntech.cabosse.production.service.ManufacturingOrderService;
 import com.ntech.cabosse.shared.api.ApiResponse;
+import com.ntech.cabosse.shared.api.PageRequest;
 import com.ntech.cabosse.shared.export.ExportAudit;
 import com.ntech.cabosse.shared.export.ExportDataset;
 import com.ntech.cabosse.shared.export.ExportFormat;
@@ -21,6 +22,7 @@ import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
@@ -50,9 +52,12 @@ public class ManufacturingOrderResource {
     @GET
     public Response list(@QueryParam("status") String statusRaw,
                          @QueryParam("q") String q,
-                         @QueryParam("siteId") UUID siteId) {
+                         @QueryParam("siteId") UUID siteId,
+                         @QueryParam("page") @DefaultValue("0") int page,
+                         @QueryParam("perPage") @DefaultValue("20") int perPage) {
         OfStatus status = parseStatus(statusRaw);
-        return Response.ok(ApiResponse.ok(service.list(status, q, siteId))).build();
+        return Response.ok(ApiResponse.ok(
+                service.page(status, q, siteId, PageRequest.of(page, perPage)))).build();
     }
 
     @GET

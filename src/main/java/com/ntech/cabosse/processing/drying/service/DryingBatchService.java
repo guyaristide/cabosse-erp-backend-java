@@ -7,6 +7,8 @@ import com.ntech.cabosse.processing.drying.entity.DryingBatchStatus;
 import com.ntech.cabosse.processing.drying.repository.DryingBatchRepository;
 import com.ntech.cabosse.processing.fermentation.entity.FermentationBatchEntity;
 import com.ntech.cabosse.processing.fermentation.repository.FermentationBatchRepository;
+import com.ntech.cabosse.shared.api.PageRequest;
+import com.ntech.cabosse.shared.api.Pagination;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
@@ -20,7 +22,9 @@ import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @ApplicationScoped
@@ -41,10 +45,17 @@ public class DryingBatchService {
         try { return tenantContext.userId(); } catch (Exception e) { return null; }
     }
 
-    public List<DryingBatchResponseDto> list(DryingBatchStatus statusFilter, String q) {
-        return batches.search(statusFilter, q).stream()
-                .map(DryingBatchResponseDto::from)
-                .toList();
+    public Pagination<DryingBatchResponseDto> page(DryingBatchStatus statusFilter, String q, PageRequest pr) {
+        long total = batches.countSearch(statusFilter, q);
+        List<DryingBatchResponseDto> items =
+                batches.search(statusFilter, q, pr.skip(), pr.perPage()).stream()
+                        .map(DryingBatchResponseDto::from)
+                        .toList();
+        Map<String, String> filters = new HashMap<>();
+        if (statusFilter != null) filters.put("status", statusFilter.name());
+        if (q != null && !q.isBlank()) filters.put("q", q.trim());
+        return Pagination.of(total, pr, new String[]{"startedAt", "createdAt"}, "desc",
+                filters, items);
     }
 
     public DryingBatchResponseDto getById(UUID id) {

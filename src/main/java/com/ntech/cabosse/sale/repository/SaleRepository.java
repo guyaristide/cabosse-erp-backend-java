@@ -99,6 +99,26 @@ public class SaleRepository {
 
     public List<SaleEntity> search(SaleStatus status, String q,
                                     UUID siteId, UUID customerId) {
+        return ListCap.warnIfCapped(coll().find(searchFilter(status, q, siteId, customerId))
+                .sort(new Document("saleDate", -1).append("createdAt", -1))
+                .limit(ListCap.MAX)
+                .into(new ArrayList<>()), "ventes");
+    }
+
+    public long countSearch(SaleStatus status, String q, UUID siteId, UUID customerId) {
+        return coll().countDocuments(searchFilter(status, q, siteId, customerId));
+    }
+
+    public List<SaleEntity> search(SaleStatus status, String q, UUID siteId, UUID customerId,
+                                   int skip, int limit) {
+        return coll().find(searchFilter(status, q, siteId, customerId))
+                .sort(new Document("saleDate", -1).append("createdAt", -1))
+                .skip(skip)
+                .limit(limit)
+                .into(new ArrayList<>());
+    }
+
+    private static Bson searchFilter(SaleStatus status, String q, UUID siteId, UUID customerId) {
         List<Bson> filters = new ArrayList<>();
         if (status != null) filters.add(Filters.eq("status", status.name()));
         if (siteId != null) filters.add(Filters.eq("siteId", siteId));
@@ -111,11 +131,7 @@ public class SaleRepository {
                     Filters.regex("invoiceNumber", escaped, "i")
             ));
         }
-        Bson filter = filters.isEmpty() ? new Document() : Filters.and(filters);
-        return ListCap.warnIfCapped(coll().find(filter)
-                .sort(new Document("saleDate", -1).append("createdAt", -1))
-                .limit(ListCap.MAX)
-                .into(new ArrayList<>()), "ventes");
+        return filters.isEmpty() ? new Document() : Filters.and(filters);
     }
 
     /**

@@ -7,6 +7,8 @@ import com.mongodb.client.model.ReturnDocument;
 import com.ntech.cabosse.article.entity.ArticleEntity;
 import com.ntech.cabosse.article.entity.ArticleType;
 import com.ntech.cabosse.article.repository.ArticleRepository;
+import com.ntech.cabosse.shared.api.PageRequest;
+import com.ntech.cabosse.shared.api.Pagination;
 import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
@@ -34,6 +36,7 @@ import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -97,12 +100,31 @@ public class StockService {
         return StockItemResponseDto.from(e);
     }
 
+    /** Liste complète, réservée aux exports — l'API de liste passe par {@link #pageBySite}. */
     public List<StockItemResponseDto> listBySite(UUID siteId, String q,
                                                   ArticleType articleType,
                                                   boolean belowThresholdOnly) {
         return stockItems.listBySite(siteId, q, articleType, belowThresholdOnly).stream()
                 .map(StockItemResponseDto::from)
                 .toList();
+    }
+
+    public Pagination<StockItemResponseDto> pageBySite(
+            UUID siteId, String q, ArticleType articleType, boolean belowThresholdOnly,
+            PageRequest pr) {
+        long total = stockItems.countBySite(siteId, q, articleType, belowThresholdOnly);
+        List<StockItemResponseDto> items = stockItems
+                .listBySite(siteId, q, articleType, belowThresholdOnly, pr.skip(), pr.perPage())
+                .stream()
+                .map(StockItemResponseDto::from)
+                .toList();
+        Map<String, String> filters = new HashMap<>();
+        if (siteId != null) filters.put("siteId", siteId.toString());
+        if (q != null && !q.isBlank()) filters.put("q", q.trim());
+        if (articleType != null) filters.put("type", articleType.name());
+        if (belowThresholdOnly) filters.put("belowThreshold", "true");
+        return Pagination.of(
+                total, pr, new String[]{"articleName"}, "asc", filters, items);
     }
 
     public List<StockItemResponseDto> listByArticle(UUID articleId) {

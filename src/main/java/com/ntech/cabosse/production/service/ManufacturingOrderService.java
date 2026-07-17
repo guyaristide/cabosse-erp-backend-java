@@ -17,6 +17,8 @@ import com.ntech.cabosse.recipe.entity.RecipeEntity;
 import com.ntech.cabosse.recipe.entity.RecipeIngredient;
 import com.ntech.cabosse.recipe.entity.RecipeStep;
 import com.ntech.cabosse.recipe.repository.RecipeRepository;
+import com.ntech.cabosse.shared.api.PageRequest;
+import com.ntech.cabosse.shared.api.Pagination;
 import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
@@ -38,7 +40,9 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -80,10 +84,26 @@ public class ManufacturingOrderService {
 
     // ─── Lecture ───────────────────────────────────────────────────
 
+    /** Liste complète, réservée aux exports — l'API de liste passe par {@link #page}. */
     public List<ProductionOrderResponseDto> list(OfStatus status, String q, UUID siteId) {
         return orders.search(status, q, siteId).stream()
                 .map(ProductionOrderResponseDto::from)
                 .toList();
+    }
+
+    public Pagination<ProductionOrderResponseDto> page(OfStatus status, String q, UUID siteId,
+                                                       PageRequest pr) {
+        long total = orders.countSearch(status, q, siteId);
+        List<ProductionOrderResponseDto> items =
+                orders.search(status, q, siteId, pr.skip(), pr.perPage()).stream()
+                        .map(ProductionOrderResponseDto::from)
+                        .toList();
+        Map<String, String> filters = new HashMap<>();
+        if (status != null) filters.put("status", status.name());
+        if (q != null && !q.isBlank()) filters.put("q", q.trim());
+        if (siteId != null) filters.put("siteId", siteId.toString());
+        return Pagination.of(total, pr, new String[]{"scheduledDate", "createdAt"}, "desc",
+                filters, items);
     }
 
     public ProductionOrderResponseDto getById(UUID id) {

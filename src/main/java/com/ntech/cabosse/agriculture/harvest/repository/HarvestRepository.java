@@ -40,7 +40,20 @@ public class HarvestRepository {
                 .into(new ArrayList<>());
     }
 
-    public List<HarvestEntity> search(UUID parcelId, UUID memberId, Integer campaignYear, String q) {
+    public long countSearch(UUID parcelId, UUID memberId, Integer campaignYear, String q) {
+        return coll().countDocuments(searchFilter(parcelId, memberId, campaignYear, q));
+    }
+
+    public List<HarvestEntity> search(UUID parcelId, UUID memberId, Integer campaignYear,
+                                      String q, int skip, int limit) {
+        return coll().find(searchFilter(parcelId, memberId, campaignYear, q))
+                .sort(new Document("harvestDate", -1).append("createdAt", -1))
+                .skip(skip)
+                .limit(limit)
+                .into(new ArrayList<>());
+    }
+
+    private static Bson searchFilter(UUID parcelId, UUID memberId, Integer campaignYear, String q) {
         List<Bson> filters = new ArrayList<>();
         if (parcelId != null) filters.add(Filters.eq("parcelId", parcelId));
         if (memberId != null) filters.add(Filters.eq("memberId", memberId));
@@ -53,10 +66,7 @@ public class HarvestRepository {
                     Filters.regex("memberName", escaped, "i")
             ));
         }
-        Bson filter = filters.isEmpty() ? new Document() : Filters.and(filters);
-        return coll().find(filter)
-                .sort(new Document("harvestDate", -1).append("createdAt", -1))
-                .into(new ArrayList<>());
+        return filters.isEmpty() ? new Document() : Filters.and(filters);
     }
 
     public void insert(HarvestEntity e) { coll().insertOne(e); }

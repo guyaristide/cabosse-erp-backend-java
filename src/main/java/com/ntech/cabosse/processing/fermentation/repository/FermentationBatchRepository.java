@@ -39,17 +39,26 @@ public class FermentationBatchRepository {
         return coll().find(Filters.eq("harvestIds", harvestId)).into(new ArrayList<>());
     }
 
-    public List<FermentationBatchEntity> search(FermentationBatchStatus statusFilter, String q) {
+    public long countSearch(FermentationBatchStatus statusFilter, String q) {
+        return coll().countDocuments(searchFilter(statusFilter, q));
+    }
+
+    public List<FermentationBatchEntity> search(FermentationBatchStatus statusFilter, String q, int skip, int limit) {
+        return coll().find(searchFilter(statusFilter, q))
+                .sort(new Document("startedAt", -1).append("createdAt", -1))
+                .skip(skip)
+                .limit(limit)
+                .into(new ArrayList<>());
+    }
+
+    private static Bson searchFilter(FermentationBatchStatus statusFilter, String q) {
         List<Bson> filters = new ArrayList<>();
         if (statusFilter != null) filters.add(Filters.eq("status", statusFilter.name()));
         if (q != null && !q.isBlank()) {
             String escaped = java.util.regex.Pattern.quote(q.trim());
             filters.add(Filters.regex("ref", escaped, "i"));
         }
-        Bson filter = filters.isEmpty() ? new Document() : Filters.and(filters);
-        return coll().find(filter)
-                .sort(new Document("startedAt", -1).append("createdAt", -1))
-                .into(new ArrayList<>());
+        return filters.isEmpty() ? new Document() : Filters.and(filters);
     }
 
     public void insert(FermentationBatchEntity e) { coll().insertOne(e); }

@@ -34,4 +34,28 @@ public record Pagination<T>(
         int previousPage,
         Map<String, String> filters,
         List<T> items
-) implements Serializable {}
+) implements Serializable {
+
+    /**
+     * Factory standard : dérive {@code totalOfPages}, {@code nextPage} et
+     * {@code previousPage} de {@code total} et de la {@link PageRequest},
+     * pour que tous les endpoints paginés partagent le même calcul.
+     */
+    public static <T> Pagination<T> of(long total, PageRequest pr,
+                                       String[] sorts, String order,
+                                       Map<String, String> filters, List<T> items) {
+        int totalOfPages = Math.max(1, (int) Math.ceil((double) total / pr.perPage()));
+        return new Pagination<>(
+                total,
+                totalOfPages,
+                (long) pr.perPage(),
+                sorts,
+                order,
+                pr.page(),
+                Math.min(pr.page() + 1, totalOfPages - 1),
+                Math.max(0, pr.page() - 1),
+                filters,
+                items
+        );
+    }
+}

@@ -37,6 +37,31 @@ public class ArticleRepository {
                 .into(new ArrayList<>());
     }
 
+    public long countSearch(ArticleType type, String q) {
+        return coll().countDocuments(searchFilter(type, q));
+    }
+
+    public List<ArticleEntity> search(ArticleType type, String q, int skip, int limit) {
+        return coll().find(searchFilter(type, q))
+                .sort(new org.bson.Document("type", 1).append("name", 1))
+                .skip(skip)
+                .limit(limit)
+                .into(new ArrayList<>());
+    }
+
+    private static org.bson.conversions.Bson searchFilter(ArticleType type, String q) {
+        List<org.bson.conversions.Bson> filters = new ArrayList<>();
+        if (type != null) filters.add(Filters.eq("type", type.name()));
+        if (q != null && !q.isBlank()) {
+            String escaped = java.util.regex.Pattern.quote(q.trim());
+            filters.add(Filters.or(
+                    Filters.regex("name", escaped, "i"),
+                    Filters.regex("code", escaped, "i")
+            ));
+        }
+        return filters.isEmpty() ? new org.bson.Document() : Filters.and(filters);
+    }
+
     public Optional<ArticleEntity> findById(UUID id) {
         return Optional.ofNullable(coll().find(Filters.eq("_id", id)).first());
     }

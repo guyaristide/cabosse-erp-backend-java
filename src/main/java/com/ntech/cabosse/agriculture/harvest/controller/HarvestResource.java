@@ -4,6 +4,7 @@ import com.ntech.cabosse.agriculture.harvest.dto.HarvestResponseDto;
 import com.ntech.cabosse.agriculture.harvest.dto.HarvestUpsertDto;
 import com.ntech.cabosse.agriculture.harvest.service.HarvestService;
 import com.ntech.cabosse.shared.api.ApiResponse;
+import com.ntech.cabosse.shared.api.PageRequest;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.security.Roles;
 import com.ntech.cabosse.shared.tenant.TenantContext;
@@ -14,6 +15,7 @@ import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
@@ -51,10 +53,13 @@ public class HarvestResource {
     public Response list(@QueryParam("parcelId") String parcelIdRaw,
                          @QueryParam("memberId") String memberIdRaw,
                          @QueryParam("campaignYear") Integer campaignYear,
-                         @QueryParam("q") String q) {
+                         @QueryParam("q") String q,
+                         @QueryParam("page") @DefaultValue("0") int page,
+                         @QueryParam("perPage") @DefaultValue("20") int perPage) {
         ensureCapability();
         return Response.ok(ApiResponse.ok(
-                service.list(parseUuid(parcelIdRaw), parseUuid(memberIdRaw), campaignYear, q)
+                service.page(parseUuid(parcelIdRaw), parseUuid(memberIdRaw), campaignYear, q,
+                        PageRequest.of(page, perPage))
         )).build();
     }
 

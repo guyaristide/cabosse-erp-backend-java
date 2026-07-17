@@ -9,6 +9,8 @@ import com.ntech.cabosse.processing.fermentation.entity.FermentationBatchStatus;
 import com.ntech.cabosse.processing.fermentation.entity.TemperatureReading;
 import com.ntech.cabosse.processing.fermentation.entity.Turning;
 import com.ntech.cabosse.processing.fermentation.repository.FermentationBatchRepository;
+import com.ntech.cabosse.shared.api.PageRequest;
+import com.ntech.cabosse.shared.api.Pagination;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
@@ -20,7 +22,9 @@ import org.eclipse.microprofile.jwt.JsonWebToken;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -50,10 +54,17 @@ public class FermentationBatchService {
         try { return tenantContext.userId(); } catch (Exception e) { return null; }
     }
 
-    public List<FermentationBatchResponseDto> list(FermentationBatchStatus statusFilter, String q) {
-        return batches.search(statusFilter, q).stream()
-                .map(FermentationBatchResponseDto::from)
-                .toList();
+    public Pagination<FermentationBatchResponseDto> page(FermentationBatchStatus statusFilter, String q, PageRequest pr) {
+        long total = batches.countSearch(statusFilter, q);
+        List<FermentationBatchResponseDto> items =
+                batches.search(statusFilter, q, pr.skip(), pr.perPage()).stream()
+                        .map(FermentationBatchResponseDto::from)
+                        .toList();
+        Map<String, String> filters = new HashMap<>();
+        if (statusFilter != null) filters.put("status", statusFilter.name());
+        if (q != null && !q.isBlank()) filters.put("q", q.trim());
+        return Pagination.of(total, pr, new String[]{"startedAt", "createdAt"}, "desc",
+                filters, items);
     }
 
     public FermentationBatchResponseDto getById(UUID id) {

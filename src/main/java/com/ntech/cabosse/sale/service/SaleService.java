@@ -18,6 +18,8 @@ import com.ntech.cabosse.sale.entity.SaleLine;
 import com.ntech.cabosse.sale.entity.SalePayment;
 import com.ntech.cabosse.sale.entity.SaleStatus;
 import com.ntech.cabosse.sale.repository.SaleRepository;
+import com.ntech.cabosse.shared.api.PageRequest;
+import com.ntech.cabosse.shared.api.Pagination;
 import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
@@ -39,7 +41,9 @@ import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -76,10 +80,27 @@ public class SaleService {
 
     // ─── Lecture ───────────────────────────────────────────────────
 
+    /** Liste complète, réservée aux exports — l'API de liste passe par {@link #page}. */
     public List<SaleResponseDto> list(SaleStatus status, String q, UUID siteId, UUID customerId) {
         return sales.search(status, q, siteId, customerId).stream()
                 .map(SaleResponseDto::from)
                 .toList();
+    }
+
+    public Pagination<SaleResponseDto> page(SaleStatus status, String q, UUID siteId,
+                                            UUID customerId, PageRequest pr) {
+        long total = sales.countSearch(status, q, siteId, customerId);
+        List<SaleResponseDto> items =
+                sales.search(status, q, siteId, customerId, pr.skip(), pr.perPage()).stream()
+                        .map(SaleResponseDto::from)
+                        .toList();
+        Map<String, String> filters = new HashMap<>();
+        if (status != null) filters.put("status", status.name());
+        if (q != null && !q.isBlank()) filters.put("q", q.trim());
+        if (siteId != null) filters.put("siteId", siteId.toString());
+        if (customerId != null) filters.put("customerId", customerId.toString());
+        return Pagination.of(total, pr, new String[]{"saleDate", "createdAt"}, "desc",
+                filters, items);
     }
 
     public SaleResponseDto getById(UUID id) {

@@ -7,6 +7,8 @@ import com.ntech.cabosse.agriculture.parcel.entity.ParcelStatus;
 import com.ntech.cabosse.agriculture.parcel.repository.ParcelRepository;
 import com.ntech.cabosse.members.entity.MemberEntity;
 import com.ntech.cabosse.members.repository.MemberRepository;
+import com.ntech.cabosse.shared.api.PageRequest;
+import com.ntech.cabosse.shared.api.Pagination;
 import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.tenant.TenantContext;
@@ -17,7 +19,9 @@ import org.eclipse.microprofile.jwt.JsonWebToken;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -47,10 +51,18 @@ public class ParcelService {
 
     // ─── Lecture ────────────────────────────────────────────────────
 
-    public List<ParcelResponseDto> list(String q, ParcelStatus statusFilter, UUID memberId) {
-        return parcels.search(q, statusFilter, memberId).stream()
-                .map(ParcelResponseDto::from)
-                .toList();
+    public Pagination<ParcelResponseDto> page(String q, ParcelStatus statusFilter, UUID memberId,
+                                              PageRequest pr) {
+        long total = parcels.countSearch(q, statusFilter, memberId);
+        List<ParcelResponseDto> items =
+                parcels.search(q, statusFilter, memberId, pr.skip(), pr.perPage()).stream()
+                        .map(ParcelResponseDto::from)
+                        .toList();
+        Map<String, String> filters = new HashMap<>();
+        if (q != null && !q.isBlank()) filters.put("q", q.trim());
+        if (statusFilter != null) filters.put("status", statusFilter.name());
+        if (memberId != null) filters.put("memberId", memberId.toString());
+        return Pagination.of(total, pr, new String[]{"name"}, "asc", filters, items);
     }
 
     public ParcelResponseDto getById(UUID id) {

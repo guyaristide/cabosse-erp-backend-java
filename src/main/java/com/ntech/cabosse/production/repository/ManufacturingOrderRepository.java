@@ -41,6 +41,26 @@ public class ManufacturingOrderRepository {
 
     /** Recherche filtrée pour la liste UI (par statut, par recherche libre, par site). */
     public List<ManufacturingOrderEntity> search(OfStatus status, String q, UUID siteId) {
+        return ListCap.warnIfCapped(coll().find(searchFilter(status, q, siteId))
+                .sort(new Document("scheduledDate", -1).append("createdAt", -1))
+                .limit(ListCap.MAX)
+                .into(new ArrayList<>()), "ordres de fabrication");
+    }
+
+    public long countSearch(OfStatus status, String q, UUID siteId) {
+        return coll().countDocuments(searchFilter(status, q, siteId));
+    }
+
+    public List<ManufacturingOrderEntity> search(OfStatus status, String q, UUID siteId,
+                                                 int skip, int limit) {
+        return coll().find(searchFilter(status, q, siteId))
+                .sort(new Document("scheduledDate", -1).append("createdAt", -1))
+                .skip(skip)
+                .limit(limit)
+                .into(new ArrayList<>());
+    }
+
+    private static Bson searchFilter(OfStatus status, String q, UUID siteId) {
         List<Bson> filters = new ArrayList<>();
         if (status != null) {
             filters.add(Filters.eq("status", status.name()));
@@ -57,11 +77,7 @@ public class ManufacturingOrderRepository {
                     Filters.regex("lotRef", escaped, "i")
             ));
         }
-        Bson filter = filters.isEmpty() ? new Document() : Filters.and(filters);
-        return ListCap.warnIfCapped(coll().find(filter)
-                .sort(new Document("scheduledDate", -1).append("createdAt", -1))
-                .limit(ListCap.MAX)
-                .into(new ArrayList<>()), "ordres de fabrication");
+        return filters.isEmpty() ? new Document() : Filters.and(filters);
     }
 
     public List<ManufacturingOrderEntity> listByRecipe(UUID recipeId) {

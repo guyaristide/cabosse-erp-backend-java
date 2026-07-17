@@ -4,6 +4,7 @@ import com.ntech.cabosse.agriculture.qc.dto.BeanQualityCheckResponseDto;
 import com.ntech.cabosse.agriculture.qc.dto.BeanQualityCheckUpsertDto;
 import com.ntech.cabosse.agriculture.qc.service.BeanQualityCheckService;
 import com.ntech.cabosse.shared.api.ApiResponse;
+import com.ntech.cabosse.shared.api.PageRequest;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.security.Roles;
 import com.ntech.cabosse.shared.tenant.TenantContext;
@@ -14,6 +15,7 @@ import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
@@ -46,9 +48,13 @@ public class BeanQualityCheckResource {
     }
 
     @GET
-    public Response list(@QueryParam("conform") Boolean conformFilter, @QueryParam("q") String q) {
+    public Response list(@QueryParam("conform") Boolean conformFilter,
+                         @QueryParam("q") String q,
+                         @QueryParam("page") @DefaultValue("0") int page,
+                         @QueryParam("perPage") @DefaultValue("20") int perPage) {
         ensureCapability();
-        return Response.ok(ApiResponse.ok(service.list(conformFilter, q))).build();
+        return Response.ok(ApiResponse.ok(
+                service.page(conformFilter, q, PageRequest.of(page, perPage)))).build();
     }
 
     @GET

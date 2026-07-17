@@ -17,6 +17,8 @@ import com.ntech.cabosse.reception.entity.DirectReceiptPayment;
 import com.ntech.cabosse.reception.entity.DirectReceiptStatus;
 import com.ntech.cabosse.reception.entity.PaymentMethod;
 import com.ntech.cabosse.reception.repository.DirectReceiptRepository;
+import com.ntech.cabosse.shared.api.PageRequest;
+import com.ntech.cabosse.shared.api.Pagination;
 import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
@@ -40,7 +42,9 @@ import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -110,12 +114,27 @@ public class DirectReceiptService {
                 : tenantVatRecoverable();
     }
 
+    /** Liste complète, réservée aux exports — l'API de liste passe par {@link #page}. */
     public List<DirectReceiptResponseDto> list(DirectReceiptStatus status, String q) {
         // Une seule lecture tenant pour toute la liste — évite N lookups.
         boolean tenantDefault = tenantVatRecoverable();
         return receipts.search(status, q).stream()
                 .map(e -> DirectReceiptResponseDto.from(e, tenantDefault))
                 .toList();
+    }
+
+    public Pagination<DirectReceiptResponseDto> page(DirectReceiptStatus status, String q,
+                                                     PageRequest pr) {
+        boolean tenantDefault = tenantVatRecoverable();
+        long total = receipts.countSearch(status, q);
+        List<DirectReceiptResponseDto> items =
+                receipts.search(status, q, pr.skip(), pr.perPage()).stream()
+                        .map(e -> DirectReceiptResponseDto.from(e, tenantDefault))
+                        .toList();
+        Map<String, String> filters = new HashMap<>();
+        if (status != null) filters.put("status", status.name());
+        if (q != null && !q.isBlank()) filters.put("q", q.trim());
+        return Pagination.of(total, pr, new String[]{"createdAt"}, "desc", filters, items);
     }
 
     public DirectReceiptResponseDto getById(UUID id) {

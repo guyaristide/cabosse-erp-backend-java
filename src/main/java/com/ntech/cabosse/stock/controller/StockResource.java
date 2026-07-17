@@ -2,6 +2,7 @@ package com.ntech.cabosse.stock.controller;
 
 import com.ntech.cabosse.article.entity.ArticleType;
 import com.ntech.cabosse.shared.api.ApiResponse;
+import com.ntech.cabosse.shared.api.PageRequest;
 import com.ntech.cabosse.shared.export.ExportAudit;
 import com.ntech.cabosse.shared.export.ExportDataset;
 import com.ntech.cabosse.shared.export.ExportFormat;
@@ -25,6 +26,7 @@ import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -59,10 +61,12 @@ public class StockResource {
     public Response list(@QueryParam("siteId") UUID siteId,
                          @QueryParam("q") String q,
                          @QueryParam("type") String typeRaw,
-                         @QueryParam("belowThreshold") boolean belowThreshold) {
+                         @QueryParam("belowThreshold") boolean belowThreshold,
+                         @QueryParam("page") @DefaultValue("0") int page,
+                         @QueryParam("perPage") @DefaultValue("20") int perPage) {
         ArticleType type = parseArticleType(typeRaw);
-        List<StockItemResponseDto> rows = service.listBySite(siteId, q, type, belowThreshold);
-        return Response.ok(ApiResponse.ok(rows)).build();
+        return Response.ok(ApiResponse.ok(service.pageBySite(
+                siteId, q, type, belowThreshold, PageRequest.of(page, perPage)))).build();
     }
 
     /**
@@ -102,8 +106,8 @@ public class StockResource {
     @Path("/{articleId}/sites/{siteId}/movements")
     public Response listMovements(@PathParam("articleId") UUID articleId,
                                    @PathParam("siteId") UUID siteId,
-                                   @QueryParam("limit") @jakarta.ws.rs.DefaultValue("50") int limit,
-                                   @QueryParam("skip") @jakarta.ws.rs.DefaultValue("0") int skip) {
+                                   @QueryParam("limit") @DefaultValue("50") int limit,
+                                   @QueryParam("skip") @DefaultValue("0") int skip) {
         List<StockMovementResponseDto> rows = movementsRepo
                 .listByArticleAndSite(articleId, siteId, limit, skip).stream()
                 .map(StockMovementResponseDto::from)

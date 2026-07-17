@@ -36,6 +36,25 @@ public class PurchaseOrderRepository {
     }
 
     public List<PurchaseOrderEntity> search(BcStatus status, String q) {
+        return ListCap.warnIfCapped(coll().find(searchFilter(status, q))
+                .sort(new Document("createdAt", -1))
+                .limit(ListCap.MAX)
+                .into(new ArrayList<>()), "bons de commande");
+    }
+
+    public long countSearch(BcStatus status, String q) {
+        return coll().countDocuments(searchFilter(status, q));
+    }
+
+    public List<PurchaseOrderEntity> search(BcStatus status, String q, int skip, int limit) {
+        return coll().find(searchFilter(status, q))
+                .sort(new Document("createdAt", -1))
+                .skip(skip)
+                .limit(limit)
+                .into(new ArrayList<>());
+    }
+
+    private static Bson searchFilter(BcStatus status, String q) {
         List<Bson> filters = new ArrayList<>();
         if (status != null) {
             filters.add(Filters.eq("status", status.name()));
@@ -48,11 +67,7 @@ public class PurchaseOrderRepository {
                     Filters.regex("invoiceNumber", escaped, "i")
             ));
         }
-        Bson filter = filters.isEmpty() ? new Document() : Filters.and(filters);
-        return ListCap.warnIfCapped(coll().find(filter)
-                .sort(new Document("createdAt", -1))
-                .limit(ListCap.MAX)
-                .into(new ArrayList<>()), "bons de commande");
+        return filters.isEmpty() ? new Document() : Filters.and(filters);
     }
 
     public Optional<PurchaseOrderEntity> findById(UUID id) {

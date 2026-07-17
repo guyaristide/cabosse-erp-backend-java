@@ -1,6 +1,7 @@
 package com.ntech.cabosse.supplier.controller;
 
 import com.ntech.cabosse.shared.api.ApiResponse;
+import com.ntech.cabosse.shared.api.PageRequest;
 import com.ntech.cabosse.shared.export.ExportAudit;
 import com.ntech.cabosse.shared.export.ExportDataset;
 import com.ntech.cabosse.shared.export.ExportFormat;
@@ -18,6 +19,7 @@ import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.PATCH;
 import jakarta.ws.rs.POST;
@@ -44,8 +46,10 @@ public class SupplierResource {
     @Inject ExportAudit exportAudit;
 
     @GET
-    public Response list() {
-        return Response.ok(ApiResponse.ok(service.list())).build();
+    public Response list(@QueryParam("q") String q,
+                         @QueryParam("page") @DefaultValue("0") int page,
+                         @QueryParam("perPage") @DefaultValue("20") int perPage) {
+        return Response.ok(ApiResponse.ok(service.page(q, PageRequest.of(page, perPage)))).build();
     }
 
     @POST

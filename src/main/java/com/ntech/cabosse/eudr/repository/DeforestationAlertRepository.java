@@ -36,14 +36,24 @@ public class DeforestationAlertRepository {
                 .into(new ArrayList<>());
     }
 
-    public List<DeforestationAlertEntity> search(DeforestationAlertStatus statusFilter, UUID parcelId) {
+    public long countSearch(DeforestationAlertStatus statusFilter, UUID parcelId) {
+        return coll().countDocuments(searchFilter(statusFilter, parcelId));
+    }
+
+    public List<DeforestationAlertEntity> search(DeforestationAlertStatus statusFilter,
+                                                 UUID parcelId, int skip, int limit) {
+        return coll().find(searchFilter(statusFilter, parcelId))
+                .sort(new Document("detectedAt", -1))
+                .skip(skip)
+                .limit(limit)
+                .into(new ArrayList<>());
+    }
+
+    private static Bson searchFilter(DeforestationAlertStatus statusFilter, UUID parcelId) {
         List<Bson> filters = new ArrayList<>();
         if (statusFilter != null) filters.add(Filters.eq("status", statusFilter.name()));
         if (parcelId != null) filters.add(Filters.eq("parcelId", parcelId));
-        Bson filter = filters.isEmpty() ? new Document() : Filters.and(filters);
-        return coll().find(filter)
-                .sort(new Document("detectedAt", -1))
-                .into(new ArrayList<>());
+        return filters.isEmpty() ? new Document() : Filters.and(filters);
     }
 
     public long countNewSeverityHigh() {

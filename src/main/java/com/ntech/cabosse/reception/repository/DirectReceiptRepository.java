@@ -34,6 +34,25 @@ public class DirectReceiptRepository {
     }
 
     public List<DirectReceiptEntity> search(DirectReceiptStatus status, String q) {
+        return coll().find(searchFilter(status, q))
+                .sort(new Document("createdAt", -1))
+                .into(new ArrayList<>());
+    }
+
+    public long countSearch(DirectReceiptStatus status, String q) {
+        return coll().countDocuments(searchFilter(status, q));
+    }
+
+    public List<DirectReceiptEntity> search(DirectReceiptStatus status, String q,
+                                            int skip, int limit) {
+        return coll().find(searchFilter(status, q))
+                .sort(new Document("createdAt", -1))
+                .skip(skip)
+                .limit(limit)
+                .into(new ArrayList<>());
+    }
+
+    private static Bson searchFilter(DirectReceiptStatus status, String q) {
         List<Bson> filters = new ArrayList<>();
         if (status != null) {
             filters.add(Filters.eq("status", status.name()));
@@ -46,10 +65,7 @@ public class DirectReceiptRepository {
                     Filters.regex("deliveryNoteRef", escaped, "i")
             ));
         }
-        Bson filter = filters.isEmpty() ? new Document() : Filters.and(filters);
-        return coll().find(filter)
-                .sort(new Document("createdAt", -1))
-                .into(new ArrayList<>());
+        return filters.isEmpty() ? new Document() : Filters.and(filters);
     }
 
     public Optional<DirectReceiptEntity> findById(UUID id) {

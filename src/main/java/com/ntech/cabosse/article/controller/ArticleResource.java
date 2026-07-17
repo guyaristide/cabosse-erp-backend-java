@@ -10,6 +10,7 @@ import com.ntech.cabosse.article.service.ArticleImageService;
 import com.ntech.cabosse.article.service.ArticleImportService;
 import com.ntech.cabosse.article.service.ArticleService;
 import com.ntech.cabosse.shared.api.ApiResponse;
+import com.ntech.cabosse.shared.api.PageRequest;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.export.ExportAudit;
 import com.ntech.cabosse.shared.export.ExportColumn;
@@ -24,6 +25,7 @@ import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
+import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.PATCH;
 import jakarta.ws.rs.POST;
@@ -56,9 +58,13 @@ public class ArticleResource {
     @Inject ExportAudit exportAudit;
 
     @GET
-    public Response list(@QueryParam("type") String typeRaw) {
+    public Response list(@QueryParam("type") String typeRaw,
+                         @QueryParam("q") String q,
+                         @QueryParam("page") @DefaultValue("0") int page,
+                         @QueryParam("perPage") @DefaultValue("20") int perPage) {
         ArticleType type = parseType(typeRaw);
-        return Response.ok(ApiResponse.ok(service.list(type))).build();
+        return Response.ok(ApiResponse.ok(
+                service.page(type, q, PageRequest.of(page, perPage)))).build();
     }
 
     @POST

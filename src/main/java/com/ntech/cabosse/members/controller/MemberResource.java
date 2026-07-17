@@ -5,6 +5,7 @@ import com.ntech.cabosse.members.dto.MemberUpsertDto;
 import com.ntech.cabosse.members.entity.MemberStatus;
 import com.ntech.cabosse.members.service.MemberService;
 import com.ntech.cabosse.shared.api.ApiResponse;
+import com.ntech.cabosse.shared.api.PageRequest;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.security.Roles;
 import com.ntech.cabosse.shared.tenant.TenantContext;
@@ -15,6 +16,7 @@ import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
@@ -59,10 +61,13 @@ public class MemberResource {
 
     @GET
     public Response list(@QueryParam("q") String q,
-                         @QueryParam("status") String statusRaw) {
+                         @QueryParam("status") String statusRaw,
+                         @QueryParam("page") @DefaultValue("0") int page,
+                         @QueryParam("perPage") @DefaultValue("20") int perPage) {
         ensureCapability();
         MemberStatus statusFilter = parseStatus(statusRaw);
-        return Response.ok(ApiResponse.ok(service.list(q, statusFilter))).build();
+        return Response.ok(ApiResponse.ok(
+                service.page(q, statusFilter, PageRequest.of(page, perPage)))).build();
     }
 
     @GET

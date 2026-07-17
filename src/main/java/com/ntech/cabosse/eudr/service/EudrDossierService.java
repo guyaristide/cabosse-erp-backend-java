@@ -73,8 +73,12 @@ public class EudrDossierService {
 
     // ─── Lectures ───────────────────────────────────────────────────
 
-    public List<EudrDossierEntity> list(EudrStatus statusFilter, String q) {
-        return dossiers.search(statusFilter, q);
+    public long count(EudrStatus statusFilter, String q) {
+        return dossiers.countSearch(statusFilter, q);
+    }
+
+    public List<EudrDossierEntity> list(EudrStatus statusFilter, String q, int skip, int limit) {
+        return dossiers.search(statusFilter, q, skip, limit);
     }
 
     public EudrDossierEntity getByParcel(UUID parcelId) {

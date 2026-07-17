@@ -7,6 +7,8 @@ import com.ntech.cabosse.agriculture.harvest.repository.HarvestRepository;
 import com.ntech.cabosse.agriculture.parcel.entity.ParcelEntity;
 import com.ntech.cabosse.agriculture.parcel.repository.ParcelRepository;
 import com.ntech.cabosse.members.repository.MemberRepository;
+import com.ntech.cabosse.shared.api.PageRequest;
+import com.ntech.cabosse.shared.api.Pagination;
 import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.tenant.TenantContext;
@@ -15,7 +17,9 @@ import jakarta.inject.Inject;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -41,10 +45,21 @@ public class HarvestService {
         try { return tenantContext.userId(); } catch (Exception e) { return null; }
     }
 
-    public List<HarvestResponseDto> list(UUID parcelId, UUID memberId, Integer campaignYear, String q) {
-        return harvests.search(parcelId, memberId, campaignYear, q).stream()
-                .map(HarvestResponseDto::from)
-                .toList();
+    public Pagination<HarvestResponseDto> page(UUID parcelId, UUID memberId, Integer campaignYear,
+                                               String q, PageRequest pr) {
+        long total = harvests.countSearch(parcelId, memberId, campaignYear, q);
+        List<HarvestResponseDto> items =
+                harvests.search(parcelId, memberId, campaignYear, q, pr.skip(), pr.perPage())
+                        .stream()
+                        .map(HarvestResponseDto::from)
+                        .toList();
+        Map<String, String> filters = new HashMap<>();
+        if (parcelId != null) filters.put("parcelId", parcelId.toString());
+        if (memberId != null) filters.put("memberId", memberId.toString());
+        if (campaignYear != null) filters.put("campaignYear", campaignYear.toString());
+        if (q != null && !q.isBlank()) filters.put("q", q.trim());
+        return Pagination.of(total, pr, new String[]{"harvestDate", "createdAt"}, "desc",
+                filters, items);
     }
 
     public HarvestResponseDto getById(UUID id) {

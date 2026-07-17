@@ -40,7 +40,26 @@ public class EudrDossierRepository {
                 .into(new ArrayList<>());
     }
 
+    /** Liste complète (agrégation des déclarations de diligence) — la liste UI passe par la variante paginée. */
     public List<EudrDossierEntity> search(EudrStatus statusFilter, String q) {
+        return coll().find(searchFilter(statusFilter, q))
+                .sort(new Document("parcelCode", 1))
+                .into(new ArrayList<>());
+    }
+
+    public long countSearch(EudrStatus statusFilter, String q) {
+        return coll().countDocuments(searchFilter(statusFilter, q));
+    }
+
+    public List<EudrDossierEntity> search(EudrStatus statusFilter, String q, int skip, int limit) {
+        return coll().find(searchFilter(statusFilter, q))
+                .sort(new Document("parcelCode", 1))
+                .skip(skip)
+                .limit(limit)
+                .into(new ArrayList<>());
+    }
+
+    private static Bson searchFilter(EudrStatus statusFilter, String q) {
         List<Bson> filters = new ArrayList<>();
         if (statusFilter != null) filters.add(Filters.eq("status", statusFilter.name()));
         if (q != null && !q.isBlank()) {
@@ -50,10 +69,7 @@ public class EudrDossierRepository {
                     Filters.regex("parcelName", escaped, "i")
             ));
         }
-        Bson filter = filters.isEmpty() ? new Document() : Filters.and(filters);
-        return coll().find(filter)
-                .sort(new Document("parcelCode", 1))
-                .into(new ArrayList<>());
+        return filters.isEmpty() ? new Document() : Filters.and(filters);
     }
 
     public void insert(EudrDossierEntity e) { coll().insertOne(e); }

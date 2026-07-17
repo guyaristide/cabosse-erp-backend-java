@@ -33,7 +33,20 @@ public class BeanQualityCheckRepository {
         return Optional.ofNullable(coll().find(Filters.eq("dryingBatchId", dryingBatchId)).first());
     }
 
-    public List<BeanQualityCheckEntity> search(Boolean conformFilter, String q) {
+    public long countSearch(Boolean conformFilter, String q) {
+        return coll().countDocuments(searchFilter(conformFilter, q));
+    }
+
+    public List<BeanQualityCheckEntity> search(Boolean conformFilter, String q,
+                                               int skip, int limit) {
+        return coll().find(searchFilter(conformFilter, q))
+                .sort(new Document("createdAt", -1))
+                .skip(skip)
+                .limit(limit)
+                .into(new ArrayList<>());
+    }
+
+    private static Bson searchFilter(Boolean conformFilter, String q) {
         List<Bson> filters = new ArrayList<>();
         if (conformFilter != null) filters.add(Filters.eq("conformOverall", conformFilter));
         if (q != null && !q.isBlank()) {
@@ -44,10 +57,7 @@ public class BeanQualityCheckRepository {
                     Filters.regex("dryingBatchRef", escaped, "i")
             ));
         }
-        Bson filter = filters.isEmpty() ? new Document() : Filters.and(filters);
-        return coll().find(filter)
-                .sort(new Document("createdAt", -1))
-                .into(new ArrayList<>());
+        return filters.isEmpty() ? new Document() : Filters.and(filters);
     }
 
     public void insert(BeanQualityCheckEntity e) { coll().insertOne(e); }

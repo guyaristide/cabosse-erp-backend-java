@@ -8,6 +8,8 @@ import com.ntech.cabosse.article.entity.ArticleEntity;
 import com.ntech.cabosse.article.repository.ArticleRepository;
 import com.ntech.cabosse.processing.drying.entity.DryingBatchEntity;
 import com.ntech.cabosse.processing.drying.repository.DryingBatchRepository;
+import com.ntech.cabosse.shared.api.PageRequest;
+import com.ntech.cabosse.shared.api.Pagination;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
@@ -24,7 +26,9 @@ import org.eclipse.microprofile.jwt.JsonWebToken;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -58,10 +62,17 @@ public class BeanQualityCheckService {
         try { return tenantContext.userId(); } catch (Exception e) { return null; }
     }
 
-    public List<BeanQualityCheckResponseDto> list(Boolean conformFilter, String q) {
-        return qcs.search(conformFilter, q).stream()
-                .map(BeanQualityCheckResponseDto::from)
-                .toList();
+    public Pagination<BeanQualityCheckResponseDto> page(Boolean conformFilter, String q,
+                                                        PageRequest pr) {
+        long total = qcs.countSearch(conformFilter, q);
+        List<BeanQualityCheckResponseDto> items =
+                qcs.search(conformFilter, q, pr.skip(), pr.perPage()).stream()
+                        .map(BeanQualityCheckResponseDto::from)
+                        .toList();
+        Map<String, String> filters = new HashMap<>();
+        if (conformFilter != null) filters.put("conform", conformFilter.toString());
+        if (q != null && !q.isBlank()) filters.put("q", q.trim());
+        return Pagination.of(total, pr, new String[]{"createdAt"}, "desc", filters, items);
     }
 
     public BeanQualityCheckResponseDto getById(UUID id) {

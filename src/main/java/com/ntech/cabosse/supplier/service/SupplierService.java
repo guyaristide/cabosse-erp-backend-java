@@ -1,6 +1,8 @@
 package com.ntech.cabosse.supplier.service;
 
 import com.github.f4b6a3.uuid.UuidCreator;
+import com.ntech.cabosse.shared.api.PageRequest;
+import com.ntech.cabosse.shared.api.Pagination;
 import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.ConflictException;
@@ -32,8 +34,19 @@ public class SupplierService {
         try { return jwt.getName(); } catch (Exception e) { return null; }
     }
 
+    /** Liste complète, réservée aux exports — l'API de liste passe par {@link #page}. */
     public List<SupplierResponseDto> list() {
         return repo.listAll().stream().map(SupplierResponseDto::from).toList();
+    }
+
+    public Pagination<SupplierResponseDto> page(String q, PageRequest pr) {
+        long total = repo.countSearch(q);
+        List<SupplierResponseDto> items = repo.search(q, pr.skip(), pr.perPage()).stream()
+                .map(SupplierResponseDto::from)
+                .toList();
+        java.util.Map<String, String> filters = new java.util.HashMap<>();
+        if (q != null && !q.isBlank()) filters.put("q", q.trim());
+        return Pagination.of(total, pr, new String[]{"name"}, "asc", filters, items);
     }
 
     public SupplierResponseDto getById(UUID id) {

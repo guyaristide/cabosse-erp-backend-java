@@ -5,6 +5,7 @@ import com.ntech.cabosse.processing.fermentation.dto.FermentationBatchUpsertDto;
 import com.ntech.cabosse.processing.fermentation.entity.FermentationBatchStatus;
 import com.ntech.cabosse.processing.fermentation.service.FermentationBatchService;
 import com.ntech.cabosse.shared.api.ApiResponse;
+import com.ntech.cabosse.shared.api.PageRequest;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.security.Roles;
 import com.ntech.cabosse.shared.tenant.TenantContext;
@@ -15,6 +16,7 @@ import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -48,10 +50,14 @@ public class FermentationBatchResource {
     }
 
     @GET
-    public Response list(@QueryParam("status") String statusRaw, @QueryParam("q") String q) {
+    public Response list(@QueryParam("status") String statusRaw,
+                         @QueryParam("q") String q,
+                         @QueryParam("page") @DefaultValue("0") int page,
+                         @QueryParam("perPage") @DefaultValue("20") int perPage) {
         ensureCapability();
         FermentationBatchStatus filter = parseEnum(FermentationBatchStatus.class, statusRaw);
-        return Response.ok(ApiResponse.ok(service.list(filter, q))).build();
+        return Response.ok(ApiResponse.ok(
+                service.page(filter, q, PageRequest.of(page, perPage)))).build();
     }
 
     @GET

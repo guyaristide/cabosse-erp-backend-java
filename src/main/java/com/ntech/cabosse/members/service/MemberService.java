@@ -4,6 +4,8 @@ import com.ntech.cabosse.members.dto.MemberResponseDto;
 import com.ntech.cabosse.members.dto.MemberUpsertDto;
 import com.ntech.cabosse.members.entity.MemberEntity;
 import com.ntech.cabosse.members.repository.MemberRepository;
+import com.ntech.cabosse.shared.api.PageRequest;
+import com.ntech.cabosse.shared.api.Pagination;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
@@ -15,7 +17,9 @@ import jakarta.inject.Inject;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -48,11 +52,18 @@ public class MemberService {
 
     // ─── Lecture ────────────────────────────────────────────────────
 
-    public List<MemberResponseDto> list(String q,
-                                        com.ntech.cabosse.members.entity.MemberStatus statusFilter) {
-        return members.search(q, statusFilter).stream()
+    public Pagination<MemberResponseDto> page(String q,
+                                              com.ntech.cabosse.members.entity.MemberStatus statusFilter,
+                                              PageRequest pr) {
+        long total = members.countSearch(q, statusFilter);
+        List<MemberResponseDto> items = members.search(q, statusFilter, pr.skip(), pr.perPage())
+                .stream()
                 .map(MemberResponseDto::from)
                 .toList();
+        Map<String, String> filters = new HashMap<>();
+        if (q != null && !q.isBlank()) filters.put("q", q.trim());
+        if (statusFilter != null) filters.put("status", statusFilter.name());
+        return Pagination.of(total, pr, new String[]{"name"}, "asc", filters, items);
     }
 
     public MemberResponseDto getById(UUID id) {

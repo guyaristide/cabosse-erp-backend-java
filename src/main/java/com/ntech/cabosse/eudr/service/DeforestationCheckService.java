@@ -53,8 +53,13 @@ public class DeforestationCheckService {
         try { return tenantContext.userId(); } catch (Exception e) { return null; }
     }
 
-    public List<DeforestationAlertEntity> list(DeforestationAlertStatus statusFilter, UUID parcelId) {
-        return alerts.search(statusFilter, parcelId);
+    public long count(DeforestationAlertStatus statusFilter, UUID parcelId) {
+        return alerts.countSearch(statusFilter, parcelId);
+    }
+
+    public List<DeforestationAlertEntity> list(DeforestationAlertStatus statusFilter,
+                                               UUID parcelId, int skip, int limit) {
+        return alerts.search(statusFilter, parcelId, skip, limit);
     }
 
     /**
