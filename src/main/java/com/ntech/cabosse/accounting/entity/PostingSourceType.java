@@ -36,8 +36,24 @@ public enum PostingSourceType {
     MEMBER_CAPITAL,
     /** Remboursement de la part sociale à la radiation du membre. */
     MEMBER_CAPITAL_REVERSAL,
+    /** Libération de la part sociale (cycle souscription, préférence memberCapitalFlow). */
+    MEMBER_CAPITAL_LIBERATION,
+    /** Contre-passation de la libération à la radiation du membre. */
+    MEMBER_CAPITAL_LIBERATION_REVERSAL,
     /** Traçabilité d'un transfert de stock inter-sites (si activé par le tenant). */
     STOCK_TRANSFER,
     /** Opération diverse saisie manuellement puis validée (backlog CPT-07). */
-    MANUAL_ENTRY
+    MANUAL_ENTRY,
+    /** Constat des en-cours de production à l'arrêté d'exercice (34/734). */
+    EXERCISE_WIP,
+    /** Contre-passation des en-cours à l'ouverture de l'exercice suivant. */
+    EXERCISE_WIP_REVERSAL,
+    /** Impôt sur le résultat à l'arrêté (891/441). */
+    EXERCISE_TAX,
+    /** Clôture des comptes de produits vers le résultat (7xx vers 13). */
+    EXERCISE_CLOSING_INCOME,
+    /** Clôture des charges et de l'impôt vers le résultat (13 vers 6xx/8xx). */
+    EXERCISE_CLOSING_EXPENSE,
+    /** Affectation du résultat décidée par l'assemblée (13 vers classe 1). */
+    EXERCISE_ALLOCATION
 }

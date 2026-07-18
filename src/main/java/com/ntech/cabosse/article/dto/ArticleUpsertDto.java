@@ -56,6 +56,11 @@ public record ArticleUpsertDto(
         @DecimalMax(value = "100", message = "Taux de TVA supérieur à 100 % interdit")
         BigDecimal vatRate,
 
+        /** Compte de charge SYSCOHADA débité aux achats. Vide = défaut selon le type. */
+        @Pattern(regexp = "^$|^[0-9]{2,8}$",
+                message = "Compte d'achat : 2 à 8 chiffres")
+        String purchaseChargeAccount,
+
         /**
          * Poids unitaire en grammes (PF). {@code null} accepté ; sert au
          * calcul du poids total produit et du rendement d'un OF.

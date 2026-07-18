@@ -39,6 +39,12 @@ public final class FileUploadLimits {
             "member.document",
             new TypeRule(10_000_000L, Set.of("application/pdf", "image/png", "image/jpeg")),
 
+            "od.document",
+            new TypeRule(10_000_000L, Set.of("application/pdf", "image/png", "image/jpeg")),
+
+            "fiscal_year.document",
+            new TypeRule(10_000_000L, Set.of("application/pdf", "image/png", "image/jpeg")),
+
             "user.avatar",
             new TypeRule(500_000L, COMMON_IMAGE_MIMES),
 

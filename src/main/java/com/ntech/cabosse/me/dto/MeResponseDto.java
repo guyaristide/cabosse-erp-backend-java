@@ -26,6 +26,10 @@ public record MeResponseDto(
         String tenantName,
         /** Devise active du tenant (code ISO 4217, ex. {@code "XOF"}, {@code "EUR"}). */
         String tenantCurrency,
+        /** Couleur primaire de marque du tenant (hex 6 chiffres, ou {@code null}). */
+        String tenantBrandColor,
+        /** URL relative du logo du tenant, ou {@code null} si aucun logo publié. */
+        String tenantLogoUrl,
         /** Capacités filière (packs activés selon les activités du tenant). */
         TenantCapabilitiesDto capabilities,
         Instant lastLoginAt

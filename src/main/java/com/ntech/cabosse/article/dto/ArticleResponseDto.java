@@ -22,6 +22,8 @@ public record ArticleResponseDto(
         BigDecimal alertThreshold,
         String barcode,
         BigDecimal vatRate,
+        /** Compte de charge SYSCOHADA débité aux achats. {@code null} = défaut selon le type. */
+        String purchaseChargeAccount,
         /** Poids unitaire en grammes (PF uniquement). {@code null} sinon. */
         Integer unitWeightGrams,
         /** {@code true} si une image a été uploadée. */
@@ -42,6 +44,7 @@ public record ArticleResponseDto(
                 e.id, e.type, e.code, e.name, e.description, e.unit,
                 e.standardCost, e.standardSalePrice, e.activityCode,
                 e.stockable, e.alertThreshold, e.barcode, e.vatRate,
+                e.purchaseChargeAccount,
                 e.unitWeightGrams,
                 hasImage, imageUrl,
                 e.active, e.createdAt, e.updatedAt

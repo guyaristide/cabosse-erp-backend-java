@@ -20,6 +20,7 @@ import java.time.YearMonth;
 import java.util.HashSet;
 
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasSize;
 
 /**
  * Saisie manuelle d'OD (backlog CPT-07) : brouillon déséquilibré accepté,
@@ -120,6 +121,54 @@ class OdEntryResourceTest extends AbstractIntegrationTest {
         givenAs(admin)
                 .contentType("application/json")
                 .when().post("/api/v1/accounting/periods/" + lastMonth + "/lock")
+                .then().statusCode(422);
+    }
+
+    @Test
+    void documents_follow_draft_lifecycle() {
+        UserEntity admin = tenantAdmin();
+        LocalDate today = LocalDate.now();
+        String id = createDraft(admin, today, """
+                { "date": "%s", "libelle": "Dotation avec justificatif",
+                  "lines": [
+                    { "account": "601", "libelle": "d", "debitFcfa": 1000 },
+                    { "account": "401", "libelle": "c", "creditFcfa": 1000 }
+                  ] }
+                """.formatted(today));
+
+        // Pièce jointe en brouillon : acceptée.
+        String docId = givenAs(admin)
+                .multiPart("label", "Tableau d'amortissement")
+                .multiPart("file", "tableau.pdf", "%PDF-1.4 fake".getBytes(), "application/pdf")
+                .when().post("/api/v1/accounting/od/" + id + "/documents")
+                .then().statusCode(200)
+                .body("data.documents", hasSize(1))
+                .body("data.documents[0].label", equalTo("Tableau d'amortissement"))
+                .extract().path("data.documents[0].id");
+
+        givenAs(admin)
+                .when().get("/api/v1/accounting/od/" + id + "/documents/" + docId)
+                .then().statusCode(200)
+                .header("Content-Type", equalTo("application/pdf"));
+
+        givenAs(admin)
+                .contentType("application/json")
+                .when().post("/api/v1/accounting/od/" + id + "/validate")
+                .then().statusCode(200);
+
+        // OD validée : lecture toujours possible, ajout et retrait refusés.
+        givenAs(admin)
+                .when().get("/api/v1/accounting/od/" + id + "/documents/" + docId)
+                .then().statusCode(200);
+
+        givenAs(admin)
+                .multiPart("label", "Pièce tardive")
+                .multiPart("file", "tard.pdf", "%PDF-1.4 fake".getBytes(), "application/pdf")
+                .when().post("/api/v1/accounting/od/" + id + "/documents")
+                .then().statusCode(422);
+
+        givenAs(admin)
+                .when().delete("/api/v1/accounting/od/" + id + "/documents/" + docId)
                 .then().statusCode(422);
     }
 

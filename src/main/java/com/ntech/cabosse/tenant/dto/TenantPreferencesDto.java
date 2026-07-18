@@ -39,6 +39,29 @@ public record TenantPreferencesDto(
         @Schema(description = "Qui peut rouvrir une période comptable clôturée.",
                 example = "TENANT_ADMIN", defaultValue = "TENANT_ADMIN",
                 enumeration = { "TENANT_ADMIN", "PLATFORM_ONLY" })
-        String periodReopenPolicy
+        String periodReopenPolicy,
+
+        @Schema(description = "Compte SYSCOHADA débité pour la TVA déductible sur achats.",
+                example = "44566", defaultValue = "44566")
+        String vatDeductibleAccount,
+
+        @Schema(description = "Cycle comptable des parts sociales : pièce directe trésorerie/capital, "
+                + "ou souscription 461 puis libération.",
+                example = "DIRECT", defaultValue = "DIRECT",
+                enumeration = { "DIRECT", "SUBSCRIPTION" })
+        String memberCapitalFlow,
+
+        @Schema(description = "Inclut les transferts inter-magasins dans les états analytiques "
+                + "par centre de coût (sans effet tant que la comptabilité analytique n'est pas livrée).",
+                defaultValue = "false")
+        boolean analyticsIncludeStockTransfers,
+
+        @Schema(description = "Mois de début de l'exercice comptable (1 à 12).",
+                example = "1", defaultValue = "1")
+        int fiscalYearStartMonth,
+
+        @Schema(description = "Taux d'impôt sur le résultat (%), proposé à l'arrêté d'exercice.",
+                example = "0", defaultValue = "0")
+        java.math.BigDecimal incomeTaxRatePct
 
 ) {}

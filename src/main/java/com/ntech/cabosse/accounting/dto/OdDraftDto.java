@@ -17,6 +17,7 @@ public record OdDraftDto(
         List<LineView> lines,
         String status,
         String pieceRef,
+        List<DocumentView> documents,
         BigDecimal totalDebitFcfa,
         BigDecimal totalCreditFcfa,
         boolean balanced,
@@ -26,6 +27,9 @@ public record OdDraftDto(
 ) {
     public record LineView(String account, String libelle,
                            BigDecimal debitFcfa, BigDecimal creditFcfa) {}
+
+    public record DocumentView(UUID id, String label, String fileName,
+                               String mimeType, long sizeBytes, Instant uploadedAt) {}
 
     public static OdDraftDto from(OdDraftEntity e) {
         BigDecimal debit = BigDecimal.ZERO;
@@ -37,8 +41,11 @@ public record OdDraftDto(
             if (l.debitFcfa != null) debit = debit.add(l.debitFcfa);
             if (l.creditFcfa != null) credit = credit.add(l.creditFcfa);
         }
+        List<DocumentView> documents = e.documents == null ? List.of() : e.documents.stream()
+                .map(d -> new DocumentView(d.id, d.label, d.fileName, d.mimeType, d.sizeBytes, d.uploadedAt))
+                .toList();
         return new OdDraftDto(
-                e.id, e.date, e.libelle, lines, e.status, e.pieceRef,
+                e.id, e.date, e.libelle, lines, e.status, e.pieceRef, documents,
                 debit, credit,
                 debit.compareTo(credit) == 0 && debit.signum() > 0,
                 e.createdAt, e.createdByEmail, e.validatedAt

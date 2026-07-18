@@ -52,6 +52,31 @@ public record UpdateTenantPreferencesPayloadDto(
                 message = "Politique de réouverture : TENANT_ADMIN ou PLATFORM_ONLY")
         @Schema(description = "Qui peut rouvrir une période comptable clôturée.",
                 enumeration = { "TENANT_ADMIN", "PLATFORM_ONLY" })
-        String periodReopenPolicy
+        String periodReopenPolicy,
+
+        @jakarta.validation.constraints.Pattern(regexp = "^$|^[0-9]{2,8}$",
+                message = "Compte TVA déductible : 2 à 8 chiffres")
+        @Schema(description = "Compte SYSCOHADA débité pour la TVA déductible sur achats.",
+                example = "44566")
+        String vatDeductibleAccount,
+
+        @jakarta.validation.constraints.Pattern(regexp = "^$|^(DIRECT|SUBSCRIPTION)$",
+                message = "Cycle des parts sociales : DIRECT ou SUBSCRIPTION")
+        @Schema(description = "Cycle comptable des parts sociales.",
+                enumeration = { "DIRECT", "SUBSCRIPTION" })
+        String memberCapitalFlow,
+
+        @Schema(description = "Inclut les transferts inter-magasins dans les états analytiques.")
+        Boolean analyticsIncludeStockTransfers,
+
+        @jakarta.validation.constraints.Min(value = 1, message = "Mois de début : 1 à 12")
+        @jakarta.validation.constraints.Max(value = 12, message = "Mois de début : 1 à 12")
+        @Schema(description = "Mois de début de l'exercice comptable (1 à 12).")
+        Integer fiscalYearStartMonth,
+
+        @jakarta.validation.constraints.DecimalMin(value = "0", message = "Taux d'impôt négatif interdit")
+        @jakarta.validation.constraints.DecimalMax(value = "100", message = "Taux d'impôt supérieur à 100 % interdit")
+        @Schema(description = "Taux d'impôt sur le résultat (%).")
+        java.math.BigDecimal incomeTaxRatePct
 
 ) {}

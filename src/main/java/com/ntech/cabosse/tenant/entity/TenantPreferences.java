@@ -104,6 +104,69 @@ public class TenantPreferences {
                 ? java.math.BigDecimal.valueOf(100_000) : inventoryAlertThresholdFcfa;
     }
 
+    /**
+     * Compte SYSCOHADA débité pour la TVA déductible sur achats.
+     * Défaut « 44566 » (réf. jeux d'écritures v7) ; « 4456 » reste
+     * accepté pour les tenants qui préfèrent le compte agrégé.
+     */
+    public String vatDeductibleAccount;
+
+    /**
+     * Cycle comptable des parts sociales : {@link #CAPITAL_FLOW_DIRECT}
+     * (défaut, une pièce trésorerie/capital) ou
+     * {@link #CAPITAL_FLOW_SUBSCRIPTION} (réf. v7 : souscription
+     * 461/capital puis libération trésorerie/461).
+     */
+    public String memberCapitalFlow;
+
+    /**
+     * Inclut les transferts inter-magasins dans les états analytiques
+     * par centre de coût. Défaut faux (les pièces miroirs gonflent les
+     * charges brutes du centre). Consommé par la comptabilité analytique
+     * (backlog CPT-09) — sans effet tant qu'elle n'est pas livrée.
+     */
+    public Boolean analyticsIncludeStockTransfers;
+
+    public String vatDeductibleAccount() {
+        return vatDeductibleAccount == null || vatDeductibleAccount.isBlank()
+                ? "44566" : vatDeductibleAccount;
+    }
+
+    /**
+     * Mois de début de l'exercice comptable (1 à 12). Défaut janvier ;
+     * une coopérative cacao peut choisir octobre pour coller à la
+     * campagne (backlog CPT-12).
+     */
+    public Integer fiscalYearStartMonth;
+
+    /**
+     * Taux d'impôt sur le résultat (%), utilisé pour proposer le montant
+     * de l'écriture 891/441 à l'arrêté. Défaut 0 (coopératives exonérées).
+     */
+    public java.math.BigDecimal incomeTaxRatePct;
+
+    public int fiscalYearStartMonth() {
+        return fiscalYearStartMonth == null || fiscalYearStartMonth < 1 || fiscalYearStartMonth > 12
+                ? 1 : fiscalYearStartMonth;
+    }
+
+    public java.math.BigDecimal incomeTaxRatePct() {
+        return incomeTaxRatePct == null ? java.math.BigDecimal.ZERO : incomeTaxRatePct;
+    }
+
+    /** Valeurs autorisées de {@link #memberCapitalFlow}. */
+    public static final String CAPITAL_FLOW_DIRECT = "DIRECT";
+    public static final String CAPITAL_FLOW_SUBSCRIPTION = "SUBSCRIPTION";
+
+    public String memberCapitalFlow() {
+        return CAPITAL_FLOW_SUBSCRIPTION.equals(memberCapitalFlow)
+                ? CAPITAL_FLOW_SUBSCRIPTION : CAPITAL_FLOW_DIRECT;
+    }
+
+    public boolean analyticsIncludeStockTransfers() {
+        return analyticsIncludeStockTransfers != null && analyticsIncludeStockTransfers;
+    }
+
     /** Valeurs autorisées de {@link #periodReopenPolicy}. */
     public static final String REOPEN_TENANT_ADMIN = "TENANT_ADMIN";
     public static final String REOPEN_PLATFORM_ONLY = "PLATFORM_ONLY";

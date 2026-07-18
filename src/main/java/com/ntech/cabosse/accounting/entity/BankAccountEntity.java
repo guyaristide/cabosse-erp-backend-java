@@ -34,7 +34,7 @@ public class BankAccountEntity {
     public String accountNumber;
 
     /**
-     * Compte SYSCOHADA rattaché (521 par défaut pour banque, 530 pour
+     * Compte SYSCOHADA rattaché (521 par défaut pour banque, 571 pour
      * caisse, mais le tenant peut ouvrir un 521-3 pour distinguer ses
      * comptes). Doit exister dans {@link ChartOfAccountsEntity}.
      */

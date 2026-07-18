@@ -130,6 +130,7 @@ public class ManufacturingOrderImportService {
                 /* alertThreshold */ null,
                 /* barcode */ null,
                 /* vatRate */ null,
+                /* purchaseChargeAccount */ null,
                 fp.unitWeightGrams()
         );
         ArticleResponseDto created = articleService.create(create);
@@ -171,6 +172,7 @@ public class ManufacturingOrderImportService {
                 /* alertThreshold */ null,
                 /* barcode */ null,
                 /* vatRate */ null,
+                /* purchaseChargeAccount */ null,
                 /* unitWeightGrams */ null
         );
         ArticleResponseDto created = articleService.create(create);

@@ -67,6 +67,14 @@ public class ArticleEntity {
     public BigDecimal vatRate;
 
     /**
+     * Compte de charge SYSCOHADA débité pour les achats de cet article
+     * (backlog CPT-11, réf. jeux d'écritures v7 : 6011 cacao marchand,
+     * 6012 certifié, 6021 engrais…). {@code null} = résolution par
+     * défaut selon le type d'article (601/604/6081/624).
+     */
+    public String purchaseChargeAccount;
+
+    /**
      * Poids unitaire en grammes. Pertinent uniquement pour les
      * {@link ArticleType#FINISHED_PRODUCT} — sert au calcul du poids
      * total produit et du rendement d'un OF

@@ -36,7 +36,7 @@ import java.util.UUID;
  * candidats), elle reste {@code UNMATCHED} et l'utilisateur tranche
  * manuellement via {@link #suggestCandidates(UUID)}.</p>
  *
- * <p>Sens des montants pour un compte de trésorerie (521/530) :
+ * <p>Sens des montants pour un compte de trésorerie (521/571) :
  * <ul>
  *   <li>Ligne extrait {@code CREDIT} (entrée d'argent) ↔ pièce où le
  *       compte trésorerie est <em>débité</em> (ex. encaissement vente).</li>

@@ -91,7 +91,11 @@ public class TenantTechnicalService {
             new MigrationDescriptor("create_operators_collection", "028", "neiba"),
             new MigrationDescriptor("create_accounting_periods_collection", "029", "neiba"),
             new MigrationDescriptor("create_inventory_sessions_collection", "030", "neiba"),
-            new MigrationDescriptor("create_od_drafts_collection", "031", "neiba")
+            new MigrationDescriptor("create_od_drafts_collection", "031", "neiba"),
+            new MigrationDescriptor("align_chart_accounts_v7", "032", "neiba"),
+            new MigrationDescriptor("add_capital_and_vat_accounts", "033", "neiba"),
+            new MigrationDescriptor("seed_extended_chart_v7", "034", "neiba"),
+            new MigrationDescriptor("create_fiscal_years_collection", "035", "neiba")
     );
 
     /** Fréquence de backup par plan tarifaire (cf. plans.json catalogue). */

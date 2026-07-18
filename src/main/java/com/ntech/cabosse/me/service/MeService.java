@@ -49,6 +49,14 @@ public class MeService {
                 ? tenant.preferences.currency
                 : DEFAULT_CURRENCY;
         var caps = capabilityService.capabilitiesOf(tenant);
+        String brandColor = tenant != null && tenant.branding != null
+                ? tenant.branding.brandColor
+                : null;
+        // Même URL publique que celle servie au back-office (endpoint @PermitAll,
+        // utilisable directement comme src d'<img>).
+        String logoUrl = tenant != null && tenant.branding != null && tenant.branding.logoFileId != null
+                ? "/api/v1/admin/tenants/" + tenant.id + "/logo"
+                : null;
         var capsDto = new MeResponseDto.TenantCapabilitiesDto(
                 caps.contains(com.ntech.cabosse.tenant.capability.TenantCapability.HAS_MEMBERS),
                 caps.contains(com.ntech.cabosse.tenant.capability.TenantCapability.HAS_PARCELS),
@@ -69,6 +77,8 @@ public class MeService {
                 user.tenantId,
                 tenant != null ? tenant.name : null,
                 currency,
+                brandColor,
+                logoUrl,
                 capsDto,
                 user.lastLoginAt
         );

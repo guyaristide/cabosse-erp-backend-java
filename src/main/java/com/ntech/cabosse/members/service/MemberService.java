@@ -211,6 +211,10 @@ public class MemberService {
         // no-op si aucune pièce capital n'existait (montant nul ou
         // écriture désactivée par le tenant à l'époque). Idempotent.
         accounting.reverseFrom(
+                com.ntech.cabosse.accounting.entity.PostingSourceType.MEMBER_CAPITAL_LIBERATION,
+                e.id,
+                "Radiation " + e.name);
+        accounting.reverseFrom(
                 com.ntech.cabosse.accounting.entity.PostingSourceType.MEMBER_CAPITAL,
                 e.id,
                 "Radiation " + e.name);
@@ -241,7 +245,7 @@ public class MemberService {
      * Pièce « part sociale » à l'adhésion (backlog MEM-02), pilotée par
      * les préférences tenant : interrupteur {@code postMemberCapitalEntries}
      * et compte {@code memberCapitalAccount} (défaut 101). Trésorerie :
-     * caisse (530) sauf mode de paiement préféré évoquant un virement ou
+     * caisse (571) sauf mode de paiement préféré évoquant un virement ou
      * du mobile money (521). Idempotent par membre : un second appel
      * (re-validation) ne double pas la pièce.
      */
@@ -249,14 +253,25 @@ public class MemberService {
         if (e.partsSocialesAmount == null || e.partsSocialesAmount.signum() <= 0) return;
         TenantPreferences prefs = preferences.current();
         if (!prefs.postMemberCapitalEntries()) return;
-        accounting.postFromMemberCapital(
-                e.id,
-                e.name + " (" + e.code + ")",
-                e.partsSocialesAmount,
-                e.joinedAt,
-                prefs.memberCapitalAccount(),
-                capitalTreasuryAccountFor(e.preferredPaymentMethod)
-        );
+        if (TenantPreferences.CAPITAL_FLOW_SUBSCRIPTION.equals(prefs.memberCapitalFlow())) {
+            accounting.postFromMemberCapitalSubscription(
+                    e.id,
+                    e.name + " (" + e.code + ")",
+                    e.partsSocialesAmount,
+                    e.joinedAt,
+                    prefs.memberCapitalAccount(),
+                    capitalTreasuryAccountFor(e.preferredPaymentMethod)
+            );
+        } else {
+            accounting.postFromMemberCapital(
+                    e.id,
+                    e.name + " (" + e.code + ")",
+                    e.partsSocialesAmount,
+                    e.joinedAt,
+                    prefs.memberCapitalAccount(),
+                    capitalTreasuryAccountFor(e.preferredPaymentMethod)
+            );
+        }
     }
 
     /** Heuristique sur le texte libre du mode de paiement : espèces par défaut. */

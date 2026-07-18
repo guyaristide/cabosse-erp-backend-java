@@ -62,6 +62,7 @@ public class AccountingQueryService {
     @Inject JournalPieceRepository pieces;
     @Inject TenantMongoDatabaseProvider tenantDb;
     @Inject com.ntech.cabosse.accounting.repository.TvaDeclarationRepository tvaDeclarations;
+    @Inject com.ntech.cabosse.tenant.service.TenantPreferencesLookup preferencesLookup;
 
     // ════════════════════════════════════════════════════════════════
     //  Plan comptable enrichi (solde + nb mouvements sur la période)
@@ -153,6 +154,9 @@ public class AccountingQueryService {
         // encore défini de BankAccount mais où des écritures de paiement existent.
         treasuryAccounts.add(SyscohadaAccounts.BANQUE_DEFAULT);
         treasuryAccounts.add(SyscohadaAccounts.CAISSE_DEFAULT);
+        // 530 : ancien compte caisse (avant alignement v7 sur 571) — conservé
+        // pour que les pièces historiques restent comptées.
+        treasuryAccounts.add("530");
         List<CashFlowPointDto> cashFlow = computeCashFlow(cashFlowStart, LocalDate.now(), treasuryAccounts);
 
         // ─── Déclaration TVA mois courant ───
@@ -278,7 +282,14 @@ public class AccountingQueryService {
         LocalDate from = month.atDay(1);
         LocalDate to = month.atEndOfMonth();
         Map<String, AccountStats> stats = aggregateByAccount(from, to);
-        BigDecimal deductible = stats.getOrDefault(SyscohadaAccounts.TVA_DEDUCTIBLE, AccountStats.ZERO).balance();
+        String vatAccount = preferencesLookup.current().vatDeductibleAccount();
+        BigDecimal deductible = stats.getOrDefault(vatAccount, AccountStats.ZERO).balance();
+        if (!SyscohadaAccounts.TVA_DEDUCTIBLE.equals(vatAccount)) {
+            // 4456 : compte historique (avant le paramétrage 44566) — les
+            // pièces déjà passées y restent et comptent dans la déclaration.
+            deductible = deductible.add(
+                    stats.getOrDefault(SyscohadaAccounts.TVA_DEDUCTIBLE, AccountStats.ZERO).balance());
+        }
         BigDecimal collected = stats.getOrDefault(SyscohadaAccounts.TVA_COLLECTEE, AccountStats.ZERO).balance().negate();
         return new TvaSnapshot(yearMonth, collected, deductible, collected.subtract(deductible));
     }

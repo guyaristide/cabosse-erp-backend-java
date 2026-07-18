@@ -373,7 +373,7 @@ class SaleImportServiceTest {
                 "tablette-lait-nouveau", "Tablette Lait Nouveau",
                 null, "pcs",
                 null, null, null,
-                true, null, null, null, null,
+                true, null, null, null, null, null,
                 false, null,
                 true, Instant.now(), Instant.now()
         );

@@ -66,6 +66,7 @@ public class AccountingResource {
     @Inject AccountingQueryService query;
     @Inject AccountingPeriodService periodService;
     @Inject com.ntech.cabosse.accounting.service.OdEntryService odService;
+    @Inject com.ntech.cabosse.accounting.service.OdDocumentService odDocuments;
     @Inject BankAccountService bankAccounts;
     @Inject AccountingExportService exports;
     @Inject ExportAudit exportAudit;
@@ -367,6 +368,59 @@ public class AccountingResource {
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
     public Response validateOd(@PathParam("id") UUID id) {
         return Response.ok(ApiResponse.ok(OdDraftDto.from(odService.validate(id)))).build();
+    }
+
+    @POST
+    @Path("/od/{id}/documents")
+    @jakarta.ws.rs.Consumes(MediaType.MULTIPART_FORM_DATA)
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    public Response uploadOdDocument(
+            @PathParam("id") UUID id,
+            @org.jboss.resteasy.reactive.RestForm("label") String label,
+            @org.jboss.resteasy.reactive.RestForm("file")
+            org.jboss.resteasy.reactive.multipart.FileUpload file) {
+        if (file == null) {
+            throw new com.ntech.cabosse.shared.exception.BusinessException(
+                    "Aucun fichier 'file' fourni dans la requête multipart.");
+        }
+        byte[] bytes;
+        try {
+            bytes = java.nio.file.Files.readAllBytes(file.uploadedFile());
+        } catch (java.io.IOException e) {
+            throw new com.ntech.cabosse.shared.exception.BusinessException(
+                    "Lecture du fichier impossible : " + e.getMessage());
+        }
+        return Response.ok(ApiResponse.ok(OdDraftDto.from(
+                odDocuments.attach(id, label, bytes, file.contentType(), file.fileName())))).build();
+    }
+
+    @GET
+    @Path("/od/{id}/documents/{documentId}")
+    @Produces({ "application/pdf", "image/png", "image/jpeg", "application/octet-stream" })
+    public Response downloadOdDocument(@PathParam("id") UUID id,
+                                       @PathParam("documentId") UUID documentId) {
+        com.ntech.cabosse.accounting.service.OdDocumentService.DocumentStream s =
+                odDocuments.open(id, documentId);
+        return Response.ok((jakarta.ws.rs.core.StreamingOutput) output -> {
+                    try (var in = s.content()) {
+                        in.transferTo(output);
+                    }
+                })
+                .type(s.mimeType() != null ? s.mimeType() : MediaType.APPLICATION_OCTET_STREAM)
+                .header("Content-Length", s.sizeBytes())
+                .header("Content-Disposition",
+                        "inline; filename=\"" + (s.fileName() != null ? s.fileName() : "piece") + "\"")
+                .header("Cache-Control", "private, max-age=300")
+                .build();
+    }
+
+    @jakarta.ws.rs.DELETE
+    @Path("/od/{id}/documents/{documentId}")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    public Response deleteOdDocument(@PathParam("id") UUID id,
+                                     @PathParam("documentId") UUID documentId) {
+        return Response.ok(ApiResponse.ok(OdDraftDto.from(
+                odDocuments.detach(id, documentId)))).build();
     }
 
     // ─── Périodes comptables (clôture / réouverture) ────────────────

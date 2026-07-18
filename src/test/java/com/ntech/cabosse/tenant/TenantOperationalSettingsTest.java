@@ -68,7 +68,50 @@ class TenantOperationalSettingsTest extends AbstractIntegrationTest {
                 .body("data.postStockTransferEntries", equalTo(false))
                 .body("data.inventoryAlertThresholdPct", equalTo(5))
                 .body("data.inventoryAlertThresholdFcfa", equalTo(100000))
-                .body("data.periodReopenPolicy", equalTo("TENANT_ADMIN"));
+                .body("data.periodReopenPolicy", equalTo("TENANT_ADMIN"))
+                .body("data.vatDeductibleAccount", equalTo("44566"))
+                .body("data.memberCapitalFlow", equalTo("DIRECT"))
+                .body("data.analyticsIncludeStockTransfers", equalTo(false));
+    }
+
+    @Test
+    void subscription_flow_posts_souscription_then_liberation() {
+        Ctx ctx = tenantAdmin("coop-souscription");
+        givenAs(ctx.admin())
+                .contentType("application/json")
+                .body("{\"memberCapitalFlow\":\"SUBSCRIPTION\",\"memberCapitalAccount\":\"1018\"}")
+                .when().put("/api/v1/me/tenant/preferences")
+                .then().statusCode(200)
+                .body("data.memberCapitalFlow", equalTo("SUBSCRIPTION"))
+                .body("data.memberCapitalAccount", equalTo("1018"));
+
+        String memberId = givenAs(ctx.admin())
+                .contentType("application/json")
+                .body("""
+                        { "name": "Fatou Bamba", "civilStatus": "UNKNOWN",
+                          "partsSocialesAmount": 30000, "status": "ACTIVE" }
+                        """)
+                .when().post("/api/v1/members")
+                .then().statusCode(201)
+                .extract().path("data.id");
+
+        // Deux pièces : souscription (461/1018) puis libération (trésorerie/461).
+        givenAs(ctx.admin())
+                .when().get("/api/v1/accounting/journal")
+                .then().statusCode(200)
+                .body("data.total", equalTo(2));
+
+        // La radiation contre-passe les deux pièces du cycle.
+        givenAs(ctx.admin())
+                .contentType("application/json")
+                .body("{\"reason\":\"Départ volontaire\"}")
+                .when().post("/api/v1/members/" + memberId + "/retire")
+                .then().statusCode(200);
+
+        givenAs(ctx.admin())
+                .when().get("/api/v1/accounting/journal")
+                .then().statusCode(200)
+                .body("data.total", equalTo(4));
     }
 
     @Test

@@ -213,6 +213,7 @@ public class PurchaseOrderImportService {
                 /* alertThreshold */ null,
                 /* barcode */ null,
                 /* vatRate */ null,
+                /* purchaseChargeAccount */ null,
                 /* unitWeightGrams */ null
         );
         var created = articleService.create(create);

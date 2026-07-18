@@ -46,6 +46,26 @@ public class OdDraftEntity {
     /** Référence de la pièce générée à la validation. */
     public String pieceRef;
 
+    /**
+     * Pièces justificatives de l'OD (backlog CPT-08). Jointes et retirées
+     * en brouillon seulement ; consultables quel que soit le statut. Même
+     * patron que le dossier membre : binaire dans {@code cloud_files}
+     * (scope TENANT), seules les métadonnées vivent ici.
+     */
+    public List<Document> documents;
+
+    public static class Document {
+        public UUID id;
+        /** Libellé métier de la pièce (« Tableau d'amortissement »…). */
+        public String label;
+        public String fileName;
+        public String mimeType;
+        public long sizeBytes;
+        /** Référence du binaire dans {@code cloud_files}. */
+        public UUID cloudFileId;
+        public Instant uploadedAt;
+    }
+
     public Instant createdAt;
     public UUID createdBy;
     public String createdByEmail;

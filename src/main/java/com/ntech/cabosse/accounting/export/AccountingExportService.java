@@ -160,7 +160,9 @@ public class AccountingExportService {
      * avec l'expert-comptable.
      */
     public ExportDataset<StatementRow> buildCompteResultat(LocalDate from, LocalDate to) {
-        Map<String, BigDecimal> soldeByAccount = soldeByAccount(from, to);
+        // Les pièces de clôture d'exercice soldent les classes 6/7 vers 13 :
+        // les inclure viderait le CR d'un exercice arrêté (CPT-12).
+        Map<String, BigDecimal> soldeByAccount = soldeByAccountExcludingClosing(from, to);
         Map<String, String> labels = labelsByPrefix();
 
         Map<String, BigDecimal> charges = new java.util.TreeMap<>();
@@ -169,7 +171,7 @@ public class AccountingExportService {
             String account = en.getKey();
             if (account == null || account.isEmpty()) continue;
             String prefix = account.substring(0, Math.min(2, account.length()));
-            if (account.startsWith("6")) {
+            if (account.startsWith("6") || account.startsWith("8")) {
                 charges.merge(prefix, en.getValue(), BigDecimal::add);
             } else if (account.startsWith("7")) {
                 produits.merge(prefix, en.getValue().negate(), BigDecimal::add);
@@ -239,8 +241,9 @@ public class AccountingExportService {
                 }
                 // Résultat = produits − charges = −(solde 6) − (solde 7)
                 // puisque solde = débit − crédit (charges débitrices, produits créditeurs).
-                case '6', '7' -> resultat = resultat.subtract(solde);
-                default -> { /* classe 8/9 hors périmètre MVP */ }
+                // La classe 8 (impôt sur le résultat) pèse aussi sur le résultat.
+                case '6', '7', '8' -> resultat = resultat.subtract(solde);
+                default -> { /* classe 9 hors périmètre MVP */ }
             }
         }
 
@@ -265,6 +268,22 @@ public class AccountingExportService {
                 statementColumns(),
                 rows
         );
+    }
+
+    /** Variante qui ignore les pièces de clôture d'exercice (CPT-12). */
+    private Map<String, BigDecimal> soldeByAccountExcludingClosing(LocalDate from, LocalDate to) {
+        Map<String, BigDecimal> soldes = new HashMap<>();
+        for (JournalPieceEntity p : iteratePieces(from, to)) {
+            if (com.ntech.cabosse.accounting.service.FiscalYearService.isClosingType(p.sourceType)) {
+                continue;
+            }
+            for (JournalEntry e : p.entries) {
+                BigDecimal d = e.debitFcfa != null ? e.debitFcfa : BigDecimal.ZERO;
+                BigDecimal c = e.creditFcfa != null ? e.creditFcfa : BigDecimal.ZERO;
+                soldes.merge(e.syscohadaAccount, d.subtract(c), BigDecimal::add);
+            }
+        }
+        return soldes;
     }
 
     /** Solde (débit − crédit) par compte sur l'intervalle. */

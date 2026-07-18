@@ -17,7 +17,7 @@ public enum AccountFamily {
     FOURNISSEURS,
     /** Classe 411 — clients. Sens naturel : débiteur. */
     CLIENTS,
-    /** Classe 521/530 — banque, caisse. Sens naturel : débiteur. */
+    /** Classe 521/571 — banque, caisse. Sens naturel : débiteur. */
     TRESORERIE,
     /** Classe 4456/4457 — TVA déductible/collectée. */
     TVA,

@@ -26,6 +26,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -65,6 +66,8 @@ public class AccountingService {
     @Inject AccountingPeriodService periodService;
     @Inject IdGenerator idGenerator;
     @Inject TenantContext tenantContext;
+    @Inject com.ntech.cabosse.tenant.service.TenantPreferencesLookup preferencesLookup;
+    @Inject com.ntech.cabosse.article.repository.ArticleRepository articles;
 
     // ════════════════════════════════════════════════════════════════
     //  Entrée unique : postPiece + reverseFrom
@@ -92,7 +95,12 @@ public class AccountingService {
 
         // 2. Période ouverte — une période clôturée refuse toute pièce,
         //    quelle que soit la source (livraison, vente, régularisation…).
-        periodService.assertOpen(request.date() != null ? request.date() : LocalDate.now());
+        // Les pièces de fin d'exercice (EXERCISE_*) sont datées du dernier
+        // jour d'un exercice dont tous les mois sont verrouillés — c'est le
+        // seul flux autorisé à écrire dans une période close (CPT-12).
+        if (!request.sourceType().name().startsWith("EXERCISE_")) {
+            periodService.assertOpen(request.date() != null ? request.date() : LocalDate.now());
+        }
 
         // 3. Équilibre
         BigDecimal totalDebit = BigDecimal.ZERO;
@@ -187,6 +195,27 @@ public class AccountingService {
         return created;
     }
 
+
+    /**
+     * Compte de charge d'une ligne d'achat (backlog CPT-11) : le compte
+     * porté par la fiche article prime ; à défaut, résolution par type
+     * d'article (601/604/6081/624). Le cache évite de relire le même
+     * article pour chaque ligne d'un BC.
+     */
+    private String chargeAccountFor(UUID articleId, ArticleType articleType,
+                                    Map<UUID, String> cache) {
+        if (articleId != null) {
+            String resolved = cache.computeIfAbsent(articleId, id ->
+                    articles.findById(id)
+                            .map(a -> a.purchaseChargeAccount)
+                            .filter(acc -> acc != null && !acc.isBlank())
+                            .map(String::trim)
+                            .orElse(""));
+            if (!resolved.isEmpty()) return resolved;
+        }
+        return SyscohadaAccounts.purchaseChargeAccountFor(articleType);
+    }
+
     private PostingSourceType reversalTypeFor(PostingSourceType t) {
         return switch (t) {
             case PURCHASE_ORDER -> PostingSourceType.PURCHASE_ORDER_REVERSAL;
@@ -195,6 +224,7 @@ public class AccountingService {
             case SALE_PAYMENT -> PostingSourceType.SALE_PAYMENT_REVERSAL;
             case DIRECT_RECEIPT_PAYMENT -> PostingSourceType.DIRECT_RECEIPT_PAYMENT_REVERSAL;
             case MEMBER_CAPITAL -> PostingSourceType.MEMBER_CAPITAL_REVERSAL;
+            case MEMBER_CAPITAL_LIBERATION -> PostingSourceType.MEMBER_CAPITAL_LIBERATION_REVERSAL;
             default -> throw new BusinessException(
                     "Contre-passation impossible sur une pièce déjà contre-passée (" + t + ").");
         };
@@ -214,13 +244,14 @@ public class AccountingService {
      */
     public Optional<JournalPieceEntity> postFromPurchaseOrder(PurchaseOrderEntity bc, boolean vatRecoverable) {
         List<JournalEntry> entries = new ArrayList<>();
+        Map<UUID, String> accountCache = new java.util.HashMap<>();
         BigDecimal vatRate = nz(bc.vatRatePct);
         BigDecimal totalTtc = nz(bc.totalTtcFcfa);
 
         if (vatRecoverable && vatRate.signum() > 0 && nz(bc.vatFcfa).signum() > 0) {
-            // Débit 4456 = TVA déductible globale
+            // Débit TVA déductible globale (compte paramétrable, défaut 44566)
             entries.add(JournalEntry.debit(
-                    SyscohadaAccounts.TVA_DEDUCTIBLE,
+                    preferencesLookup.current().vatDeductibleAccount(),
                     "TVA déductible " + vatRate + "%",
                     nz(bc.vatFcfa)
             ));
@@ -228,7 +259,7 @@ public class AccountingService {
             for (PurchaseOrderLine line : bc.lines) {
                 BigDecimal lineHt = nz(line.totalLineFcfa);
                 if (lineHt.signum() == 0) continue;
-                String account = SyscohadaAccounts.purchaseChargeAccountFor(parseArticleType(line.articleType));
+                String account = chargeAccountFor(line.articleId, parseArticleType(line.articleType), accountCache);
                 entries.add(JournalEntry.debit(account, libelleLine(line), lineHt));
             }
         } else {
@@ -243,7 +274,7 @@ public class AccountingService {
                 if (lineHt.signum() == 0) continue;
                 BigDecimal enriched = lineHt.multiply(coefficient).setScale(MONEY_SCALE, RoundingMode.HALF_UP);
                 sumEnriched = sumEnriched.add(enriched);
-                String account = SyscohadaAccounts.purchaseChargeAccountFor(parseArticleType(line.articleType));
+                String account = chargeAccountFor(line.articleId, parseArticleType(line.articleType), accountCache);
                 lineEntries.add(JournalEntry.debit(account, libelleLine(line), enriched));
             }
             // Ajustement d'arrondi cumulé : aligne la dernière ligne sur le TTC exact.
@@ -301,7 +332,7 @@ public class AccountingService {
         }
 
         // Débit charge agrégé (même compte 601/604/6081 selon le type)
-        String account = SyscohadaAccounts.purchaseChargeAccountFor(articleType);
+        String account = chargeAccountFor(rd.articleId, articleType, new java.util.HashMap<>());
         entries.add(0, JournalEntry.debit(
                 account,
                 "Achat " + nullSafe(rd.articleName),
@@ -313,7 +344,7 @@ public class AccountingService {
             BigDecimal vatAmount = totalDue.subtract(totalCharge).max(BigDecimal.ZERO);
             if (vatAmount.signum() > 0) {
                 entries.add(1, JournalEntry.debit(
-                        SyscohadaAccounts.TVA_DEDUCTIBLE,
+                        preferencesLookup.current().vatDeductibleAccount(),
                         "TVA déductible " + vatRate + "%",
                         vatAmount
                 ));
@@ -368,7 +399,7 @@ public class AccountingService {
         ));
     }
 
-    /** Paiement vente : débit trésorerie (521/530 selon méthode) + crédit 411. */
+    /** Paiement vente : débit trésorerie (521/571 selon méthode) + crédit 411. */
     public Optional<JournalPieceEntity> postFromSalePayment(SaleEntity sale, SalePayment payment) {
         String treasury = treasuryAccountFor(payment.method);
         List<JournalEntry> entries = List.of(
@@ -488,6 +519,49 @@ public class AccountingService {
                 nullSafe(memberLabel),
                 "Part sociale — " + nullSafe(memberLabel),
                 entries
+        ));
+    }
+
+    /**
+     * Cycle « souscription puis libération » des parts sociales
+     * (préférence {@code memberCapitalFlow = SUBSCRIPTION}, réf. jeux
+     * d'écritures v7) : pièce de souscription (débit 461, crédit compte
+     * capital) puis pièce de libération (débit trésorerie, crédit 461).
+     * Chaque pièce est idempotente sur son couple (sourceType, memberId).
+     */
+    public void postFromMemberCapitalSubscription(UUID memberId,
+                                                  String memberLabel,
+                                                  BigDecimal amount,
+                                                  LocalDate date,
+                                                  String capitalAccount,
+                                                  String treasuryAccount) {
+        if (amount == null || amount.signum() <= 0) return;
+        LocalDate d = date != null ? date : LocalDate.now();
+        postPiece(new PostingRequest(
+                d,
+                PostingSourceType.MEMBER_CAPITAL,
+                memberId,
+                nullSafe(memberLabel),
+                "Souscription part sociale — " + nullSafe(memberLabel),
+                List.of(
+                        JournalEntry.debit(SyscohadaAccounts.ASSOCIES_CAPITAL,
+                                "Souscription " + nullSafe(memberLabel), amount),
+                        JournalEntry.credit(capitalAccount,
+                                "Capital souscrit " + nullSafe(memberLabel), amount)
+                )
+        ));
+        postPiece(new PostingRequest(
+                d,
+                PostingSourceType.MEMBER_CAPITAL_LIBERATION,
+                memberId,
+                nullSafe(memberLabel),
+                "Libération part sociale — " + nullSafe(memberLabel),
+                List.of(
+                        JournalEntry.debit(treasuryAccount,
+                                "Libération part sociale " + nullSafe(memberLabel), amount),
+                        JournalEntry.credit(SyscohadaAccounts.ASSOCIES_CAPITAL,
+                                "Libération " + nullSafe(memberLabel), amount)
+                )
         ));
     }
 

@@ -121,6 +121,7 @@ public class ArticleService {
         e.alertThreshold = e.stockable ? p.alertThreshold() : null;
         e.barcode = blankToNull(p.barcode());
         e.vatRate = p.vatRate();
+        e.purchaseChargeAccount = blankToNull(p.purchaseChargeAccount());
         e.unitWeightGrams = p.unitWeightGrams();
     }
 

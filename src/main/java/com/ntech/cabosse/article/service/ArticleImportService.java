@@ -203,6 +203,7 @@ public class ArticleImportService {
                         n.alertThreshold(),
                         n.barcode(),
                         n.vatRate(),
+                /* purchaseChargeAccount */ null,
                         /* unitWeightGrams */ null
                 );
                 ArticleResponseDto created = articleService.create(payload);

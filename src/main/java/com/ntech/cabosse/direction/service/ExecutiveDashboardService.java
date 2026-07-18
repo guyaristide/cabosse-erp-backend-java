@@ -102,7 +102,7 @@ public class ExecutiveDashboardService {
     }
 
     /**
-     * Solde net trésorerie = Σ(débits 521/530 + BankAccount.syscohadaAccount)
+     * Solde net trésorerie = Σ(débits 521/571 + BankAccount.syscohadaAccount)
      * − Σ(crédits) jusqu'à la date {@code asOf} incluse. Inclut tous les
      * comptes SYSCOHADA cités par les BankAccount du tenant, plus les
      * deux comptes par défaut au cas où des écritures ont été passées
@@ -113,6 +113,8 @@ public class ExecutiveDashboardService {
         banks.listActive().forEach(b -> accounts.add(b.syscohadaAccount));
         accounts.add(SyscohadaAccounts.BANQUE_DEFAULT);
         accounts.add(SyscohadaAccounts.CAISSE_DEFAULT);
+        // 530 : ancien compte caisse (avant alignement v7 sur 571).
+        accounts.add("530");
 
         BigDecimal total = BigDecimal.ZERO;
         // On itère toutes les pièces de la période — pas de filtre date stricte

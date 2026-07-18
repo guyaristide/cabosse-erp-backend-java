@@ -53,7 +53,10 @@ public class TenantPreferencesService {
                 p.postMemberCapitalEntries(), p.memberCapitalAccount(),
                 p.postStockTransferEntries(),
                 p.inventoryAlertThresholdPct(), p.inventoryAlertThresholdFcfa(),
-                p.periodReopenPolicy()
+                p.periodReopenPolicy(),
+                p.vatDeductibleAccount(), p.memberCapitalFlow(),
+                p.analyticsIncludeStockTransfers(),
+                p.fiscalYearStartMonth(), p.incomeTaxRatePct()
         );
     }
 
@@ -121,6 +124,43 @@ public class TenantPreferencesService {
                     "from", t.preferences.periodReopenPolicy(),
                     "to", payload.periodReopenPolicy()));
             t.preferences.periodReopenPolicy = payload.periodReopenPolicy();
+        }
+
+        if (payload.vatDeductibleAccount() != null && !payload.vatDeductibleAccount().isBlank()
+                && !payload.vatDeductibleAccount().equals(t.preferences.vatDeductibleAccount())) {
+            diffs.put("vatDeductibleAccount", Map.of(
+                    "from", t.preferences.vatDeductibleAccount(),
+                    "to", payload.vatDeductibleAccount()));
+            t.preferences.vatDeductibleAccount = payload.vatDeductibleAccount().trim();
+        }
+        if (payload.memberCapitalFlow() != null && !payload.memberCapitalFlow().isBlank()
+                && !payload.memberCapitalFlow().equals(t.preferences.memberCapitalFlow())) {
+            diffs.put("memberCapitalFlow", Map.of(
+                    "from", t.preferences.memberCapitalFlow(),
+                    "to", payload.memberCapitalFlow()));
+            t.preferences.memberCapitalFlow = payload.memberCapitalFlow();
+        }
+        if (payload.analyticsIncludeStockTransfers() != null
+                && payload.analyticsIncludeStockTransfers() != t.preferences.analyticsIncludeStockTransfers()) {
+            diffs.put("analyticsIncludeStockTransfers", Map.of(
+                    "from", t.preferences.analyticsIncludeStockTransfers(),
+                    "to", payload.analyticsIncludeStockTransfers()));
+            t.preferences.analyticsIncludeStockTransfers = payload.analyticsIncludeStockTransfers();
+        }
+
+        if (payload.fiscalYearStartMonth() != null
+                && payload.fiscalYearStartMonth() != t.preferences.fiscalYearStartMonth()) {
+            diffs.put("fiscalYearStartMonth", Map.of(
+                    "from", t.preferences.fiscalYearStartMonth(),
+                    "to", payload.fiscalYearStartMonth()));
+            t.preferences.fiscalYearStartMonth = payload.fiscalYearStartMonth();
+        }
+        if (payload.incomeTaxRatePct() != null
+                && payload.incomeTaxRatePct().compareTo(t.preferences.incomeTaxRatePct()) != 0) {
+            diffs.put("incomeTaxRatePct", Map.of(
+                    "from", t.preferences.incomeTaxRatePct(),
+                    "to", payload.incomeTaxRatePct()));
+            t.preferences.incomeTaxRatePct = payload.incomeTaxRatePct();
         }
 
         if (!diffs.isEmpty()) {

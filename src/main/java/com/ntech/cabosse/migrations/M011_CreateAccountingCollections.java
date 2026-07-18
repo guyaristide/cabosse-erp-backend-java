@@ -103,7 +103,12 @@ public class M011_CreateAccountingCollections {
                 account("4456", "TVA déductible sur achats",               "TVA"),
                 account("4457", "TVA collectée sur ventes",                "TVA"),
                 account("521",  "Banque — compte courant",                 "TRESORERIE"),
-                account("530",  "Caisse",                                  "TRESORERIE")
+                account("571",  "Caisse",                                  "TRESORERIE"),
+                account("31",   "Stocks de marchandises",                  "AUTRES"),
+                account("6031", "Variation des stocks de marchandises",    "CHARGES"),
+                account("44566","État, TVA déductible sur achats",         "TVA"),
+                account("461",  "Associés, opérations sur le capital",     "AUTRES"),
+                account("1018", "Capital souscrit — parts sociales",       "AUTRES")
         );
         for (Document seed : seeds) {
             boolean exists = coll.countDocuments(Filters.eq("number", seed.getString("number"))) > 0;
