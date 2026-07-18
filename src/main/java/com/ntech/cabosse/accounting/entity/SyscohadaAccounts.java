@@ -41,6 +41,26 @@ public final class SyscohadaAccounts {
     /** TVA collectée sur ventes. */
     public static final String TVA_COLLECTEE = "4457";
 
+    // ─── Stocks et variations (inventaire) ───
+    /** Stocks de matières premières. */
+    public static final String STOCKS_MATIERES = "32";
+    /** Stocks d'autres approvisionnements (consommables, emballages). */
+    public static final String STOCKS_AUTRES_APPRO = "33";
+    /** Stocks de produits finis. */
+    public static final String STOCKS_PRODUITS_FINIS = "36";
+    /** Variation des stocks de matières premières. */
+    public static final String VARIATION_STOCKS_MATIERES = "6032";
+    /** Variation des stocks d'autres approvisionnements. */
+    public static final String VARIATION_STOCKS_AUTRES = "6033";
+    /** Variation des stocks de produits fabriqués (compte de produits). */
+    public static final String VARIATION_STOCKS_PRODUITS = "736";
+
+    // ─── Divers ───
+    /** Créditeurs et débiteurs divers — écritures d'attente du rapprochement. */
+    public static final String COMPTES_ATTENTE = "471";
+    /** Frais bancaires et assimilés. */
+    public static final String FRAIS_BANCAIRES = "631";
+
     // ─── Trésorerie (par défaut) ───
     /** Banque — compte courant par défaut si aucun BankAccount précisé. */
     public static final String BANQUE_DEFAULT = "521";
@@ -53,6 +73,32 @@ public final class SyscohadaAccounts {
      * types tombent sur 601 (matières), 604 (consommables), 6081
      * (emballages) ou 601 pour les produits finis re-achetés (cas rare).
      */
+    /**
+     * Compte de stock (classe 3) mouvementé par une régularisation
+     * d'inventaire selon la nature de l'article. {@code TRANSPORT} n'est
+     * jamais stocké : retour {@code null}, la ligne est ignorée.
+     */
+    public static String stockAccountFor(ArticleType type) {
+        if (type == null) return STOCKS_MATIERES;
+        return switch (type) {
+            case TRANSPORT -> null;
+            case CONSUMABLE, PACKAGING -> STOCKS_AUTRES_APPRO;
+            case FINISHED_PRODUCT -> STOCKS_PRODUITS_FINIS;
+            case RAW_MATERIAL -> STOCKS_MATIERES;
+        };
+    }
+
+    /** Contrepartie de variation de stock associée à {@link #stockAccountFor}. */
+    public static String stockVariationAccountFor(ArticleType type) {
+        if (type == null) return VARIATION_STOCKS_MATIERES;
+        return switch (type) {
+            case TRANSPORT -> null;
+            case CONSUMABLE, PACKAGING -> VARIATION_STOCKS_AUTRES;
+            case FINISHED_PRODUCT -> VARIATION_STOCKS_PRODUITS;
+            case RAW_MATERIAL -> VARIATION_STOCKS_MATIERES;
+        };
+    }
+
     public static String purchaseChargeAccountFor(ArticleType type) {
         if (type == null) return ACHATS_MATIERES;
         return switch (type) {

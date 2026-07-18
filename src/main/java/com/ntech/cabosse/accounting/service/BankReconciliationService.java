@@ -10,6 +10,8 @@ import com.ntech.cabosse.accounting.entity.JournalPieceEntity;
 import com.ntech.cabosse.accounting.repository.BankAccountRepository;
 import com.ntech.cabosse.accounting.repository.BankStatementLineRepository;
 import com.ntech.cabosse.accounting.repository.BankStatementRepository;
+import com.ntech.cabosse.accounting.entity.PostingSourceType;
+import com.ntech.cabosse.accounting.entity.SyscohadaAccounts;
 import com.ntech.cabosse.accounting.repository.JournalPieceRepository;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
@@ -52,6 +54,7 @@ public class BankReconciliationService {
     @Inject BankStatementRepository statements;
     @Inject BankStatementLineRepository lines;
     @Inject JournalPieceRepository pieces;
+    @Inject AccountingService accounting;
     @Inject JsonWebToken jwt;
 
     private String actor() {
@@ -178,6 +181,86 @@ public class BankReconciliationService {
         lines.replace(line);
         refreshStatementCounters(line.statementId);
         return line;
+    }
+
+    /**
+     * Régularise une ligne non rapprochée par une écriture dédiée
+     * (backlog CPT-02) : sortie bancaire → débit du compte de
+     * contrepartie (frais bancaires 631 par défaut) / crédit banque ;
+     * entrée → inverse. La ligne passe MATCHED, liée à la pièce
+     * générée. Idempotent via {@code (BANK_REGULARIZATION, lineId)}.
+     */
+    public BankStatementLineEntity regularize(UUID lineId, String accountCode, String libelle) {
+        BankStatementLineEntity line = loadLine(lineId);
+        requireRegularizable(line);
+        String counterpart = accountCode != null && !accountCode.isBlank()
+                ? accountCode.trim()
+                : SyscohadaAccounts.FRAIS_BANCAIRES;
+        String label = libelle != null && !libelle.isBlank()
+                ? libelle.trim()
+                : "Régularisation « " + line.label + " »";
+        JournalPieceEntity piece = postCounterpartPiece(
+                line, PostingSourceType.BANK_REGULARIZATION, counterpart, label);
+        applyMatch(line, piece);
+        refreshStatementCounters(line.statementId);
+        return line;
+    }
+
+    /**
+     * Met un écart inexpliqué en attente : écriture sur le compte 471
+     * (créditeurs/débiteurs divers), à reclasser quand l'origine est
+     * identifiée. La ligne reste en litige, avec la pièce d'attente
+     * attachée. Idempotent via {@code (BANK_SUSPENSE, lineId)}.
+     */
+    public BankStatementLineEntity suspend(UUID lineId) {
+        BankStatementLineEntity line = loadLine(lineId);
+        requireRegularizable(line);
+        String label = "Écart en attente « " + line.label + " »";
+        JournalPieceEntity piece = postCounterpartPiece(
+                line, PostingSourceType.BANK_SUSPENSE, SyscohadaAccounts.COMPTES_ATTENTE, label);
+        line.status = BankStatementLineStatus.DISPUTE;
+        line.matchedPieceId = piece.id;
+        line.matchedAt = Instant.now();
+        line.matchedByEmail = actor();
+        lines.replace(line);
+        refreshStatementCounters(line.statementId);
+        return line;
+    }
+
+    private void requireRegularizable(BankStatementLineEntity line) {
+        if (line.status == BankStatementLineStatus.MATCHED) {
+            throw new BusinessException(
+                    "Ligne déjà rapprochée — délettrez-la avant toute régularisation.");
+        }
+    }
+
+    /** Construit et poste la pièce miroir du mouvement bancaire de la ligne. */
+    private JournalPieceEntity postCounterpartPiece(BankStatementLineEntity line,
+                                                    PostingSourceType sourceType,
+                                                    String counterpartAccount,
+                                                    String label) {
+        BankAccountEntity bank = banks.findById(line.bankAccountId)
+                .orElseThrow(() -> new NotFoundException("Compte bancaire introuvable."));
+        String bankAccount = bank.syscohadaAccount != null && !bank.syscohadaAccount.isBlank()
+                ? bank.syscohadaAccount
+                : SyscohadaAccounts.BANQUE_DEFAULT;
+        BigDecimal amount = line.amountFcfa.abs();
+        boolean outflow = "DEBIT".equalsIgnoreCase(line.direction);
+        List<JournalEntry> entries = outflow
+                ? List.of(
+                        JournalEntry.debit(counterpartAccount, label, amount),
+                        JournalEntry.credit(bankAccount, label, amount))
+                : List.of(
+                        JournalEntry.debit(bankAccount, label, amount),
+                        JournalEntry.credit(counterpartAccount, label, amount));
+        return accounting.postPiece(new PostingRequest(
+                line.operationDate,
+                sourceType,
+                line.id,
+                bank.label != null ? bank.label : bank.bankName,
+                label,
+                entries
+        )).orElseThrow(() -> new BusinessException("Pièce non générée."));
     }
 
     private void applyMatch(BankStatementLineEntity line, JournalPieceEntity piece) {

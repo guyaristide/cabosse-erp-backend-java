@@ -119,6 +119,17 @@ public class StockItemRepository {
         return Filters.and(filters);
     }
 
+    /**
+     * Tous les articles suivis d'un site, quantités nulles incluses —
+     * sert à figer les lignes d'une session d'inventaire (un article à
+     * zéro peut révéler un surplus au comptage).
+     */
+    public List<StockItemEntity> listAllBySite(UUID siteId) {
+        return coll().find(Filters.eq("siteId", siteId))
+                .sort(new Document("articleName", 1))
+                .into(new ArrayList<>());
+    }
+
     /** Tous les sites pour un article — utile pour vue "où ai-je du stock ?". */
     public List<StockItemEntity> listByArticle(UUID articleId) {
         return coll().find(Filters.eq("articleId", articleId))

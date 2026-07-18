@@ -62,6 +62,7 @@ public class AccountingService {
 
     @Inject JournalPieceRepository pieces;
     @Inject JournalPieceRefService refService;
+    @Inject AccountingPeriodService periodService;
     @Inject IdGenerator idGenerator;
     @Inject TenantContext tenantContext;
 
@@ -89,7 +90,11 @@ public class AccountingService {
             return existing;
         }
 
-        // 2. Équilibre
+        // 2. Période ouverte — une période clôturée refuse toute pièce,
+        //    quelle que soit la source (livraison, vente, régularisation…).
+        periodService.assertOpen(request.date() != null ? request.date() : LocalDate.now());
+
+        // 3. Équilibre
         BigDecimal totalDebit = BigDecimal.ZERO;
         BigDecimal totalCredit = BigDecimal.ZERO;
         for (JournalEntry e : request.entries()) {
@@ -109,7 +114,7 @@ public class AccountingService {
                             + " (source " + request.sourceRef() + ").");
         }
 
-        // 3. Construction + insert
+        // 4. Construction + insert
         JournalPieceEntity piece = new JournalPieceEntity();
         piece.id = idGenerator.newId();
         piece.ref = refService.next();
@@ -189,6 +194,7 @@ public class AccountingService {
             case SALE -> PostingSourceType.SALE_REVERSAL;
             case SALE_PAYMENT -> PostingSourceType.SALE_PAYMENT_REVERSAL;
             case DIRECT_RECEIPT_PAYMENT -> PostingSourceType.DIRECT_RECEIPT_PAYMENT_REVERSAL;
+            case MEMBER_CAPITAL -> PostingSourceType.MEMBER_CAPITAL_REVERSAL;
             default -> throw new BusinessException(
                     "Contre-passation impossible sur une pièce déjà contre-passée (" + t + ").");
         };
@@ -411,6 +417,113 @@ public class AccountingService {
                 paymentSurrogateId,
                 rd.ref,
                 "Décaissement " + rd.ref + " — " + nullSafe(line.supplierName),
+                entries
+        ));
+    }
+
+    /**
+     * Écart de valeur d'inventaire agrégé par nature d'article.
+     * {@code deltaValueFcfa} signé : positif = boni (compté supérieur au
+     * théorique), négatif = mali.
+     */
+    public record InventoryValueDelta(ArticleType articleType, BigDecimal deltaValueFcfa) {}
+
+    /**
+     * Régularisation d'inventaire : pour chaque nature d'article, boni =
+     * débit compte de stock / crédit variation ; mali = inverse. L'écart
+     * est valorisé au CMUP figé à l'ouverture de la session.
+     */
+    public Optional<JournalPieceEntity> postFromInventorySession(UUID sessionId,
+                                                                 String sessionRef,
+                                                                 LocalDate date,
+                                                                 List<InventoryValueDelta> deltas) {
+        List<JournalEntry> entries = new ArrayList<>();
+        for (InventoryValueDelta delta : deltas) {
+            BigDecimal value = nz(delta.deltaValueFcfa()).setScale(MONEY_SCALE, RoundingMode.HALF_UP);
+            if (value.signum() == 0) continue;
+            String stockAccount = SyscohadaAccounts.stockAccountFor(delta.articleType());
+            String variationAccount = SyscohadaAccounts.stockVariationAccountFor(delta.articleType());
+            if (stockAccount == null || variationAccount == null) continue;
+            String label = "Écart d'inventaire " + sessionRef;
+            if (value.signum() > 0) {
+                entries.add(JournalEntry.debit(stockAccount, label, value));
+                entries.add(JournalEntry.credit(variationAccount, label, value));
+            } else {
+                BigDecimal abs = value.abs();
+                entries.add(JournalEntry.debit(variationAccount, label, abs));
+                entries.add(JournalEntry.credit(stockAccount, label, abs));
+            }
+        }
+        if (entries.isEmpty()) return Optional.empty();
+        return postPiece(new PostingRequest(
+                date != null ? date : LocalDate.now(),
+                PostingSourceType.INVENTORY_ADJUSTMENT,
+                sessionId,
+                sessionRef,
+                "Régularisation d'inventaire " + sessionRef,
+                entries
+        ));
+    }
+
+    /**
+     * Part sociale versée par un membre à la validation de son adhésion
+     * (backlog MEM-02) : débit trésorerie, crédit compte capital du
+     * tenant. Idempotent sur {@code (MEMBER_CAPITAL, memberId)}.
+     */
+    public Optional<JournalPieceEntity> postFromMemberCapital(UUID memberId,
+                                                              String memberLabel,
+                                                              BigDecimal amount,
+                                                              LocalDate date,
+                                                              String capitalAccount,
+                                                              String treasuryAccount) {
+        if (amount == null || amount.signum() <= 0) return Optional.empty();
+        List<JournalEntry> entries = List.of(
+                JournalEntry.debit(treasuryAccount, "Part sociale " + nullSafe(memberLabel), amount),
+                JournalEntry.credit(capitalAccount, "Capital souscrit " + nullSafe(memberLabel), amount)
+        );
+        return postPiece(new PostingRequest(
+                date != null ? date : LocalDate.now(),
+                PostingSourceType.MEMBER_CAPITAL,
+                memberId,
+                nullSafe(memberLabel),
+                "Part sociale — " + nullSafe(memberLabel),
+                entries
+        ));
+    }
+
+    /**
+     * Traçabilité d'un transfert de stock inter-sites (backlog STK-01,
+     * activée par la préférence tenant {@code postStockTransferEntries}).
+     * Le plan MVP ne tient pas de sous-comptes de stock par site : la
+     * pièce mouvemente le même compte de stock au débit et au crédit,
+     * les libellés portant les sites — trace au journal sans effet sur
+     * la balance. Des sous-comptes par site affineront le schéma si
+     * l'expert-comptable du tenant le demande.
+     */
+    public Optional<JournalPieceEntity> postFromStockTransfer(UUID transferId,
+                                                              ArticleType articleType,
+                                                              String articleName,
+                                                              BigDecimal valueFcfa,
+                                                              String fromSiteName,
+                                                              String toSiteName,
+                                                              LocalDate date) {
+        if (valueFcfa == null || valueFcfa.signum() <= 0) return Optional.empty();
+        String stockAccount = SyscohadaAccounts.stockAccountFor(articleType);
+        if (stockAccount == null) return Optional.empty();
+        BigDecimal value = valueFcfa.setScale(MONEY_SCALE, RoundingMode.HALF_UP);
+        List<JournalEntry> entries = List.of(
+                JournalEntry.debit(stockAccount,
+                        "Stock " + nullSafe(toSiteName) + " — " + nullSafe(articleName), value),
+                JournalEntry.credit(stockAccount,
+                        "Stock " + nullSafe(fromSiteName) + " — " + nullSafe(articleName), value)
+        );
+        return postPiece(new PostingRequest(
+                date != null ? date : LocalDate.now(),
+                PostingSourceType.STOCK_TRANSFER,
+                transferId,
+                nullSafe(articleName),
+                "Transfert " + nullSafe(fromSiteName) + " vers " + nullSafe(toSiteName)
+                        + " — " + nullSafe(articleName),
                 entries
         ));
     }

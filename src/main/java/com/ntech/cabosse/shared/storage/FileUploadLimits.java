@@ -36,6 +36,9 @@ public final class FileUploadLimits {
             "purchase_order.attachment",
             new TypeRule(10_000_000L, Set.of("application/pdf", "image/png", "image/jpeg")),
 
+            "member.document",
+            new TypeRule(10_000_000L, Set.of("application/pdf", "image/png", "image/jpeg")),
+
             "user.avatar",
             new TypeRule(500_000L, COMMON_IMAGE_MIMES),
 

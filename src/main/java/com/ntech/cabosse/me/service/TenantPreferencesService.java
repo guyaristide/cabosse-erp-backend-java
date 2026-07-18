@@ -49,7 +49,11 @@ public class TenantPreferencesService {
         TenantEntity t = loadCurrentTenant();
         TenantPreferences p = t.preferences != null ? t.preferences : new TenantPreferences();
         return new TenantPreferencesDto(
-                p.currency, p.language, p.timezone, p.vatRecoverable()
+                p.currency, p.language, p.timezone, p.vatRecoverable(),
+                p.postMemberCapitalEntries(), p.memberCapitalAccount(),
+                p.postStockTransferEntries(),
+                p.inventoryAlertThresholdPct(), p.inventoryAlertThresholdFcfa(),
+                p.periodReopenPolicy()
         );
     }
 
@@ -72,6 +76,51 @@ public class TenantPreferencesService {
             diffs.put("vatRecoverable",
                     Map.of("from", currentVat, "to", payload.vatRecoverable()));
             t.preferences.vatRecoverable = payload.vatRecoverable();
+        }
+
+        if (payload.postMemberCapitalEntries() != null
+                && payload.postMemberCapitalEntries() != t.preferences.postMemberCapitalEntries()) {
+            diffs.put("postMemberCapitalEntries", Map.of(
+                    "from", t.preferences.postMemberCapitalEntries(),
+                    "to", payload.postMemberCapitalEntries()));
+            t.preferences.postMemberCapitalEntries = payload.postMemberCapitalEntries();
+        }
+        if (payload.memberCapitalAccount() != null && !payload.memberCapitalAccount().isBlank()
+                && !payload.memberCapitalAccount().equals(t.preferences.memberCapitalAccount())) {
+            diffs.put("memberCapitalAccount", Map.of(
+                    "from", t.preferences.memberCapitalAccount(),
+                    "to", payload.memberCapitalAccount()));
+            t.preferences.memberCapitalAccount = payload.memberCapitalAccount().trim();
+        }
+        if (payload.postStockTransferEntries() != null
+                && payload.postStockTransferEntries() != t.preferences.postStockTransferEntries()) {
+            diffs.put("postStockTransferEntries", Map.of(
+                    "from", t.preferences.postStockTransferEntries(),
+                    "to", payload.postStockTransferEntries()));
+            t.preferences.postStockTransferEntries = payload.postStockTransferEntries();
+        }
+        if (payload.inventoryAlertThresholdPct() != null
+                && payload.inventoryAlertThresholdPct()
+                        .compareTo(t.preferences.inventoryAlertThresholdPct()) != 0) {
+            diffs.put("inventoryAlertThresholdPct", Map.of(
+                    "from", t.preferences.inventoryAlertThresholdPct(),
+                    "to", payload.inventoryAlertThresholdPct()));
+            t.preferences.inventoryAlertThresholdPct = payload.inventoryAlertThresholdPct();
+        }
+        if (payload.inventoryAlertThresholdFcfa() != null
+                && payload.inventoryAlertThresholdFcfa()
+                        .compareTo(t.preferences.inventoryAlertThresholdFcfa()) != 0) {
+            diffs.put("inventoryAlertThresholdFcfa", Map.of(
+                    "from", t.preferences.inventoryAlertThresholdFcfa(),
+                    "to", payload.inventoryAlertThresholdFcfa()));
+            t.preferences.inventoryAlertThresholdFcfa = payload.inventoryAlertThresholdFcfa();
+        }
+        if (payload.periodReopenPolicy() != null && !payload.periodReopenPolicy().isBlank()
+                && !payload.periodReopenPolicy().equals(t.preferences.periodReopenPolicy())) {
+            diffs.put("periodReopenPolicy", Map.of(
+                    "from", t.preferences.periodReopenPolicy(),
+                    "to", payload.periodReopenPolicy()));
+            t.preferences.periodReopenPolicy = payload.periodReopenPolicy();
         }
 
         if (!diffs.isEmpty()) {

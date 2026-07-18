@@ -35,6 +35,13 @@ public final class AccountingExportRows {
     ) {}
 
     /** Une ligne du journal complet — entry à plat avec contexte pièce. */
+    /** Ligne d'état financier (bilan ou compte de résultat) : masse, rubrique, montant. */
+    public record StatementRow(
+            String section,
+            String rubrique,
+            java.math.BigDecimal montantFcfa
+    ) {}
+
     public record JournalRow(
             LocalDate date,
             String pieceRef,

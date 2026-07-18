@@ -3,7 +3,12 @@ package com.ntech.cabosse.members.service;
 import com.ntech.cabosse.members.dto.MemberResponseDto;
 import com.ntech.cabosse.members.dto.MemberUpsertDto;
 import com.ntech.cabosse.members.entity.MemberEntity;
+import com.ntech.cabosse.accounting.service.AccountingService;
+import com.ntech.cabosse.accounting.entity.SyscohadaAccounts;
+import com.ntech.cabosse.members.entity.MemberStatus;
 import com.ntech.cabosse.members.repository.MemberRepository;
+import com.ntech.cabosse.shared.audit.AuditEventType;
+import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.api.PageRequest;
 import com.ntech.cabosse.shared.api.Pagination;
 import com.ntech.cabosse.shared.exception.BusinessException;
@@ -12,11 +17,14 @@ import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.supplier.entity.SupplierEntity;
 import com.ntech.cabosse.supplier.repository.SupplierRepository;
+import com.ntech.cabosse.tenant.entity.TenantPreferences;
+import com.ntech.cabosse.tenant.service.TenantPreferencesLookup;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,6 +48,9 @@ public class MemberService {
     @Inject SupplierRepository suppliers;
     @Inject IdGenerator idGenerator;
     @Inject TenantContext tenantContext;
+    @Inject AuditService audit;
+    @Inject AccountingService accounting;
+    @Inject TenantPreferencesLookup preferences;
     @Inject JsonWebToken jwt;
 
     private String actor() {
@@ -82,11 +93,73 @@ public class MemberService {
         e.createdBy = safeUserId();
         e.createdByEmail = actor();
 
-        // Auto-création du SupplierEntity miroir.
-        SupplierEntity supplier = createMirrorSupplier(e);
-        e.supplierId = supplier.id;
+        // Auto-création du SupplierEntity miroir — différée tant que le
+        // dossier d'adhésion n'est pas validé : un membre en attente ne
+        // doit pas apparaître dans les flux d'achats.
+        if (e.status != MemberStatus.PENDING) {
+            SupplierEntity supplier = createMirrorSupplier(e);
+            e.supplierId = supplier.id;
+        }
 
         members.insert(e);
+        if (e.status != MemberStatus.PENDING) {
+            postCapitalIfEnabled(e);
+        }
+        return MemberResponseDto.from(e);
+    }
+
+    // ─── Workflow d'adhésion (backlog MEM-01) ───────────────────────
+
+    /** Valide le dossier : membre actif, fournisseur miroir créé si absent. */
+    public MemberResponseDto approve(UUID id) {
+        MemberEntity e = loadOrFail(id);
+        if (e.status != MemberStatus.PENDING) {
+            throw new BusinessException(
+                    "Seul un dossier en attente peut être validé (statut actuel : " + e.status + ").");
+        }
+        e.status = MemberStatus.ACTIVE;
+        e.statusReason = null;
+        e.approvedAt = Instant.now();
+        e.approvedBy = safeUserId();
+        if (e.joinedAt == null) e.joinedAt = LocalDate.now();
+        if (e.supplierId == null) {
+            SupplierEntity supplier = createMirrorSupplier(e);
+            e.supplierId = supplier.id;
+        }
+        e.updatedAt = Instant.now();
+        members.replace(e);
+        postCapitalIfEnabled(e);
+
+        audit.event(AuditEventType.MEMBER_APPLICATION_APPROVED)
+                .actorEmail(actor())
+                .target("member", e.id.toString(), e.name)
+                .tenant(tenantContext.tenantId(), null)
+                .description("Adhésion validée : " + e.name + " (" + e.code + ")")
+                .record();
+        return MemberResponseDto.from(e);
+    }
+
+    /** Rejette le dossier avec motif : le membre passe inactif, motif tracé. */
+    public MemberResponseDto reject(UUID id, String reason) {
+        if (reason == null || reason.isBlank()) {
+            throw new BusinessException("Motif de rejet requis.");
+        }
+        MemberEntity e = loadOrFail(id);
+        if (e.status != MemberStatus.PENDING) {
+            throw new BusinessException(
+                    "Seul un dossier en attente peut être rejeté (statut actuel : " + e.status + ").");
+        }
+        e.status = MemberStatus.INACTIVE;
+        e.statusReason = reason.trim();
+        e.updatedAt = Instant.now();
+        members.replace(e);
+
+        audit.event(AuditEventType.MEMBER_APPLICATION_REJECTED)
+                .actorEmail(actor())
+                .target("member", e.id.toString(), e.name)
+                .tenant(tenantContext.tenantId(), null)
+                .description("Adhésion rejetée : " + e.name + " (" + e.code + ") — " + e.statusReason)
+                .record();
         return MemberResponseDto.from(e);
     }
 
@@ -94,6 +167,10 @@ public class MemberService {
 
     public MemberResponseDto update(UUID id, MemberUpsertDto payload) {
         MemberEntity e = loadOrFail(id);
+        if (payload.status() == MemberStatus.RETIRED && e.status != MemberStatus.RETIRED) {
+            throw new BusinessException(
+                    "La radiation passe par l'action dédiée (remboursement des parts et clôture).");
+        }
         applyPayload(e, payload);
         e.updatedAt = Instant.now();
         members.replace(e);
@@ -113,6 +190,85 @@ public class MemberService {
     }
 
     // ─── Helpers ────────────────────────────────────────────────────
+
+    /**
+     * Radiation (backlog MEM-05) : le membre sort de la structure, ses
+     * parts sociales sont remboursées par contre-passation de la pièce
+     * d'adhésion (si elle existe), son fournisseur miroir est désactivé
+     * et la fiche est close. Autorisée depuis ACTIVE ou SUSPENDED.
+     */
+    public MemberResponseDto retire(UUID id, String reason) {
+        if (reason == null || reason.isBlank()) {
+            throw new BusinessException("Motif de radiation requis.");
+        }
+        MemberEntity e = loadOrFail(id);
+        if (e.status != MemberStatus.ACTIVE && e.status != MemberStatus.SUSPENDED) {
+            throw new BusinessException(
+                    "Seul un membre actif ou suspendu peut être radié (statut actuel : "
+                            + e.status + ").");
+        }
+        // Solde des parts sociales : miroir exact de la pièce d'adhésion,
+        // no-op si aucune pièce capital n'existait (montant nul ou
+        // écriture désactivée par le tenant à l'époque). Idempotent.
+        accounting.reverseFrom(
+                com.ntech.cabosse.accounting.entity.PostingSourceType.MEMBER_CAPITAL,
+                e.id,
+                "Radiation " + e.name);
+
+        if (e.supplierId != null) {
+            suppliers.findById(e.supplierId).ifPresent(s -> {
+                s.active = false;
+                s.updatedAt = Instant.now();
+                suppliers.replace(s);
+            });
+        }
+
+        e.status = MemberStatus.RETIRED;
+        e.statusReason = reason.trim();
+        e.updatedAt = Instant.now();
+        members.replace(e);
+
+        audit.event(AuditEventType.MEMBER_RETIRED)
+                .actorEmail(actor())
+                .target("member", e.id.toString(), e.name)
+                .tenant(tenantContext.tenantId(), null)
+                .description("Radiation : " + e.name + " (" + e.code + ") — " + e.statusReason)
+                .record();
+        return MemberResponseDto.from(e);
+    }
+
+    /**
+     * Pièce « part sociale » à l'adhésion (backlog MEM-02), pilotée par
+     * les préférences tenant : interrupteur {@code postMemberCapitalEntries}
+     * et compte {@code memberCapitalAccount} (défaut 101). Trésorerie :
+     * caisse (530) sauf mode de paiement préféré évoquant un virement ou
+     * du mobile money (521). Idempotent par membre : un second appel
+     * (re-validation) ne double pas la pièce.
+     */
+    private void postCapitalIfEnabled(MemberEntity e) {
+        if (e.partsSocialesAmount == null || e.partsSocialesAmount.signum() <= 0) return;
+        TenantPreferences prefs = preferences.current();
+        if (!prefs.postMemberCapitalEntries()) return;
+        accounting.postFromMemberCapital(
+                e.id,
+                e.name + " (" + e.code + ")",
+                e.partsSocialesAmount,
+                e.joinedAt,
+                prefs.memberCapitalAccount(),
+                capitalTreasuryAccountFor(e.preferredPaymentMethod)
+        );
+    }
+
+    /** Heuristique sur le texte libre du mode de paiement : espèces par défaut. */
+    private static String capitalTreasuryAccountFor(String preferredPaymentMethod) {
+        if (preferredPaymentMethod == null) return SyscohadaAccounts.CAISSE_DEFAULT;
+        String normalized = preferredPaymentMethod.toLowerCase(java.util.Locale.ROOT);
+        boolean bankLike = normalized.contains("vir") || normalized.contains("banque")
+                || normalized.contains("mobile") || normalized.contains("money")
+                || normalized.contains("wave") || normalized.contains("orange")
+                || normalized.contains("mtn") || normalized.contains("moov");
+        return bankLike ? SyscohadaAccounts.BANQUE_DEFAULT : SyscohadaAccounts.CAISSE_DEFAULT;
+    }
 
     private MemberEntity loadOrFail(UUID id) {
         return members.findById(id)

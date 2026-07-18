@@ -88,6 +88,33 @@ public class MemberEntity {
 
     public String notes;
 
+    /** Motif du dernier rejet / de la dernière suspension / de la radiation. */
+    public String statusReason;
+
+    /**
+     * Pièces du dossier d'adhésion (attestation d'exploitation, contrat,
+     * justificatifs…). Le binaire vit dans {@code cloud_files} ; la fiche
+     * ne porte que les métadonnées. La pièce d'identité historique reste
+     * sur {@link #idCardFileId}.
+     */
+    public List<Document> documents = new ArrayList<>();
+
+    public static class Document {
+        public UUID id;
+        /** Libellé métier de la pièce (« Attestation d'exploitation »…). */
+        public String label;
+        public String fileName;
+        public String mimeType;
+        public long sizeBytes;
+        /** Référence du binaire dans {@code cloud_files}. */
+        public UUID cloudFileId;
+        public Instant uploadedAt;
+    }
+
+    /** Validation du dossier d'adhésion. */
+    public Instant approvedAt;
+    public UUID approvedBy;
+
     public Instant createdAt;
     public Instant updatedAt;
     public UUID createdBy;

@@ -140,7 +140,13 @@ public final class TenantMapper {
                 entity.preferences.currency,
                 entity.preferences.language,
                 entity.preferences.timezone,
-                entity.preferences.vatRecoverable()
+                entity.preferences.vatRecoverable(),
+                entity.preferences.postMemberCapitalEntries(),
+                entity.preferences.memberCapitalAccount(),
+                entity.preferences.postStockTransferEntries(),
+                entity.preferences.inventoryAlertThresholdPct(),
+                entity.preferences.inventoryAlertThresholdFcfa(),
+                entity.preferences.periodReopenPolicy()
         );
     }
 

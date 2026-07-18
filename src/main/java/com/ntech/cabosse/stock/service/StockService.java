@@ -84,6 +84,8 @@ public class StockService {
     @Inject StockMovementRepository movements;
     @Inject StockMovementRefService refService;
     @Inject AuditService audit;
+    @Inject com.ntech.cabosse.accounting.service.AccountingService accounting;
+    @Inject com.ntech.cabosse.tenant.service.TenantPreferencesLookup preferencesLookup;
     @Inject TenantContext tenantContext;
     @Inject JsonWebToken jwt;
 
@@ -535,6 +537,22 @@ public class StockService {
                 ));
             } catch (RuntimeException ignored) { /* swallow */ }
             throw ex;
+        }
+
+        // Traçabilité comptable du transfert — seulement si le tenant l'a
+        // activée (préférence postStockTransferEntries, backlog STK-01).
+        if (preferencesLookup.current().postStockTransferEntries()) {
+            String fromName = sites.findById(fromSiteId).map(s -> s.name).orElse("site source");
+            String toName = sites.findById(toSiteId).map(s -> s.name).orElse("site destination");
+            accounting.postFromStockTransfer(
+                    transferId,
+                    outItem.articleType(),
+                    outItem.articleName(),
+                    quantity.multiply(sourceCmup),
+                    fromName,
+                    toName,
+                    java.time.LocalDate.ofInstant(when, java.time.ZoneOffset.UTC)
+            );
         }
 
         return new TransferResult(transferId, outItem, inItem);

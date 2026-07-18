@@ -13,7 +13,11 @@ package com.ntech.cabosse.members.entity;
  * </ul>
  */
 public enum MemberStatus {
+    /** Dossier d'adhésion déposé, en attente d'instruction (backlog MEM-01). */
+    PENDING,
     ACTIVE,
     SUSPENDED,
-    INACTIVE
+    INACTIVE,
+    /** Radié : sorti de la structure, parts sociales soldées, fiche close. */
+    RETIRED
 }

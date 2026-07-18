@@ -23,6 +23,35 @@ public record UpdateTenantPreferencesPayloadDto(
         @Schema(description = "Si vrai (défaut métier), l'entreprise récupère la TVA sur ses achats. "
                 + "Si faux, la TVA des achats devient une charge incorporée au CMUP.",
                 example = "false")
-        Boolean vatRecoverable
+        Boolean vatRecoverable,
+
+        @Schema(description = "Génère la pièce « part sociale » à la validation d'une adhésion.")
+        Boolean postMemberCapitalEntries,
+
+        @jakarta.validation.constraints.Pattern(regexp = "^$|^[0-9]{2,8}$",
+                message = "Compte capital : 2 à 8 chiffres")
+        @Schema(description = "Compte SYSCOHADA crédité pour les parts sociales.", example = "101")
+        String memberCapitalAccount,
+
+        @Schema(description = "Génère une écriture de traçabilité sur les transferts inter-sites.")
+        Boolean postStockTransferEntries,
+
+        @jakarta.validation.constraints.DecimalMin(value = "0",
+                message = "Seuil en pourcentage négatif interdit")
+        @jakarta.validation.constraints.DecimalMax(value = "100",
+                message = "Seuil en pourcentage supérieur à 100 interdit")
+        @Schema(description = "Seuil d'écart d'inventaire significatif, en % du théorique.")
+        java.math.BigDecimal inventoryAlertThresholdPct,
+
+        @jakarta.validation.constraints.DecimalMin(value = "0",
+                message = "Seuil en FCFA négatif interdit")
+        @Schema(description = "Seuil d'écart d'inventaire significatif, en valeur absolue FCFA.")
+        java.math.BigDecimal inventoryAlertThresholdFcfa,
+
+        @jakarta.validation.constraints.Pattern(regexp = "^$|^(TENANT_ADMIN|PLATFORM_ONLY)$",
+                message = "Politique de réouverture : TENANT_ADMIN ou PLATFORM_ONLY")
+        @Schema(description = "Qui peut rouvrir une période comptable clôturée.",
+                enumeration = { "TENANT_ADMIN", "PLATFORM_ONLY" })
+        String periodReopenPolicy
 
 ) {}

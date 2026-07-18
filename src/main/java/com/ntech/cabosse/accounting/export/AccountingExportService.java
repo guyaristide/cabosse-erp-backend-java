@@ -4,6 +4,7 @@ import com.ntech.cabosse.accounting.entity.ChartOfAccountsEntity;
 import com.ntech.cabosse.accounting.entity.JournalEntry;
 import com.ntech.cabosse.accounting.entity.JournalPieceEntity;
 import com.ntech.cabosse.accounting.export.AccountingExportRows.BalanceRow;
+import com.ntech.cabosse.accounting.export.AccountingExportRows.StatementRow;
 import com.ntech.cabosse.accounting.export.AccountingExportRows.GrandLivreRow;
 import com.ntech.cabosse.accounting.export.AccountingExportRows.JournalRow;
 import com.ntech.cabosse.accounting.repository.ChartOfAccountsRepository;
@@ -144,6 +145,173 @@ public class AccountingExportService {
                         ExportColumn.of("Solde (débit − crédit)", BalanceRow::balance)
                 ),
                 rows
+        );
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    //  États financiers SYSCOHADA — compte de résultat et bilan (CPT-04)
+    // ════════════════════════════════════════════════════════════════
+
+    /**
+     * Compte de résultat sur période : charges (classe 6, solde débiteur)
+     * et produits (classe 7, solde créditeur) regroupés par rubrique à
+     * deux chiffres, puis totaux et résultat net. Présentation simplifiée
+     * du système normal — les soldes intermédiaires de gestion viendront
+     * avec l'expert-comptable.
+     */
+    public ExportDataset<StatementRow> buildCompteResultat(LocalDate from, LocalDate to) {
+        Map<String, BigDecimal> soldeByAccount = soldeByAccount(from, to);
+        Map<String, String> labels = labelsByPrefix();
+
+        Map<String, BigDecimal> charges = new java.util.TreeMap<>();
+        Map<String, BigDecimal> produits = new java.util.TreeMap<>();
+        for (Map.Entry<String, BigDecimal> en : soldeByAccount.entrySet()) {
+            String account = en.getKey();
+            if (account == null || account.isEmpty()) continue;
+            String prefix = account.substring(0, Math.min(2, account.length()));
+            if (account.startsWith("6")) {
+                charges.merge(prefix, en.getValue(), BigDecimal::add);
+            } else if (account.startsWith("7")) {
+                produits.merge(prefix, en.getValue().negate(), BigDecimal::add);
+            }
+        }
+
+        List<StatementRow> rows = new ArrayList<>();
+        BigDecimal totalCharges = BigDecimal.ZERO;
+        for (Map.Entry<String, BigDecimal> en : charges.entrySet()) {
+            totalCharges = totalCharges.add(en.getValue());
+            rows.add(new StatementRow("Charges", rubrique(en.getKey(), labels), en.getValue()));
+        }
+        rows.add(new StatementRow("Charges", "TOTAL CHARGES", totalCharges));
+        BigDecimal totalProduits = BigDecimal.ZERO;
+        for (Map.Entry<String, BigDecimal> en : produits.entrySet()) {
+            totalProduits = totalProduits.add(en.getValue());
+            rows.add(new StatementRow("Produits", rubrique(en.getKey(), labels), en.getValue()));
+        }
+        rows.add(new StatementRow("Produits", "TOTAL PRODUITS", totalProduits));
+        rows.add(new StatementRow("Résultat", "RÉSULTAT NET (produits − charges)",
+                totalProduits.subtract(totalCharges)));
+
+        return new ExportDataset<>(
+                "Compte de résultat",
+                statementColumns(),
+                rows
+        );
+    }
+
+    /**
+     * Bilan à date : soldes cumulés depuis l'origine jusqu'à {@code asOf}.
+     * Classement par nature : classe 2 actif immobilisé, 3 stocks, 4 par
+     * sens du solde (débiteur → créances, créditeur → dettes), 5 par sens
+     * (trésorerie actif / passif), 1 capitaux propres et dettes
+     * financières. Le résultat cumulé (classes 7 − 6) rejoint le passif.
+     */
+    public ExportDataset<StatementRow> buildBilan(LocalDate asOf) {
+        Map<String, BigDecimal> soldeByAccount = soldeByAccount(null, asOf);
+        Map<String, String> labels = labelsByPrefix();
+
+        Map<String, BigDecimal> immobilisations = new java.util.TreeMap<>();
+        Map<String, BigDecimal> stocks = new java.util.TreeMap<>();
+        Map<String, BigDecimal> creances = new java.util.TreeMap<>();
+        Map<String, BigDecimal> tresorerieActif = new java.util.TreeMap<>();
+        Map<String, BigDecimal> capitaux = new java.util.TreeMap<>();
+        Map<String, BigDecimal> dettes = new java.util.TreeMap<>();
+        Map<String, BigDecimal> tresoreriePassif = new java.util.TreeMap<>();
+        BigDecimal resultat = BigDecimal.ZERO;
+
+        for (Map.Entry<String, BigDecimal> en : soldeByAccount.entrySet()) {
+            String account = en.getKey();
+            BigDecimal solde = en.getValue();
+            if (account == null || account.isEmpty() || solde.signum() == 0) continue;
+            String prefix = account.substring(0, Math.min(2, account.length()));
+            char clazz = account.charAt(0);
+            switch (clazz) {
+                case '1' -> capitaux.merge(prefix, solde.negate(), BigDecimal::add);
+                case '2' -> immobilisations.merge(prefix, solde, BigDecimal::add);
+                case '3' -> stocks.merge(prefix, solde, BigDecimal::add);
+                case '4' -> {
+                    if (solde.signum() > 0) creances.merge(prefix, solde, BigDecimal::add);
+                    else dettes.merge(prefix, solde.negate(), BigDecimal::add);
+                }
+                case '5' -> {
+                    if (solde.signum() > 0) tresorerieActif.merge(prefix, solde, BigDecimal::add);
+                    else tresoreriePassif.merge(prefix, solde.negate(), BigDecimal::add);
+                }
+                // Résultat = produits − charges = −(solde 6) − (solde 7)
+                // puisque solde = débit − crédit (charges débitrices, produits créditeurs).
+                case '6', '7' -> resultat = resultat.subtract(solde);
+                default -> { /* classe 8/9 hors périmètre MVP */ }
+            }
+        }
+
+        List<StatementRow> rows = new ArrayList<>();
+        BigDecimal totalActif = BigDecimal.ZERO;
+        totalActif = totalActif.add(appendSection(rows, "Actif immobilisé", immobilisations, labels));
+        totalActif = totalActif.add(appendSection(rows, "Actif · stocks", stocks, labels));
+        totalActif = totalActif.add(appendSection(rows, "Actif · créances", creances, labels));
+        totalActif = totalActif.add(appendSection(rows, "Actif · trésorerie", tresorerieActif, labels));
+        rows.add(new StatementRow("Actif", "TOTAL ACTIF", totalActif));
+
+        BigDecimal totalPassif = BigDecimal.ZERO;
+        totalPassif = totalPassif.add(appendSection(rows, "Passif · capitaux propres et emprunts", capitaux, labels));
+        rows.add(new StatementRow("Passif · capitaux propres et emprunts", "Résultat cumulé", resultat));
+        totalPassif = totalPassif.add(resultat);
+        totalPassif = totalPassif.add(appendSection(rows, "Passif · dettes", dettes, labels));
+        totalPassif = totalPassif.add(appendSection(rows, "Passif · trésorerie", tresoreriePassif, labels));
+        rows.add(new StatementRow("Passif", "TOTAL PASSIF", totalPassif));
+
+        return new ExportDataset<>(
+                "Bilan" + (asOf != null ? " au " + asOf : ""),
+                statementColumns(),
+                rows
+        );
+    }
+
+    /** Solde (débit − crédit) par compte sur l'intervalle. */
+    private Map<String, BigDecimal> soldeByAccount(LocalDate from, LocalDate to) {
+        Map<String, BigDecimal> soldes = new HashMap<>();
+        for (JournalPieceEntity p : iteratePieces(from, to)) {
+            for (JournalEntry e : p.entries) {
+                BigDecimal d = e.debitFcfa != null ? e.debitFcfa : BigDecimal.ZERO;
+                BigDecimal c = e.creditFcfa != null ? e.creditFcfa : BigDecimal.ZERO;
+                soldes.merge(e.syscohadaAccount, d.subtract(c), BigDecimal::add);
+            }
+        }
+        return soldes;
+    }
+
+    /** Libellés du plan par préfixe 2 chiffres (premier compte trouvé). */
+    private Map<String, String> labelsByPrefix() {
+        Map<String, String> labels = new HashMap<>();
+        for (ChartOfAccountsEntity a : chart.list(null)) {
+            if (a.number == null || a.number.length() < 2) continue;
+            labels.putIfAbsent(a.number.substring(0, 2), a.label);
+            labels.putIfAbsent(a.number, a.label);
+        }
+        return labels;
+    }
+
+    private static String rubrique(String prefix, Map<String, String> labels) {
+        String label = labels.get(prefix);
+        return label != null ? prefix + " · " + label : prefix;
+    }
+
+    private static BigDecimal appendSection(List<StatementRow> rows, String section,
+                                            Map<String, BigDecimal> byPrefix,
+                                            Map<String, String> labels) {
+        BigDecimal total = BigDecimal.ZERO;
+        for (Map.Entry<String, BigDecimal> en : byPrefix.entrySet()) {
+            total = total.add(en.getValue());
+            rows.add(new StatementRow(section, rubrique(en.getKey(), labels), en.getValue()));
+        }
+        return total;
+    }
+
+    private static List<ExportColumn<StatementRow>> statementColumns() {
+        return List.of(
+                ExportColumn.of("Masse", StatementRow::section),
+                ExportColumn.of("Rubrique", StatementRow::rubrique),
+                ExportColumn.of("Montant (FCFA)", StatementRow::montantFcfa)
         );
     }
 

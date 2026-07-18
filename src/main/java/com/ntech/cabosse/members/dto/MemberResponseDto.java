@@ -27,9 +27,15 @@ public record MemberResponseDto(
         String preferredPaymentMethod,
         String mobileMoneyNumber,
         String notes,
+        String statusReason,
+        Instant approvedAt,
+        List<DocumentView> documents,
         Instant createdAt,
         Instant updatedAt
 ) {
+    public record DocumentView(UUID id, String label, String fileName,
+                               String mimeType, long sizeBytes, Instant uploadedAt) {}
+
     public static MemberResponseDto from(MemberEntity e) {
         return new MemberResponseDto(
                 e.id, e.code, e.name, e.civilStatus, e.idCardFileId,
@@ -38,6 +44,11 @@ public record MemberResponseDto(
                 e.supplierId,
                 e.parcels != null ? List.copyOf(e.parcels) : List.of(),
                 e.preferredPaymentMethod, e.mobileMoneyNumber, e.notes,
+                e.statusReason, e.approvedAt,
+                e.documents == null ? List.of() : e.documents.stream()
+                        .map(d -> new DocumentView(d.id, d.label, d.fileName,
+                                d.mimeType, d.sizeBytes, d.uploadedAt))
+                        .toList(),
                 e.createdAt, e.updatedAt
         );
     }

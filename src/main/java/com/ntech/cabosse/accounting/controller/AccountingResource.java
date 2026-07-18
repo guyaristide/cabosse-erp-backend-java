@@ -1,6 +1,8 @@
 package com.ntech.cabosse.accounting.controller;
 
 import com.ntech.cabosse.accounting.dto.AccountingDashboardDto;
+import com.ntech.cabosse.accounting.dto.AccountingPeriodDto;
+import com.ntech.cabosse.accounting.dto.OdDraftDto;
 import com.ntech.cabosse.accounting.dto.BankAccountResponseDto;
 import com.ntech.cabosse.accounting.dto.BankAccountUpsertDto;
 import com.ntech.cabosse.accounting.dto.BankStatementLineResponseDto;
@@ -13,6 +15,7 @@ import com.ntech.cabosse.accounting.entity.BankStatementStatus;
 import com.ntech.cabosse.accounting.service.BankReconciliationService;
 import com.ntech.cabosse.accounting.service.BankStatementImportService;
 import com.ntech.cabosse.accounting.export.AccountingExportService;
+import com.ntech.cabosse.accounting.service.AccountingPeriodService;
 import com.ntech.cabosse.accounting.service.AccountingQueryService;
 import com.ntech.cabosse.accounting.service.BankAccountService;
 import com.ntech.cabosse.shared.api.ApiResponse;
@@ -61,6 +64,8 @@ import java.util.UUID;
 public class AccountingResource {
 
     @Inject AccountingQueryService query;
+    @Inject AccountingPeriodService periodService;
+    @Inject com.ntech.cabosse.accounting.service.OdEntryService odService;
     @Inject BankAccountService bankAccounts;
     @Inject AccountingExportService exports;
     @Inject ExportAudit exportAudit;
@@ -255,10 +260,143 @@ public class AccountingResource {
         return Response.ok(ApiResponse.ok(BankStatementLineResponseDto.from(reconciliation.dispute(lineId)))).build();
     }
 
+    public record RegularizePayload(String accountCode, String libelle) {}
+
+    /** Régularisation d'un écart justifié (frais bancaires par défaut) — génère la pièce. */
+    @POST
+    @Path("/bank-statements/lines/{lineId}/regularize")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
+    public Response regularizeLine(@PathParam("lineId") UUID lineId, RegularizePayload payload) {
+        String accountCode = payload != null ? payload.accountCode() : null;
+        String libelle = payload != null ? payload.libelle() : null;
+        return Response.ok(ApiResponse.ok(BankStatementLineResponseDto.from(
+                reconciliation.regularize(lineId, accountCode, libelle)))).build();
+    }
+
+    /** Mise en attente d'un écart inexpliqué — écriture sur 471. */
+    @POST
+    @Path("/bank-statements/lines/{lineId}/suspend")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
+    public Response suspendLine(@PathParam("lineId") UUID lineId) {
+        return Response.ok(ApiResponse.ok(BankStatementLineResponseDto.from(
+                reconciliation.suspend(lineId)))).build();
+    }
+
     private static <E extends Enum<E>> E parseEnum(Class<E> type, String raw) {
         if (raw == null || raw.isBlank()) return null;
         try { return Enum.valueOf(type, raw.toUpperCase()); }
         catch (IllegalArgumentException e) { return null; }
+    }
+
+    // ─── Opérations diverses (saisie manuelle, backlog CPT-07) ──────
+
+    public record OdLinePayload(String account, String libelle,
+                                java.math.BigDecimal debitFcfa,
+                                java.math.BigDecimal creditFcfa) {}
+    public record OdPayload(java.time.LocalDate date, String libelle,
+                            List<OdLinePayload> lines) {}
+
+    private static List<com.ntech.cabosse.accounting.service.OdEntryService.OdLineInput>
+            toOdLines(OdPayload payload) {
+        if (payload == null || payload.lines() == null) return List.of();
+        return payload.lines().stream()
+                .map(l -> new com.ntech.cabosse.accounting.service.OdEntryService.OdLineInput(
+                        l.account(), l.libelle(), l.debitFcfa(), l.creditFcfa()))
+                .toList();
+    }
+
+    @GET
+    @Path("/od")
+    public Response listOd(@QueryParam("status") String status,
+                           @QueryParam("page") @DefaultValue("0") int page,
+                           @QueryParam("perPage") @DefaultValue("20") int perPage) {
+        com.ntech.cabosse.shared.api.PageRequest pr =
+                com.ntech.cabosse.shared.api.PageRequest.of(page, perPage);
+        long total = odService.countSearch(status);
+        List<OdDraftDto> items = odService.search(status, pr.skip(), pr.perPage()).stream()
+                .map(OdDraftDto::from)
+                .toList();
+        Map<String, String> filters = new java.util.HashMap<>();
+        if (status != null && !status.isBlank()) filters.put("status", status);
+        return Response.ok(ApiResponse.ok(com.ntech.cabosse.shared.api.Pagination.of(
+                total, pr, new String[]{"date", "createdAt"}, "desc", filters, items))).build();
+    }
+
+    @GET
+    @Path("/od/{id}")
+    public Response getOd(@PathParam("id") UUID id) {
+        return Response.ok(ApiResponse.ok(OdDraftDto.from(odService.getById(id)))).build();
+    }
+
+    @POST
+    @Path("/od")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    public Response createOd(OdPayload payload) {
+        var created = odService.create(
+                payload != null ? payload.date() : null,
+                payload != null ? payload.libelle() : null,
+                toOdLines(payload));
+        return Response.status(Response.Status.CREATED)
+                .entity(ApiResponse.created(OdDraftDto.from(created)))
+                .build();
+    }
+
+    @PUT
+    @Path("/od/{id}")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    public Response updateOd(@PathParam("id") UUID id, OdPayload payload) {
+        var updated = odService.update(
+                id,
+                payload != null ? payload.date() : null,
+                payload != null ? payload.libelle() : null,
+                toOdLines(payload));
+        return Response.ok(ApiResponse.ok(OdDraftDto.from(updated))).build();
+    }
+
+    @jakarta.ws.rs.DELETE
+    @Path("/od/{id}")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    public Response deleteOd(@PathParam("id") UUID id) {
+        odService.delete(id);
+        return Response.noContent().build();
+    }
+
+    /** La validation fige l'OD au journal : réservée à l'administrateur. */
+    @POST
+    @Path("/od/{id}/validate")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
+    public Response validateOd(@PathParam("id") UUID id) {
+        return Response.ok(ApiResponse.ok(OdDraftDto.from(odService.validate(id)))).build();
+    }
+
+    // ─── Périodes comptables (clôture / réouverture) ────────────────
+
+    @GET
+    @Path("/periods")
+    public Response listPeriods() {
+        List<AccountingPeriodDto> list = periodService.list().stream()
+                .map(AccountingPeriodDto::from)
+                .toList();
+        return Response.ok(ApiResponse.ok(list)).build();
+    }
+
+    @POST
+    @Path("/periods/{period}/lock")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
+    public Response lockPeriod(@PathParam("period") String period) {
+        return Response.ok(ApiResponse.ok(
+                AccountingPeriodDto.from(periodService.lock(period)))).build();
+    }
+
+    public record ReopenPeriodPayload(String reason) {}
+
+    @POST
+    @Path("/periods/{period}/reopen")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
+    public Response reopenPeriod(@PathParam("period") String period, ReopenPeriodPayload payload) {
+        String reason = payload != null ? payload.reason() : null;
+        return Response.ok(ApiResponse.ok(
+                AccountingPeriodDto.from(periodService.reopen(period, reason)))).build();
     }
 
     // ─── TVA workflow ───────────────────────────────────────────────
@@ -327,6 +465,31 @@ public class AccountingResource {
                 .header("Content-Disposition", "attachment; filename=\"" + filename + "\"")
                 .header("Cache-Control", "no-store")
                 .build();
+    }
+
+    @GET
+    @Path("/export/compte-resultat")
+    @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "application/pdf" })
+    public Response exportCompteResultat(@QueryParam("from") String fromRaw,
+                                         @QueryParam("to") String toRaw,
+                                         @QueryParam("format") String formatRaw) {
+        ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
+        var dataset = exports.buildCompteResultat(parseDate(fromRaw), parseDate(toRaw));
+        exportAudit.record("accounting", "Compte de résultat", format, dataset.rows().size());
+        return ExportResponses.build("compte-de-resultat", format, dataset);
+    }
+
+    @GET
+    @Path("/export/bilan")
+    @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "application/pdf" })
+    public Response exportBilan(@QueryParam("asOf") String asOfRaw,
+                                @QueryParam("format") String formatRaw) {
+        ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
+        var dataset = exports.buildBilan(parseDate(asOfRaw));
+        exportAudit.record("accounting", "Bilan", format, dataset.rows().size());
+        return ExportResponses.build("bilan", format, dataset);
     }
 
     @GET

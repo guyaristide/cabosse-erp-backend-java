@@ -25,5 +25,19 @@ public enum PostingSourceType {
     SALE_PAYMENT,
     SALE_PAYMENT_REVERSAL,
     DIRECT_RECEIPT_PAYMENT,
-    DIRECT_RECEIPT_PAYMENT_REVERSAL
+    DIRECT_RECEIPT_PAYMENT_REVERSAL,
+    /** Régularisation d'écart d'inventaire physique (session validée). */
+    INVENTORY_ADJUSTMENT,
+    /** Régularisation d'écart de rapprochement bancaire (frais, décalage). */
+    BANK_REGULARIZATION,
+    /** Mise en attente d'un écart bancaire non expliqué (compte 471). */
+    BANK_SUSPENSE,
+    /** Versement de la part sociale d'un membre à la validation de l'adhésion. */
+    MEMBER_CAPITAL,
+    /** Remboursement de la part sociale à la radiation du membre. */
+    MEMBER_CAPITAL_REVERSAL,
+    /** Traçabilité d'un transfert de stock inter-sites (si activé par le tenant). */
+    STOCK_TRANSFER,
+    /** Opération diverse saisie manuellement puis validée (backlog CPT-07). */
+    MANUAL_ENTRY
 }

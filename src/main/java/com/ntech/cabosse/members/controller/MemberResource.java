@@ -3,6 +3,9 @@ package com.ntech.cabosse.members.controller;
 import com.ntech.cabosse.members.dto.MemberResponseDto;
 import com.ntech.cabosse.members.dto.MemberUpsertDto;
 import com.ntech.cabosse.members.entity.MemberStatus;
+import com.ntech.cabosse.members.service.MemberContributionsService;
+import com.ntech.cabosse.members.service.MemberCardService;
+import com.ntech.cabosse.members.service.MemberDocumentService;
 import com.ntech.cabosse.members.service.MemberService;
 import com.ntech.cabosse.shared.api.ApiResponse;
 import com.ntech.cabosse.shared.api.PageRequest;
@@ -44,6 +47,9 @@ import java.util.UUID;
 public class MemberResource {
 
     @Inject MemberService service;
+    @Inject MemberContributionsService contributionsService;
+    @Inject MemberDocumentService documents;
+    @Inject MemberCardService card;
     @Inject TenantCapabilityService capabilities;
     @Inject TenantContext tenantContext;
 
@@ -93,6 +99,118 @@ public class MemberResource {
     public Response update(@PathParam("id") UUID id, @Valid MemberUpsertDto payload) {
         ensureCapability();
         return Response.ok(ApiResponse.ok(service.update(id, payload))).build();
+    }
+
+    // ─── Workflow d'adhésion ────────────────────────────────────────
+
+    public record RejectPayload(String reason) {}
+
+    @POST
+    @Path("/{id}/approve")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
+    public Response approve(@PathParam("id") UUID id) {
+        ensureCapability();
+        return Response.ok(ApiResponse.ok(service.approve(id))).build();
+    }
+
+    @POST
+    @Path("/{id}/reject")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
+    public Response reject(@PathParam("id") UUID id, RejectPayload payload) {
+        ensureCapability();
+        String reason = payload != null ? payload.reason() : null;
+        return Response.ok(ApiResponse.ok(service.reject(id, reason))).build();
+    }
+
+    // ─── Radiation (MEM-05) ─────────────────────────────────────────
+
+    public record RetirePayload(String reason) {}
+
+    @POST
+    @Path("/{id}/retire")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
+    public Response retire(@PathParam("id") UUID id, RetirePayload payload) {
+        ensureCapability();
+        String reason = payload != null ? payload.reason() : null;
+        return Response.ok(ApiResponse.ok(service.retire(id, reason))).build();
+    }
+
+    // ─── Pièces du dossier (MEM-01) ─────────────────────────────────
+
+    @POST
+    @Path("/{id}/documents")
+    @jakarta.ws.rs.Consumes(jakarta.ws.rs.core.MediaType.MULTIPART_FORM_DATA)
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    public Response uploadDocument(
+            @PathParam("id") UUID id,
+            @org.jboss.resteasy.reactive.RestForm("label") String label,
+            @org.jboss.resteasy.reactive.RestForm("file")
+            org.jboss.resteasy.reactive.multipart.FileUpload file) {
+        ensureCapability();
+        if (file == null) {
+            throw new BusinessException("Aucun fichier 'file' fourni dans la requête multipart.");
+        }
+        byte[] bytes;
+        try {
+            bytes = java.nio.file.Files.readAllBytes(file.uploadedFile());
+        } catch (java.io.IOException e) {
+            throw new BusinessException("Lecture du fichier impossible : " + e.getMessage());
+        }
+        documents.attach(id, label, bytes, file.contentType(), file.fileName());
+        return Response.ok(ApiResponse.ok(service.getById(id))).build();
+    }
+
+    @GET
+    @Path("/{id}/documents/{documentId}")
+    @Produces({ "application/pdf", "image/png", "image/jpeg", "application/octet-stream" })
+    public Response downloadDocument(@PathParam("id") UUID id,
+                                     @PathParam("documentId") UUID documentId) {
+        ensureCapability();
+        MemberDocumentService.DocumentStream s = documents.open(id, documentId);
+        return Response.ok((jakarta.ws.rs.core.StreamingOutput) output -> {
+                    try (var in = s.content()) {
+                        in.transferTo(output);
+                    }
+                })
+                .type(s.mimeType() != null ? s.mimeType()
+                        : jakarta.ws.rs.core.MediaType.APPLICATION_OCTET_STREAM)
+                .header("Content-Length", s.sizeBytes())
+                .header("Content-Disposition",
+                        "inline; filename=\"" + (s.fileName() != null ? s.fileName() : "piece") + "\"")
+                .header("Cache-Control", "private, max-age=300")
+                .build();
+    }
+
+    @jakarta.ws.rs.DELETE
+    @Path("/{id}/documents/{documentId}")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    public Response deleteDocument(@PathParam("id") UUID id,
+                                   @PathParam("documentId") UUID documentId) {
+        ensureCapability();
+        documents.detach(id, documentId);
+        return Response.noContent().build();
+    }
+
+    // ─── Carte de membre (MEM-03) ───────────────────────────────────
+
+    @GET
+    @Path("/{id}/card")
+    @Produces("application/pdf")
+    public Response memberCard(@PathParam("id") UUID id) {
+        ensureCapability();
+        byte[] pdf = card.buildCard(id);
+        return Response.ok(pdf)
+                .header("Content-Disposition", "attachment; filename=\"carte-membre.pdf\"")
+                .build();
+    }
+
+    // ─── Apports par campagne ───────────────────────────────────────
+
+    @GET
+    @Path("/{id}/contributions")
+    public Response contributions(@PathParam("id") UUID id) {
+        ensureCapability();
+        return Response.ok(ApiResponse.ok(contributionsService.contributions(id))).build();
     }
 
     private static MemberStatus parseStatus(String raw) {

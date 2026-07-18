@@ -40,6 +40,13 @@ public class HarvestRepository {
                 .into(new ArrayList<>());
     }
 
+    /** Toutes les récoltes d'un membre — agrégat des apports par campagne. */
+    public List<HarvestEntity> listByMember(UUID memberId) {
+        return coll().find(Filters.eq("memberId", memberId))
+                .sort(new Document("campaignYear", -1).append("harvestDate", -1))
+                .into(new ArrayList<>());
+    }
+
     public long countSearch(UUID parcelId, UUID memberId, Integer campaignYear, String q) {
         return coll().countDocuments(searchFilter(parcelId, memberId, campaignYear, q));
     }
