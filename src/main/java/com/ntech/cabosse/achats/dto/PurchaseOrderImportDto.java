@@ -112,7 +112,7 @@ public record PurchaseOrderImportDto(
      * ({@code articleId} renseigné), soit il doit être créé à la volée
      * ({@code newArticle} renseigné).
      */
-    @Schema(description = "Ligne d'import — match ou auto-création article")
+    @Schema(description = "Ligne d'import : match ou auto-création article")
     public record ImportedLine(
 
             /** Article existant. Null si le client veut auto-créer. */
@@ -140,7 +140,7 @@ public record PurchaseOrderImportDto(
      * Fournisseur existant ({@code id} renseigné) ou à créer
      * ({@code name} requis, le reste optionnel).
      */
-    @Schema(description = "Fournisseur de l'import — existant ou à créer")
+    @Schema(description = "Fournisseur de l'import : existant ou à créer")
     public record ImportedSupplier(
 
             UUID id,

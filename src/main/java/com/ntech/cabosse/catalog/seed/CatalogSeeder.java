@@ -59,7 +59,7 @@ public class CatalogSeeder {
         int i = seedIndustries();
         int p = seedPlans();
         int cur = seedCurrencies();
-        log.infof("Catalog seed — countries:%d, regions:%d, cities:%d, industries:%d, plans:%d, currencies:%d",
+        log.infof("Catalog seed : countries:%d, regions:%d, cities:%d, industries:%d, plans:%d, currencies:%d",
                 c, r, v, i, p, cur);
     }
 

@@ -56,7 +56,11 @@ public class TenantPreferencesService {
                 p.periodReopenPolicy(),
                 p.vatDeductibleAccount(), p.memberCapitalFlow(),
                 p.analyticsIncludeStockTransfers(),
-                p.fiscalYearStartMonth(), p.incomeTaxRatePct()
+                p.fiscalYearStartMonth(), p.incomeTaxRatePct(),
+                p.costCenterRequired(),
+                p.purchaseRequestEnabled(), p.purchaseRequestThresholdFcfa(),
+                p.collectorAdvanceAccount(),
+                p.collectorDeliveryValuation()
         );
     }
 
@@ -161,6 +165,46 @@ public class TenantPreferencesService {
                     "from", t.preferences.incomeTaxRatePct(),
                     "to", payload.incomeTaxRatePct()));
             t.preferences.incomeTaxRatePct = payload.incomeTaxRatePct();
+        }
+
+        if (payload.costCenterRequired() != null
+                && payload.costCenterRequired() != t.preferences.costCenterRequired()) {
+            diffs.put("costCenterRequired", Map.of(
+                    "from", t.preferences.costCenterRequired(),
+                    "to", payload.costCenterRequired()));
+            t.preferences.costCenterRequired = payload.costCenterRequired();
+        }
+
+        if (payload.purchaseRequestEnabled() != null
+                && payload.purchaseRequestEnabled() != t.preferences.purchaseRequestEnabled()) {
+            diffs.put("purchaseRequestEnabled", Map.of(
+                    "from", t.preferences.purchaseRequestEnabled(),
+                    "to", payload.purchaseRequestEnabled()));
+            t.preferences.purchaseRequestEnabled = payload.purchaseRequestEnabled();
+        }
+        if (payload.purchaseRequestThresholdFcfa() != null
+                && payload.purchaseRequestThresholdFcfa()
+                        .compareTo(t.preferences.purchaseRequestThresholdFcfa()) != 0) {
+            diffs.put("purchaseRequestThresholdFcfa", Map.of(
+                    "from", t.preferences.purchaseRequestThresholdFcfa(),
+                    "to", payload.purchaseRequestThresholdFcfa()));
+            t.preferences.purchaseRequestThresholdFcfa = payload.purchaseRequestThresholdFcfa();
+        }
+
+        if (payload.collectorAdvanceAccount() != null && !payload.collectorAdvanceAccount().isBlank()
+                && !payload.collectorAdvanceAccount().equals(t.preferences.collectorAdvanceAccount())) {
+            diffs.put("collectorAdvanceAccount", Map.of(
+                    "from", t.preferences.collectorAdvanceAccount(),
+                    "to", payload.collectorAdvanceAccount()));
+            t.preferences.collectorAdvanceAccount = payload.collectorAdvanceAccount().trim();
+        }
+
+        if (payload.collectorDeliveryValuation() != null && !payload.collectorDeliveryValuation().isBlank()
+                && !payload.collectorDeliveryValuation().equals(t.preferences.collectorDeliveryValuation())) {
+            diffs.put("collectorDeliveryValuation", Map.of(
+                    "from", t.preferences.collectorDeliveryValuation(),
+                    "to", payload.collectorDeliveryValuation()));
+            t.preferences.collectorDeliveryValuation = payload.collectorDeliveryValuation().trim();
         }
 
         if (!diffs.isEmpty()) {

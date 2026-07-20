@@ -12,7 +12,7 @@ import java.util.List;
  * filière active. Modifier ce champ via le PUT propage rétroactivement à
  * tous les tenants qui déclarent cette activité (au prochain login).</p>
  */
-@Schema(description = "Activité — vue admin (avec activation et capacités)")
+@Schema(description = "Activité : vue admin (avec activation et capacités)")
 public record IndustryAdminDto(
         String code,
         String label,

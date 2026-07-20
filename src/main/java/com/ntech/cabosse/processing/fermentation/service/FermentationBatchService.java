@@ -95,7 +95,7 @@ public class FermentationBatchService {
     public FermentationBatchResponseDto start(UUID id) {
         FermentationBatchEntity e = loadOrFail(id);
         if (e.status != FermentationBatchStatus.PREPARING) {
-            throw new BusinessException("Démarrage refusé — statut actuel " + e.status);
+            throw new BusinessException("Démarrage refusé : statut actuel " + e.status);
         }
         e.status = FermentationBatchStatus.ACTIVE;
         e.startedAt = Instant.now();
@@ -107,40 +107,40 @@ public class FermentationBatchService {
     public FermentationBatchResponseDto recordTemperature(UUID id, BigDecimal celsius, String observation) {
         FermentationBatchEntity e = loadOrFail(id);
         if (e.status != FermentationBatchStatus.ACTIVE) {
-            throw new BusinessException("Bac non actif — saisie température impossible.");
+            throw new BusinessException("Bac non actif : saisie température impossible.");
         }
         TemperatureReading r = new TemperatureReading();
         r.at = Instant.now();
         r.celsius = celsius;
         r.observation = blankToNull(observation);
         r.recordedByEmail = actor();
-        if (e.temperatureReadings == null) e.temperatureReadings = new ArrayList<>();
-        e.temperatureReadings.add(r);
-        e.updatedAt = Instant.now();
-        batches.replace(e);
-        return FermentationBatchResponseDto.from(e);
+        // $push atomique conditionné ACTIVE : deux relevés simultanés de
+        // deux opérateurs terrain ne s'écrasent plus.
+        if (!batches.pushIfActive(e.id, "temperatureReadings", r, r.at)) {
+            throw new BusinessException("Bac non actif : saisie température impossible.");
+        }
+        return FermentationBatchResponseDto.from(loadOrFail(id));
     }
 
     public FermentationBatchResponseDto recordTurning(UUID id, String operator, String notes) {
         FermentationBatchEntity e = loadOrFail(id);
         if (e.status != FermentationBatchStatus.ACTIVE) {
-            throw new BusinessException("Bac non actif — brassage impossible.");
+            throw new BusinessException("Bac non actif : brassage impossible.");
         }
         Turning t = new Turning();
         t.at = Instant.now();
         t.operator = blankToNull(operator);
         t.notes = blankToNull(notes);
-        if (e.turnings == null) e.turnings = new ArrayList<>();
-        e.turnings.add(t);
-        e.updatedAt = Instant.now();
-        batches.replace(e);
-        return FermentationBatchResponseDto.from(e);
+        if (!batches.pushIfActive(e.id, "turnings", t, t.at)) {
+            throw new BusinessException("Bac non actif : brassage impossible.");
+        }
+        return FermentationBatchResponseDto.from(loadOrFail(id));
     }
 
     public FermentationBatchResponseDto complete(UUID id, BigDecimal weightOutKg, String finalGradeEstimate) {
         FermentationBatchEntity e = loadOrFail(id);
         if (e.status != FermentationBatchStatus.ACTIVE) {
-            throw new BusinessException("Bac non actif — clôture impossible.");
+            throw new BusinessException("Bac non actif : clôture impossible.");
         }
         e.weightOutKg = weightOutKg;
         e.finalGradeEstimate = blankToNull(finalGradeEstimate);
@@ -154,7 +154,7 @@ public class FermentationBatchService {
     public FermentationBatchResponseDto cancel(UUID id, String reason) {
         FermentationBatchEntity e = loadOrFail(id);
         if (e.status == FermentationBatchStatus.COMPLETED) {
-            throw new BusinessException("Bac déjà clôturé — annulation impossible.");
+            throw new BusinessException("Bac déjà clôturé : annulation impossible.");
         }
         e.status = FermentationBatchStatus.CANCELLED;
         e.notes = (e.notes != null ? e.notes + "\n" : "") + "Annulé : " + (reason != null ? reason : "");

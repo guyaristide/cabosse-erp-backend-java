@@ -77,7 +77,7 @@ public class TenantSubscriptionService {
         PlanEntity plan = plans.findByCode(payload.planCode()).orElseThrow(
                 () -> new BusinessException("Plan « " + payload.planCode() + " » introuvable."));
         if (!plan.active) {
-            throw new BusinessException("Plan « " + plan.code + " » inactif — non souscriptible.");
+            throw new BusinessException("Plan « " + plan.code + " » inactif : non souscriptible.");
         }
 
         LocalDate startDate = payload.startDate() != null ? payload.startDate() : LocalDate.now();
@@ -120,7 +120,7 @@ public class TenantSubscriptionService {
                 .actorEmail(actor())
                 .target("tenant", tenant.id.toString(), tenant.slug)
                 .tenant(tenant.id, tenant.name)
-                .description("Abonnement activé — plan " + plan.code + " · "
+                .description("Abonnement activé : plan " + plan.code + " · "
                         + cycleLabel(payload.cycle()) + " × " + periods
                         + " · du " + startDate + " au " + endDate)
                 .record();

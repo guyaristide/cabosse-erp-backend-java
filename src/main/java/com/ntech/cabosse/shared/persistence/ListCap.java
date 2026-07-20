@@ -29,7 +29,7 @@ public final class ListCap {
 
     public static <T> List<T> warnIfCapped(List<T> rows, String label) {
         if (rows.size() >= MAX) {
-            LOG.warnf("Liste « %s » plafonnée à %d éléments — pagination serveur recommandée.",
+            LOG.warnf("Liste « %s » plafonnée à %d éléments : pagination serveur recommandée.",
                     label, MAX);
         }
         return rows;

@@ -5,7 +5,7 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import java.math.BigDecimal;
 import java.util.List;
 
-@Schema(description = "Plan tarifaire — vue admin (avec activation)")
+@Schema(description = "Plan tarifaire : vue admin (avec activation)")
 public record PlanAdminDto(
         String code,
         String name,

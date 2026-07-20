@@ -34,6 +34,16 @@ public class SupplierEntity {
 
     public String notes;
 
+    /**
+     * Fournisseur qui est un délégué collecteur (backlog ACH-02) :
+     * représentant d'une section auprès duquel la coopérative fait des
+     * avances pour sourcer la matière première.
+     */
+    public boolean collector = false;
+
+    /** Section de collecte rattachée au délégué. {@code null} si non délégué. */
+    public UUID sectionId;
+
     public boolean active = true;
 
     public Instant createdAt;

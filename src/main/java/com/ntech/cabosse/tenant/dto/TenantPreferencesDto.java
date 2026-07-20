@@ -21,7 +21,7 @@ public record TenantPreferencesDto(
         boolean postMemberCapitalEntries,
 
         @Schema(description = "Compte SYSCOHADA crédité pour les parts sociales.",
-                example = "101", defaultValue = "101")
+                example = "101000", defaultValue = "101000")
         String memberCapitalAccount,
 
         @Schema(description = "Génère une écriture de traçabilité sur les transferts inter-sites.",
@@ -42,7 +42,7 @@ public record TenantPreferencesDto(
         String periodReopenPolicy,
 
         @Schema(description = "Compte SYSCOHADA débité pour la TVA déductible sur achats.",
-                example = "44566", defaultValue = "44566")
+                example = "445660", defaultValue = "445660")
         String vatDeductibleAccount,
 
         @Schema(description = "Cycle comptable des parts sociales : pièce directe trésorerie/capital, "
@@ -62,6 +62,26 @@ public record TenantPreferencesDto(
 
         @Schema(description = "Taux d'impôt sur le résultat (%), proposé à l'arrêté d'exercice.",
                 example = "0", defaultValue = "0")
-        java.math.BigDecimal incomeTaxRatePct
+        java.math.BigDecimal incomeTaxRatePct,
+
+        @Schema(description = "Impose un centre de coût sur chaque ligne de charge à la validation d'OD.",
+                defaultValue = "false")
+        boolean costCenterRequired,
+
+        @Schema(description = "Active le circuit de contrôle interne des achats (DA avant BC).",
+                defaultValue = "false")
+        boolean purchaseRequestEnabled,
+
+        @Schema(description = "Seuil FCFA au-dessus duquel une demande d'achat approuvée est exigée.",
+                example = "0", defaultValue = "0")
+        java.math.BigDecimal purchaseRequestThresholdFcfa,
+
+        @Schema(description = "Compte SYSCOHADA des avances aux délégués collecteurs.",
+                example = "409100", defaultValue = "409100")
+        String collectorAdvanceAccount,
+
+        @Schema(description = "Valorisation d'une livraison délégué : BY_LOT (coût de l'avance) ou WEIGHTED_CMUP.",
+                example = "BY_LOT", defaultValue = "BY_LOT")
+        String collectorDeliveryValuation
 
 ) {}

@@ -62,12 +62,12 @@ public class PlatformMailerService {
         String startTls = effective(db.get("startTls"), "quarkus.mailer.start-tls", "REQUIRED");
 
         if (mock) {
-            log.infof("MAILER MOCK — to=%s subject=%s (envoi simulé, pas d'appel réseau)", to, subject);
+            log.infof("MAILER MOCK : to=%s subject=%s (envoi simulé, pas d'appel réseau)", to, subject);
             return;
         }
 
         if (from == null || host == null || port == null) {
-            log.warnf("Mailer mal configuré (from=%s, host=%s, port=%s) — e-mail à %s ignoré",
+            log.warnf("Mailer mal configuré (from=%s, host=%s, port=%s) : e-mail à %s ignoré",
                     from, host, port, to);
             return;
         }
@@ -99,7 +99,7 @@ public class PlatformMailerService {
             try {
                 done.get(SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             } catch (Exception e) {
-                log.warnf(e, "Mail à %s échoué — best-effort", to);
+                log.warnf(e, "Mail à %s échoué : best-effort", to);
             }
         } finally {
             client.close();

@@ -240,11 +240,11 @@ public class DirectReceiptService {
         DirectReceiptEntity e = loadOrFail(id);
         if (hasAnyPayment(e)) {
             throw new BusinessException(
-                    "Édition refusée — la réception contient déjà des paiements. "
+                    "Édition refusée : la réception contient déjà des paiements. "
                             + "Contre-passez-la et re-saisissez si nécessaire.");
         }
         if (e.status == DirectReceiptStatus.CANCELLED) {
-            throw new BusinessException("Réception annulée — édition impossible.");
+            throw new BusinessException("Réception annulée : édition impossible.");
         }
         ArticleEntity article = loadArticle(payload.articleId());
         e.articleId = article.id;
@@ -269,7 +269,7 @@ public class DirectReceiptService {
                                                   DirectReceiptPaymentDto payload) {
         DirectReceiptEntity e = loadOrFail(id);
         if (e.status == DirectReceiptStatus.CANCELLED) {
-            throw new BusinessException("Réception annulée — paiement impossible.");
+            throw new BusinessException("Réception annulée : paiement impossible.");
         }
         DirectReceiptLine line = findLine(e, lineId);
         DirectReceiptPayment payment = new DirectReceiptPayment();
@@ -298,7 +298,7 @@ public class DirectReceiptService {
     public DirectReceiptResponseDto removePayment(UUID id, UUID lineId) {
         DirectReceiptEntity e = loadOrFail(id);
         if (e.status == DirectReceiptStatus.CANCELLED) {
-            throw new BusinessException("Réception annulée — retrait impossible.");
+            throw new BusinessException("Réception annulée : retrait impossible.");
         }
         DirectReceiptLine line = findLine(e, lineId);
         if (line.payment == null) {
@@ -482,7 +482,7 @@ public class DirectReceiptService {
                 .actorEmail(actor())
                 .target("direct_receipt", e.id.toString(), e.ref)
                 .tenant(tenantContext.tenantId(), null)
-                .description(label + " — RD " + e.ref + " (" + e.articleName + ")")
+                .description(label + " : RD " + e.ref + " (" + e.articleName + ")")
                 .record();
     }
 

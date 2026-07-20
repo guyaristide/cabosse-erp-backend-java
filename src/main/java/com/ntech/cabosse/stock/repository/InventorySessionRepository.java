@@ -60,5 +60,20 @@ public class InventorySessionRepository {
 
     public void insert(InventorySessionEntity e) { coll().insertOne(e); }
 
+    /**
+     * Verrou de validation atomique : SUBMITTED vers VALIDATED. Le perdant
+     * d'une double validation voit {@code false} — les ajustements de stock
+     * ne sont jamais appliqués deux fois (règle concurrence).
+     */
+    public boolean tryMarkValidated(java.util.UUID id) {
+        return coll().updateOne(
+                com.mongodb.client.model.Filters.and(
+                        com.mongodb.client.model.Filters.eq("_id", id),
+                        com.mongodb.client.model.Filters.eq("status", InventorySessionEntity.STATUS_SUBMITTED)
+                ),
+                com.mongodb.client.model.Updates.set("status", InventorySessionEntity.STATUS_VALIDATED)
+        ).getModifiedCount() == 1;
+    }
+
     public void replace(InventorySessionEntity e) { coll().replaceOne(Filters.eq("_id", e.id), e); }
 }

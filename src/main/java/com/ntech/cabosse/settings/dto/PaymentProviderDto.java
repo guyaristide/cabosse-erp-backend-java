@@ -7,7 +7,7 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
  * (ex. {@code "wave"}, {@code "orange-money"}). Le statut {@code enabled}
  * gouverne si la passerelle est proposée aux tenants.
  */
-@Schema(description = "Passerelle de paiement — vue admin")
+@Schema(description = "Passerelle de paiement : vue admin")
 public record PaymentProviderDto(
         /** Slug, ex. {@code wave}, {@code orange-money}, {@code mtn}, {@code cinetpay}. */
         String code,

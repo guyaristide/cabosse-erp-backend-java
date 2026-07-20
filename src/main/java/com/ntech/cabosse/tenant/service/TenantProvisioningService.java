@@ -29,7 +29,6 @@ import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import jakarta.transaction.Transactional;
 import org.jboss.logging.Logger;
 
 import java.time.Duration;
@@ -84,7 +83,6 @@ public class TenantProvisioningService {
     }
 
     @RolesAllowed(Roles.PLATFORM_ADMIN)
-    @Transactional
     public UUID provision(CreateTenantPayloadDto payload, byte[] logoBytes, String logoMimeType,
                           TenantLogoService logoService) {
 

@@ -4,7 +4,7 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
 
 import java.util.UUID;
 
-@Schema(description = "Ville — vue admin (avec activation)")
+@Schema(description = "Ville : vue admin (avec activation)")
 public record CityAdminDto(
         UUID id,
         String name,

@@ -39,9 +39,9 @@ public class ConstantsConsistencyCheck {
     Logger log;
 
     void onStart(@Observes StartupEvent ev) {
-        log.info("Constants consistency check — start");
+        log.info("Constants consistency check : start");
         checkCacheNames();
-        log.info("Constants consistency check — OK");
+        log.info("Constants consistency check : OK");
     }
 
     private void checkCacheNames() {

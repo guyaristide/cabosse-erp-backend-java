@@ -63,5 +63,25 @@ public class FermentationBatchRepository {
 
     public void insert(FermentationBatchEntity e) { coll().insertOne(e); }
 
+    /**
+     * Ajout atomique d'un relevé à une liste embarquée, conditionné au
+     * statut ACTIVE : deux opérateurs simultanés ne s'écrasent plus
+     * (le replace intégral perdait un relevé sur deux).
+     */
+    public boolean pushIfActive(java.util.UUID id, String arrayField, Object element,
+                                java.time.Instant updatedAt) {
+        return coll().updateOne(
+                com.mongodb.client.model.Filters.and(
+                        com.mongodb.client.model.Filters.eq("_id", id),
+                        com.mongodb.client.model.Filters.eq("status",
+                                com.ntech.cabosse.processing.fermentation.entity.FermentationBatchStatus.ACTIVE.name())
+                ),
+                com.mongodb.client.model.Updates.combine(
+                        com.mongodb.client.model.Updates.push(arrayField, element),
+                        com.mongodb.client.model.Updates.set("updatedAt", updatedAt)
+                )
+        ).getModifiedCount() == 1;
+    }
+
     public void replace(FermentationBatchEntity e) { coll().replaceOne(Filters.eq("_id", e.id), e); }
 }

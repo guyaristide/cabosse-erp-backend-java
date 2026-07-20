@@ -91,7 +91,7 @@ public class RefreshTokenService {
         if (old.rotatedAt != null) {
             // Reuse detected — révocation en cascade de toute la famille.
             revokeFamilyForReuse(old, now);
-            throw new UnauthorizedException("Refresh token réutilisé — toutes les sessions ont été invalidées.");
+            throw new UnauthorizedException("Refresh token réutilisé : toutes les sessions ont été invalidées.");
         }
 
         // Point de sérialisation : une seule rotation gagne l'updateOne
@@ -100,7 +100,7 @@ public class RefreshTokenService {
         // même traitement qu'un rejeu : la famille est révoquée.
         if (!repo.markRotated(old.id, now)) {
             revokeFamilyForReuse(old, now);
-            throw new UnauthorizedException("Refresh token réutilisé — toutes les sessions ont été invalidées.");
+            throw new UnauthorizedException("Refresh token réutilisé : toutes les sessions ont été invalidées.");
         }
 
         return new RotatedRefresh(
@@ -112,7 +112,7 @@ public class RefreshTokenService {
 
     private void revokeFamilyForReuse(RefreshTokenEntity token, Instant now) {
         long affected = repo.revokeFamily(token.familyId, now, "reuse_detected");
-        log.warnf("Refresh token reuse detected (familyId=%s, userId=%s) — %d tokens revoked",
+        log.warnf("Refresh token reuse detected (familyId=%s, userId=%s) : %d tokens revoked",
                 token.familyId, token.userId, affected);
     }
 

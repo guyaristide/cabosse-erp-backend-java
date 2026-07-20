@@ -9,9 +9,13 @@ public record JournalEntryDto(
         String syscohadaAccount,
         String libelle,
         BigDecimal debitFcfa,
-        BigDecimal creditFcfa
+        BigDecimal creditFcfa,
+        String costCenter,
+        String program,
+        String project
 ) {
     public static JournalEntryDto from(JournalEntry e) {
-        return new JournalEntryDto(e.syscohadaAccount, e.libelle, e.debitFcfa, e.creditFcfa);
+        return new JournalEntryDto(e.syscohadaAccount, e.libelle, e.debitFcfa, e.creditFcfa,
+                e.costCenter, e.program, e.project);
     }
 }

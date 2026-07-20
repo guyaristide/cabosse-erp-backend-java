@@ -97,6 +97,10 @@ public class PurchaseOrderEntity {
     public BcStatus status = BcStatus.DRAFT;
     public PurchaseOrderCancellation cancellation;
 
+    /** Demande d'achat dont ce BC est issu (backlog ACH-01). {@code null} = saisie directe. */
+    public UUID purchaseRequestId;
+    public String purchaseRequestRef;
+
     public Instant createdAt;
     public Instant updatedAt;
     public UUID createdBy;

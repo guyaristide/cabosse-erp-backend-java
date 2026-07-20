@@ -44,10 +44,14 @@ public class OdEntryService {
     @Inject IdGenerator idGenerator;
     @Inject TenantContext tenantContext;
     @Inject JsonWebToken jwt;
+    @Inject com.ntech.cabosse.analytics.repository.CostCenterRepository costCenters;
+    @Inject com.ntech.cabosse.analytics.repository.ProgramRepository programs;
+    @Inject com.ntech.cabosse.tenant.service.TenantPreferencesLookup preferences;
 
     public record OdLineInput(String account, String libelle,
                               java.math.BigDecimal debitFcfa,
-                              java.math.BigDecimal creditFcfa) {}
+                              java.math.BigDecimal creditFcfa,
+                              String costCenter, String program, String project) {}
 
     // ─── Lecture ────────────────────────────────────────────────────
 
@@ -126,14 +130,63 @@ public class OdEntryService {
             }
         }
 
-        Optional<JournalPieceEntity> piece = accounting.postPiece(new PostingRequest(
-                e.date,
-                PostingSourceType.MANUAL_ENTRY,
-                e.id,
-                "OD",
-                e.libelle,
-                e.entries
-        ));
+        // Imputation analytique (backlog CPT-09) : chaque centre de coût
+        // renseigné doit exister et être actif (toléré si le référentiel
+        // n'est pas seedé). Si le tenant l'exige, toute ligne de charge
+        // (classe 6) doit porter un centre.
+        java.util.Set<String> activeCenters = costCenters.activeCodes();
+        boolean required = preferences.current().costCenterRequired();
+        for (JournalEntry line : e.entries) {
+            if (line.costCenter != null && !activeCenters.isEmpty()
+                    && !activeCenters.contains(line.costCenter)) {
+                throw new BusinessException(
+                        "Centre de coût « " + line.costCenter + " » inconnu ou inactif.");
+            }
+            if (required && line.syscohadaAccount != null
+                    && line.syscohadaAccount.startsWith("6") && line.costCenter == null) {
+                throw new BusinessException(
+                        "Centre de coût requis sur la ligne de charge « "
+                                + line.syscohadaAccount + " » (imputation analytique obligatoire).");
+            }
+            if (line.program != null) {
+                var prog = programs.findByCode(line.program);
+                if (prog.isEmpty() || !prog.get().active) {
+                    throw new BusinessException(
+                            "Programme « " + line.program + " » inconnu ou inactif.");
+                }
+                if (line.project != null && prog.get().projects.stream()
+                        .noneMatch(pr -> pr.active && pr.code.equals(line.project))) {
+                    throw new BusinessException(
+                            "Projet « " + line.project + " » absent du programme « "
+                                    + line.program + " ».");
+                }
+            }
+        }
+
+        // Verrou atomique DRAFT vers VALIDATED : le perdant d'un double
+        // clic s'arrête avant le posting (la pièce est de toute façon
+        // idempotente, mais le statut ne doit pas être écrit deux fois).
+        if (!drafts.tryMarkValidated(e.id)) {
+            throw new BusinessException("Ce brouillon est déjà validé (statut actuel : "
+                    + OdDraftEntity.STATUS_VALIDATED + ").");
+        }
+
+        Optional<JournalPieceEntity> piece;
+        try {
+            piece = accounting.postPiece(new PostingRequest(
+                    e.date,
+                    PostingSourceType.MANUAL_ENTRY,
+                    e.id,
+                    "OD",
+                    e.libelle,
+                    e.entries
+            ));
+        } catch (RuntimeException ex) {
+            // Le posting a refusé (déséquilibre, période close…) : on rend
+            // le verrou pour que le brouillon reste corrigeable.
+            drafts.revertToDraft(e.id);
+            throw ex;
+        }
 
         e.status = OdDraftEntity.STATUS_VALIDATED;
         e.validatedAt = Instant.now();
@@ -182,9 +235,10 @@ public class OdEntryService {
             }
             String label = line.libelle() != null && !line.libelle().isBlank()
                     ? line.libelle().trim() : "OD";
-            entries.add(hasDebit
+            JournalEntry entry = hasDebit
                     ? JournalEntry.debit(line.account().trim(), label, line.debitFcfa())
-                    : JournalEntry.credit(line.account().trim(), label, line.creditFcfa()));
+                    : JournalEntry.credit(line.account().trim(), label, line.creditFcfa());
+            entries.add(entry.costCenter(line.costCenter()).program(line.program(), line.project()));
         }
         return entries;
     }

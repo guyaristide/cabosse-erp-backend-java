@@ -53,7 +53,7 @@ public class M034_SeedExtendedChartV7 {
             {"627",  "Télécommunications et internet", "CHARGES"},
             {"628",  "Autres services extérieurs", "CHARGES"},
             {"632",  "Maintenance et prestations techniques", "CHARGES"},
-            {"658",  "Charges diverses — actions sociales", "CHARGES"},
+            {"658",  "Charges diverses : actions sociales", "CHARGES"},
             // Immobilisations
             {"244",  "Matériel et outillage", "IMMOBILISATIONS"},
             {"245",  "Matériel de transport", "IMMOBILISATIONS"},

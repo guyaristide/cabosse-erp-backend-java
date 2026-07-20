@@ -58,6 +58,27 @@ public class OdDraftRepository {
 
     public void insert(OdDraftEntity e) { coll().insertOne(e); }
 
+    /**
+     * Verrou de validation atomique DRAFT vers VALIDATED : le perdant d'une
+     * double validation voit {@code false} (règle concurrence).
+     */
+    public boolean tryMarkValidated(java.util.UUID id) {
+        return coll().updateOne(
+                com.mongodb.client.model.Filters.and(
+                        com.mongodb.client.model.Filters.eq("_id", id),
+                        com.mongodb.client.model.Filters.eq("status", OdDraftEntity.STATUS_DRAFT)
+                ),
+                com.mongodb.client.model.Updates.set("status", OdDraftEntity.STATUS_VALIDATED)
+        ).getModifiedCount() == 1;
+    }
+
+    /** Compensation du verrou si le posting échoue après coup. */
+    public void revertToDraft(java.util.UUID id) {
+        coll().updateOne(
+                com.mongodb.client.model.Filters.eq("_id", id),
+                com.mongodb.client.model.Updates.set("status", OdDraftEntity.STATUS_DRAFT));
+    }
+
     public void replace(OdDraftEntity e) { coll().replaceOne(Filters.eq("_id", e.id), e); }
 
     public void delete(UUID id) { coll().deleteOne(Filters.eq("_id", id)); }

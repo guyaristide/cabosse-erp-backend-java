@@ -75,6 +75,32 @@ public class ArticleEntity {
     public String purchaseChargeAccount;
 
     /**
+     * Compte de produit SYSCOHADA crédité pour les ventes de cet article
+     * (réf. jeux d'écritures v21 : 701101 cacao marchand, 701102 certifié
+     * RA…), miroir de {@link #purchaseChargeAccount}. {@code null} = compte
+     * de vente par défaut (701000).
+     */
+    public String salesRevenueAccount;
+
+    /**
+     * Centre de coût analytique imputé par défaut aux achats de cet
+     * article (backlog CPT-09). {@code null} = pas d'imputation
+     * automatique. Code du référentiel {@code cost_centers}.
+     */
+    public String defaultCostCenter;
+
+    /**
+     * Programme budgétaire imputé par défaut aux ventes de cet article
+     * (backlog CPT-10). {@code null} = aucune imputation. Les produits
+     * (classe 7) tirent leur programme de l'article vendu, pas du centre
+     * de coût (qu'une vente n'a pas).
+     */
+    public String defaultProgram;
+
+    /** Projet du programme imputé par défaut aux ventes (optionnel). */
+    public String defaultProject;
+
+    /**
      * Poids unitaire en grammes. Pertinent uniquement pour les
      * {@link ArticleType#FINISHED_PRODUCT} — sert au calcul du poids
      * total produit et du rendement d'un OF

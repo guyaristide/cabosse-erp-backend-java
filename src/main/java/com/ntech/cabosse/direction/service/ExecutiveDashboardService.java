@@ -113,8 +113,10 @@ public class ExecutiveDashboardService {
         banks.listActive().forEach(b -> accounts.add(b.syscohadaAccount));
         accounts.add(SyscohadaAccounts.BANQUE_DEFAULT);
         accounts.add(SyscohadaAccounts.CAISSE_DEFAULT);
-        // 530 : ancien compte caisse (avant alignement v7 sur 571).
+        // 530 : ancien compte caisse (avant alignement v7 sur 571),
+        // avant et après normalisation 6 chiffres (M040 : 530 -> 530000).
         accounts.add("530");
+        accounts.add("530000");
 
         BigDecimal total = BigDecimal.ZERO;
         // On itère toutes les pièces de la période — pas de filtre date stricte
@@ -173,7 +175,7 @@ public class ExecutiveDashboardService {
                     "low-stock",
                     lowStockCount >= 5 ? "warning" : "info",
                     lowStockCount + " article" + (lowStockCount > 1 ? "s" : "") + " sous seuil",
-                    "Risque de rupture — réapprovisionner en priorité."
+                    "Risque de rupture : réapprovisionner en priorité."
             ));
         }
 
@@ -191,7 +193,7 @@ public class ExecutiveDashboardService {
                     "overstock",
                     "info",
                     overstock.size() + " article" + (overstock.size() > 1 ? "s" : "") + " en surstock",
-                    "Quantité > 5× le seuil d'alerte — opportunité de promotion ou de transfert."
+                    "Quantité > 5× le seuil d'alerte : opportunité de promotion ou de transfert."
             ));
         }
 

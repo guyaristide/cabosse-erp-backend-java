@@ -406,7 +406,7 @@ public class LotTraceService {
             sb.append(up.dominantMaterial);
         }
         if (of.siteName != null) {
-            if (sb.length() > 0) sb.append(" — ");
+            if (sb.length() > 0) sb.append(" : ");
             sb.append("transformé à ").append(of.siteName);
         }
         return sb.length() == 0 ? "Origine indéterminée" : sb.toString();
@@ -436,7 +436,7 @@ public class LotTraceService {
                 ? "–" + de.getDayOfMonth() + " " + de.getMonth().getDisplayName(TextStyle.FULL, FR)
                   + " " + de.getYear()
                 : " " + ds.getMonth().getDisplayName(TextStyle.FULL, FR)
-                  + " → " + de.getDayOfMonth() + " " + de.getMonth().getDisplayName(TextStyle.FULL, FR)
+                  + " au " + de.getDayOfMonth() + " " + de.getMonth().getDisplayName(TextStyle.FULL, FR)
                   + " " + de.getYear());
     }
 

@@ -44,6 +44,12 @@ public enum PostingSourceType {
     STOCK_TRANSFER,
     /** Opération diverse saisie manuellement puis validée (backlog CPT-07). */
     MANUAL_ENTRY,
+    /** Avance de fonds à un délégué collecteur (backlog ACH-02). */
+    COLLECTOR_ADVANCE,
+    /** Contre-passation d'une avance délégué. */
+    COLLECTOR_ADVANCE_REVERSAL,
+    /** Livraison de matière imputée sur l'avance d'un délégué. */
+    COLLECTOR_DELIVERY,
     /** Constat des en-cours de production à l'arrêté d'exercice (34/734). */
     EXERCISE_WIP,
     /** Contre-passation des en-cours à l'ouverture de l'exercice suivant. */
@@ -55,5 +61,9 @@ public enum PostingSourceType {
     /** Clôture des charges et de l'impôt vers le résultat (13 vers 6xx/8xx). */
     EXERCISE_CLOSING_EXPENSE,
     /** Affectation du résultat décidée par l'assemblée (13 vers classe 1). */
-    EXERCISE_ALLOCATION
+    EXERCISE_ALLOCATION,
+    /** Dépense directe sans bon de livraison : contrat/abonnement ou petite caisse (backlog ACH-03). */
+    DIRECT_EXPENSE,
+    /** Contre-passation d'une dépense directe. */
+    DIRECT_EXPENSE_REVERSAL
 }

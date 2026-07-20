@@ -185,7 +185,7 @@ public class RecipeService {
                 .actorEmail(actor())
                 .target("recipe", e.id.toString(), e.name)
                 .tenant(tenantContext.tenantId(), null)
-                .description(action + " recette « " + e.name + " » → " + e.finishedProductName)
+                .description(action + " recette « " + e.name + " » : " + e.finishedProductName)
                 .record();
     }
 

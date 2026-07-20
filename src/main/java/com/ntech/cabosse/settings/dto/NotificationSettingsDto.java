@@ -8,7 +8,7 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
  * <p>Les canaux sont des feature flags globaux. Un tenant ne peut activer
  * que les canaux que la plateforme a globalement activés.</p>
  */
-@Schema(description = "Paramètres notifications — vue admin")
+@Schema(description = "Paramètres notifications : vue admin")
 public record NotificationSettingsDto(
         boolean emailEnabled,
         boolean smsEnabled,

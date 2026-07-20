@@ -24,6 +24,14 @@ public record ArticleResponseDto(
         BigDecimal vatRate,
         /** Compte de charge SYSCOHADA débité aux achats. {@code null} = défaut selon le type. */
         String purchaseChargeAccount,
+        /** Compte de produit SYSCOHADA crédité aux ventes. {@code null} = défaut (701000). */
+        String salesRevenueAccount,
+        /** Centre de coût analytique imputé par défaut aux achats. {@code null} = aucun. */
+        String defaultCostCenter,
+        /** Programme budgétaire imputé par défaut aux ventes. {@code null} = aucun. */
+        String defaultProgram,
+        /** Projet du programme imputé par défaut aux ventes. {@code null} = aucun. */
+        String defaultProject,
         /** Poids unitaire en grammes (PF uniquement). {@code null} sinon. */
         Integer unitWeightGrams,
         /** {@code true} si une image a été uploadée. */
@@ -45,6 +53,10 @@ public record ArticleResponseDto(
                 e.standardCost, e.standardSalePrice, e.activityCode,
                 e.stockable, e.alertThreshold, e.barcode, e.vatRate,
                 e.purchaseChargeAccount,
+                e.salesRevenueAccount,
+                e.defaultCostCenter,
+                e.defaultProgram,
+                e.defaultProject,
                 e.unitWeightGrams,
                 hasImage, imageUrl,
                 e.active, e.createdAt, e.updatedAt

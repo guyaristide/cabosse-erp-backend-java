@@ -181,7 +181,7 @@ public class TenantsResource {
                     .actorEmail(currentAdmin())
                     .target("tenant", tenantId.toString(), detail.name())
                     .tenant(tenantId, detail.name())
-                    .description("Changement de plan : " + previousPlan + " → " + newPlan)
+                    .description("Changement de plan : " + previousPlan + " vers " + newPlan)
                     .payload(java.util.Map.of(
                             "from", previousPlan != null ? previousPlan : "",
                             "to", newPlan
@@ -288,7 +288,7 @@ public class TenantsResource {
     @Operation(summary = "Relance les migrations Mongock d'un tenant",
             description = "Applique les migrations en attente sur la base du tenant. Idempotent "
                     + "(un changeUnit déjà appliqué n'est pas rejoué). Réservé à la reprise après "
-                    + "échec ou à l'application ciblée en debug — le démarrage de l'application "
+                    + "échec ou à l'application ciblée en debug : le démarrage de l'application "
                     + "migre déjà automatiquement tous les tenants opérationnels. Renvoie le "
                     + "statut technique rafraîchi.")
     @APIResponse(responseCode = "200", description = "Migrations appliquées, statut technique à jour",

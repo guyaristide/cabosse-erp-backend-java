@@ -65,7 +65,7 @@ public class MeTenantAdminResource {
     @GET
     @Path("/users")
     @Operation(summary = "Utilisateurs du tenant courant",
-            description = "Tous les comptes rattachés à ce tenant — actifs, invités, désactivés.")
+            description = "Tous les comptes rattachés à ce tenant : actifs, invités, désactivés.")
     @APIResponse(responseCode = "200",
             content = @Content(schema = @Schema(implementation = TenantUserSummaryDto.class)))
     public Response listUsers() {

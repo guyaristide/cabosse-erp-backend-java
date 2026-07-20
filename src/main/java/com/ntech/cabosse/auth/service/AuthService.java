@@ -15,7 +15,6 @@ import com.ntech.cabosse.user.entity.UserStatus;
 import com.ntech.cabosse.user.repository.UserRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import jakarta.transaction.Transactional;
 import org.jboss.logging.Logger;
 
 import java.time.Instant;
@@ -55,7 +54,6 @@ public class AuthService {
     @Inject com.ntech.cabosse.shared.audit.AuditService audit;
     @Inject Logger log;
 
-    @Transactional
     public LoginResponseDto login(LoginRequestDto request, String userAgent, String ipAddress) {
         UserEntity user = users.findByEmail(request.email()).orElse(null);
 
@@ -87,9 +85,9 @@ public class AuthService {
             throw new UnauthorizedException(GENERIC_ERROR);
         }
 
-        // Mise à jour lastLoginAt — pas critique, best-effort.
-        user.lastLoginAt = Instant.now();
-        users.update(user);
+        // Mise à jour lastLoginAt — best-effort, update atomique : deux
+        // logins parallèles ne doivent jamais produire de WriteConflict.
+        users.touchLastLogin(user.id, Instant.now());
 
         audit.event(com.ntech.cabosse.shared.audit.AuditEventType.LOGIN_SUCCEEDED)
                 .actor(user.email, user.id)
@@ -116,7 +114,6 @@ public class AuthService {
      * Revalide le user et le tenant (un compte désactivé entre deux refresh
      * ne doit pas continuer à émettre des tokens).
      */
-    @Transactional
     public LoginResponseDto refresh(String presentedRefreshToken, String userAgent, String ipAddress) {
         RefreshTokenService.RotatedRefresh rotated =
                 refreshTokens.rotate(presentedRefreshToken, userAgent, ipAddress);
@@ -159,7 +156,6 @@ public class AuthService {
      * {@code invitationExpiresAt} sont effacés. Toute tentative de
      * réutilisation du même lien échouera donc avec {@code 401}.</p>
      */
-    @Transactional
     public LoginResponseDto redeemInvitation(RedeemInvitationRequestDto request,
                                              String userAgent, String ipAddress) {
         String hash = invitationTokens.hashOf(request.token().trim());
@@ -190,13 +186,13 @@ public class AuthService {
             throw new BusinessException("Le tenant associé à ce compte n'est pas actif.");
         }
 
-        user.passwordHash = passwordHasher.hash(request.password());
+        // Consommation atomique du token : le perdant d'une double
+        // soumission reçoit un 401 propre, jamais un WriteConflict.
+        if (!users.consumeInvitation(hash, passwordHasher.hash(request.password()),
+                Instant.now())) {
+            throw new UnauthorizedException("Ce lien n'est plus utilisable.");
+        }
         user.status = UserStatus.ACTIVE;
-        user.invitationTokenHash = null;
-        user.invitationExpiresAt = null;
-        user.lastLoginAt = Instant.now();
-        user.updatedAt = Instant.now();
-        users.update(user);
 
         audit.event(com.ntech.cabosse.shared.audit.AuditEventType.PASSWORD_CHANGED)
                 .actor(user.email, user.id)

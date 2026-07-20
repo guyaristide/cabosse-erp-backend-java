@@ -170,11 +170,11 @@ public class SaleService {
         SaleEntity e = loadOrFail(id);
         if (e.status != SaleStatus.QUOTE) {
             throw new BusinessException(
-                    "Édition refusée — seuls les devis (QUOTE) sont modifiables. "
+                    "Édition refusée : seuls les devis (QUOTE) sont modifiables. "
                             + "Contre-passez la vente et recréez-la si besoin.");
         }
         if (!e.siteId.equals(payload.siteId())) {
-            throw new BusinessException("Changement de site interdit — créez un nouveau devis.");
+            throw new BusinessException("Changement de site interdit : créez un nouveau devis.");
         }
         CustomerEntity customer = loadCustomer(payload.customerId());
         e.customerId = customer.id;
@@ -206,7 +206,7 @@ public class SaleService {
         SaleEntity e = loadOrFail(id);
         if (e.status != SaleStatus.QUOTE) {
             throw new BusinessException(
-                    "Validation refusée — la vente est en statut " + e.status + ".");
+                    "Validation refusée : la vente est en statut " + e.status + ".");
         }
         e.status = SaleStatus.CONFIRMED;
         e.updatedAt = Instant.now();
@@ -222,10 +222,17 @@ public class SaleService {
         SaleEntity e = loadOrFail(id);
         if (e.status != SaleStatus.CONFIRMED) {
             throw new BusinessException(
-                    "Livraison refusée — la vente doit être en statut CONFIRMED (actuel : "
+                    "Livraison refusée : la vente doit être en statut CONFIRMED (actuel : "
                             + e.status + ").");
         }
         Instant when = Instant.now();
+        // Transition d'abord (replace versionné) : le perdant d'une double
+        // livraison prend un 409 AVANT tout mouvement de stock — jamais de
+        // sorties doublées (règle concurrence, patron PurchaseOrderService).
+        e.status = SaleStatus.DELIVERED;
+        e.deliveryDate = e.deliveryDate != null ? e.deliveryDate : LocalDate.now();
+        e.updatedAt = when;
+        sales.replace(e);
         for (SaleLine line : e.lines) {
             stockService.applyMovement(new MovementInput(
                     line.articleId, e.siteId,
@@ -236,12 +243,8 @@ public class SaleService {
                     null, when, false, line.lotRef
             ));
         }
-        e.status = SaleStatus.DELIVERED;
-        e.deliveryDate = e.deliveryDate != null ? e.deliveryDate : LocalDate.now();
-        e.updatedAt = when;
-        sales.replace(e);
         record(e, AuditEventType.SALE_DELIVERED,
-                "Livraison — " + e.lines.size() + " ligne(s) sortie(s) du stock");
+                "Livraison : " + e.lines.size() + " ligne(s) sortie(s) du stock");
         return SaleResponseDto.from(e);
     }
 
@@ -250,11 +253,11 @@ public class SaleService {
     public SaleResponseDto recordPayment(UUID id, SalePaymentDto payload) {
         SaleEntity e = loadOrFail(id);
         if (e.status == SaleStatus.CANCELLED) {
-            throw new BusinessException("Vente annulée — paiement impossible.");
+            throw new BusinessException("Vente annulée : paiement impossible.");
         }
         if (e.status == SaleStatus.QUOTE) {
             throw new BusinessException(
-                    "Paiement impossible sur un devis — validez-le d'abord.");
+                    "Paiement impossible sur un devis : validez-le d'abord.");
         }
         BigDecimal amount = payload.amountFcfa();
         if (amount == null || amount.signum() <= 0) {
@@ -289,7 +292,7 @@ public class SaleService {
     public SaleResponseDto removePayment(UUID id, UUID paymentId) {
         SaleEntity e = loadOrFail(id);
         if (e.status == SaleStatus.CANCELLED) {
-            throw new BusinessException("Vente annulée — retrait impossible.");
+            throw new BusinessException("Vente annulée : retrait impossible.");
         }
         boolean removed = e.payments.removeIf(p -> paymentId.equals(p.id));
         if (!removed) {
@@ -317,6 +320,18 @@ public class SaleService {
         SaleStatus previous = e.status;
         Instant when = Instant.now();
 
+        // Transition d'abord (replace versionné) : le perdant d'une double
+        // annulation prend un 409 avant toute compensation de stock.
+        SaleCancellation c = new SaleCancellation();
+        c.reason = reason == null ? "" : reason.trim();
+        c.cancelledByEmail = actor();
+        c.cancelledAt = when;
+        c.previousStatus = previous;
+        e.cancellation = c;
+        e.status = SaleStatus.CANCELLED;
+        e.updatedAt = when;
+        sales.replace(e);
+
         // Compensations stock UNIQUEMENT si la vente a été livrée
         if (previous == SaleStatus.DELIVERED) {
             for (SaleLine line : e.lines) {
@@ -330,16 +345,6 @@ public class SaleService {
                 ));
             }
         }
-
-        SaleCancellation c = new SaleCancellation();
-        c.reason = reason == null ? "" : reason.trim();
-        c.cancelledByEmail = actor();
-        c.cancelledAt = when;
-        c.previousStatus = previous;
-        e.cancellation = c;
-        e.status = SaleStatus.CANCELLED;
-        e.updatedAt = when;
-        sales.replace(e);
 
         // Contre-passations comptables — uniquement si la vente était passée
         // par CONFIRMED (un devis n'a jamais été comptabilisé).
@@ -476,7 +481,7 @@ public class SaleService {
                 .actorEmail(actor())
                 .target("sale", e.id.toString(), e.ref)
                 .tenant(tenantContext.tenantId(), null)
-                .description(description + " — vente " + e.ref + " (" + e.customerName + ")")
+                .description(description + " : vente " + e.ref + " (" + e.customerName + ")")
                 .record();
     }
 

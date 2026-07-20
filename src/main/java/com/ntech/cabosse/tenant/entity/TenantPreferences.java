@@ -87,7 +87,7 @@ public class TenantPreferences {
 
     public String memberCapitalAccount() {
         return memberCapitalAccount == null || memberCapitalAccount.isBlank()
-                ? "101" : memberCapitalAccount;
+                ? "101000" : memberCapitalAccount;
     }
 
     public boolean postStockTransferEntries() {
@@ -129,7 +129,7 @@ public class TenantPreferences {
 
     public String vatDeductibleAccount() {
         return vatDeductibleAccount == null || vatDeductibleAccount.isBlank()
-                ? "44566" : vatDeductibleAccount;
+                ? "445660" : vatDeductibleAccount;
     }
 
     /**
@@ -152,6 +152,69 @@ public class TenantPreferences {
 
     public java.math.BigDecimal incomeTaxRatePct() {
         return incomeTaxRatePct == null ? java.math.BigDecimal.ZERO : incomeTaxRatePct;
+    }
+
+    /**
+     * Impose un centre de coût analytique sur chaque ligne de charge à la
+     * validation d'une OD manuelle (backlog CPT-09). Défaut faux : la
+     * comptabilité analytique reste facultative tant que la coopérative
+     * n'a pas fiabilisé ses centres et ses imputations par défaut.
+     */
+    public Boolean costCenterRequired;
+
+    public boolean costCenterRequired() {
+        return costCenterRequired != null && costCenterRequired;
+    }
+
+    /**
+     * Active le circuit de contrôle interne des achats (backlog ACH-01) :
+     * un bon de commande dont le total atteint {@link #purchaseRequestThresholdFcfa}
+     * doit être issu d'une demande d'achat approuvée. Défaut faux.
+     */
+    public Boolean purchaseRequestEnabled;
+
+    /** Seuil (FCFA) au-dessus duquel une DA approuvée est exigée. Défaut 0. */
+    public java.math.BigDecimal purchaseRequestThresholdFcfa;
+
+    public boolean purchaseRequestEnabled() {
+        return purchaseRequestEnabled != null && purchaseRequestEnabled;
+    }
+
+    public java.math.BigDecimal purchaseRequestThresholdFcfa() {
+        return purchaseRequestThresholdFcfa == null
+                ? java.math.BigDecimal.ZERO : purchaseRequestThresholdFcfa;
+    }
+
+    /** Compte SYSCOHADA des avances aux délégués (ACH-02). Défaut « 4091 ». */
+    public String collectorAdvanceAccount;
+
+    public String collectorAdvanceAccount() {
+        return collectorAdvanceAccount == null || collectorAdvanceAccount.isBlank()
+                ? "409100" : collectorAdvanceAccount;
+    }
+
+    /** Valeurs autorisées de {@link #collectorDeliveryValuation}. */
+    public static final String COLLECTOR_VALUATION_BY_LOT = "BY_LOT";
+    public static final String COLLECTOR_VALUATION_WEIGHTED = "WEIGHTED_CMUP";
+
+    /**
+     * Méthode de valorisation d'une livraison issue d'une avance délégué
+     * (réf. jeux d'écritures v21, 1er circuit Production). {@code BY_LOT}
+     * (défaut) : le coût de l'avance fait autorité, le CMUP de l'article
+     * prend ce coût (« coût repris de l'avance », pas de pondération).
+     * {@code WEIGHTED_CMUP} : la livraison se fond dans le CMUP pondéré
+     * comme un achat classique.
+     */
+    public String collectorDeliveryValuation;
+
+    public String collectorDeliveryValuation() {
+        return collectorDeliveryValuation == null || collectorDeliveryValuation.isBlank()
+                ? COLLECTOR_VALUATION_BY_LOT : collectorDeliveryValuation;
+    }
+
+    /** {@code true} si la livraison collecteur impose son coût au CMUP (mode par lot). */
+    public boolean collectorDeliveryReplacesCmup() {
+        return !COLLECTOR_VALUATION_WEIGHTED.equals(collectorDeliveryValuation());
     }
 
     /** Valeurs autorisées de {@link #memberCapitalFlow}. */

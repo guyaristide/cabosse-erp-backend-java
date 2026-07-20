@@ -28,5 +28,10 @@ public record SupplierUpsertDto(
         @Size(max = 2)   String countryCode,
         @Size(max = 120) String contactName,
         @Size(max = 120) String paymentTerms,
-        @Size(max = 1000) String notes
+        @Size(max = 1000) String notes,
+
+        /** Délégué collecteur (backlog ACH-02). */
+        Boolean collector,
+        /** Section rattachée au délégué. */
+        java.util.UUID sectionId
 ) {}

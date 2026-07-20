@@ -138,7 +138,7 @@ public class BankReconciliationService {
     public BankStatementLineEntity match(UUID lineId, UUID pieceId) {
         BankStatementLineEntity line = loadLine(lineId);
         if (line.status == BankStatementLineStatus.MATCHED) {
-            throw new BusinessException("Ligne déjà rapprochée — annulez d'abord le rapprochement.");
+            throw new BusinessException("Ligne déjà rapprochée : annulez d'abord le rapprochement.");
         }
         JournalPieceEntity piece = pieces.findById(pieceId)
                 .orElseThrow(() -> new NotFoundException("Pièce " + pieceId + " introuvable."));
@@ -150,7 +150,7 @@ public class BankReconciliationService {
     public BankStatementLineEntity unmatch(UUID lineId) {
         BankStatementLineEntity line = loadLine(lineId);
         if (line.status != BankStatementLineStatus.MATCHED) {
-            throw new BusinessException("Ligne non rapprochée — rien à annuler.");
+            throw new BusinessException("Ligne non rapprochée : rien à annuler.");
         }
         line.status = BankStatementLineStatus.UNMATCHED;
         line.matchedPieceId = null;
@@ -230,7 +230,7 @@ public class BankReconciliationService {
     private void requireRegularizable(BankStatementLineEntity line) {
         if (line.status == BankStatementLineStatus.MATCHED) {
             throw new BusinessException(
-                    "Ligne déjà rapprochée — délettrez-la avant toute régularisation.");
+                    "Ligne déjà rapprochée : délettrez-la avant toute régularisation.");
         }
     }
 

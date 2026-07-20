@@ -5,7 +5,6 @@ import com.ntech.cabosse.tenant.entity.TenantEntity;
 import com.ntech.cabosse.user.entity.UserEntity;
 import io.smallrye.jwt.build.Jwt;
 import jakarta.enterprise.context.ApplicationScoped;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -33,8 +32,8 @@ public class JwtIssuer {
     /** Durée de vie d'un access token (court). */
     private static final Duration ACCESS_TOKEN_TTL = Duration.ofMinutes(15);
 
-    @ConfigProperty(name = "mp.jwt.verify.issuer")
-    String issuer;
+    @jakarta.inject.Inject
+    com.ntech.cabosse.shared.config.ApplicationConfig config;
 
     /**
      * Émet un access token standard pour un user authentifié.
@@ -48,7 +47,7 @@ public class JwtIssuer {
         String currency = tenant.preferences != null && tenant.preferences.currency != null
                 ? tenant.preferences.currency
                 : "XOF";
-        String jwt = Jwt.issuer(issuer)
+        String jwt = Jwt.issuer(config.jwtIssuer())
                 .subject(user.id.toString())
                 .upn(user.email)
                 .groups(user.roles)
@@ -76,7 +75,7 @@ public class JwtIssuer {
         String currency = targetTenant.preferences != null && targetTenant.preferences.currency != null
                 ? targetTenant.preferences.currency
                 : "XOF";
-        String jwt = Jwt.issuer(issuer)
+        String jwt = Jwt.issuer(config.jwtIssuer())
                 .subject(targetUser.id.toString())
                 .upn(targetUser.email)
                 .groups(targetUser.roles)

@@ -52,7 +52,7 @@ import java.util.UUID;
  * le BC est créé sans site (la valeur sera renseignée plus tard).</p>
  */
 @Path("/api/v1/purchase-orders")
-@Tag(name = "Achats", description = "Bons de commande fournisseurs (M2)")
+@Tag(name = "Achats", description = "Bons de commande fournisseurs")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Authenticated

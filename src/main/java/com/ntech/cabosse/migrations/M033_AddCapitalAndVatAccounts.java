@@ -29,7 +29,7 @@ public class M033_AddCapitalAndVatAccounts {
         List<Document> additions = List.of(
                 new Document("number", "44566").append("label", "État, TVA déductible sur achats").append("family", "TVA"),
                 new Document("number", "461").append("label", "Associés, opérations sur le capital").append("family", "AUTRES"),
-                new Document("number", "1018").append("label", "Capital souscrit — parts sociales").append("family", "AUTRES")
+                new Document("number", "1018").append("label", "Capital souscrit : parts sociales").append("family", "AUTRES")
         );
         for (Document seed : additions) {
             boolean exists = coll.countDocuments(Filters.eq("number", seed.getString("number"))) > 0;

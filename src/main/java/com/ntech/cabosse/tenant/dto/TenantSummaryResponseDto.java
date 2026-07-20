@@ -24,7 +24,7 @@ public record TenantSummaryResponseDto(
         CommercialStatus commercialStatus,
         String planCode,
         TenantBrandingDto branding,
-        @Schema(description = "Ville · pays — concaténé pour l'UI")
+        @Schema(description = "Ville · pays : concaténé pour l'UI")
         String location,
         @Schema(description = "Nombre d'utilisateurs ACTIVE ou INVITED")
         long usersCount,

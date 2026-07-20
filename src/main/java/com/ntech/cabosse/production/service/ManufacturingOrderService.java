@@ -168,10 +168,10 @@ public class ManufacturingOrderService {
         // recette ne change pas (sinon recréer un OF, sinon on perd le
         // snapshot d'étapes).
         if (!e.recipeId.equals(payload.recipeId())) {
-            throw new BusinessException("Changement de recette interdit — créez un nouvel OF.");
+            throw new BusinessException("Changement de recette interdit : créez un nouvel OF.");
         }
         if (!e.siteId.equals(payload.siteId())) {
-            throw new BusinessException("Changement de site interdit — créez un nouvel OF.");
+            throw new BusinessException("Changement de site interdit : créez un nouvel OF.");
         }
         RecipeEntity recipe = loadRecipe(payload.recipeId());
         BigDecimal ratio = payload.plannedQty().divide(recipe.yieldQty, 6, RoundingMode.HALF_UP);
@@ -199,12 +199,10 @@ public class ManufacturingOrderService {
         // Vérif disponibilité matières
         checkMaterialAvailability(e);
 
-        // Consommation au CMUP courant (snapshot)
+        // Snapshot des CMUP courants (avant toute consommation)
         BigDecimal totalCost = BigDecimal.ZERO;
         Instant when = Instant.now();
         for (ConsumptionLine line : e.consumptionLines) {
-            // Lire le CMUP juste avant l'appel — applyMovement lui-même le
-            // refigera mais on a besoin de le mémoriser sur la ligne.
             BigDecimal cmupNow = stockItems.findByArticleAndSite(line.articleId, e.siteId)
                     .map(it -> it.cmupFcfa)
                     .orElse(BigDecimal.ZERO);
@@ -213,15 +211,6 @@ public class ManufacturingOrderService {
                     .multiply(cmupNow)
                     .setScale(4, RoundingMode.HALF_UP);
             totalCost = totalCost.add(line.totalCostFcfa);
-
-            stockService.applyMovement(new MovementInput(
-                    line.articleId, e.siteId,
-                    MovementKind.OUT,
-                    line.consumedQty, cmupNow,
-                    MovementSource.PRODUCTION, e.ref, e.id,
-                    null, "Consommation OF " + e.ref,
-                    null, when
-            ));
         }
         e.totalMaterialCostFcfa = totalCost;
         e.startedAt = when;
@@ -238,10 +227,24 @@ public class ManufacturingOrderService {
             e.stepHistory.add(sp);
         }
 
+        // Transition d'abord (replace versionné) : le perdant d'un double
+        // démarrage prend un 409 AVANT toute consommation de matières
+        // (règle concurrence, patron PurchaseOrderService.deliver).
         e.updatedAt = Instant.now();
         orders.replace(e);
+
+        for (ConsumptionLine line : e.consumptionLines) {
+            stockService.applyMovement(new MovementInput(
+                    line.articleId, e.siteId,
+                    MovementKind.OUT,
+                    line.consumedQty, line.cmupAtConsumptionFcfa,
+                    MovementSource.PRODUCTION, e.ref, e.id,
+                    null, "Consommation OF " + e.ref,
+                    null, when
+            ));
+        }
         record(e, AuditEventType.MANUFACTURING_ORDER_STARTED,
-                "Démarrage — " + money.format(totalCost, tenantContext.currency()) + " matières consommées");
+                "Démarrage : " + money.format(totalCost, tenantContext.currency()) + " matières consommées");
         return ProductionOrderResponseDto.from(e);
     }
 
@@ -256,12 +259,12 @@ public class ManufacturingOrderService {
             throw new BusinessException("Cette recette n'a pas d'étapes définies.");
         }
         if (e.currentStepIndex == null) {
-            throw new BusinessException("État incohérent — aucune étape courante.");
+            throw new BusinessException("État incohérent : aucune étape courante.");
         }
         int last = e.recipeStepsSnapshot.size() - 1;
         if (e.currentStepIndex >= last) {
             throw new BusinessException(
-                    "Déjà sur la dernière étape — utilisez 'Terminer' pour clôturer l'OF.");
+                    "Déjà sur la dernière étape : utilisez 'Terminer' pour clôturer l'OF.");
         }
 
         Instant when = Instant.now();
@@ -284,7 +287,7 @@ public class ManufacturingOrderService {
 
         orders.replace(e);
         record(e, AuditEventType.MANUFACTURING_ORDER_STEP_ADVANCED,
-                "Étape → " + nextStep.name);
+                "Étape suivante : " + nextStep.name);
         return ProductionOrderResponseDto.from(e);
     }
 
@@ -320,6 +323,13 @@ public class ManufacturingOrderService {
         e.actualDurationHours = payload.actualDurationHours();
         e.operatorsCount = payload.operatorsCount();
 
+        // Transition d'abord (replace versionné) : une double clôture ne
+        // doit jamais produire deux entrées de PF en stock.
+        e.completedAt = when;
+        e.status = OfStatus.COMPLETED;
+        e.updatedAt = when;
+        orders.replace(e);
+
         // Entrée PF en stock
         stockService.applyMovement(new MovementInput(
                 e.finishedProductId, e.siteId,
@@ -330,13 +340,8 @@ public class ManufacturingOrderService {
                 null, when, false, e.lotRef
         ));
 
-        e.completedAt = when;
-        e.status = OfStatus.COMPLETED;
-        e.updatedAt = when;
-        orders.replace(e);
-
         record(e, AuditEventType.MANUFACTURING_ORDER_COMPLETED,
-                "Terminé — " + producedQty + " " + e.finishedProductUnit
+                "Terminé : " + producedQty + " " + e.finishedProductUnit
                         + " · CMUP " + money.format(cmupPF, tenantContext.currency()) + " · lot " + e.lotRef);
         return ProductionOrderResponseDto.from(e);
     }
@@ -351,7 +356,19 @@ public class ManufacturingOrderService {
         OfStatus previous = e.status;
         Instant when = Instant.now();
 
-        // DRAFT : aucun impact stock → juste basculer en CANCELLED
+        // Transition d'abord (replace versionné) : le perdant d'une double
+        // annulation prend un 409 avant toute compensation de stock.
+        ManufacturingOrderCancellation c = new ManufacturingOrderCancellation();
+        c.reason = reason == null ? "" : reason.trim();
+        c.cancelledByEmail = actor();
+        c.cancelledAt = when;
+        c.previousStatus = previous;
+        e.cancellation = c;
+        e.status = OfStatus.CANCELLED;
+        e.updatedAt = when;
+        orders.replace(e);
+
+        // DRAFT : aucun impact stock → rien à compenser
         // IN_PROGRESS : poser IN compensatoires sur matières
         // COMPLETED : idem + poser OUT compensatoire sur PF
         if (previous == OfStatus.IN_PROGRESS || previous == OfStatus.COMPLETED) {
@@ -376,16 +393,6 @@ public class ManufacturingOrderService {
                     null, when, true, e.lotRef
             ));
         }
-
-        ManufacturingOrderCancellation c = new ManufacturingOrderCancellation();
-        c.reason = reason == null ? "" : reason.trim();
-        c.cancelledByEmail = actor();
-        c.cancelledAt = when;
-        c.previousStatus = previous;
-        e.cancellation = c;
-        e.status = OfStatus.CANCELLED;
-        e.updatedAt = when;
-        orders.replace(e);
 
         record(e, AuditEventType.MANUFACTURING_ORDER_CANCELLED,
                 "Contre-passation depuis " + previous + " : " + c.reason);
@@ -596,7 +603,7 @@ public class ManufacturingOrderService {
                 .actorEmail(actor())
                 .target("manufacturing_order", e.id.toString(), e.ref)
                 .tenant(tenantContext.tenantId(), null)
-                .description(description + " — OF " + e.ref
+                .description(description + " : OF " + e.ref
                         + " (" + e.finishedProductName + ", "
                         + e.plannedQty + " " + e.finishedProductUnit + ")")
                 .record();

@@ -62,7 +62,7 @@ public class StartupMigrationRunner {
      */
     void onStart(@Observes @Priority(jakarta.interceptor.Interceptor.Priority.APPLICATION + 600)
                  StartupEvent ev) {
-        log.info("Startup tenant migrations — start");
+        log.info("Startup tenant migrations : start");
         int ok = 0;
         int failed = 0;
         for (TenantEntity tenant : controlPlane
@@ -79,6 +79,6 @@ public class StartupMigrationRunner {
                         tenant.slug, tenant.databaseName);
             }
         }
-        log.infof("Startup tenant migrations — done (%d ok, %d failed)", ok, failed);
+        log.infof("Startup tenant migrations : done (%d ok, %d failed)", ok, failed);
     }
 }

@@ -22,10 +22,10 @@ public record MigrationEntryDto(
         @Schema(enumeration = { "success", "failed", "pending", "ignored" })
         String status,
 
-        @Schema(description = "Date d'exécution — null si pending")
+        @Schema(description = "Date d'exécution : null si pending")
         Instant executedAt,
 
-        @Schema(description = "Durée d'exécution en ms — null si pending")
+        @Schema(description = "Durée d'exécution en ms : null si pending")
         Long durationMs,
 
         @Schema(description = "Message d'erreur si status=failed")

@@ -39,7 +39,7 @@ import java.util.UUID;
 
 /** API des ordres de fabrication (M3). */
 @Path("/api/v1/production-orders")
-@Tag(name = "Production", description = "Ordres de fabrication — consommation matières et production de PF")
+@Tag(name = "Production", description = "Ordres de fabrication : consommation matières et production de PF")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Authenticated

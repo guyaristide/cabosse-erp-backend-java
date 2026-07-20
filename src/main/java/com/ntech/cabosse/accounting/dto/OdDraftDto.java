@@ -26,7 +26,8 @@ public record OdDraftDto(
         Instant validatedAt
 ) {
     public record LineView(String account, String libelle,
-                           BigDecimal debitFcfa, BigDecimal creditFcfa) {}
+                           BigDecimal debitFcfa, BigDecimal creditFcfa,
+                           String costCenter, String program, String project) {}
 
     public record DocumentView(UUID id, String label, String fileName,
                                String mimeType, long sizeBytes, Instant uploadedAt) {}
@@ -35,7 +36,8 @@ public record OdDraftDto(
         BigDecimal debit = BigDecimal.ZERO;
         BigDecimal credit = BigDecimal.ZERO;
         List<LineView> lines = e.entries == null ? List.of() : e.entries.stream()
-                .map(l -> new LineView(l.syscohadaAccount, l.libelle, l.debitFcfa, l.creditFcfa))
+                .map(l -> new LineView(l.syscohadaAccount, l.libelle, l.debitFcfa, l.creditFcfa,
+                        l.costCenter, l.program, l.project))
                 .toList();
         for (JournalEntry l : e.entries == null ? List.<JournalEntry>of() : e.entries) {
             if (l.debitFcfa != null) debit = debit.add(l.debitFcfa);

@@ -32,7 +32,7 @@ public record InviteTenantUserPayloadDto(
 
         @NotBlank(message = "Rôle requis")
         @Pattern(regexp = "^(TENANT_ADMIN|USER)$",
-                message = "Rôle invalide — TENANT_ADMIN ou USER attendu")
+                message = "Rôle invalide : TENANT_ADMIN ou USER attendu")
         String role
 
 ) {}

@@ -122,6 +122,10 @@ public class ArticleService {
         e.barcode = blankToNull(p.barcode());
         e.vatRate = p.vatRate();
         e.purchaseChargeAccount = blankToNull(p.purchaseChargeAccount());
+        e.salesRevenueAccount = blankToNull(p.salesRevenueAccount());
+        e.defaultCostCenter = blankToNull(p.defaultCostCenter());
+        e.defaultProgram = blankToNull(p.defaultProgram());
+        e.defaultProject = blankToNull(p.defaultProject());
         e.unitWeightGrams = p.unitWeightGrams();
     }
 

@@ -14,6 +14,6 @@ public record CollectionStatDto(
         long documentCount,
         long sizeBytes,
         int indexCount,
-        @Schema(description = "Dernière écriture observée — null si jamais écrit")
+        @Schema(description = "Dernière écriture observée : null si jamais écrit")
         Instant lastWriteAt
 ) {}

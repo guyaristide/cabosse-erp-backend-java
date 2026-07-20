@@ -187,7 +187,7 @@ public class FiscalYearService {
                     "En-cours au " + b.end(), wipTotal));
             accounting.postPiece(new PostingRequest(
                     b.end(), PostingSourceType.EXERCISE_WIP, e.id, e.label,
-                    "Constat des en-cours — exercice " + e.label, wipEntries));
+                    "Constat des en-cours : exercice " + e.label, wipEntries));
 
             List<JournalEntry> mirrored = new ArrayList<>();
             for (JournalEntry we : wipEntries) {
@@ -197,7 +197,7 @@ public class FiscalYearService {
             }
             accounting.postPiece(new PostingRequest(
                     b.end().plusDays(1), PostingSourceType.EXERCISE_WIP_REVERSAL, e.id, e.label,
-                    "Contre-passation des en-cours — ouverture " + b.end().plusDays(1), mirrored));
+                    "Contre-passation des en-cours : ouverture " + b.end().plusDays(1), mirrored));
         }
         e.wipTotalFcfa = wipTotal;
 
@@ -207,7 +207,7 @@ public class FiscalYearService {
         if (tax.signum() > 0) {
             accounting.postPiece(new PostingRequest(
                     b.end(), PostingSourceType.EXERCISE_TAX, e.id, e.label,
-                    "Impôt sur le résultat — exercice " + e.label,
+                    "Impôt sur le résultat : exercice " + e.label,
                     List.of(
                             JournalEntry.debit(SyscohadaAccounts.IMPOT_RESULTAT,
                                     "Impôt sur le résultat " + e.label, tax),
@@ -251,24 +251,24 @@ public class FiscalYearService {
         if (!incomeEntries.isEmpty() && incomeNet.signum() != 0) {
             incomeEntries.add(incomeNet.signum() > 0
                     ? JournalEntry.credit(SyscohadaAccounts.RESULTAT_EXERCICE,
-                            "Résultat — produits " + e.label, incomeNet)
+                            "Résultat : produits " + e.label, incomeNet)
                     : JournalEntry.debit(SyscohadaAccounts.RESULTAT_EXERCICE,
-                            "Résultat — produits " + e.label, incomeNet.negate()));
+                            "Résultat : produits " + e.label, incomeNet.negate()));
             accounting.postPiece(new PostingRequest(
                     b.end(), PostingSourceType.EXERCISE_CLOSING_INCOME, e.id, e.label,
-                    "Clôture des produits — exercice " + e.label, incomeEntries));
+                    "Clôture des produits : exercice " + e.label, incomeEntries));
         }
 
         // 5. Pièce de clôture des charges et de l'impôt : 13 vers 6xx/8xx.
         if (!expenseEntries.isEmpty() && expenseNet.signum() != 0) {
             expenseEntries.add(0, expenseNet.signum() > 0
                     ? JournalEntry.debit(SyscohadaAccounts.RESULTAT_EXERCICE,
-                            "Résultat — charges " + e.label, expenseNet)
+                            "Résultat : charges " + e.label, expenseNet)
                     : JournalEntry.credit(SyscohadaAccounts.RESULTAT_EXERCICE,
-                            "Résultat — charges " + e.label, expenseNet.negate()));
+                            "Résultat : charges " + e.label, expenseNet.negate()));
             accounting.postPiece(new PostingRequest(
                     b.end(), PostingSourceType.EXERCISE_CLOSING_EXPENSE, e.id, e.label,
-                    "Clôture des charges — exercice " + e.label, expenseEntries));
+                    "Clôture des charges : exercice " + e.label, expenseEntries));
         }
 
         e.resultBeforeTaxFcfa = produits.subtract(charges6);
@@ -295,7 +295,7 @@ public class FiscalYearService {
         audit.event(AuditEventType.FISCAL_YEAR_ARRESTED)
                 .actorEmail(actor())
                 .target("fiscal_year", e.id.toString(), e.label)
-                .description("Exercice " + e.label + " arrêté — résultat net "
+                .description("Exercice " + e.label + " arrêté : résultat net "
                         + e.resultNetFcfa + " FCFA (impôt " + tax + ", en-cours " + wipTotal + ")")
                 .record();
         return e;
@@ -317,7 +317,7 @@ public class FiscalYearService {
             if (line.account() == null || !line.account().startsWith("1")) {
                 throw new BusinessException(
                         "L'affectation se fait vers des comptes de classe 1 "
-                                + "(capital, réserves, report à nouveau) — compte reçu : "
+                                + "(capital, réserves, report à nouveau) : compte reçu : "
                                 + line.account() + ".");
             }
             if (line.amountFcfa() == null || line.amountFcfa().signum() <= 0) {
@@ -347,7 +347,7 @@ public class FiscalYearService {
         }
         accounting.postPiece(new PostingRequest(
                 LocalDate.now(), PostingSourceType.EXERCISE_ALLOCATION, e.id, e.label,
-                "Affectation du résultat — exercice " + e.label, entries));
+                "Affectation du résultat : exercice " + e.label, entries));
 
         e.allocations = new ArrayList<>();
         for (AllocationInput line : lines) {
@@ -366,7 +366,7 @@ public class FiscalYearService {
                 .actorEmail(actor())
                 .target("fiscal_year", e.id.toString(), e.label)
                 .description("Résultat de l'exercice " + e.label + " affecté ("
-                        + lines.size() + " ligne(s), " + target + " FCFA) — exercice clôturé")
+                        + lines.size() + " ligne(s), " + target + " FCFA) : exercice clôturé")
                 .record();
         return e;
     }

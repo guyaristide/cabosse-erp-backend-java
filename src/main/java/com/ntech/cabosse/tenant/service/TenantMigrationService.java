@@ -59,7 +59,7 @@ public class TenantMigrationService {
         }
         if (tenant.status == TenantStatus.DELETED) {
             throw new BusinessException(
-                    "Tenant supprimé — sa base a été droppée, les migrations "
+                    "Tenant supprimé : sa base a été droppée, les migrations "
                             + "ne peuvent pas être relancées.");
         }
 

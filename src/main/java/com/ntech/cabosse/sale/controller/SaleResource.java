@@ -186,9 +186,9 @@ public class SaleResource {
 
         List<SaleExportLines.LineRow> lineRows = SaleExportLines.explode(sales);
         ExportDataset<SaleExportLines.LineRow> dataset = new ExportDataset<>(
-                "Ventes — lignes", SaleExportLines.columns(), lineRows
+                "Ventes : lignes", SaleExportLines.columns(), lineRows
         );
-        exportAudit.record("sales-lines", "Ventes — lignes", format, lineRows.size());
+        exportAudit.record("sales-lines", "Ventes : lignes", format, lineRows.size());
         return ExportResponses.build("ventes-lignes", format, dataset);
     }
 

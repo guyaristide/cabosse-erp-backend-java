@@ -1,4 +1,5 @@
 plugins {
+    id 'jacoco'
     id 'java'
     id 'io.quarkus'
 }
@@ -93,4 +94,17 @@ compileTestJava {
 
 test {
     systemProperty 'java.util.logging.manager', 'org.jboss.logmanager.LogManager'
+}
+
+jacoco {
+    toolVersion = '0.8.12'
+}
+
+jacocoTestReport {
+    dependsOn test
+    reports {
+        xml.required = true
+        html.required = true
+        csv.required = false
+    }
 }

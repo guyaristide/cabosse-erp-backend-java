@@ -27,7 +27,7 @@ public class HealthResource {
     @PermitAll
     @Operation(summary = "Ping applicatif",
             description = "Retourne 200 OK si l'application répond. Ne fait aucun appel "
-                    + "à la base — pour la vivacité du process Java uniquement.")
+                    + "à la base : pour la vivacité du process Java uniquement.")
     @APIResponse(responseCode = "200", description = "Application opérationnelle")
     public Response ping() {
         return Response.ok(ApiResponse.ok("OK")).build();

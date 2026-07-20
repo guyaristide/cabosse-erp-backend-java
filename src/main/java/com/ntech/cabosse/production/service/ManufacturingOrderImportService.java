@@ -131,6 +131,10 @@ public class ManufacturingOrderImportService {
                 /* barcode */ null,
                 /* vatRate */ null,
                 /* purchaseChargeAccount */ null,
+                /* salesRevenueAccount */ null,
+                /* defaultCostCenter */ null,
+                /* defaultProgram */ null,
+                /* defaultProject */ null,
                 fp.unitWeightGrams()
         );
         ArticleResponseDto created = articleService.create(create);
@@ -173,6 +177,10 @@ public class ManufacturingOrderImportService {
                 /* barcode */ null,
                 /* vatRate */ null,
                 /* purchaseChargeAccount */ null,
+                /* salesRevenueAccount */ null,
+                /* defaultCostCenter */ null,
+                /* defaultProgram */ null,
+                /* defaultProject */ null,
                 /* unitWeightGrams */ null
         );
         ArticleResponseDto created = articleService.create(create);

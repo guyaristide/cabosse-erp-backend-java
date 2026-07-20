@@ -301,7 +301,7 @@ public class DirectReceiptImportService {
                 SupplierResponseDto s = supplierService.create(new SupplierUpsertDto(
                         key,
                         n.resolvedSupplierName() != null ? n.resolvedSupplierName() : key,
-                        null, null, null, null, null, null, null, null, null, null
+                        null, null, null, null, null, null, null, null, null, null, null, null
                 ));
                 createdSupplierByKey.put(key, s.id());
                 createdSupplierIds.add(s.id());
@@ -325,7 +325,7 @@ public class DirectReceiptImportService {
             if (supplierId == null) {
                 List<FieldIssue> issues = new ArrayList<>(row.issues());
                 issues.add(new FieldIssue("producer",
-                        "Création du producteur « " + n.resolvedSupplierCode() + " » impossible — ligne ignorée."));
+                        "Création du producteur « " + n.resolvedSupplierCode() + " » impossible : ligne ignorée."));
                 skipped.add(new Row(row.rowNumber(), Status.INVALID, n, issues));
                 continue;
             }

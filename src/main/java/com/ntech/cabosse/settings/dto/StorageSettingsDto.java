@@ -9,7 +9,7 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
  * de l'instance. {@code S3} / {@code MINIO} : credentials chiffrés, secret
  * key toujours masquée.</p>
  */
-@Schema(description = "Paramètres stockage — vue admin")
+@Schema(description = "Paramètres stockage : vue admin")
 public record StorageSettingsDto(
         /** {@code LOCAL}, {@code S3}, {@code MINIO}. */
         String provider,

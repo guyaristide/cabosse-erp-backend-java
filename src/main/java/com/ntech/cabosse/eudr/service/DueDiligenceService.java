@@ -117,7 +117,7 @@ public class DueDiligenceService {
     public DueDiligenceStatementEntity markReady(UUID ddrId, String exportCountryCode) {
         DueDiligenceStatementEntity ddr = load(ddrId);
         if (ddr.status != DueDiligenceStatus.DRAFT) {
-            throw new BusinessException("DDR en statut " + ddr.status + " — non transitionnable vers READY.");
+            throw new BusinessException("DDR en statut " + ddr.status + " : non transitionnable vers READY.");
         }
         if (exportCountryCode == null || exportCountryCode.isBlank()) {
             throw new BusinessException("Code pays destinataire requis.");
@@ -132,7 +132,7 @@ public class DueDiligenceService {
     public DueDiligenceStatementEntity markSubmitted(UUID ddrId, String eudrReferenceNumber) {
         DueDiligenceStatementEntity ddr = load(ddrId);
         if (ddr.status != DueDiligenceStatus.READY && ddr.status != DueDiligenceStatus.DRAFT) {
-            throw new BusinessException("DDR en statut " + ddr.status + " — soumission impossible.");
+            throw new BusinessException("DDR en statut " + ddr.status + " : soumission impossible.");
         }
         if (eudrReferenceNumber == null || eudrReferenceNumber.isBlank()) {
             throw new BusinessException("N° référence EUDR (portail UE) requis.");

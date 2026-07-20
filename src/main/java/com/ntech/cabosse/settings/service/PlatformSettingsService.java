@@ -106,7 +106,7 @@ public class PlatformSettingsService {
                 try {
                     v = cipher.decrypt(v);
                 } catch (Exception ex) {
-                    log.errorf(ex, "Impossible de déchiffrer %s.%s — valeur ignorée.", section, e.getKey());
+                    log.errorf(ex, "Impossible de déchiffrer %s.%s : valeur ignorée.", section, e.getKey());
                     continue;
                 }
             }

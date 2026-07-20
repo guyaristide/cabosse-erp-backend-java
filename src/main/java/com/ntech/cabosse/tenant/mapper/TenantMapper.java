@@ -151,7 +151,12 @@ public final class TenantMapper {
                 entity.preferences.memberCapitalFlow(),
                 entity.preferences.analyticsIncludeStockTransfers(),
                 entity.preferences.fiscalYearStartMonth(),
-                entity.preferences.incomeTaxRatePct()
+                entity.preferences.incomeTaxRatePct(),
+                entity.preferences.costCenterRequired(),
+                entity.preferences.purchaseRequestEnabled(),
+                entity.preferences.purchaseRequestThresholdFcfa(),
+                entity.preferences.collectorAdvanceAccount(),
+                entity.preferences.collectorDeliveryValuation()
         );
     }
 

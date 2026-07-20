@@ -41,6 +41,40 @@ public class UserRepository implements PanacheMongoRepositoryBase<UserEntity, UU
         return count("tenantId", tenantId);
     }
 
+    /**
+     * Pose {@code lastLoginAt} en update atomique — jamais de
+     * read-modify-replace sous transaction (deux logins parallèles du
+     * même compte provoquaient un WriteConflict, cf. incident refresh).
+     */
+    public void touchLastLogin(UUID userId, java.time.Instant at) {
+        mongoCollection().updateOne(
+                com.mongodb.client.model.Filters.eq("_id", userId),
+                com.mongodb.client.model.Updates.set("lastLoginAt", at));
+    }
+
+    /**
+     * Consomme atomiquement un token d'invitation : le filtre exige que le
+     * hash soit encore présent et le compte encore INVITED — le perdant
+     * d'une double soumission voit {@code false} et reçoit un 401 propre.
+     */
+    public boolean consumeInvitation(String tokenHash, String newPasswordHash,
+                                     java.time.Instant now) {
+        return mongoCollection().updateOne(
+                com.mongodb.client.model.Filters.and(
+                        com.mongodb.client.model.Filters.eq("invitationTokenHash", tokenHash),
+                        com.mongodb.client.model.Filters.eq("status", UserStatus.INVITED.name())
+                ),
+                com.mongodb.client.model.Updates.combine(
+                        com.mongodb.client.model.Updates.set("passwordHash", newPasswordHash),
+                        com.mongodb.client.model.Updates.set("status", UserStatus.ACTIVE.name()),
+                        com.mongodb.client.model.Updates.unset("invitationTokenHash"),
+                        com.mongodb.client.model.Updates.unset("invitationExpiresAt"),
+                        com.mongodb.client.model.Updates.set("lastLoginAt", now),
+                        com.mongodb.client.model.Updates.set("updatedAt", now)
+                )
+        ).getModifiedCount() == 1;
+    }
+
     public void disableAllForTenant(UUID tenantId) {
         update("status", UserStatus.DISABLED).where("tenantId", tenantId);
     }

@@ -204,6 +204,10 @@ public class ArticleImportService {
                         n.barcode(),
                         n.vatRate(),
                 /* purchaseChargeAccount */ null,
+                /* salesRevenueAccount */ null,
+                /* defaultCostCenter */ null,
+                /* defaultProgram */ null,
+                /* defaultProject */ null,
                         /* unitWeightGrams */ null
                 );
                 ArticleResponseDto created = articleService.create(payload);

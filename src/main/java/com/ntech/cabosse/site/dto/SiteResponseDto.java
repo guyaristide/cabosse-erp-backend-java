@@ -6,7 +6,7 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import java.time.Instant;
 import java.util.UUID;
 
-@Schema(description = "Site du tenant — transformation ou point de vente")
+@Schema(description = "Site du tenant : transformation ou point de vente")
 public record SiteResponseDto(
         UUID id,
         /** {@code TRANSFORMATION} ou {@code SALES_POINT}. */

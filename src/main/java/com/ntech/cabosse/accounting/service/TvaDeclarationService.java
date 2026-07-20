@@ -69,7 +69,7 @@ public class TvaDeclarationService {
         Optional<TvaDeclarationEntity> existing = repo.findByYearMonth(yearMonth);
         if (existing.isPresent() && existing.get().status == TvaDeclarationStatus.DEPOSE) {
             throw new BusinessException(
-                    "Déclaration " + yearMonth + " déjà déposée — verrouillage refusé.");
+                    "Déclaration " + yearMonth + " déjà déposée : verrouillage refusé.");
         }
         TvaDeclarationEntity e = existing.orElseGet(TvaDeclarationEntity::new);
         boolean isNew = e.id == null;
@@ -94,11 +94,11 @@ public class TvaDeclarationService {
                                             LocalDate depositedAt, String notes) {
         TvaDeclarationEntity e = repo.findByYearMonth(yearMonth)
                 .orElseThrow(() -> new NotFoundException(
-                        "Déclaration " + yearMonth + " introuvable — verrouillez-la d'abord."));
+                        "Déclaration " + yearMonth + " introuvable : verrouillez-la d'abord."));
         if (e.status != TvaDeclarationStatus.PRET_A_DEPOSER) {
             throw new BusinessException(
                     "Déclaration " + yearMonth + " en statut " + e.status
-                            + " — dépôt impossible.");
+                            + " : dépôt impossible.");
         }
         if (depositedNumber == null || depositedNumber.isBlank()) {
             throw new BusinessException("N° de déclaration requis.");

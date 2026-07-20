@@ -46,7 +46,7 @@ import java.util.UUID;
  */
 @Path("/api/v1/direct-receipts")
 @Tag(name = "Achats · Réceptions directes",
-        description = "Achats hors BC — réception cash on delivery ou paiement différé")
+        description = "Achats hors BC : réception cash on delivery ou paiement différé")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Authenticated

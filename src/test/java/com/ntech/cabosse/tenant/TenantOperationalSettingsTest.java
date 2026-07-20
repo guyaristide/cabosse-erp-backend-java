@@ -64,12 +64,12 @@ class TenantOperationalSettingsTest extends AbstractIntegrationTest {
                 .when().get("/api/v1/me/tenant/preferences")
                 .then().statusCode(200)
                 .body("data.postMemberCapitalEntries", equalTo(true))
-                .body("data.memberCapitalAccount", equalTo("101"))
+                .body("data.memberCapitalAccount", equalTo("101000"))
                 .body("data.postStockTransferEntries", equalTo(false))
                 .body("data.inventoryAlertThresholdPct", equalTo(5))
                 .body("data.inventoryAlertThresholdFcfa", equalTo(100000))
                 .body("data.periodReopenPolicy", equalTo("TENANT_ADMIN"))
-                .body("data.vatDeductibleAccount", equalTo("44566"))
+                .body("data.vatDeductibleAccount", equalTo("445660"))
                 .body("data.memberCapitalFlow", equalTo("DIRECT"))
                 .body("data.analyticsIncludeStockTransfers", equalTo(false));
     }

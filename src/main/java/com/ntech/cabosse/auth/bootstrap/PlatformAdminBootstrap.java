@@ -68,7 +68,7 @@ public class PlatformAdminBootstrap {
         }
 
         if (anyPlatformAdminExists()) {
-            log.info("Platform admin bootstrap — un PLATFORM_ADMIN existe déjà, skip");
+            log.info("Platform admin bootstrap : un PLATFORM_ADMIN existe déjà, skip");
             return;
         }
 
@@ -88,7 +88,7 @@ public class PlatformAdminBootstrap {
         TenantEntity platformTenant = ensurePlatformTenant();
         UserEntity admin = createAdmin(platformTenant, spec, email, password);
 
-        log.infof("Platform admin bootstrap — créé : %s (tenant %s)",
+        log.infof("Platform admin bootstrap : créé : %s (tenant %s)",
                 admin.email, platformTenant.id);
     }
 

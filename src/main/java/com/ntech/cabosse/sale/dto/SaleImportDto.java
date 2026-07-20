@@ -111,7 +111,7 @@ public record SaleImportDto(
      * Client existant ({@code id} renseigné) ou à créer ({@code name}
      * requis, le reste optionnel).
      */
-    @Schema(description = "Client de l'import — existant ou à créer")
+    @Schema(description = "Client de l'import : existant ou à créer")
     public record ImportedCustomer(
 
             UUID id,
@@ -139,7 +139,7 @@ public record SaleImportDto(
      * ({@code newArticle} renseigné) — toujours de type
      * {@code FINISHED_PRODUCT} pour une vente.
      */
-    @Schema(description = "Ligne d'import vente — match ou auto-création article")
+    @Schema(description = "Ligne d'import vente : match ou auto-création article")
     public record ImportedLine(
 
             /** Article existant. Null si auto-création. */

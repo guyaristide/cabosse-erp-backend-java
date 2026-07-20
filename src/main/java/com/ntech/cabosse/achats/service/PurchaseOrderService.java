@@ -82,6 +82,7 @@ public class PurchaseOrderService {
     @Inject StockService stockService;
     @Inject AccountingService accounting;
     @Inject JsonWebToken jwt;
+    @Inject com.ntech.cabosse.tenant.service.TenantPreferencesLookup preferencesLookup;
 
     private String actor() {
         try { return jwt.getName(); } catch (Exception e) { return null; }
@@ -183,8 +184,32 @@ public class PurchaseOrderService {
     }
 
     public PurchaseOrderResponseDto confirm(UUID id) {
+        // Contrôle interne (backlog ACH-01) : si le circuit est activé et
+        // que le total atteint le seuil, le BC doit être issu d'une
+        // demande d'achat approuvée.
+        var prefs = preferencesLookup.current();
+        if (prefs.purchaseRequestEnabled()) {
+            PurchaseOrderEntity e = loadOrFail(id);
+            java.math.BigDecimal total = e.totalTtcFcfa != null
+                    ? e.totalTtcFcfa : java.math.BigDecimal.ZERO;
+            if (total.compareTo(prefs.purchaseRequestThresholdFcfa()) >= 0
+                    && e.purchaseRequestId == null) {
+                throw new BusinessException(
+                        "Ce bon de commande dépasse le seuil de contrôle interne : "
+                                + "il doit être issu d'une demande d'achat approuvée.");
+            }
+        }
         return transition(id, BcStatus.DRAFT, BcStatus.CONFIRMED,
                 AuditEventType.PURCHASE_ORDER_CONFIRMED, "Confirmation");
+    }
+
+    /** Lie un BC brouillon à la demande d'achat dont il est issu (ACH-01). */
+    public void linkPurchaseRequest(UUID orderId, UUID requestId, String requestRef) {
+        PurchaseOrderEntity e = loadOrFail(orderId);
+        e.purchaseRequestId = requestId;
+        e.purchaseRequestRef = requestRef;
+        e.updatedAt = Instant.now();
+        orders.replace(e);
     }
 
     public PurchaseOrderResponseDto transit(UUID id) {
@@ -295,7 +320,7 @@ public class PurchaseOrderService {
         PurchaseOrderEntity e = loadOrFail(id);
         if (e.status == BcStatus.DRAFT) {
             throw new BusinessException(
-                    "Un brouillon n'est pas contre-passable — supprimez-le ou éditez-le.");
+                    "Un brouillon n'est pas contre-passable : supprimez-le ou éditez-le.");
         }
         if (e.status == BcStatus.CANCELLED) {
             throw new BusinessException("BC déjà annulé.");

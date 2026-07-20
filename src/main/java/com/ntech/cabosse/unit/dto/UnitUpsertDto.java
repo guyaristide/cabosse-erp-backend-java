@@ -8,7 +8,7 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
 @Schema(description = "Payload d'écriture d'une unité de mesure")
 public record UnitUpsertDto(
         @Pattern(regexp = "^$|^[A-Za-z0-9µ%/.-]{1,12}$",
-                message = "Code unité — 1 à 12 caractères (lettres, chiffres, /, %, .)")
+                message = "Code unité : 1 à 12 caractères (lettres, chiffres, /, %, .)")
         String code,
 
         @NotBlank @Size(min = 1, max = 60)

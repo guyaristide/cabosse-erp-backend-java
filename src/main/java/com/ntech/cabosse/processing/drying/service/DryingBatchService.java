@@ -88,7 +88,7 @@ public class DryingBatchService {
     public DryingBatchResponseDto complete(UUID id, BigDecimal weightOutKg, BigDecimal finalHumidityPct) {
         DryingBatchEntity e = loadOrFail(id);
         if (e.status != DryingBatchStatus.DRYING) {
-            throw new BusinessException("Séchage non actif — clôture impossible.");
+            throw new BusinessException("Séchage non actif : clôture impossible.");
         }
         e.weightOutKg = weightOutKg;
         e.finalHumidityPct = finalHumidityPct;
@@ -110,7 +110,7 @@ public class DryingBatchService {
     public DryingBatchResponseDto cancel(UUID id, String reason) {
         DryingBatchEntity e = loadOrFail(id);
         if (e.status == DryingBatchStatus.COMPLETED) {
-            throw new BusinessException("Séchage clôturé — annulation impossible.");
+            throw new BusinessException("Séchage clôturé : annulation impossible.");
         }
         e.status = DryingBatchStatus.CANCELLED;
         e.notes = (e.notes != null ? e.notes + "\n" : "") + "Annulé : " + (reason != null ? reason : "");

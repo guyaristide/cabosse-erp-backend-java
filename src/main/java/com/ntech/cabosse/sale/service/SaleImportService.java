@@ -261,6 +261,10 @@ public class SaleImportService {
                 /* barcode */ null,
                 /* vatRate */ null,
                 /* purchaseChargeAccount */ null,
+                /* salesRevenueAccount */ null,
+                /* defaultCostCenter */ null,
+                /* defaultProgram */ null,
+                /* defaultProject */ null,
                 /* unitWeightGrams */ null
         );
         var created = articleService.create(create);
@@ -281,7 +285,7 @@ public class SaleImportService {
                 .map(s -> {
                     if (!s.active) {
                         throw new BusinessException(
-                                "Site « " + s.name + " » désactivé — réactivez-le avant import.");
+                                "Site « " + s.name + " » désactivé : réactivez-le avant import.");
                     }
                     return s.id;
                 })

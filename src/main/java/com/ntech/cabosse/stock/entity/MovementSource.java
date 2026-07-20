@@ -38,5 +38,7 @@ public enum MovementSource {
      * passer par fermentation/séchage internes) et de {@link #PRODUCTION}
      * (atelier de transformation aval).
      */
-    AGRICULTURAL_QC
+    AGRICULTURAL_QC,
+    /** Livraison d'un délégué collecteur imputée sur avance (backlog ACH-02). */
+    COLLECTOR_DELIVERY
 }

@@ -62,7 +62,7 @@ public class ExpenseTypeImportService {
 
             String syscohada = trimOrNull(raw.syscohadaAccount());
             if (syscohada != null && !syscohada.matches("\\d{2,8}")) {
-                issues.add(new FieldIssue("syscohadaAccount", "Compte SYSCOHADA — 2 à 8 chiffres."));
+                issues.add(new FieldIssue("syscohadaAccount", "Compte SYSCOHADA : 2 à 8 chiffres."));
             }
             String description = trimOrNull(raw.description());
 

@@ -125,6 +125,6 @@ class ArticleChargeAccountTest extends AbstractIntegrationTest {
                 .when().get("/api/v1/accounting/journal")
                 .then().statusCode(200)
                 .body("data.total", equalTo(1))
-                .body("data.items[0].entries.syscohadaAccount", hasItem("601"));
+                .body("data.items[0].entries.syscohadaAccount", hasItem("601000"));
     }
 }

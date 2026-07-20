@@ -103,7 +103,7 @@ public class BeanQualityCheckService {
         BeanQualityCheckEntity e = loadOrFail(id);
         if (e.stockMovementCreated) {
             throw new BusinessException(
-                    "QC déjà validé avec entrée stock — édition refusée. "
+                    "QC déjà validé avec entrée stock : édition refusée. "
                             + "Pour corriger : contre-passer le mouvement et créer un nouveau QC.");
         }
         DryingBatchEntity drying = dryings.findById(payload.dryingBatchId())
@@ -126,7 +126,7 @@ public class BeanQualityCheckService {
         }
         if (!e.conformOverall) {
             throw new BusinessException(
-                    "QC non conforme — aucune entrée stock générée. "
+                    "QC non conforme : aucune entrée stock générée. "
                             + "Si vous souhaitez quand même tracer ces fèves, créez un mouvement manuel séparé.");
         }
         if (e.acceptedKg == null || e.acceptedKg.signum() <= 0) {
@@ -137,6 +137,12 @@ public class BeanQualityCheckService {
         }
         if (e.siteId == null) {
             throw new BusinessException("Site de stockage requis.");
+        }
+
+        // Verrou atomique : le perdant d'une double validation relit et
+        // renvoie l'état — jamais deux mouvements pour le même QC.
+        if (!qcs.tryMarkMovementCreated(e.id)) {
+            return BeanQualityCheckResponseDto.from(loadOrFail(id));
         }
 
         // Génération du lotRef + mouvement stock IN

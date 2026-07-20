@@ -61,6 +61,25 @@ public record ArticleUpsertDto(
                 message = "Compte d'achat : 2 à 8 chiffres")
         String purchaseChargeAccount,
 
+        /** Compte de produit SYSCOHADA crédité aux ventes. Vide = défaut (701000). */
+        @Pattern(regexp = "^$|^[0-9]{2,8}$",
+                message = "Compte de vente : 2 à 8 chiffres")
+        String salesRevenueAccount,
+
+        /** Centre de coût analytique par défaut aux achats. Vide = aucun. */
+        @Pattern(regexp = "^$|^[A-Z0-9-]{2,12}$",
+                message = "Centre de coût : 2 à 12 caractères majuscules, chiffres ou tiret")
+        String defaultCostCenter,
+
+        /** Programme budgétaire par défaut aux ventes. Vide = aucun. */
+        @Pattern(regexp = "^$|^[A-Z0-9-]{2,16}$",
+                message = "Programme : 2 à 16 caractères majuscules, chiffres ou tiret")
+        String defaultProgram,
+
+        @Pattern(regexp = "^$|^[A-Z0-9-]{2,16}$",
+                message = "Projet : 2 à 16 caractères majuscules, chiffres ou tiret")
+        String defaultProject,
+
         /**
          * Poids unitaire en grammes (PF). {@code null} accepté ; sert au
          * calcul du poids total produit et du rendement d'un OF.

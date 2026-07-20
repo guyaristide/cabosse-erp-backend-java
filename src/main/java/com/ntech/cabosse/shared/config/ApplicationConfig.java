@@ -18,6 +18,16 @@ import java.util.Optional;
 public interface ApplicationConfig {
 
     /**
+     * Émetteur des JWT — miroir typé de {@code mp.jwt.verify.issuer}
+     * (règle CLAUDE.md §2.3 : jamais de {@code @ConfigProperty} dans un
+     * service). La valeur est définie une seule fois dans application.yml
+     * via l'interpolation {@code ${mp.jwt.verify.issuer}}.
+     */
+    @io.smallrye.config.WithName("jwt_issuer")
+    @io.smallrye.config.WithDefault("${mp.jwt.verify.issuer}")
+    String jwtIssuer();
+
+    /**
      * Préfixe utilisé pour nommer les bases tenant ({@code tenant_<uuid>}).
      * Configurable pour permettre des préfixes distincts dev/qa/prod
      * partageant le même cluster MongoDB.

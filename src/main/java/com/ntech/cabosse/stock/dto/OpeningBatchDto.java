@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.UUID;
 
 /** Amorçage initial du stock d'un site. */
-@Schema(description = "Amorçage initial — N lignes (article, qté, PU) pour un site")
+@Schema(description = "Amorçage initial : N lignes (article, qté, PU) pour un site")
 public record OpeningBatchDto(
         @NotNull(message = "Site requis") UUID siteId,
         @NotEmpty(message = "Au moins une ligne requise")

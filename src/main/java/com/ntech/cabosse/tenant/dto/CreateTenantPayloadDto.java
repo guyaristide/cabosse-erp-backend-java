@@ -105,9 +105,9 @@ public record CreateTenantPayloadDto(
             @Size(max = 20) String postalCode,
             @NotBlank @Size(min = 2, max = 80) String city,
             @NotBlank @Pattern(regexp = "^[A-Z]{2}$", message = "ISO 3166-1 alpha-2 attendu") String country,
-            @Schema(description = "Code région du catalogue, optionnel — validé si fourni", example = "ABJ")
+            @Schema(description = "Code région du catalogue, optionnel : validé si fourni", example = "ABJ")
             String regionCode,
-            @Schema(description = "Identifiant ville du catalogue, optionnel — validé si fourni")
+            @Schema(description = "Identifiant ville du catalogue, optionnel : validé si fourni")
             UUID cityId
     ) {}
 
@@ -144,7 +144,7 @@ public record CreateTenantPayloadDto(
             boolean isPrimary
     ) {}
 
-    @Schema(description = "Sous-payload admin du tenant — destinataire de l'invitation")
+    @Schema(description = "Sous-payload admin du tenant : destinataire de l'invitation")
     public record AdminPayload(
             @NotBlank @Email String email,
             @NotBlank @Size(min = 2, max = 80) String firstName,

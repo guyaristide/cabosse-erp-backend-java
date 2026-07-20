@@ -11,7 +11,7 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
  * (lecture {@code application.yml} / variables d'env). Permet à l'UI
  * d'afficher un badge « depuis fichier de config ».</p>
  */
-@Schema(description = "Paramètres SMTP — vue admin")
+@Schema(description = "Paramètres SMTP : vue admin")
 public record EmailSettingsDto(
         String from,
         String host,

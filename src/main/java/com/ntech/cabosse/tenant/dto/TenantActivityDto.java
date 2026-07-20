@@ -7,7 +7,7 @@ public record TenantActivityDto(
 
         String code,
         String label,
-        @Schema(description = "true pour l'activité primaire (fallback) — exactement une")
+        @Schema(description = "true pour l'activité primaire (fallback) : exactement une")
         boolean isPrimary
 
 ) {}

@@ -13,6 +13,7 @@ public record SupplierResponseDto(
         String email, String phone,
         String addressLine, String cityName, String countryCode,
         String contactName, String paymentTerms, String notes,
+        boolean collector, UUID sectionId,
         boolean active, Instant createdAt, Instant updatedAt
 ) {
     public static SupplierResponseDto from(SupplierEntity e) {
@@ -20,6 +21,7 @@ public record SupplierResponseDto(
                 e.id, e.code, e.name, e.legalName, e.taxNumber,
                 e.email, e.phone, e.addressLine, e.cityName, e.countryCode,
                 e.contactName, e.paymentTerms, e.notes,
+                e.collector, e.sectionId,
                 e.active, e.createdAt, e.updatedAt
         );
     }

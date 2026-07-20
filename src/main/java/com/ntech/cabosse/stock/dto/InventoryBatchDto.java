@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.UUID;
 
 /** Saisie d'un inventaire physique : N (article, qté comptée). */
-@Schema(description = "Inventaire physique d'un site — génère des ajustements")
+@Schema(description = "Inventaire physique d'un site : génère des ajustements")
 public record InventoryBatchDto(
         @NotNull(message = "Site requis") UUID siteId,
 

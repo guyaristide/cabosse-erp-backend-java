@@ -63,4 +63,19 @@ public class BeanQualityCheckRepository {
     public void insert(BeanQualityCheckEntity e) { coll().insertOne(e); }
 
     public void replace(BeanQualityCheckEntity e) { coll().replaceOne(Filters.eq("_id", e.id), e); }
+
+    /**
+     * Verrou de validation atomique : passe {@code stockMovementCreated}
+     * de faux à vrai. Le perdant d'une double validation voit {@code false}
+     * — jamais deux entrées de fèves en stock (règle concurrence).
+     */
+    public boolean tryMarkMovementCreated(java.util.UUID id) {
+        return coll().updateOne(
+                Filters.and(
+                        Filters.eq("_id", id),
+                        Filters.eq("stockMovementCreated", false)
+                ),
+                com.mongodb.client.model.Updates.set("stockMovementCreated", true)
+        ).getModifiedCount() == 1;
+    }
 }

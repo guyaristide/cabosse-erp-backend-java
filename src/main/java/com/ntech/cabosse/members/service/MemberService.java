@@ -158,7 +158,7 @@ public class MemberService {
                 .actorEmail(actor())
                 .target("member", e.id.toString(), e.name)
                 .tenant(tenantContext.tenantId(), null)
-                .description("Adhésion rejetée : " + e.name + " (" + e.code + ") — " + e.statusReason)
+                .description("Adhésion rejetée : " + e.name + " (" + e.code + ") : " + e.statusReason)
                 .record();
         return MemberResponseDto.from(e);
     }
@@ -236,7 +236,7 @@ public class MemberService {
                 .actorEmail(actor())
                 .target("member", e.id.toString(), e.name)
                 .tenant(tenantContext.tenantId(), null)
-                .description("Radiation : " + e.name + " (" + e.code + ") — " + e.statusReason)
+                .description("Radiation : " + e.name + " (" + e.code + ") : " + e.statusReason)
                 .record();
         return MemberResponseDto.from(e);
     }

@@ -104,6 +104,8 @@ public class SupplierService {
         e.contactName = blank(p.contactName());
         e.paymentTerms = blank(p.paymentTerms());
         e.notes = blank(p.notes());
+        e.collector = p.collector() != null && p.collector();
+        e.sectionId = e.collector ? p.sectionId() : null;
     }
 
     private void auditEvt(SupplierEntity e, String action) {

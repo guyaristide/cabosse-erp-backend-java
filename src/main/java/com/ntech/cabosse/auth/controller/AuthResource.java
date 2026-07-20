@@ -90,7 +90,7 @@ public class AuthResource {
     @PermitAll
     @Operation(summary = "Activation d'une invitation / reset de mot de passe",
             description = "Consomme un token d'invitation envoyé par mail, fixe le mot de passe "
-                    + "et émet un couple (accessToken, refreshToken) — l'utilisateur arrive "
+                    + "et émet un couple (accessToken, refreshToken) : l'utilisateur arrive "
                     + "directement connecté côté front. Le token est à usage unique.")
     @APIResponse(responseCode = "200", description = "Activation réussie",
             content = @Content(schema = @Schema(implementation = LoginResponseDto.class)))
@@ -111,7 +111,7 @@ public class AuthResource {
     @PermitAll
     @Operation(summary = "Déconnexion",
             description = "Révoque le refresh token. Le access token reste valide jusqu'à son "
-                    + "expiration naturelle (15 min) — on ne dispose pas de mécanisme de "
+                    + "expiration naturelle (15 min) : on ne dispose pas de mécanisme de "
                     + "blacklist sur les JWT signés. Pour invalider immédiatement il faudrait "
                     + "un mécanisme d'audience ou de jti blacklist (Phase D si nécessaire).")
     @APIResponse(responseCode = "204", description = "Refresh révoqué (idempotent)")

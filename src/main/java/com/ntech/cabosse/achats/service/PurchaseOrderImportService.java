@@ -167,7 +167,9 @@ public class PurchaseOrderImportService {
                 blankToNull(s.countryCode()),
                 blankToNull(s.contactName()),
                 blankToNull(s.paymentTerms()),
-                /* notes */ null
+                /* notes */ null,
+                /* collector */ null,
+                /* sectionId */ null
         );
         var created = supplierService.create(create);
         return new ResolvedSupplier(created.id(), created.name(), true);
@@ -214,6 +216,10 @@ public class PurchaseOrderImportService {
                 /* barcode */ null,
                 /* vatRate */ null,
                 /* purchaseChargeAccount */ null,
+                /* salesRevenueAccount */ null,
+                /* defaultCostCenter */ null,
+                /* defaultProgram */ null,
+                /* defaultProject */ null,
                 /* unitWeightGrams */ null
         );
         var created = articleService.create(create);

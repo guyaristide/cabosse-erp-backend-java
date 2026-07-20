@@ -54,7 +54,10 @@ public record PurchaseOrderResponseDto(
         CancellationDto cancellation,
         String createdByEmail,
         Instant createdAt,
-        Instant updatedAt
+        Instant updatedAt,
+        /** DA dont ce BC est issu (backlog ACH-01). {@code null} = saisie directe. */
+        UUID purchaseRequestId,
+        String purchaseRequestRef
 ) {
     public record LineDto(
             UUID id,
@@ -122,7 +125,8 @@ public record PurchaseOrderResponseDto(
                 effective,
                 e.status,
                 e.cancellation == null ? null : CancellationDto.from(e.cancellation),
-                e.createdByEmail, e.createdAt, e.updatedAt
+                e.createdByEmail, e.createdAt, e.updatedAt,
+                e.purchaseRequestId, e.purchaseRequestRef
         );
     }
 

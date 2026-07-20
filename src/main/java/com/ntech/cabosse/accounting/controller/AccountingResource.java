@@ -40,6 +40,7 @@ import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.StreamingOutput;
+import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
 import java.time.LocalDate;
@@ -57,7 +58,7 @@ import java.util.UUID;
  * du dashboard ; CRUD des comptes bancaires / caisses.</p>
  */
 @Path("/api/v1/accounting")
-@Tag(name = "Accounting", description = "Comptabilité tenant — plan SYSCOHADA, journal, dashboard, comptes bancaires")
+@Tag(name = "Accounting", description = "Comptabilité tenant : plan SYSCOHADA, journal, dashboard, comptes bancaires")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Authenticated
@@ -293,7 +294,8 @@ public class AccountingResource {
 
     public record OdLinePayload(String account, String libelle,
                                 java.math.BigDecimal debitFcfa,
-                                java.math.BigDecimal creditFcfa) {}
+                                java.math.BigDecimal creditFcfa,
+                                String costCenter, String program, String project) {}
     public record OdPayload(java.time.LocalDate date, String libelle,
                             List<OdLinePayload> lines) {}
 
@@ -302,8 +304,34 @@ public class AccountingResource {
         if (payload == null || payload.lines() == null) return List.of();
         return payload.lines().stream()
                 .map(l -> new com.ntech.cabosse.accounting.service.OdEntryService.OdLineInput(
-                        l.account(), l.libelle(), l.debitFcfa(), l.creditFcfa()))
+                        l.account(), l.libelle(), l.debitFcfa(), l.creditFcfa(),
+                        l.costCenter(), l.program(), l.project()))
                 .toList();
+    }
+
+    @GET
+    @Path("/analytics/programs")
+    @Operation(summary = "État budgétaire par programme/projet",
+            description = "Charges (classe 6) et produits (classe 7) par programme sur une période. "
+                    + "Le programme vide regroupe les écritures non affectées.")
+    public Response programsReport(@QueryParam("from") String from,
+                                   @QueryParam("to") String to) {
+        java.time.LocalDate f = (from != null && !from.isBlank()) ? java.time.LocalDate.parse(from) : null;
+        java.time.LocalDate t = (to != null && !to.isBlank()) ? java.time.LocalDate.parse(to) : null;
+        return Response.ok(ApiResponse.ok(query.programsReport(f, t))).build();
+    }
+
+    @GET
+    @Path("/analytics/cost-centers")
+    @Operation(summary = "État analytique par centre de coût",
+            description = "Total des charges (classe 6) par centre sur une période. "
+                    + "Le centre vide regroupe les charges non affectées.")
+    public Response costCentersReport(@QueryParam("from") String from,
+                                      @QueryParam("to") String to,
+                                      @QueryParam("volumeBasis") @DefaultValue("PURCHASED") String volumeBasis) {
+        java.time.LocalDate f = (from != null && !from.isBlank()) ? java.time.LocalDate.parse(from) : null;
+        java.time.LocalDate t = (to != null && !to.isBlank()) ? java.time.LocalDate.parse(to) : null;
+        return Response.ok(ApiResponse.ok(query.costCentersReport(f, t, volumeBasis))).build();
     }
 
     @GET

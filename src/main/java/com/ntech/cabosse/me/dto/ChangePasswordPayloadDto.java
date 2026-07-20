@@ -4,7 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
 
-@Schema(description = "Changement de mot de passe — current + new")
+@Schema(description = "Changement de mot de passe : current + new")
 public record ChangePasswordPayloadDto(
 
         @NotBlank(message = "Mot de passe actuel requis")

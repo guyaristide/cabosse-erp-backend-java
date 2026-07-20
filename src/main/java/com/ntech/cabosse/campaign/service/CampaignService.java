@@ -97,7 +97,7 @@ public class CampaignService {
         CampaignEntity e = get(id);
         if (e.status != CampaignStatus.OPEN) {
             throw new BusinessException(
-                    "Campagne clôturée — non modifiable.");
+                    "Campagne clôturée : non modifiable.");
         }
         validateDates(payload);
         applyPayload(e, payload);

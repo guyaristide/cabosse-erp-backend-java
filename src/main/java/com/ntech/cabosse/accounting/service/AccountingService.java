@@ -12,6 +12,7 @@ import com.ntech.cabosse.reception.entity.DirectReceiptEntity;
 import com.ntech.cabosse.reception.entity.DirectReceiptLine;
 import com.ntech.cabosse.reception.entity.PaymentMethod;
 import com.ntech.cabosse.sale.entity.SaleEntity;
+import com.ntech.cabosse.sale.entity.SaleLine;
 import com.ntech.cabosse.sale.entity.SalePayment;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
@@ -68,6 +69,8 @@ public class AccountingService {
     @Inject TenantContext tenantContext;
     @Inject com.ntech.cabosse.tenant.service.TenantPreferencesLookup preferencesLookup;
     @Inject com.ntech.cabosse.article.repository.ArticleRepository articles;
+    @Inject com.ntech.cabosse.analytics.repository.CostCenterRepository costCenters;
+    @Inject com.ntech.cabosse.analytics.repository.AllocationKeyRepository allocationKeys;
 
     // ════════════════════════════════════════════════════════════════
     //  Entrée unique : postPiece + reverseFrom
@@ -82,13 +85,13 @@ public class AccountingService {
      */
     public Optional<JournalPieceEntity> postPiece(PostingRequest request) {
         if (request.entries() == null || request.entries().isEmpty()) {
-            throw new BusinessException("Pièce comptable vide — au moins une écriture requise.");
+            throw new BusinessException("Pièce comptable vide : au moins une écriture requise.");
         }
 
         // 1. Idempotence
         Optional<JournalPieceEntity> existing = pieces.findBySource(request.sourceType(), request.sourceId());
         if (existing.isPresent()) {
-            LOG.debugf("Pièce déjà comptabilisée pour %s/%s — no-op",
+            LOG.debugf("Pièce déjà comptabilisée pour %s/%s : no-op",
                     request.sourceType(), request.sourceId());
             return existing;
         }
@@ -122,6 +125,29 @@ public class AccountingService {
                             + " (source " + request.sourceRef() + ").");
         }
 
+        // Imputation analytique : un centre de coût ne se pose que sur une
+        // ligne de charge (compte de classe 6), conformément à la règle
+        // analytique (backlog CPT-09).
+        for (JournalEntry e : request.entries()) {
+            if (e.costCenter != null
+                    && (e.syscohadaAccount == null || !e.syscohadaAccount.startsWith("6"))) {
+                throw new BusinessException(
+                        "Un centre de coût ne s'impute que sur une ligne de charge (classe 6) — "
+                                + "compte « " + e.syscohadaAccount + " ».");
+            }
+            boolean chargeOrProduct = e.syscohadaAccount != null
+                    && (e.syscohadaAccount.startsWith("6") || e.syscohadaAccount.startsWith("7"));
+            if (e.program != null && !chargeOrProduct) {
+                throw new BusinessException(
+                        "Un programme ne s'impute que sur une charge (classe 6) ou un produit "
+                                + "(classe 7) — compte « " + e.syscohadaAccount + " ».");
+            }
+            if (e.project != null && e.program == null) {
+                throw new BusinessException(
+                        "Un projet requiert un programme (compte « " + e.syscohadaAccount + " »).");
+            }
+        }
+
         // 4. Construction + insert
         JournalPieceEntity piece = new JournalPieceEntity();
         piece.id = idGenerator.newId();
@@ -137,8 +163,20 @@ public class AccountingService {
         piece.createdAt = Instant.now();
         piece.createdBy = actorUserId();
         piece.createdByEmail = null;
-        pieces.insert(piece);
-        LOG.infof("Pièce %s comptabilisée — %s %s — %s",
+        try {
+            pieces.insert(piece);
+        } catch (com.mongodb.MongoWriteException dup) {
+            if (dup.getError().getCategory()
+                    != com.mongodb.ErrorCategory.DUPLICATE_KEY) {
+                throw dup;
+            }
+            // Course perdue sur l'index unique (sourceType, sourceId) :
+            // l'autre appel a déjà comptabilisé — on renvoie sa pièce.
+            LOG.infof("Course d'idempotence sur %s/%s : pièce existante renvoyée",
+                    request.sourceType(), request.sourceId());
+            return pieces.findBySource(request.sourceType(), request.sourceId());
+        }
+        LOG.infof("Pièce %s comptabilisée : %s %s : %s",
                 piece.ref, piece.sourceType, piece.sourceRef, totalDebit);
         return Optional.of(piece);
     }
@@ -155,7 +193,7 @@ public class AccountingService {
                                                     String reason) {
         Optional<JournalPieceEntity> original = pieces.findBySource(originalType, sourceId);
         if (original.isEmpty()) {
-            LOG.debugf("Aucune pièce à contre-passer pour %s/%s — no-op", originalType, sourceId);
+            LOG.debugf("Aucune pièce à contre-passer pour %s/%s : no-op", originalType, sourceId);
             return Optional.empty();
         }
         JournalPieceEntity src = original.get();
@@ -170,7 +208,7 @@ public class AccountingService {
             }
         }
         String libelle = "Contre-passation " + src.ref
-                + (reason != null && !reason.isBlank() ? " — " + reason : "");
+                + (reason != null && !reason.isBlank() ? " : " + reason : "");
 
         // L'idempotence est gérée par postPiece via l'index (sourceType, sourceId).
         Optional<JournalPieceEntity> created = postPiece(new PostingRequest(
@@ -216,6 +254,236 @@ public class AccountingService {
         return SyscohadaAccounts.purchaseChargeAccountFor(articleType);
     }
 
+    /**
+     * Centre de coût imputé par défaut à une ligne d'achat (backlog
+     * CPT-09) : lu sur la fiche article, {@code null} si l'article n'en
+     * porte pas. Cache par article pour ne pas relire à chaque ligne.
+     */
+    private String costCenterFor(UUID articleId, Map<UUID, String> cache) {
+        if (articleId == null) return null;
+        String resolved = cache.computeIfAbsent(articleId, id ->
+                articles.findById(id)
+                        .map(a -> a.defaultCostCenter)
+                        .filter(cc -> cc != null && !cc.isBlank())
+                        .map(String::trim)
+                        .orElse(""));
+        return resolved.isEmpty() ? null : resolved;
+    }
+
+    /**
+     * Lignes de crédit 701 d'une vente, ventilées par programme budgétaire
+     * de l'article (backlog CPT-10). Somme garantie égale à {@code ht}.
+     */
+    private List<JournalEntry> salesRevenueEntries(SaleEntity sale, BigDecimal ht) {
+        // Cache par article : [compte de produit, programme, projet].
+        Map<UUID, String[]> articleCache = new java.util.HashMap<>();
+        // Groupe (compte|programme|projet) -> HT cumulé, ordre préservé.
+        java.util.LinkedHashMap<String, BigDecimal> byGroup = new java.util.LinkedHashMap<>();
+        java.util.Map<String, String[]> groupMeta = new java.util.HashMap<>();
+        BigDecimal sumHt = BigDecimal.ZERO;
+        for (SaleLine line : sale.lines) {
+            BigDecimal lineHt = nz(line.lineTotalHtFcfa);
+            if (lineHt.signum() == 0) continue;
+            String[] apg = articleCache.computeIfAbsent(line.articleId, id -> {
+                if (id == null) {
+                    return new String[]{SyscohadaAccounts.VENTES_PRODUITS_FINIS, null, null};
+                }
+                return articles.findById(id)
+                        .map(a -> new String[]{
+                                blankNull(a.salesRevenueAccount) != null
+                                        ? a.salesRevenueAccount
+                                        : SyscohadaAccounts.VENTES_PRODUITS_FINIS,
+                                blankNull(a.defaultProgram), blankNull(a.defaultProject)})
+                        .orElse(new String[]{SyscohadaAccounts.VENTES_PRODUITS_FINIS, null, null});
+            });
+            String key = apg[0] + "|" + (apg[1] == null ? "" : apg[1]) + "|" + (apg[2] == null ? "" : apg[2]);
+            byGroup.merge(key, lineHt, BigDecimal::add);
+            groupMeta.putIfAbsent(key, apg);
+            sumHt = sumHt.add(lineHt);
+        }
+        List<JournalEntry> result = new ArrayList<>();
+        if (byGroup.isEmpty() || sumHt.signum() == 0) {
+            result.add(JournalEntry.credit(SyscohadaAccounts.VENTES_PRODUITS_FINIS,
+                    "Vente " + sale.ref, ht));
+            return result;
+        }
+        // Coefficient pour absorber la remise globale (ht peut être < sumHt).
+        BigDecimal running = BigDecimal.ZERO;
+        List<String> keys = new ArrayList<>(byGroup.keySet());
+        for (int i = 0; i < keys.size(); i++) {
+            String key = keys.get(i);
+            BigDecimal share = i == keys.size() - 1
+                    ? ht.subtract(running)
+                    : byGroup.get(key).multiply(ht)
+                        .divide(sumHt, MONEY_SCALE, RoundingMode.HALF_UP);
+            running = running.add(share);
+            String[] apg = groupMeta.get(key);
+            result.add(JournalEntry.credit(apg[0], "Vente " + sale.ref, share)
+                    .program(apg[1], apg[2]));
+        }
+        return result;
+    }
+
+    private static String blankNull(String s) { return (s == null || s.isBlank()) ? null : s.trim(); }
+
+    /**
+     * Impute une ligne de charge (backlog CPT-09/CPT-10) : centre de coût
+     * depuis la fiche article, puis programme/projet dérivés du centre
+     * (règle éditable portée par {@code CostCenter.defaultProgram}). Le
+     * cache {@code centersByCode} évite de relire le référentiel.
+     */
+    /**
+     * Avance de fonds à un délégué collecteur (backlog ACH-02) : débit du
+     * compte d'avances (4091 paramétrable), crédit de la trésorerie.
+     * Idempotent sur {@code (COLLECTOR_ADVANCE, advanceId)}.
+     */
+    public Optional<JournalPieceEntity> postFromCollectorAdvance(
+            UUID advanceId, String ref, String delegateLabel, BigDecimal amount,
+            com.ntech.cabosse.reception.entity.PaymentMethod method, LocalDate date) {
+        if (amount == null || amount.signum() <= 0) return Optional.empty();
+        String advanceAccount = preferencesLookup.current().collectorAdvanceAccount();
+        String treasury = treasuryAccountFor(method);
+        List<JournalEntry> entries = List.of(
+                JournalEntry.debit(advanceAccount, "Avance " + nullSafe(delegateLabel), amount),
+                JournalEntry.credit(treasury, "Décaissement avance " + ref, amount));
+        return postPiece(new PostingRequest(
+                date != null ? date : LocalDate.now(),
+                PostingSourceType.COLLECTOR_ADVANCE, advanceId, ref,
+                "Avance délégué " + ref + " : " + nullSafe(delegateLabel), entries));
+    }
+
+    /**
+     * Livraison d'un délégué imputée sur son avance (backlog ACH-02) :
+     * débit du compte de charge d'achat (imputé par centre/programme),
+     * crédit du compte d'avances (apurement). Idempotent sur
+     * {@code (COLLECTOR_DELIVERY, deliveryId)}.
+     */
+    public Optional<JournalPieceEntity> postFromCollectorDelivery(
+            UUID deliveryId, String ref, UUID articleId, ArticleType articleType,
+            String articleName, BigDecimal amount, LocalDate date) {
+        if (amount == null || amount.signum() <= 0) return Optional.empty();
+        String advanceAccount = preferencesLookup.current().collectorAdvanceAccount();
+        String chargeAccount = chargeAccountFor(articleId, articleType, new java.util.HashMap<>());
+        JournalEntry charge = imputeCharge(
+                JournalEntry.debit(chargeAccount, "Livraison " + nullSafe(articleName), amount),
+                articleId, new java.util.HashMap<>(), costCenters.byCode());
+        List<JournalEntry> entries = List.of(
+                charge,
+                JournalEntry.credit(advanceAccount, "Apurement avance " + ref, amount));
+        return postPiece(new PostingRequest(
+                date != null ? date : LocalDate.now(),
+                PostingSourceType.COLLECTOR_DELIVERY, deliveryId, ref,
+                "Livraison délégué " + ref, entries));
+    }
+
+    /**
+     * Dépense directe sans bon de livraison (backlog ACH-03) : contrat/
+     * abonnement ou petite caisse. Débit du compte de charge (HT) ; débit
+     * TVA déductible si la TVA est récupérable et non nulle ; crédit du
+     * compte de trésorerie (TTC) selon le mode de règlement. Si la TVA
+     * n'est pas récupérable, elle est intégrée au débit de la charge.
+     * Idempotent sur {@code (DIRECT_EXPENSE, expenseId)}.
+     */
+    public Optional<JournalPieceEntity> postFromDirectExpense(
+            UUID expenseId, String ref, LocalDate date, String chargeAccount,
+            String label, BigDecimal amountHt, BigDecimal vatAmount,
+            BigDecimal amountTtc, String treasuryAccount, String allocationKeyCode) {
+        if (amountTtc == null || amountTtc.signum() <= 0) return Optional.empty();
+        boolean vatRecoverable = preferencesLookup.current().vatRecoverable();
+        BigDecimal vat = nz(vatAmount);
+        String piece = (label == null || label.isBlank()) ? "Dépense " + ref : label.trim();
+        boolean separateVat = vatRecoverable && vat.signum() > 0;
+        // Base de charge : HT si TVA récupérable (ligne TVA séparée), sinon TTC.
+        BigDecimal chargeBase = separateVat ? nz(amountHt) : amountTtc;
+        List<JournalEntry> entries = new ArrayList<>(
+                chargeLines(chargeAccount, piece, chargeBase, allocationKeyCode));
+        if (separateVat) {
+            entries.add(JournalEntry.debit(preferencesLookup.current().vatDeductibleAccount(),
+                    "TVA déductible", vat));
+        }
+        entries.add(JournalEntry.credit(treasuryAccount, "Règlement " + ref, amountTtc));
+        return postPiece(new PostingRequest(
+                date != null ? date : LocalDate.now(),
+                PostingSourceType.DIRECT_EXPENSE, expenseId, ref, piece, entries));
+    }
+
+    /**
+     * Lignes de débit de charge : une seule ligne si pas de clé de
+     * répartition, sinon la charge est éclatée sur les centres de coût de
+     * la clé au prorata des poids (charge indirecte, backlog CPT-17).
+     */
+    private List<JournalEntry> chargeLines(String account, String label,
+                                           BigDecimal base, String allocationKeyCode) {
+        if (allocationKeyCode == null || allocationKeyCode.isBlank()) {
+            List<JournalEntry> single = new ArrayList<>();
+            single.add(JournalEntry.debit(account, label, base));
+            return single;
+        }
+        com.ntech.cabosse.analytics.entity.AllocationKeyEntity key = allocationKeys
+                .findByCode(allocationKeyCode)
+                .orElseThrow(() -> new BusinessException(
+                        "Clé de répartition « " + allocationKeyCode + " » introuvable."));
+        if (key.lines == null || key.lines.isEmpty()) {
+            List<JournalEntry> single = new ArrayList<>();
+            single.add(JournalEntry.debit(account, label, base));
+            return single;
+        }
+        return spreadCharge(account, label, base, key, costCenters.byCode());
+    }
+
+    /** Éclate une charge sur les centres de coût d'une clé, au prorata des poids. */
+    private List<JournalEntry> spreadCharge(
+            String account, String label, BigDecimal total,
+            com.ntech.cabosse.analytics.entity.AllocationKeyEntity key,
+            Map<String, com.ntech.cabosse.analytics.entity.CostCenterEntity> centersByCode) {
+        List<JournalEntry> result = new ArrayList<>();
+        BigDecimal sumW = BigDecimal.ZERO;
+        for (var l : key.lines) sumW = sumW.add(nz(l.weight));
+        if (sumW.signum() <= 0) {
+            result.add(JournalEntry.debit(account, label, total));
+            return result;
+        }
+        BigDecimal running = BigDecimal.ZERO;
+        for (int i = 0; i < key.lines.size(); i++) {
+            var l = key.lines.get(i);
+            BigDecimal share = (i == key.lines.size() - 1)
+                    ? total.subtract(running)
+                    : total.multiply(nz(l.weight)).divide(sumW, MONEY_SCALE, RoundingMode.HALF_UP);
+            running = running.add(share);
+            if (share.signum() == 0) continue;
+            result.add(imputeChargeToCostCenter(
+                    JournalEntry.debit(account, label, share), l.costCenter, centersByCode));
+        }
+        return result;
+    }
+
+    /** Impute un centre de coût (et son programme, règle v8) sur une ligne de charge. */
+    private JournalEntry imputeChargeToCostCenter(
+            JournalEntry entry, String ccCode,
+            Map<String, com.ntech.cabosse.analytics.entity.CostCenterEntity> centersByCode) {
+        if (ccCode == null || ccCode.isBlank()) return entry;
+        entry.costCenter(ccCode);
+        var center = centersByCode.get(ccCode);
+        if (center != null && center.defaultProgram != null && !center.defaultProgram.isBlank()) {
+            entry.program(center.defaultProgram, center.defaultProject);
+        }
+        return entry;
+    }
+
+    private JournalEntry imputeCharge(JournalEntry entry, UUID articleId,
+                                      Map<UUID, String> ccCache,
+                                      Map<String, com.ntech.cabosse.analytics.entity.CostCenterEntity> centersByCode) {
+        String cc = costCenterFor(articleId, ccCache);
+        entry.costCenter(cc);
+        if (cc != null) {
+            var center = centersByCode.get(cc);
+            if (center != null && center.defaultProgram != null && !center.defaultProgram.isBlank()) {
+                entry.program(center.defaultProgram, center.defaultProject);
+            }
+        }
+        return entry;
+    }
+
     private PostingSourceType reversalTypeFor(PostingSourceType t) {
         return switch (t) {
             case PURCHASE_ORDER -> PostingSourceType.PURCHASE_ORDER_REVERSAL;
@@ -225,6 +493,8 @@ public class AccountingService {
             case DIRECT_RECEIPT_PAYMENT -> PostingSourceType.DIRECT_RECEIPT_PAYMENT_REVERSAL;
             case MEMBER_CAPITAL -> PostingSourceType.MEMBER_CAPITAL_REVERSAL;
             case MEMBER_CAPITAL_LIBERATION -> PostingSourceType.MEMBER_CAPITAL_LIBERATION_REVERSAL;
+            case COLLECTOR_ADVANCE -> PostingSourceType.COLLECTOR_ADVANCE_REVERSAL;
+            case DIRECT_EXPENSE -> PostingSourceType.DIRECT_EXPENSE_REVERSAL;
             default -> throw new BusinessException(
                     "Contre-passation impossible sur une pièce déjà contre-passée (" + t + ").");
         };
@@ -245,6 +515,8 @@ public class AccountingService {
     public Optional<JournalPieceEntity> postFromPurchaseOrder(PurchaseOrderEntity bc, boolean vatRecoverable) {
         List<JournalEntry> entries = new ArrayList<>();
         Map<UUID, String> accountCache = new java.util.HashMap<>();
+        Map<UUID, String> ccCache = new java.util.HashMap<>();
+        Map<String, com.ntech.cabosse.analytics.entity.CostCenterEntity> centersByCode = costCenters.byCode();
         BigDecimal vatRate = nz(bc.vatRatePct);
         BigDecimal totalTtc = nz(bc.totalTtcFcfa);
 
@@ -260,7 +532,8 @@ public class AccountingService {
                 BigDecimal lineHt = nz(line.totalLineFcfa);
                 if (lineHt.signum() == 0) continue;
                 String account = chargeAccountFor(line.articleId, parseArticleType(line.articleType), accountCache);
-                entries.add(JournalEntry.debit(account, libelleLine(line), lineHt));
+                entries.add(imputeCharge(JournalEntry.debit(account, libelleLine(line), lineHt),
+                        line.articleId, ccCache, centersByCode));
             }
         } else {
             // TVA non récupérable → on enrichit chaque ligne au prorata HT par le coefficient (1 + vatRate/100).
@@ -275,7 +548,8 @@ public class AccountingService {
                 BigDecimal enriched = lineHt.multiply(coefficient).setScale(MONEY_SCALE, RoundingMode.HALF_UP);
                 sumEnriched = sumEnriched.add(enriched);
                 String account = chargeAccountFor(line.articleId, parseArticleType(line.articleType), accountCache);
-                lineEntries.add(JournalEntry.debit(account, libelleLine(line), enriched));
+                lineEntries.add(imputeCharge(JournalEntry.debit(account, libelleLine(line), enriched),
+                        line.articleId, ccCache, centersByCode));
             }
             // Ajustement d'arrondi cumulé : aligne la dernière ligne sur le TTC exact.
             if (!lineEntries.isEmpty() && sumEnriched.compareTo(totalTtc) != 0) {
@@ -297,7 +571,7 @@ public class AccountingService {
                 PostingSourceType.PURCHASE_ORDER,
                 bc.id,
                 bc.ref,
-                "Livraison " + bc.ref + " — " + nullSafe(bc.supplierName),
+                "Livraison " + bc.ref + " : " + nullSafe(bc.supplierName),
                 entries
         ));
     }
@@ -333,11 +607,9 @@ public class AccountingService {
 
         // Débit charge agrégé (même compte 601/604/6081 selon le type)
         String account = chargeAccountFor(rd.articleId, articleType, new java.util.HashMap<>());
-        entries.add(0, JournalEntry.debit(
-                account,
-                "Achat " + nullSafe(rd.articleName),
-                totalCharge
-        ));
+        entries.add(0, imputeCharge(
+                JournalEntry.debit(account, "Achat " + nullSafe(rd.articleName), totalCharge),
+                rd.articleId, new java.util.HashMap<>(), costCenters.byCode()));
 
         // TVA déductible si applicable
         if (vatRecoverable && vatRate.signum() > 0) {
@@ -356,7 +628,7 @@ public class AccountingService {
                 PostingSourceType.DIRECT_RECEIPT,
                 rd.id,
                 rd.ref,
-                "Réception " + rd.ref + " — " + nullSafe(rd.articleName),
+                "Réception " + rd.ref + " : " + nullSafe(rd.articleName),
                 entries
         ));
     }
@@ -376,11 +648,12 @@ public class AccountingService {
                 "Créance " + nullSafe(sale.customerName),
                 ttc
         ));
-        entries.add(JournalEntry.credit(
-                SyscohadaAccounts.VENTES_PRODUITS_FINIS,
-                "Vente " + sale.ref,
-                ht
-        ));
+        // Crédit 701 ventilé par programme budgétaire (backlog CPT-10) :
+        // le programme d'un produit est porté par la fiche article
+        // (une vente n'a pas de centre de coût). Les lignes sont groupées
+        // par (programme, projet) ; la remise globale est absorbée par un
+        // coefficient et l'écart d'arrondi aligné sur la dernière ligne.
+        entries.addAll(salesRevenueEntries(sale, ht));
         if (vat.signum() > 0) {
             entries.add(JournalEntry.credit(
                     SyscohadaAccounts.TVA_COLLECTEE,
@@ -394,7 +667,7 @@ public class AccountingService {
                 PostingSourceType.SALE,
                 sale.id,
                 sale.ref,
-                "Vente " + sale.ref + " — " + nullSafe(sale.customerName),
+                "Vente " + sale.ref + " : " + nullSafe(sale.customerName),
                 entries
         ));
     }
@@ -411,7 +684,7 @@ public class AccountingService {
                 PostingSourceType.SALE_PAYMENT,
                 payment.id,
                 sale.ref,
-                "Encaissement " + sale.ref + " — " + nullSafe(sale.customerName),
+                "Encaissement " + sale.ref + " : " + nullSafe(sale.customerName),
                 entries
         ));
     }
@@ -447,7 +720,7 @@ public class AccountingService {
                 PostingSourceType.DIRECT_RECEIPT_PAYMENT,
                 paymentSurrogateId,
                 rd.ref,
-                "Décaissement " + rd.ref + " — " + nullSafe(line.supplierName),
+                "Décaissement " + rd.ref + " : " + nullSafe(line.supplierName),
                 entries
         ));
     }
@@ -517,7 +790,7 @@ public class AccountingService {
                 PostingSourceType.MEMBER_CAPITAL,
                 memberId,
                 nullSafe(memberLabel),
-                "Part sociale — " + nullSafe(memberLabel),
+                "Part sociale : " + nullSafe(memberLabel),
                 entries
         ));
     }
@@ -542,7 +815,7 @@ public class AccountingService {
                 PostingSourceType.MEMBER_CAPITAL,
                 memberId,
                 nullSafe(memberLabel),
-                "Souscription part sociale — " + nullSafe(memberLabel),
+                "Souscription part sociale : " + nullSafe(memberLabel),
                 List.of(
                         JournalEntry.debit(SyscohadaAccounts.ASSOCIES_CAPITAL,
                                 "Souscription " + nullSafe(memberLabel), amount),
@@ -555,7 +828,7 @@ public class AccountingService {
                 PostingSourceType.MEMBER_CAPITAL_LIBERATION,
                 memberId,
                 nullSafe(memberLabel),
-                "Libération part sociale — " + nullSafe(memberLabel),
+                "Libération part sociale : " + nullSafe(memberLabel),
                 List.of(
                         JournalEntry.debit(treasuryAccount,
                                 "Libération part sociale " + nullSafe(memberLabel), amount),
@@ -587,9 +860,9 @@ public class AccountingService {
         BigDecimal value = valueFcfa.setScale(MONEY_SCALE, RoundingMode.HALF_UP);
         List<JournalEntry> entries = List.of(
                 JournalEntry.debit(stockAccount,
-                        "Stock " + nullSafe(toSiteName) + " — " + nullSafe(articleName), value),
+                        "Stock " + nullSafe(toSiteName) + " : " + nullSafe(articleName), value),
                 JournalEntry.credit(stockAccount,
-                        "Stock " + nullSafe(fromSiteName) + " — " + nullSafe(articleName), value)
+                        "Stock " + nullSafe(fromSiteName) + " : " + nullSafe(articleName), value)
         );
         return postPiece(new PostingRequest(
                 date != null ? date : LocalDate.now(),
@@ -597,7 +870,7 @@ public class AccountingService {
                 transferId,
                 nullSafe(articleName),
                 "Transfert " + nullSafe(fromSiteName) + " vers " + nullSafe(toSiteName)
-                        + " — " + nullSafe(articleName),
+                        + " : " + nullSafe(articleName),
                 entries
         ));
     }
@@ -606,7 +879,7 @@ public class AccountingService {
     //  Helpers internes
     // ════════════════════════════════════════════════════════════════
 
-    private String treasuryAccountFor(PaymentMethod method) {
+    public String treasuryAccountFor(PaymentMethod method) {
         if (method == null) return SyscohadaAccounts.BANQUE_DEFAULT;
         return switch (method) {
             case CASH -> SyscohadaAccounts.CAISSE_DEFAULT;

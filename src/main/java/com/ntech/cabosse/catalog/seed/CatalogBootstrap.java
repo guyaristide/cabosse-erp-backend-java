@@ -31,8 +31,8 @@ public class CatalogBootstrap {
 
     void onStart(@Observes @Priority(2550) StartupEvent ev) {
         if (LaunchMode.current() == LaunchMode.TEST) return;
-        log.info("Catalog bootstrap — start");
+        log.info("Catalog bootstrap : start");
         seeder.seedAll();
-        log.info("Catalog bootstrap — OK");
+        log.info("Catalog bootstrap : OK");
     }
 }

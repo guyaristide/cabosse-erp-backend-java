@@ -34,7 +34,7 @@ public class ControlPlaneSchemaBootstrap {
     Logger log;
 
     void onStart(@Observes StartupEvent ev) {
-        log.info("Control plane schema bootstrap — start");
+        log.info("Control plane schema bootstrap : start");
 
         // ─── tenants ───
         controlPlane.collection(ControlPlane.Collections.TENANTS, Document.class)
@@ -163,6 +163,6 @@ public class ControlPlaneSchemaBootstrap {
         // storage, payment.*, notifications) accédées par clé primaire.
         controlPlane.collection(ControlPlane.Collections.PLATFORM_SETTINGS, Document.class);
 
-        log.info("Control plane schema bootstrap — OK");
+        log.info("Control plane schema bootstrap : OK");
     }
 }

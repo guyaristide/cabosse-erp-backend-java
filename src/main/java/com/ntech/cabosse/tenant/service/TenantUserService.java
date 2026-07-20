@@ -154,7 +154,7 @@ public class TenantUserService {
             throw new NotFoundException("Utilisateur introuvable dans ce tenant.");
         }
         if (user.status == UserStatus.DISABLED) {
-            throw new BusinessException("Compte désactivé — ré-activer avant de réinitialiser le mot de passe.");
+            throw new BusinessException("Compte désactivé : ré-activer avant de réinitialiser le mot de passe.");
         }
 
         InvitationTokenService.InvitationToken token = invitationTokens.generate();
@@ -196,7 +196,7 @@ public class TenantUserService {
                 .render();
         mailer.sendHtml(
                 user.email,
-                "Invitation Cabosse ERP — " + tenant.name,
+                "Invitation Cabosse ERP : " + tenant.name,
                 html
         );
     }
@@ -210,7 +210,7 @@ public class TenantUserService {
                 .render();
         mailer.sendHtml(
                 user.email,
-                "Réinitialisation du mot de passe — Cabosse ERP",
+                "Réinitialisation du mot de passe : Cabosse ERP",
                 html
         );
     }

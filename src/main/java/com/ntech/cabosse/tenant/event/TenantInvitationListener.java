@@ -61,7 +61,7 @@ public class TenantInvitationListener {
 
             mailer.sendHtml(
                     event.adminEmail(),
-                    "Activez votre compte Cabosse ERP — " + event.tenantName(),
+                    "Activez votre compte Cabosse ERP : " + event.tenantName(),
                     html
             );
 

@@ -18,69 +18,72 @@ public final class SyscohadaAccounts {
     private SyscohadaAccounts() {}
 
     // ─── Tiers ───
-    public static final String FOURNISSEURS = "401";
-    public static final String CLIENTS = "411";
+    public static final String FOURNISSEURS = "401000";
+    public static final String CLIENTS = "411000";
 
     // ─── Charges (achats) ───
     /** Achats de matières premières. */
-    public static final String ACHATS_MATIERES = "601";
+    public static final String ACHATS_MATIERES = "601000";
     /** Achats stockés — autres approvisionnements (consommables). */
-    public static final String ACHATS_AUTRES = "604";
+    public static final String ACHATS_AUTRES = "604000";
     /** Achats d'emballages. */
-    public static final String ACHATS_EMBALLAGES = "6081";
+    public static final String ACHATS_EMBALLAGES = "608100";
     /** Transports sur achats (fret, livraisons fournisseur). */
-    public static final String TRANSPORTS_SUR_ACHATS = "624";
+    public static final String TRANSPORTS_SUR_ACHATS = "624000";
 
     // ─── Produits (ventes) ───
     /** Ventes de marchandises / produits finis (MVP : compte unique 701). */
-    public static final String VENTES_PRODUITS_FINIS = "701";
+    public static final String VENTES_PRODUITS_FINIS = "701000";
 
     // ─── TVA ───
     /** TVA déductible sur achats. */
-    public static final String TVA_DEDUCTIBLE = "4456";
+    public static final String TVA_DEDUCTIBLE = "445600";
     /** TVA collectée sur ventes. */
-    public static final String TVA_COLLECTEE = "4457";
+    public static final String TVA_COLLECTEE = "445700";
 
     // ─── Stocks et variations (inventaire) ───
     /** Stocks de marchandises (produits agricoles achetés-revendus, réf. jeux d'écritures v7). */
-    public static final String STOCKS_MARCHANDISES = "31";
+    public static final String STOCKS_MARCHANDISES = "310000";
     /** Stocks d'autres approvisionnements (consommables, emballages). */
-    public static final String STOCKS_AUTRES_APPRO = "33";
+    public static final String STOCKS_AUTRES_APPRO = "330000";
     /** Stocks de produits finis. */
-    public static final String STOCKS_PRODUITS_FINIS = "36";
+    public static final String STOCKS_PRODUITS_FINIS = "360000";
     /** Variation des stocks de marchandises. */
-    public static final String VARIATION_STOCKS_MARCHANDISES = "6031";
+    public static final String VARIATION_STOCKS_MARCHANDISES = "603100";
     /** Variation des stocks d'autres approvisionnements. */
-    public static final String VARIATION_STOCKS_AUTRES = "6033";
+    public static final String VARIATION_STOCKS_AUTRES = "603300";
     /** Variation des stocks de produits fabriqués (compte de produits). */
-    public static final String VARIATION_STOCKS_PRODUITS = "736";
+    public static final String VARIATION_STOCKS_PRODUITS = "736000";
 
     /** Associés, opérations sur le capital — souscription des parts sociales (réf. v7). */
-    public static final String ASSOCIES_CAPITAL = "461";
+    public static final String ASSOCIES_CAPITAL = "461000";
+
+    /** Fournisseurs, avances et acomptes versés — avances aux délégués (ACH-02). */
+    public static final String FOURNISSEURS_AVANCES = "409100";
 
     // ─── Fin d'exercice (backlog CPT-12) ───
     /** Résultat net de l'exercice. */
-    public static final String RESULTAT_EXERCICE = "13";
+    public static final String RESULTAT_EXERCICE = "130000";
     /** Produits en cours (constat des en-cours à l'arrêté). */
-    public static final String EN_COURS = "34";
+    public static final String EN_COURS = "340000";
     /** Variation des en-cours. */
-    public static final String VARIATION_EN_COURS = "734";
+    public static final String VARIATION_EN_COURS = "734000";
     /** Impôt sur le résultat. */
-    public static final String IMPOT_RESULTAT = "891";
+    public static final String IMPOT_RESULTAT = "891000";
     /** État, impôt sur les bénéfices. */
-    public static final String ETAT_IMPOT_BENEFICES = "441";
+    public static final String ETAT_IMPOT_BENEFICES = "441000";
 
     // ─── Divers ───
     /** Créditeurs et débiteurs divers — écritures d'attente du rapprochement. */
-    public static final String COMPTES_ATTENTE = "471";
+    public static final String COMPTES_ATTENTE = "471000";
     /** Frais bancaires et assimilés. */
-    public static final String FRAIS_BANCAIRES = "631";
+    public static final String FRAIS_BANCAIRES = "631000";
 
     // ─── Trésorerie (par défaut) ───
     /** Banque — compte courant par défaut si aucun BankAccount précisé. */
-    public static final String BANQUE_DEFAULT = "521";
+    public static final String BANQUE_DEFAULT = "521000";
     /** Caisse — espèces par défaut (57x AUDCIF, réf. jeux d'écritures v7). */
-    public static final String CAISSE_DEFAULT = "571";
+    public static final String CAISSE_DEFAULT = "571000";
 
     /**
      * Résout le compte de charge à débiter pour une ligne d'achat selon

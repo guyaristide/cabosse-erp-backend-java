@@ -170,7 +170,7 @@ public class StockService {
         if (input.kind() == MovementKind.OPENING
                 && movements.hasAnyMovement(input.articleId(), input.siteId())) {
             throw new BusinessException(
-                    "Amorçage refusé — ce couple (article, site) a déjà des mouvements. "
+                    "Amorçage refusé : ce couple (article, site) a déjà des mouvements. "
                             + "Utilisez un ajustement.");
         }
 
@@ -201,9 +201,13 @@ public class StockService {
                 ? input.unitPriceFcfa()
                 : BigDecimal.ZERO;
 
+        boolean requireAvailability = (input.kind() == MovementKind.OUT
+                || input.kind() == MovementKind.TRANSFER_OUT)
+                && !ALLOW_NEGATIVE_STOCK
+                && !input.force();
         StockItemEntity updated = isEntry
-                ? applyEntryAtomic(article, site, signedQty, puIn)
-                : applyOutOrAdjustmentAtomic(article, site, signedQty);
+                ? applyEntryAtomic(article, site, signedQty, puIn, input.replaceCmupWithUnitPrice())
+                : applyOutOrAdjustmentAtomic(article, site, signedQty, requireAvailability);
 
         // ── Journalisation du mouvement ──
         StockMovementEntity mvt = new StockMovementEntity();
@@ -279,7 +283,8 @@ public class StockService {
      * le résultat — le tout en une opération indivisible.
      */
     private StockItemEntity applyEntryAtomic(ArticleEntity article, SiteEntity site,
-                                              BigDecimal qtyIn, BigDecimal puIn) {
+                                              BigDecimal qtyIn, BigDecimal puIn,
+                                              boolean replaceCmupWithUnitPrice) {
         Instant now = Instant.now();
         UUID newDocId = UuidCreator.getTimeOrderedEpoch();
         Decimal128 qtyInD = new Decimal128(qtyIn);
@@ -308,7 +313,12 @@ public class StockService {
                         new Document("$ifNull", List.of("$quantity", zero)),
                         qtyInD
                 )))
-                .append("cmupFcfa", cmupExpression(qtyInD, puInD, zero))
+                // Mode « par lot » (livraison délégué, v21) : le coût de
+                // l'entrée fait autorité, le CMUP prend ce PU sans pondérer.
+                // Sinon, pondération standard (article, site).
+                .append("cmupFcfa", replaceCmupWithUnitPrice
+                        ? puInD
+                        : cmupExpression(qtyInD, puInD, zero))
                 .append("lastMovementAt", now)
                 .append("updatedAt", now)
                 .append("version", new Document("$add", List.of(
@@ -403,7 +413,8 @@ public class StockService {
     // ─── Sortie / ajustement : qté modifiée, CMUP inchangé ──────────
 
     private StockItemEntity applyOutOrAdjustmentAtomic(ArticleEntity article, SiteEntity site,
-                                                        BigDecimal signedQty) {
+                                                        BigDecimal signedQty,
+                                                        boolean requireAvailability) {
         Instant now = Instant.now();
         UUID newDocId = UuidCreator.getTimeOrderedEpoch();
         Decimal128 deltaD = new Decimal128(signedQty);
@@ -455,18 +466,37 @@ public class StockService {
                 new Document("$set", setDefaults)
         );
 
-        StockItemEntity result = stockItems.collection().findOneAndUpdate(
-                Filters.and(
+        // Garde de disponibilité DANS le filtre : le contrôle amont est un
+        // read-then-act (TOCTOU) — deux sorties concurrentes pouvaient le
+        // passer toutes les deux et rendre le stock négatif. Ici, seul le
+        // premier update qui satisfait quantity >= besoin gagne. Pas
+        // d'upsert dans ce mode : un stock inexistant = insuffisant.
+        Bson filter = requireAvailability
+                ? Filters.and(
                         Filters.eq("articleId", article.id),
-                        Filters.eq("siteId", site.id)
-                ),
+                        Filters.eq("siteId", site.id),
+                        Filters.gte("quantity", new Decimal128(signedQty.abs())))
+                : Filters.and(
+                        Filters.eq("articleId", article.id),
+                        Filters.eq("siteId", site.id));
+
+        StockItemEntity result = stockItems.collection().findOneAndUpdate(
+                filter,
                 pipeline,
                 new FindOneAndUpdateOptions()
-                        .upsert(true)
+                        .upsert(!requireAvailability)
                         .returnDocument(ReturnDocument.AFTER)
         );
 
         if (result == null) {
+            if (requireAvailability) {
+                BigDecimal current = stockItems.findByArticleAndSite(article.id, site.id)
+                        .map(it -> it.quantity)
+                        .orElse(BigDecimal.ZERO);
+                throw new BusinessException(
+                        "Stock insuffisant : " + current + " " + article.unit
+                                + " disponible, " + signedQty.abs() + " demandé(s).");
+            }
             throw new BusinessException(
                     "Échec de l'application du mouvement sur le stock.");
         }

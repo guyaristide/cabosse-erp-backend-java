@@ -63,6 +63,9 @@ public class AccountingQueryService {
     @Inject TenantMongoDatabaseProvider tenantDb;
     @Inject com.ntech.cabosse.accounting.repository.TvaDeclarationRepository tvaDeclarations;
     @Inject com.ntech.cabosse.tenant.service.TenantPreferencesLookup preferencesLookup;
+    @Inject com.ntech.cabosse.analytics.repository.CostCenterRepository costCenters;
+    @Inject com.ntech.cabosse.analytics.repository.ProgramRepository programs;
+    @Inject com.ntech.cabosse.article.repository.ArticleRepository articles;
 
     // ════════════════════════════════════════════════════════════════
     //  Plan comptable enrichi (solde + nb mouvements sur la période)
@@ -155,8 +158,10 @@ public class AccountingQueryService {
         treasuryAccounts.add(SyscohadaAccounts.BANQUE_DEFAULT);
         treasuryAccounts.add(SyscohadaAccounts.CAISSE_DEFAULT);
         // 530 : ancien compte caisse (avant alignement v7 sur 571) — conservé
-        // pour que les pièces historiques restent comptées.
+        // pour que les pièces historiques restent comptées, avant et après
+        // normalisation 6 chiffres (M040 : 530 -> 530000).
         treasuryAccounts.add("530");
+        treasuryAccounts.add("530000");
         List<CashFlowPointDto> cashFlow = computeCashFlow(cashFlowStart, LocalDate.now(), treasuryAccounts);
 
         // ─── Déclaration TVA mois courant ───
@@ -295,6 +300,173 @@ public class AccountingQueryService {
     }
 
     public record TvaSnapshot(String yearMonth, BigDecimal collected, BigDecimal deductible, BigDecimal toPay) {}
+
+    /**
+     * État analytique par centre de coût (backlog CPT-09) : total des
+     * charges (lignes de classe 6, débit − crédit) groupées par centre
+     * sur la période. Le bucket {@code code=null} porte les charges non
+     * affectées. Les libellés sont repris du référentiel.
+     */
+    public List<com.ntech.cabosse.analytics.dto.CostCenterReportRowDto> costCentersReport(
+            LocalDate from, LocalDate to, String volumeBasis) {
+        List<Document> pipeline = new ArrayList<>();
+        addPeriodMatch(pipeline, from, to);
+        pipeline.add(new Document("$unwind", "$entries"));
+        pipeline.add(new Document("$match", new Document("entries.syscohadaAccount",
+                new Document("$regex", "^6"))));
+        pipeline.add(new Document("$group", new Document("_id", "$entries.costCenter")
+                .append("debit", new Document("$sum",
+                        new Document("$ifNull", List.of("$entries.debitFcfa", 0))))
+                .append("credit", new Document("$sum",
+                        new Document("$ifNull", List.of("$entries.creditFcfa", 0))))));
+        Map<String, String> labels = costCenters.listAll().stream()
+                .collect(Collectors.toMap(c -> c.code, c -> c.name, (a, b) -> a));
+
+        // Volume d'activité par centre (CPT-17) sur la base choisie.
+        Map<String, VolumeAgg> volumeByCenter = volumeByCenter(from, to, volumeBasis);
+
+        List<com.ntech.cabosse.analytics.dto.CostCenterReportRowDto> rows = new ArrayList<>();
+        for (Document d : runAggregate(pipeline)) {
+            String code = d.getString("_id");
+            BigDecimal charges = bd(d.get("debit")).subtract(bd(d.get("credit")));
+            VolumeAgg v = code != null ? volumeByCenter.get(code) : null;
+            BigDecimal volume = null;
+            String unit = null;
+            BigDecimal unitCost = null;
+            boolean mixed = false;
+            if (v != null) {
+                if (v.units.size() > 1) {
+                    mixed = true;
+                } else if (v.quantity.signum() > 0) {
+                    volume = v.quantity;
+                    unit = v.units.iterator().next();
+                    unitCost = charges.divide(volume, 2, java.math.RoundingMode.HALF_UP);
+                }
+            }
+            rows.add(new com.ntech.cabosse.analytics.dto.CostCenterReportRowDto(
+                    code, code != null ? labels.getOrDefault(code, code) : null,
+                    charges, volume, unit, unitCost, mixed));
+        }
+        rows.sort((a, b) -> {
+            if (a.code() == null) return 1;
+            if (b.code() == null) return -1;
+            return a.code().compareTo(b.code());
+        });
+        return rows;
+    }
+
+    /** Cumul de volume et unités rencontrées pour un centre de coût. */
+    private static final class VolumeAgg {
+        BigDecimal quantity = BigDecimal.ZERO;
+        final java.util.Set<String> units = new java.util.HashSet<>();
+    }
+
+    /**
+     * Volume d'activité par centre de coût sur la période (CPT-17). La base
+     * {@code SOLD} agrège les sorties de vente, sinon (défaut) les entrées
+     * d'achat/collecte. Le centre est dérivé du centre par défaut de
+     * l'article ; l'unité est celle de l'article. Un centre agrégeant
+     * plusieurs unités est signalé (aucun coût unitaire ne sera calculé).
+     */
+    private Map<String, VolumeAgg> volumeByCenter(LocalDate from, LocalDate to, String volumeBasis) {
+        boolean sold = "SOLD".equalsIgnoreCase(volumeBasis);
+        List<String> sources = sold
+                ? List.of("SALE")
+                : List.of("PURCHASE_ORDER", "DIRECT_RECEIPT", "COLLECTOR_DELIVERY");
+
+        Document match = new Document("sourceType", new Document("$in", sources));
+        if (from != null || to != null) {
+            Document range = new Document();
+            if (from != null) range.append("$gte", from.atStartOfDay(java.time.ZoneOffset.UTC).toInstant());
+            if (to != null) range.append("$lt",
+                    to.plusDays(1).atStartOfDay(java.time.ZoneOffset.UTC).toInstant());
+            match.append("occurredAt", range);
+        }
+        // Groupé par code article (chaîne snapshotée sur le mouvement) pour
+        // éviter toute conversion d'UUID binaire côté agrégation.
+        List<Document> pipeline = List.of(
+                new Document("$match", match),
+                new Document("$group", new Document("_id", "$articleCode")
+                        .append("qty", new Document("$sum", "$quantitySigned"))
+                        .append("unit", new Document("$first", "$articleUnit"))));
+
+        // Centre par défaut de chaque article, indexé par code.
+        Map<String, String> centerByCode = articles.listAll().stream()
+                .filter(a -> a.defaultCostCenter != null && !a.defaultCostCenter.isBlank()
+                        && a.code != null)
+                .collect(Collectors.toMap(a -> a.code, a -> a.defaultCostCenter, (x, y) -> x));
+
+        Map<String, VolumeAgg> result = new java.util.HashMap<>();
+        var coll = tenantDb.database().getCollection(
+                com.ntech.cabosse.stock.repository.StockMovementRepository.COLLECTION);
+        for (Document d : coll.aggregate(pipeline)) {
+            String articleCode = d.getString("_id");
+            if (articleCode == null) continue;
+            String center = centerByCode.get(articleCode);
+            if (center == null) continue; // article sans centre : hors périmètre analytique
+            BigDecimal qty = bd(d.get("qty")).abs();
+            if (qty.signum() == 0) continue;
+            String unit = d.getString("unit");
+            VolumeAgg agg = result.computeIfAbsent(center, k -> new VolumeAgg());
+            agg.quantity = agg.quantity.add(qty);
+            if (unit != null && !unit.isBlank()) agg.units.add(unit);
+        }
+        return result;
+    }
+
+    /**
+     * État budgétaire par programme/projet (backlog CPT-10) : charges
+     * (classe 6) et produits (classe 7) groupés par (programme, projet)
+     * sur la période. Le bucket {@code program=null} porte les écritures
+     * non affectées.
+     */
+    public List<com.ntech.cabosse.analytics.dto.ProgramReportRowDto> programsReport(
+            LocalDate from, LocalDate to) {
+        List<Document> pipeline = new ArrayList<>();
+        addPeriodMatch(pipeline, from, to);
+        pipeline.add(new Document("$unwind", "$entries"));
+        pipeline.add(new Document("$match", new Document("entries.syscohadaAccount",
+                new Document("$regex", "^[67]"))));
+        pipeline.add(new Document("$group", new Document("_id",
+                new Document("program", "$entries.program").append("project", "$entries.project"))
+                .append("charge", new Document("$sum", new Document("$cond", List.of(
+                        new Document("$eq", List.of(
+                                new Document("$substrBytes", List.of("$entries.syscohadaAccount", 0, 1)), "6")),
+                        new Document("$subtract", List.of(
+                                new Document("$ifNull", List.of("$entries.debitFcfa", 0)),
+                                new Document("$ifNull", List.of("$entries.creditFcfa", 0)))),
+                        0))))
+                .append("produit", new Document("$sum", new Document("$cond", List.of(
+                        new Document("$eq", List.of(
+                                new Document("$substrBytes", List.of("$entries.syscohadaAccount", 0, 1)), "7")),
+                        new Document("$subtract", List.of(
+                                new Document("$ifNull", List.of("$entries.creditFcfa", 0)),
+                                new Document("$ifNull", List.of("$entries.debitFcfa", 0)))),
+                        0))))));
+        Map<String, String> labels = programs.listAll().stream()
+                .collect(Collectors.toMap(pr -> pr.code, pr -> pr.name, (a, b) -> a));
+        List<com.ntech.cabosse.analytics.dto.ProgramReportRowDto> rows = new ArrayList<>();
+        for (Document d : runAggregate(pipeline)) {
+            Document key = (Document) d.get("_id");
+            String program = key == null ? null : key.getString("program");
+            String project = key == null ? null : key.getString("project");
+            rows.add(new com.ntech.cabosse.analytics.dto.ProgramReportRowDto(
+                    program,
+                    program != null ? labels.getOrDefault(program, program) : null,
+                    project,
+                    bd(d.get("charge")),
+                    bd(d.get("produit"))));
+        }
+        rows.sort((a, b) -> {
+            if (a.program() == null) return 1;
+            if (b.program() == null) return -1;
+            int c = a.program().compareTo(b.program());
+            if (c != 0) return c;
+            return java.util.Objects.toString(a.project(), "").compareTo(
+                    java.util.Objects.toString(b.project(), ""));
+        });
+        return rows;
+    }
 
     private void addPeriodMatch(List<Document> pipeline, LocalDate from, LocalDate to) {
         if (from == null && to == null) return;

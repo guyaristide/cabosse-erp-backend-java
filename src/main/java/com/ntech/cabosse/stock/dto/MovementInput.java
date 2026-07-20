@@ -49,7 +49,15 @@ public record MovementInput(
          * Étiquette de lot — renseignée par la production sur le mouvement
          * IN du PF, transmise au mouvement pour traçabilité ultérieure.
          */
-        String lotRef
+        String lotRef,
+        /**
+         * Sur une entrée (IN/OPENING/TRANSFER_IN) : si {@code true}, le CMUP
+         * de l'article prend le {@code unitPriceFcfa} de l'entrée au lieu de
+         * se pondérer avec l'existant. Utilisé par la livraison délégué en
+         * mode « par lot » (réf. v21 : coût repris de l'avance). {@code false}
+         * = comportement standard (pondération). Ignoré pour les sorties.
+         */
+        boolean replaceCmupWithUnitPrice
 ) {
     /**
      * Constructeur compat sans {@code force} ni {@code lotRef} — défauts
@@ -63,7 +71,7 @@ public record MovementInput(
                           String reason, String notes, Instant occurredAt) {
         this(articleId, siteId, kind, quantity, unitPriceFcfa,
                 sourceType, sourceRef, sourceEntityId, transferId,
-                reason, notes, occurredAt, false, null);
+                reason, notes, occurredAt, false, null, false);
     }
 
     /**
@@ -78,6 +86,22 @@ public record MovementInput(
                           boolean force) {
         this(articleId, siteId, kind, quantity, unitPriceFcfa,
                 sourceType, sourceRef, sourceEntityId, transferId,
-                reason, notes, occurredAt, force, null);
+                reason, notes, occurredAt, force, null, false);
+    }
+
+    /**
+     * Constructeur compat avec {@code force} et {@code lotRef} mais sans
+     * {@code replaceCmupWithUnitPrice} — pour les entrées de production et
+     * les call-sites existants qui portent une étiquette de lot.
+     */
+    public MovementInput(UUID articleId, UUID siteId, MovementKind kind,
+                          BigDecimal quantity, BigDecimal unitPriceFcfa,
+                          MovementSource sourceType, String sourceRef,
+                          UUID sourceEntityId, UUID transferId,
+                          String reason, String notes, Instant occurredAt,
+                          boolean force, String lotRef) {
+        this(articleId, siteId, kind, quantity, unitPriceFcfa,
+                sourceType, sourceRef, sourceEntityId, transferId,
+                reason, notes, occurredAt, force, lotRef, false);
     }
 }

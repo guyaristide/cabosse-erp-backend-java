@@ -119,7 +119,7 @@ public class InventorySessionService {
                 .actorEmail(actor())
                 .target("inventory_session", e.id.toString(), e.ref)
                 .tenant(tenantContext.tenantId(), null)
-                .description("Ouverture inventaire " + e.ref + " — site " + site.name
+                .description("Ouverture inventaire " + e.ref + " : site " + site.name
                         + " (" + e.lines.size() + " articles figés)")
                 .record();
         return e;
@@ -175,7 +175,7 @@ public class InventorySessionService {
                     .actorEmail(actor())
                     .target("inventory_session", e.id.toString(), e.ref)
                     .tenant(tenantContext.tenantId(), null)
-                    .description("Inventaire " + e.ref + " — " + significant
+                    .description("Inventaire " + e.ref + " : " + significant
                             + " écart(s) significatif(s) au-delà des seuils du tenant ("
                             + prefs.inventoryAlertThresholdPct() + " % / "
                             + prefs.inventoryAlertThresholdFcfa() + " FCFA)")
@@ -215,6 +215,12 @@ public class InventorySessionService {
         InventorySessionEntity e = loadOrFail(id);
         requireStatus(e, InventorySessionEntity.STATUS_SUBMITTED,
                 "Seule une session soumise peut être validée.");
+        // Verrou atomique SUBMITTED vers VALIDATED : le perdant d'une double
+        // validation s'arrête ici, avant tout ajustement de stock.
+        if (!sessions.tryMarkValidated(e.id)) {
+            throw new BusinessException("Seule une session soumise peut être validée (déjà validée).");
+        }
+        e.status = InventorySessionEntity.STATUS_VALIDATED;
 
         Map<ArticleType, BigDecimal> deltaValueByType = new EnumMap<>(ArticleType.class);
         int adjusted = 0;
@@ -252,7 +258,7 @@ public class InventorySessionService {
                 .actorEmail(actor())
                 .target("inventory_session", e.id.toString(), e.ref)
                 .tenant(tenantContext.tenantId(), null)
-                .description("Validation inventaire " + e.ref + " — " + adjusted
+                .description("Validation inventaire " + e.ref + " : " + adjusted
                         + " ajustement(s)" + (e.pieceRef != null ? ", pièce " + e.pieceRef : ""))
                 .record();
         return e;

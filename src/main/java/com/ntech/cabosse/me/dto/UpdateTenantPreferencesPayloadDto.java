@@ -17,7 +17,7 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
  * exposition ici se fera quand la fiche tenant côté admin tenant les
  * couvrira.</p>
  */
-@Schema(description = "PATCH des préférences tenant — null = ne pas modifier")
+@Schema(description = "PATCH des préférences tenant : null = ne pas modifier")
 public record UpdateTenantPreferencesPayloadDto(
 
         @Schema(description = "Si vrai (défaut métier), l'entreprise récupère la TVA sur ses achats. "
@@ -30,7 +30,7 @@ public record UpdateTenantPreferencesPayloadDto(
 
         @jakarta.validation.constraints.Pattern(regexp = "^$|^[0-9]{2,8}$",
                 message = "Compte capital : 2 à 8 chiffres")
-        @Schema(description = "Compte SYSCOHADA crédité pour les parts sociales.", example = "101")
+        @Schema(description = "Compte SYSCOHADA crédité pour les parts sociales.", example = "101000")
         String memberCapitalAccount,
 
         @Schema(description = "Génère une écriture de traçabilité sur les transferts inter-sites.")
@@ -57,7 +57,7 @@ public record UpdateTenantPreferencesPayloadDto(
         @jakarta.validation.constraints.Pattern(regexp = "^$|^[0-9]{2,8}$",
                 message = "Compte TVA déductible : 2 à 8 chiffres")
         @Schema(description = "Compte SYSCOHADA débité pour la TVA déductible sur achats.",
-                example = "44566")
+                example = "445660")
         String vatDeductibleAccount,
 
         @jakarta.validation.constraints.Pattern(regexp = "^$|^(DIRECT|SUBSCRIPTION)$",
@@ -77,6 +77,26 @@ public record UpdateTenantPreferencesPayloadDto(
         @jakarta.validation.constraints.DecimalMin(value = "0", message = "Taux d'impôt négatif interdit")
         @jakarta.validation.constraints.DecimalMax(value = "100", message = "Taux d'impôt supérieur à 100 % interdit")
         @Schema(description = "Taux d'impôt sur le résultat (%).")
-        java.math.BigDecimal incomeTaxRatePct
+        java.math.BigDecimal incomeTaxRatePct,
+
+        @Schema(description = "Impose un centre de coût sur chaque ligne de charge à la validation d'OD.")
+        Boolean costCenterRequired,
+
+        @Schema(description = "Active le circuit de contrôle interne des achats (DA avant BC).")
+        Boolean purchaseRequestEnabled,
+
+        @jakarta.validation.constraints.DecimalMin(value = "0", message = "Seuil négatif interdit")
+        @Schema(description = "Seuil FCFA au-dessus duquel une demande d'achat approuvée est exigée.")
+        java.math.BigDecimal purchaseRequestThresholdFcfa,
+
+        @jakarta.validation.constraints.Pattern(regexp = "^$|^[0-9]{2,8}$",
+                message = "Compte d'avance : 2 à 8 chiffres")
+        @Schema(description = "Compte SYSCOHADA des avances aux délégués collecteurs.")
+        String collectorAdvanceAccount,
+
+        @jakarta.validation.constraints.Pattern(regexp = "^$|^(BY_LOT|WEIGHTED_CMUP)$",
+                message = "Valorisation collecteur : BY_LOT | WEIGHTED_CMUP")
+        @Schema(description = "Valorisation d'une livraison délégué : BY_LOT (coût de l'avance) ou WEIGHTED_CMUP.")
+        String collectorDeliveryValuation
 
 ) {}

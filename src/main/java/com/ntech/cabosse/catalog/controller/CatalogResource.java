@@ -81,7 +81,7 @@ public class CatalogResource {
     @GET
     @Path("/industries")
     @Operation(summary = "Catalogue des activités / filières",
-            description = "Liste des activités déclarables par un tenant. Strict — la création "
+            description = "Liste des activités déclarables par un tenant. Strict : la création "
                     + "d'un tenant n'accepte que des codes présents ici.")
     public Response listIndustries() {
         List<IndustryResponseDto> body = industries.findAllActive().stream()

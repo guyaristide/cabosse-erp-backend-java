@@ -96,19 +96,19 @@ public class M011_CreateAccountingCollections {
                 account("401",  "Fournisseurs",                            "FOURNISSEURS"),
                 account("411",  "Clients",                                 "CLIENTS"),
                 account("601",  "Achats de matières premières",            "CHARGES"),
-                account("604",  "Achats stockés — autres approvisionnements","CHARGES"),
+                account("604",  "Achats stockés : autres approvisionnements","CHARGES"),
                 account("6081", "Achats d'emballages",                     "CHARGES"),
                 account("624",  "Transports sur achats",                   "CHARGES"),
                 account("701",  "Ventes de produits finis",                "PRODUITS"),
                 account("4456", "TVA déductible sur achats",               "TVA"),
                 account("4457", "TVA collectée sur ventes",                "TVA"),
-                account("521",  "Banque — compte courant",                 "TRESORERIE"),
+                account("521",  "Banque : compte courant",                 "TRESORERIE"),
                 account("571",  "Caisse",                                  "TRESORERIE"),
                 account("31",   "Stocks de marchandises",                  "AUTRES"),
                 account("6031", "Variation des stocks de marchandises",    "CHARGES"),
                 account("44566","État, TVA déductible sur achats",         "TVA"),
                 account("461",  "Associés, opérations sur le capital",     "AUTRES"),
-                account("1018", "Capital souscrit — parts sociales",       "AUTRES")
+                account("1018", "Capital souscrit : parts sociales",       "AUTRES")
         );
         for (Document seed : seeds) {
             boolean exists = coll.countDocuments(Filters.eq("number", seed.getString("number"))) > 0;
