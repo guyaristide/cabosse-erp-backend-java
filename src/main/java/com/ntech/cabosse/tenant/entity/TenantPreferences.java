@@ -217,6 +217,28 @@ public class TenantPreferences {
         return !COLLECTOR_VALUATION_WEIGHTED.equals(collectorDeliveryValuation());
     }
 
+    /**
+     * Bloque le démarrage d'un ordre de fabrication si une matière dépasse
+     * le stock disponible (défaut {@code true}). Désactivé, la production
+     * passe et un mouvement de stock négatif traçable est créé.
+     */
+    public Boolean blockProductionOnStockShortage;
+
+    public boolean blockProductionOnStockShortage() {
+        return blockProductionOnStockShortage == null || blockProductionOnStockShortage;
+    }
+
+    /**
+     * Pourcentage du seuil d'alerte d'un article sous lequel le stock passe
+     * en alerte critique (défaut {@code 20}). Ex. 20 : critique quand la
+     * quantité tombe sous 20 % du seuil minimal de l'article.
+     */
+    public Integer stockMinWarningPct;
+
+    public int stockMinWarningPct() {
+        return stockMinWarningPct == null ? 20 : stockMinWarningPct;
+    }
+
     /** Valeurs autorisées de {@link #memberCapitalFlow}. */
     public static final String CAPITAL_FLOW_DIRECT = "DIRECT";
     public static final String CAPITAL_FLOW_SUBSCRIPTION = "SUBSCRIPTION";

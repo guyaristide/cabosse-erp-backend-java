@@ -71,7 +71,21 @@ class TenantOperationalSettingsTest extends AbstractIntegrationTest {
                 .body("data.periodReopenPolicy", equalTo("TENANT_ADMIN"))
                 .body("data.vatDeductibleAccount", equalTo("445660"))
                 .body("data.memberCapitalFlow", equalTo("DIRECT"))
-                .body("data.analyticsIncludeStockTransfers", equalTo(false));
+                .body("data.analyticsIncludeStockTransfers", equalTo(false))
+                .body("data.blockProductionOnStockShortage", equalTo(true))
+                .body("data.stockMinWarningPct", equalTo(20));
+    }
+
+    @Test
+    void production_guard_and_warning_pct_round_trip() {
+        Ctx ctx = tenantAdmin("coop-prodguard");
+        givenAs(ctx.admin())
+                .contentType("application/json")
+                .body("{\"blockProductionOnStockShortage\":false,\"stockMinWarningPct\":30}")
+                .when().put("/api/v1/me/tenant/preferences")
+                .then().statusCode(200)
+                .body("data.blockProductionOnStockShortage", equalTo(false))
+                .body("data.stockMinWarningPct", equalTo(30));
     }
 
     @Test

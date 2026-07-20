@@ -60,7 +60,9 @@ public class TenantPreferencesService {
                 p.costCenterRequired(),
                 p.purchaseRequestEnabled(), p.purchaseRequestThresholdFcfa(),
                 p.collectorAdvanceAccount(),
-                p.collectorDeliveryValuation()
+                p.collectorDeliveryValuation(),
+                p.blockProductionOnStockShortage(),
+                p.stockMinWarningPct()
         );
     }
 
@@ -205,6 +207,22 @@ public class TenantPreferencesService {
                     "from", t.preferences.collectorDeliveryValuation(),
                     "to", payload.collectorDeliveryValuation()));
             t.preferences.collectorDeliveryValuation = payload.collectorDeliveryValuation().trim();
+        }
+
+        if (payload.blockProductionOnStockShortage() != null
+                && payload.blockProductionOnStockShortage() != t.preferences.blockProductionOnStockShortage()) {
+            diffs.put("blockProductionOnStockShortage", Map.of(
+                    "from", t.preferences.blockProductionOnStockShortage(),
+                    "to", payload.blockProductionOnStockShortage()));
+            t.preferences.blockProductionOnStockShortage = payload.blockProductionOnStockShortage();
+        }
+
+        if (payload.stockMinWarningPct() != null
+                && payload.stockMinWarningPct() != t.preferences.stockMinWarningPct()) {
+            diffs.put("stockMinWarningPct", Map.of(
+                    "from", t.preferences.stockMinWarningPct(),
+                    "to", payload.stockMinWarningPct()));
+            t.preferences.stockMinWarningPct = payload.stockMinWarningPct();
         }
 
         if (!diffs.isEmpty()) {

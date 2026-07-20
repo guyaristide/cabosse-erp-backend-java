@@ -69,6 +69,7 @@ public class ManufacturingOrderService {
     @Inject SiteRepository sites;
     @Inject StockService stockService;
     @Inject StockItemRepository stockItems;
+    @Inject com.ntech.cabosse.tenant.service.TenantPreferencesLookup preferencesLookup;
     @Inject TenantContext tenantContext;
     @Inject com.ntech.cabosse.shared.money.MoneyFormatter money;
     @Inject AuditService audit;
@@ -196,8 +197,13 @@ public class ManufacturingOrderService {
             throw new BusinessException("OF déjà démarré ou clôturé (statut " + e.status + ").");
         }
 
-        // Vérif disponibilité matières
-        checkMaterialAvailability(e);
+        // Vérif disponibilité matières — bloquante ou non selon la préférence
+        // tenant. Désactivée, la production passe et les sorties se font en
+        // force (stock négatif traçable).
+        boolean blockOnShortage = preferencesLookup.current().blockProductionOnStockShortage();
+        if (blockOnShortage) {
+            checkMaterialAvailability(e);
+        }
 
         // Snapshot des CMUP courants (avant toute consommation)
         BigDecimal totalCost = BigDecimal.ZERO;
@@ -240,7 +246,7 @@ public class ManufacturingOrderService {
                     line.consumedQty, line.cmupAtConsumptionFcfa,
                     MovementSource.PRODUCTION, e.ref, e.id,
                     null, "Consommation OF " + e.ref,
-                    null, when
+                    null, when, /* force */ !blockOnShortage
             ));
         }
         record(e, AuditEventType.MANUFACTURING_ORDER_STARTED,

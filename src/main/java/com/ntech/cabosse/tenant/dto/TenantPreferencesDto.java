@@ -82,6 +82,14 @@ public record TenantPreferencesDto(
 
         @Schema(description = "Valorisation d'une livraison délégué : BY_LOT (coût de l'avance) ou WEIGHTED_CMUP.",
                 example = "BY_LOT", defaultValue = "BY_LOT")
-        String collectorDeliveryValuation
+        String collectorDeliveryValuation,
+
+        @Schema(description = "Bloque le démarrage d'un OF si une matière dépasse le stock disponible.",
+                defaultValue = "true")
+        boolean blockProductionOnStockShortage,
+
+        @Schema(description = "Pourcentage du seuil d'alerte sous lequel le stock passe en critique.",
+                example = "20", defaultValue = "20")
+        int stockMinWarningPct
 
 ) {}

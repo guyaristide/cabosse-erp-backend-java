@@ -93,21 +93,26 @@ public class StockService {
         try { return jwt.getName(); } catch (Exception e) { return null; }
     }
 
+    private int warningPct() {
+        return preferencesLookup.current().stockMinWarningPct();
+    }
+
     // ─── Lecture ────────────────────────────────────────────────────
 
     public StockItemResponseDto getByArticleAndSite(UUID articleId, UUID siteId) {
         StockItemEntity e = stockItems.findByArticleAndSite(articleId, siteId)
                 .orElseThrow(() -> new NotFoundException(
                         "Aucun stock pour cet article sur ce site."));
-        return StockItemResponseDto.from(e);
+        return StockItemResponseDto.from(e, warningPct());
     }
 
     /** Liste complète, réservée aux exports — l'API de liste passe par {@link #pageBySite}. */
     public List<StockItemResponseDto> listBySite(UUID siteId, String q,
                                                   ArticleType articleType,
                                                   boolean belowThresholdOnly) {
+        int pct = warningPct();
         return stockItems.listBySite(siteId, q, articleType, belowThresholdOnly).stream()
-                .map(StockItemResponseDto::from)
+                .map(e -> StockItemResponseDto.from(e, pct))
                 .toList();
     }
 
@@ -115,10 +120,11 @@ public class StockService {
             UUID siteId, String q, ArticleType articleType, boolean belowThresholdOnly,
             PageRequest pr) {
         long total = stockItems.countBySite(siteId, q, articleType, belowThresholdOnly);
+        int pct = warningPct();
         List<StockItemResponseDto> items = stockItems
                 .listBySite(siteId, q, articleType, belowThresholdOnly, pr.skip(), pr.perPage())
                 .stream()
-                .map(StockItemResponseDto::from)
+                .map(e -> StockItemResponseDto.from(e, pct))
                 .toList();
         Map<String, String> filters = new HashMap<>();
         if (siteId != null) filters.put("siteId", siteId.toString());
@@ -130,8 +136,9 @@ public class StockService {
     }
 
     public List<StockItemResponseDto> listByArticle(UUID articleId) {
+        int pct = warningPct();
         return stockItems.listByArticle(articleId).stream()
-                .map(StockItemResponseDto::from)
+                .map(e -> StockItemResponseDto.from(e, pct))
                 .toList();
     }
 

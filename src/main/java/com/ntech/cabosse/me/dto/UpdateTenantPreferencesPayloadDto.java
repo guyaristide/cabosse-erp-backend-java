@@ -97,6 +97,14 @@ public record UpdateTenantPreferencesPayloadDto(
         @jakarta.validation.constraints.Pattern(regexp = "^$|^(BY_LOT|WEIGHTED_CMUP)$",
                 message = "Valorisation collecteur : BY_LOT | WEIGHTED_CMUP")
         @Schema(description = "Valorisation d'une livraison délégué : BY_LOT (coût de l'avance) ou WEIGHTED_CMUP.")
-        String collectorDeliveryValuation
+        String collectorDeliveryValuation,
+
+        @Schema(description = "Bloque le démarrage d'un OF si une matière dépasse le stock disponible.")
+        Boolean blockProductionOnStockShortage,
+
+        @jakarta.validation.constraints.Min(value = 0, message = "Pourcentage négatif interdit")
+        @jakarta.validation.constraints.Max(value = 100, message = "Pourcentage supérieur à 100 interdit")
+        @Schema(description = "Pourcentage du seuil d'alerte sous lequel le stock passe en critique.")
+        Integer stockMinWarningPct
 
 ) {}

@@ -156,7 +156,9 @@ public final class TenantMapper {
                 entity.preferences.purchaseRequestEnabled(),
                 entity.preferences.purchaseRequestThresholdFcfa(),
                 entity.preferences.collectorAdvanceAccount(),
-                entity.preferences.collectorDeliveryValuation()
+                entity.preferences.collectorDeliveryValuation(),
+                entity.preferences.blockProductionOnStockShortage(),
+                entity.preferences.stockMinWarningPct()
         );
     }
 
