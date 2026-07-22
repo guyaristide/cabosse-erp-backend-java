@@ -40,5 +40,9 @@ public enum MovementSource {
      */
     AGRICULTURAL_QC,
     /** Livraison d'un délégué collecteur imputée sur avance (backlog ACH-02). */
-    COLLECTOR_DELIVERY
+    COLLECTOR_DELIVERY,
+    /** Achat de matière première au producteur membre (reçu, backlog NEG-01). */
+    PRODUCER_PURCHASE,
+    /** Vente de cacao en gros / export (backlog NEG-02). */
+    CACAO_SALE
 }

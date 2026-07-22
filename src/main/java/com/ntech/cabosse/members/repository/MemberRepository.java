@@ -31,6 +31,11 @@ public class MemberRepository {
         return Optional.ofNullable(coll().find(Filters.eq("_id", id)).first());
     }
 
+    /** Tous les membres du tenant, triés par nom (registre producteurs, REG-01). */
+    public List<MemberEntity> listAll() {
+        return coll().find().sort(new Document("name", 1)).into(new java.util.ArrayList<>());
+    }
+
     public boolean codeExists(String code) {
         return coll().countDocuments(Filters.eq("code", code)) > 0;
     }

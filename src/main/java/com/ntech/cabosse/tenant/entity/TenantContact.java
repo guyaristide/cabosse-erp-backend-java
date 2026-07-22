@@ -9,9 +9,17 @@ package com.ntech.cabosse.tenant.entity;
  */
 public class TenantContact {
 
+    /** Fonction / libellé du contact (ex. {@code "Direction"}), backlog COOP-05. */
+    public String role;
     public String name;
     public String email;
     public String phone;
+
+    /**
+     * Contact principal du tenant (affiché par défaut, repris dans les
+     * exports/registre), backlog COOP-05. Un seul contact principal.
+     */
+    public boolean isPrimary;
 
     public TenantContact() {}
 }

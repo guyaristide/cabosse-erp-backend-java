@@ -1,5 +1,6 @@
 package com.ntech.cabosse.agriculture.parcel.service;
 
+import com.ntech.cabosse.agriculture.parcel.dto.ParcelCampaignYieldDto;
 import com.ntech.cabosse.agriculture.parcel.dto.ParcelResponseDto;
 import com.ntech.cabosse.agriculture.parcel.dto.ParcelUpsertDto;
 import com.ntech.cabosse.agriculture.parcel.entity.ParcelEntity;
@@ -9,6 +10,7 @@ import com.ntech.cabosse.members.entity.MemberEntity;
 import com.ntech.cabosse.members.repository.MemberRepository;
 import com.ntech.cabosse.shared.api.PageRequest;
 import com.ntech.cabosse.shared.api.Pagination;
+import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.tenant.TenantContext;
@@ -74,7 +76,7 @@ public class ParcelService {
     public ParcelResponseDto create(ParcelUpsertDto payload) {
         ParcelEntity e = new ParcelEntity();
         e.id = idGenerator.newId();
-        e.code = refService.next();
+        e.code = resolveCode(payload.code());
         applyPayload(e, payload, null);
         e.createdAt = Instant.now();
         e.updatedAt = e.createdAt;
@@ -127,9 +129,16 @@ public class ParcelService {
         e.gpsCenter = p.gpsCenter() != null ? new ArrayList<>(p.gpsCenter()) : null;
         e.variety = blankToNull(p.variety());
         e.plantingYear = p.plantingYear();
+        e.regionCode = blankToNull(p.regionCode());
+        e.departmentCode = blankToNull(p.departmentCode());
         e.certifications = p.certifications() != null
                 ? new ArrayList<>(p.certifications())
                 : new ArrayList<>();
+        e.campaignYields = p.campaignYields() == null ? new ArrayList<>()
+                : p.campaignYields().stream()
+                        .filter(y -> y != null && y.campaignId() != null)
+                        .map(ParcelCampaignYieldDto::toEntity)
+                        .collect(java.util.stream.Collectors.toList());
         e.memberId = p.memberId();
         // Snapshot du nom membre pour les listes
         if (e.memberId != null) {
@@ -168,5 +177,20 @@ public class ParcelService {
 
     private static String blankToNull(String s) {
         return s == null || s.isBlank() ? null : s.trim();
+    }
+
+    /**
+     * Résout le code d'une parcelle à la création : code saisi (unique) sinon
+     * séquence {@code PR-YYYY-NNNN} (backlog PARC-01).
+     */
+    private String resolveCode(String provided) {
+        if (provided == null || provided.isBlank()) {
+            return refService.next();
+        }
+        String code = provided.trim();
+        if (parcels.codeExists(code)) {
+            throw new BusinessException("Une parcelle avec le code « " + code + " » existe déjà.");
+        }
+        return code;
     }
 }

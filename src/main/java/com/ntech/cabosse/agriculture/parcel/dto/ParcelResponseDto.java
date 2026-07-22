@@ -18,9 +18,12 @@ public record ParcelResponseDto(
         List<Double> gpsCenter,
         String variety,
         Integer plantingYear,
+        String regionCode,
+        String departmentCode,
         List<String> certifications,
         UUID memberId,
         String memberName,
+        List<ParcelCampaignYieldDto> campaignYields,
         ParcelStatus status,
         String notes,
         Instant createdAt,
@@ -32,8 +35,12 @@ public record ParcelResponseDto(
                 extractPolygonCoordinates(e.gpsPolygon),
                 e.gpsCenter != null ? List.copyOf(e.gpsCenter) : null,
                 e.variety, e.plantingYear,
+                e.regionCode, e.departmentCode,
                 e.certifications != null ? List.copyOf(e.certifications) : List.of(),
-                e.memberId, e.memberName, e.status,
+                e.memberId, e.memberName,
+                e.campaignYields == null ? List.of() : e.campaignYields.stream()
+                        .map(ParcelCampaignYieldDto::from).toList(),
+                e.status,
                 e.notes, e.createdAt, e.updatedAt
         );
     }

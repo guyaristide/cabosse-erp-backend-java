@@ -14,8 +14,18 @@ public record MemberResponseDto(
         UUID id,
         String code,
         String name,
+        String firstName,
+        String lastName,
         MemberCivilStatus civilStatus,
+        LocalDate birthDate,
+        Integer birthYear,
+        String idDocType,
+        String idDocNumber,
         UUID idCardFileId,
+        UUID sectionId,
+        UUID followUpAgentMemberId,
+        List<String> deliveredProductCodes,
+        List<MemberExternalCodeDto> externalProducerCodes,
         String village,
         String phone,
         String email,
@@ -38,7 +48,12 @@ public record MemberResponseDto(
 
     public static MemberResponseDto from(MemberEntity e) {
         return new MemberResponseDto(
-                e.id, e.code, e.name, e.civilStatus, e.idCardFileId,
+                e.id, e.code, e.name, e.firstName, e.lastName, e.civilStatus,
+                e.birthDate, e.birthYear, e.idDocType, e.idDocNumber, e.idCardFileId,
+                e.sectionId, e.followUpAgentMemberId,
+                e.deliveredProductCodes != null ? List.copyOf(e.deliveredProductCodes) : List.of(),
+                e.externalProducerCodes == null ? List.of() : e.externalProducerCodes.stream()
+                        .map(MemberExternalCodeDto::from).toList(),
                 e.village, e.phone, e.email,
                 e.joinedAt, e.partsSocialesAmount, e.status,
                 e.supplierId,

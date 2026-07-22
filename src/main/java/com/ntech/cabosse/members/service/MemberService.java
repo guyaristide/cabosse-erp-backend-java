@@ -1,5 +1,6 @@
 package com.ntech.cabosse.members.service;
 
+import com.ntech.cabosse.members.dto.MemberExternalCodeDto;
 import com.ntech.cabosse.members.dto.MemberResponseDto;
 import com.ntech.cabosse.members.dto.MemberUpsertDto;
 import com.ntech.cabosse.members.entity.MemberEntity;
@@ -25,10 +26,12 @@ import org.eclipse.microprofile.jwt.JsonWebToken;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * CRUD des membres-producteurs. Auto-crée un {@link SupplierEntity}
@@ -86,7 +89,7 @@ public class MemberService {
     public MemberResponseDto create(MemberUpsertDto payload) {
         MemberEntity e = new MemberEntity();
         e.id = idGenerator.newId();
-        e.code = refService.next();
+        e.code = resolveCode(payload.code());
         applyPayload(e, payload);
         e.createdAt = Instant.now();
         e.updatedAt = e.createdAt;
@@ -290,10 +293,56 @@ public class MemberService {
                 .orElseThrow(() -> new NotFoundException("Membre " + id + " introuvable."));
     }
 
+    /**
+     * Résout le code d'un membre à la création : code saisi (unique) sinon
+     * séquence {@code MB-YYYY-NNNN} (backlog MEM-06).
+     */
+    private String resolveCode(String provided) {
+        if (provided == null || provided.isBlank()) {
+            return refService.next();
+        }
+        String code = provided.trim();
+        if (members.codeExists(code)) {
+            throw new BusinessException("Un membre avec le code « " + code + " » existe déjà.");
+        }
+        return code;
+    }
+
+    /** Recompose le nom affiché : {@code Nom Prénoms}, espaces normalisés. */
+    private static String recomposeName(String lastName, String firstName) {
+        String composed = firstName == null ? lastName : lastName + " " + firstName;
+        return composed.trim().replaceAll("\\s+", " ");
+    }
+
     private void applyPayload(MemberEntity e, MemberUpsertDto p) {
-        e.name = p.name().trim();
+        String lastName = blankToNull(p.lastName());
+        String firstName = blankToNull(p.firstName());
+        if (lastName == null) {
+            // Rétrocompat : ancien client qui n'envoie que `name`.
+            lastName = blankToNull(p.name());
+            if (lastName == null) {
+                throw new BusinessException("Le nom du membre est requis.");
+            }
+        }
+        e.lastName = lastName;
+        e.firstName = firstName;
+        e.name = recomposeName(lastName, firstName);
         e.civilStatus = p.civilStatus();
+        e.birthDate = p.birthDate();
+        e.birthYear = p.birthYear();
+        e.idDocType = blankToNull(p.idDocType());
+        e.idDocNumber = blankToNull(p.idDocNumber());
         e.idCardFileId = p.idCardFileId();
+        e.sectionId = p.sectionId();
+        e.followUpAgentMemberId = p.followUpAgentMemberId();
+        e.deliveredProductCodes = p.deliveredProductCodes() == null ? new ArrayList<>()
+                : p.deliveredProductCodes().stream()
+                        .filter(c -> c != null && !c.isBlank())
+                        .map(String::trim).distinct().collect(Collectors.toList());
+        e.externalProducerCodes = p.externalProducerCodes() == null ? new ArrayList<>()
+                : p.externalProducerCodes().stream()
+                        .filter(x -> x != null && x.type() != null && !x.type().isBlank())
+                        .map(MemberExternalCodeDto::toEntity).collect(Collectors.toList());
         e.village = blankToNull(p.village());
         e.phone = blankToNull(p.phone());
         e.email = blankToNull(p.email());

@@ -1,6 +1,7 @@
 package com.ntech.cabosse.agriculture.parcel.dto;
 
 import com.ntech.cabosse.agriculture.parcel.entity.ParcelStatus;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -19,6 +20,8 @@ import java.util.UUID;
  * tous les cas (calculé côté front si le polygone est saisi).</p>
  */
 public record ParcelUpsertDto(
+        // Code plantation ; généré PR-YYYY-NNNN si vide (création uniquement).
+        @Size(max = 40) String code,
         @NotBlank @Size(min = 2, max = 120) String name,
         @DecimalMin("0.0") BigDecimal surfaceHa,
         /** Tableau de rings GeoJSON Polygon. Null = point seul. */
@@ -27,8 +30,13 @@ public record ParcelUpsertDto(
         @NotNull List<@NotNull Double> gpsCenter,
         @Size(max = 80) String variety,
         Integer plantingYear,
+        // Région / département de la parcelle (codes des référentiels tenant), PARC-01.
+        @Size(max = 60) String regionCode,
+        @Size(max = 60) String departmentCode,
         List<String> certifications,
         UUID memberId,
+        // Rendement + estimation par campagne (PARC-01).
+        List<@Valid ParcelCampaignYieldDto> campaignYields,
         @NotNull ParcelStatus status,
         @Size(max = 500) String notes
 ) {}

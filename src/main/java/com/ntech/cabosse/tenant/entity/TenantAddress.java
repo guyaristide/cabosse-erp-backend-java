@@ -23,8 +23,17 @@ public class TenantAddress {
     public String city;
     /** ISO 3166-1 alpha-2, en majuscules. */
     public String country;
-    /** FK optionnelle vers la collection {@code regions}. */
+    /**
+     * FK optionnelle vers le référentiel régions <strong>tenant</strong>
+     * (collection {@code regions}, code de {@code RegionEntity}), backlog
+     * COOP-04. Repointé du catalogue global vers la liste tenant.
+     */
     public String regionCode;
+    /**
+     * FK optionnelle vers le référentiel départements tenant (collection
+     * {@code departments}, code de {@code DepartmentEntity}), backlog COOP-04.
+     */
+    public String departmentCode;
     /** FK optionnelle vers la collection {@code cities}. */
     public UUID cityId;
 

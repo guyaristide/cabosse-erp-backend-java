@@ -68,12 +68,27 @@ public class TenantEntity extends PanacheMongoEntityBase {
     public TenantBranding branding;
     public TenantLegal legal;
     public TenantAddress address;
+    /**
+     * Contact principal historique (mono). Conservé pour compatibilité ;
+     * la source de vérité passe à {@link #contacts} (backlog COOP-05).
+     */
     public TenantContact contact;
+    /**
+     * Contacts de la coopérative (backlog COOP-05). Chaque entrée regroupe
+     * fonction / nom / téléphone / e-mail ; un seul {@code isPrimary=true}.
+     */
+    public List<TenantContact> contacts = new ArrayList<>();
     public TenantBilling billing;
     public TenantPreferences preferences;
 
     /** 1..N activités, exactement une avec {@code isPrimary=true}. */
     public List<TenantActivity> activities = new ArrayList<>();
+
+    /**
+     * Produits vendus / collectés par la coopérative (backlog COOP-03).
+     * Liste légère alimentant le « produit livré » de la fiche membre.
+     */
+    public List<TenantProduct> productsSold = new ArrayList<>();
 
     /** Liste de codes ({@code "UTZ"}, {@code "Bio"}, etc.). */
     public List<String> certifications = new ArrayList<>();

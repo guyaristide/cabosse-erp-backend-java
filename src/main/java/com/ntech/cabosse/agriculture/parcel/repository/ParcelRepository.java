@@ -41,6 +41,11 @@ public class ParcelRepository {
                 .into(new ArrayList<>());
     }
 
+    /** Toutes les parcelles du tenant (registre producteurs, REG-01). */
+    public List<ParcelEntity> listAll() {
+        return coll().find().sort(new Document("code", 1)).into(new ArrayList<>());
+    }
+
     public long countSearch(String q, ParcelStatus statusFilter, UUID memberId) {
         return coll().countDocuments(searchFilter(q, statusFilter, memberId));
     }

@@ -261,5 +261,73 @@ public class TenantPreferences {
                 ? REOPEN_PLATFORM_ONLY : REOPEN_TENANT_ADMIN;
     }
 
+    // ─── Achat matière première au producteur (backlog NEG-01) ───
+
+    public static final String PRODUCER_PRICE_CAMPAIGN = "CAMPAIGN";
+    public static final String PRODUCER_PRICE_MANUAL = "MANUAL";
+    public static final String PRODUCER_AMOUNT_COMPUTED = "COMPUTED";
+    public static final String PRODUCER_AMOUNT_MANUAL = "MANUAL";
+    public static final String PRODUCER_WEIGHT_WEIGHED = "WEIGHED";
+    public static final String PRODUCER_WEIGHT_FROM_BAGS = "FROM_BAGS";
+
+    /** Source du prix garanti au reçu : {@code CAMPAIGN} (pré-rempli, défaut) ou {@code MANUAL}. */
+    public String producerPriceSource;
+
+    public String producerPriceSource() {
+        return PRODUCER_PRICE_MANUAL.equals(producerPriceSource)
+                ? PRODUCER_PRICE_MANUAL : PRODUCER_PRICE_CAMPAIGN;
+    }
+
+    /** Montant du reçu : {@code COMPUTED} (poids × prix, défaut) ou {@code MANUAL}. */
+    public String producerAmountMode;
+
+    public String producerAmountMode() {
+        return PRODUCER_AMOUNT_MANUAL.equals(producerAmountMode)
+                ? PRODUCER_AMOUNT_MANUAL : PRODUCER_AMOUNT_COMPUTED;
+    }
+
+    /** Détermination du poids : {@code WEIGHED} (pesé saisi, défaut) ou {@code FROM_BAGS} (sacs × poids standard). */
+    public String producerWeightMode;
+
+    public String producerWeightMode() {
+        return PRODUCER_WEIGHT_FROM_BAGS.equals(producerWeightMode)
+                ? PRODUCER_WEIGHT_FROM_BAGS : PRODUCER_WEIGHT_WEIGHED;
+    }
+
+    /** Poids standard d'un sac (kg), utilisé en mode {@code FROM_BAGS}. Nullable. */
+    public java.math.BigDecimal producerStandardBagKg;
+
+    /** {@code true} : site imposé au reçu ; {@code false} (défaut) : site actif surchargeable. */
+    public Boolean producerPurchaseSiteRequired;
+
+    public boolean producerPurchaseSiteRequired() {
+        return producerPurchaseSiteRequired != null && producerPurchaseSiteRequired;
+    }
+
+    // ─── Vente de cacao export (backlog NEG-02) ───
+
+    /** Taux de TVA sur la vente cacao export (%). Défaut 0 (exonéré). */
+    public java.math.BigDecimal cacaoSaleVatRatePct;
+
+    public java.math.BigDecimal cacaoSaleVatRatePct() {
+        return cacaoSaleVatRatePct != null ? cacaoSaleVatRatePct : java.math.BigDecimal.ZERO;
+    }
+
+    /** Seuil d'humidité d'acceptation (%). Défaut 8.5 (référence, non bloquant). */
+    public java.math.BigDecimal cacaoHumidityAcceptancePct;
+
+    public java.math.BigDecimal cacaoHumidityAcceptancePct() {
+        return cacaoHumidityAcceptancePct != null
+                ? cacaoHumidityAcceptancePct : new java.math.BigDecimal("8.5");
+    }
+
+    /** Borne haute de la fourchette de réfaction (%). Au-delà : rejet. Défaut 10. */
+    public java.math.BigDecimal cacaoHumidityRejectionPct;
+
+    public java.math.BigDecimal cacaoHumidityRejectionPct() {
+        return cacaoHumidityRejectionPct != null
+                ? cacaoHumidityRejectionPct : new java.math.BigDecimal("10");
+    }
+
     public TenantPreferences() {}
 }

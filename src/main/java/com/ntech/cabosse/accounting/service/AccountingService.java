@@ -358,6 +358,58 @@ public class AccountingService {
      * crédit du compte d'avances (apurement). Idempotent sur
      * {@code (COLLECTOR_DELIVERY, deliveryId)}.
      */
+    /**
+     * Achat de matière première au producteur membre (reçu, backlog NEG-01) :
+     * débit du compte de charge d'achat de l'article (imputé par centre/
+     * programme), crédit du {@code creditAccount} — trésorerie (571/521 selon
+     * le mode) pour un reçu direct, ou compte d'avances (4091) si le reçu est
+     * rattaché à une avance délégué. Pas de TVA (producteurs non assujettis).
+     */
+    public Optional<JournalPieceEntity> postFromProducerPurchase(
+            UUID purchaseId, String ref, UUID articleId, ArticleType articleType,
+            String articleName, BigDecimal amount, LocalDate date,
+            String creditAccount, String creditLabel) {
+        if (amount == null || amount.signum() <= 0) return Optional.empty();
+        String chargeAccount = chargeAccountFor(articleId, articleType, new java.util.HashMap<>());
+        JournalEntry charge = imputeCharge(
+                JournalEntry.debit(chargeAccount, "Achat producteur " + nullSafe(articleName), amount),
+                articleId, new java.util.HashMap<>(), costCenters.byCode());
+        List<JournalEntry> entries = List.of(
+                charge,
+                JournalEntry.credit(creditAccount, creditLabel, amount));
+        return postPiece(new PostingRequest(
+                date != null ? date : LocalDate.now(),
+                PostingSourceType.PRODUCER_PURCHASE, purchaseId, ref,
+                "Achat producteur " + ref, entries));
+    }
+
+    /**
+     * Vente de cacao en gros / export (backlog NEG-02) : débit 411 client TTC,
+     * crédit du compte de vente de l'article (701) pour le HT (commercial +
+     * primes au MVP), crédit TVA collectée (445700) si TVA &gt; 0. Le coût des
+     * ventes n'est pas journalisé (dérivé du CMUP comme les ventes de PF).
+     */
+    public Optional<JournalPieceEntity> postFromCacaoSale(
+            UUID saleId, String ref, String customerName, String revenueAccount,
+            BigDecimal htAmount, BigDecimal vatAmount, LocalDate date) {
+        BigDecimal ht = nz(htAmount);
+        BigDecimal vat = nz(vatAmount);
+        if (ht.signum() <= 0) return Optional.empty();
+        BigDecimal ttc = ht.add(vat);
+        String revenue = (revenueAccount == null || revenueAccount.isBlank())
+                ? SyscohadaAccounts.VENTES_PRODUITS_FINIS : revenueAccount;
+        List<JournalEntry> entries = new ArrayList<>();
+        entries.add(JournalEntry.debit(SyscohadaAccounts.CLIENTS, "Créance " + nullSafe(customerName), ttc));
+        entries.add(JournalEntry.credit(revenue, "Vente cacao " + ref, ht));
+        if (vat.signum() > 0) {
+            entries.add(JournalEntry.credit(SyscohadaAccounts.TVA_COLLECTEE, "TVA collectée " + ref, vat));
+        }
+        return postPiece(new PostingRequest(
+                date != null ? date : LocalDate.now(),
+                PostingSourceType.CACAO_SALE, saleId, ref,
+                "Vente cacao " + ref + " : " + nullSafe(customerName), entries));
+    }
+
     public Optional<JournalPieceEntity> postFromCollectorDelivery(
             UUID deliveryId, String ref, UUID articleId, ArticleType articleType,
             String articleName, BigDecimal amount, LocalDate date) {

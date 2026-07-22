@@ -57,15 +57,7 @@ public class MeService {
         String logoUrl = tenant != null && tenant.branding != null && tenant.branding.logoFileId != null
                 ? "/api/v1/admin/tenants/" + tenant.id + "/logo"
                 : null;
-        var capsDto = new MeResponseDto.TenantCapabilitiesDto(
-                caps.contains(com.ntech.cabosse.tenant.capability.TenantCapability.HAS_MEMBERS),
-                caps.contains(com.ntech.cabosse.tenant.capability.TenantCapability.HAS_PARCELS),
-                caps.contains(com.ntech.cabosse.tenant.capability.TenantCapability.HAS_FERMENTATION),
-                caps.contains(com.ntech.cabosse.tenant.capability.TenantCapability.HAS_DRYING),
-                caps.contains(com.ntech.cabosse.tenant.capability.TenantCapability.HAS_ROASTING),
-                caps.contains(com.ntech.cabosse.tenant.capability.TenantCapability.HAS_EUDR_COMPLIANCE),
-                caps.contains(com.ntech.cabosse.tenant.capability.TenantCapability.HAS_SUSTAINABILITY)
-        );
+        var capsDto = MeResponseDto.TenantCapabilitiesDto.from(caps);
         return new MeResponseDto(
                 user.id,
                 user.email,

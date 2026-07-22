@@ -7,7 +7,13 @@ import com.ntech.cabosse.members.service.MemberContributionsService;
 import com.ntech.cabosse.members.service.MemberCardService;
 import com.ntech.cabosse.members.service.MemberDocumentService;
 import com.ntech.cabosse.members.service.MemberService;
+import com.ntech.cabosse.members.register.MemberRegisterService;
+import com.ntech.cabosse.members.register.RegisterRow;
 import com.ntech.cabosse.shared.api.ApiResponse;
+import com.ntech.cabosse.shared.export.ExportAudit;
+import com.ntech.cabosse.shared.export.ExportDataset;
+import com.ntech.cabosse.shared.export.ExportFormat;
+import com.ntech.cabosse.shared.export.ExportResponses;
 import com.ntech.cabosse.shared.api.PageRequest;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.security.Roles;
@@ -50,6 +56,8 @@ public class MemberResource {
     @Inject MemberContributionsService contributionsService;
     @Inject MemberDocumentService documents;
     @Inject MemberCardService card;
+    @Inject MemberRegisterService registerService;
+    @Inject ExportAudit exportAudit;
     @Inject TenantCapabilityService capabilities;
     @Inject TenantContext tenantContext;
 
@@ -211,6 +219,26 @@ public class MemberResource {
     public Response contributions(@PathParam("id") UUID id) {
         ensureCapability();
         return Response.ok(ApiResponse.ok(contributionsService.contributions(id))).build();
+    }
+
+    // ─── Registre producteurs (REG-01) ──────────────────────────────
+
+    /**
+     * Génère le registre producteurs au format du fichier modèle : une ligne
+     * par parcelle, périmètre campagne (courante si {@code campaignId} absent).
+     * Formats CSV / XLSX / PDF.
+     */
+    @GET
+    @Path("/register/export")
+    @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "application/pdf" })
+    public Response registerExport(@QueryParam("campaignId") UUID campaignId,
+                                   @QueryParam("format") String formatRaw) {
+        ensureCapability();
+        ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
+        ExportDataset<RegisterRow> dataset = registerService.dataset(campaignId);
+        exportAudit.record("members-register", "Registre producteurs", format, dataset.rows().size());
+        return ExportResponses.build("registre-producteurs", format, dataset);
     }
 
     private static MemberStatus parseStatus(String raw) {

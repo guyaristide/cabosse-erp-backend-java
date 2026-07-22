@@ -65,5 +65,9 @@ public enum PostingSourceType {
     /** Dépense directe sans bon de livraison : contrat/abonnement ou petite caisse (backlog ACH-03). */
     DIRECT_EXPENSE,
     /** Contre-passation d'une dépense directe. */
-    DIRECT_EXPENSE_REVERSAL
+    DIRECT_EXPENSE_REVERSAL,
+    /** Achat de matière première au producteur membre (reçu, backlog NEG-01). */
+    PRODUCER_PURCHASE,
+    /** Vente de cacao en gros / export (backlog NEG-02). */
+    CACAO_SALE
 }

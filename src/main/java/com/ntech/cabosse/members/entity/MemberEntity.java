@@ -34,16 +34,65 @@ public class MemberEntity {
     public String code;
 
     /**
-     * Nom complet du membre tel qu'il sera communiqué dans les
-     * bordereaux et la rémunération. Pour une personne morale,
-     * raison sociale.
+     * Nom complet recomposé ({@code lastName + " " + firstName}) tel qu'il
+     * sera communiqué dans les bordereaux et la rémunération. Pour une
+     * personne morale, raison sociale. <strong>Maintenu par le service</strong>
+     * à partir de {@link #firstName} / {@link #lastName} (backlog MEM-06) —
+     * conservé pour les lecteurs existants (fournisseur miroir, exports, audit).
      */
     public String name;
 
+    /** Prénoms du producteur (backlog MEM-06). Facultatif. */
+    public String firstName;
+
+    /** Nom du producteur (backlog MEM-06). Pour une personne morale, raison sociale. */
+    public String lastName;
+
     public MemberCivilStatus civilStatus = MemberCivilStatus.UNKNOWN;
+
+    /**
+     * Date de naissance complète (backlog MEM-06). Facultative. Exclusive de
+     * {@link #birthYear} : si seule l'année est connue, {@code birthDate} est
+     * null et {@code birthYear} renseigné.
+     */
+    public LocalDate birthDate;
+
+    /** Année de naissance seule, quand la date complète est inconnue (MEM-06). */
+    public Integer birthYear;
+
+    /**
+     * Type de pièce d'identité (libellé dénormalisé, choisi dans le référentiel
+     * des types de pièces, backlog MEM-06). Facultatif.
+     */
+    public String idDocType;
+
+    /** Numéro de la pièce d'identité (backlog MEM-06). Facultatif. */
+    public String idDocNumber;
 
     /** Référence vers {@code CloudFileEntity.id} pour la pièce d'identité scannée. */
     public UUID idCardFileId;
+
+    /**
+     * Section de rattachement (backlog MEM-06). FK vers
+     * {@code SectionEntity.id} (référentiel des sections de collecte).
+     */
+    public UUID sectionId;
+
+    /**
+     * Agent de suivi du producteur (backlog MEM-06). Référence vers un autre
+     * {@link MemberEntity} (l'agent est lui-même un membre) ; pas de table
+     * dédiée. Nom et contact viennent de la fiche de l'agent.
+     */
+    public UUID followUpAgentMemberId;
+
+    /**
+     * Produits livrés à la coopérative (backlog MEM-06). Codes issus de la
+     * liste {@code productsSold} du profil coopérative. Facultatif, multiple.
+     */
+    public List<String> deliveredProductCodes = new ArrayList<>();
+
+    /** Identifiants externes du producteur (backlog MEM-06). Cumulables. */
+    public List<MemberExternalCode> externalProducerCodes = new ArrayList<>();
 
     /** Village / localité d'origine. Saisie libre. */
     public String village;

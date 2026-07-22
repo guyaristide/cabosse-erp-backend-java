@@ -58,20 +58,38 @@ public class TenantUpdateService {
         }
 
         // ─── Légal ───
+        // Les champs du profil coopérative (sigle, date de constitution,
+        // agréments) sont édités côté admin tenant (/me/tenant/profile) et
+        // absents du payload back-office : on les préserve (backlog COOP-04).
+        TenantLegal oldLegal = tenant.legal;
         TenantLegal legal = new TenantLegal();
         legal.legalName = payload.legal().legalName();
         legal.legalForm = payload.legal().legalForm();
         legal.rccm = payload.legal().rccm();
         legal.taxId = payload.legal().taxId();
         legal.vatNumber = payload.legal().vatNumber();
+        if (oldLegal != null) {
+            legal.sigle = oldLegal.sigle;
+            legal.constitutedAt = oldLegal.constitutedAt;
+            legal.agrements = oldLegal.agrements != null
+                    ? new ArrayList<>(oldLegal.agrements) : new ArrayList<>();
+        }
         tenant.legal = legal;
 
         // ─── Adresse ───
+        // region/department/city (référentiels tenant) sont préservés : édités
+        // côté profil coopérative, absents du payload back-office (COOP-04).
+        TenantAddress oldAddress = tenant.address;
         TenantAddress address = new TenantAddress();
         address.street = payload.address().street();
         address.postalCode = payload.address().postalCode();
         address.city = payload.address().city();
         address.country = payload.address().country().toUpperCase();
+        if (oldAddress != null) {
+            address.regionCode = oldAddress.regionCode;
+            address.departmentCode = oldAddress.departmentCode;
+            address.cityId = oldAddress.cityId;
+        }
         tenant.address = address;
 
         // ─── Contact ───

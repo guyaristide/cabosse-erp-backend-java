@@ -69,6 +69,22 @@ public class ParcelEntity {
     /** Année de plantation (sert au calcul de l'âge des plants). */
     public Integer plantingYear;
 
+    /**
+     * Région administrative de la parcelle (backlog PARC-01). Code du
+     * référentiel régions <strong>tenant</strong> ({@code regions}). Propre à
+     * la parcelle, saisi indépendamment du domicile du producteur.
+     */
+    public String regionCode;
+
+    /** Département de la parcelle (code du référentiel départements tenant), PARC-01. */
+    public String departmentCode;
+
+    /**
+     * Rendement et estimation de production par campagne (backlog PARC-01).
+     * Une entrée par campagne renseignée, saisie manuelle.
+     */
+    public List<ParcelCampaignYield> campaignYields = new ArrayList<>();
+
     /** Certifications portées par la parcelle (Rainforest, Bio, UTZ, Fairtrade…). */
     public List<String> certifications = new ArrayList<>();
 

@@ -1,9 +1,11 @@
 package com.ntech.cabosse.me.dto;
 
+import com.ntech.cabosse.tenant.capability.TenantCapability;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -55,5 +57,23 @@ public record MeResponseDto(
             boolean hasRoasting,
             boolean hasEudrCompliance,
             boolean hasSustainability
-    ) {}
+    ) {
+        /**
+         * Projette l'ensemble des capacités effectives en drapeaux booléens.
+         * <strong>Source unique</strong> de la correspondance enum → booléen :
+         * ajouter une capacité = un champ ci-dessus + une ligne ici, rien
+         * d'autre côté back (le front reçoit l'objet tel quel).
+         */
+        public static TenantCapabilitiesDto from(Set<TenantCapability> caps) {
+            return new TenantCapabilitiesDto(
+                    caps.contains(TenantCapability.HAS_MEMBERS),
+                    caps.contains(TenantCapability.HAS_PARCELS),
+                    caps.contains(TenantCapability.HAS_FERMENTATION),
+                    caps.contains(TenantCapability.HAS_DRYING),
+                    caps.contains(TenantCapability.HAS_ROASTING),
+                    caps.contains(TenantCapability.HAS_EUDR_COMPLIANCE),
+                    caps.contains(TenantCapability.HAS_SUSTAINABILITY)
+            );
+        }
+    }
 }
