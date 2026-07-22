@@ -489,8 +489,10 @@ public final class Exporters {
     /** Nom d'onglet Excel : max 31 chars, pas de \ / ? * [ ]. */
     private static String safeSheetName(String raw) {
         if (raw == null || raw.isBlank()) return "Export";
-        String cleaned = raw.replaceAll("[\\\\/?*\\[\\]]", " ").trim();
-        return cleaned.length() > 31 ? cleaned.substring(0, 31) : cleaned;
+        // Caractères interdits par Apache POI dans un nom de feuille : \ / ? * [ ] :
+        String cleaned = raw.replaceAll("[\\\\/?*\\[\\]:]", " ").replaceAll("\\s+", " ").trim();
+        if (cleaned.isBlank()) return "Export";
+        return cleaned.length() > 31 ? cleaned.substring(0, 31).trim() : cleaned;
     }
 
     // ─── PDF ──────────────────────────────────────────────────────

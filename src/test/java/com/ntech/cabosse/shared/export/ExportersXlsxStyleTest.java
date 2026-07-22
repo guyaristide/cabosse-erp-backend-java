@@ -81,6 +81,25 @@ class ExportersXlsxStyleTest {
         }
     }
 
+    /**
+     * Un titre contenant un caractère interdit par POI dans un nom de feuille
+     * (ici « : », cf. l'export « Ventes : lignes ») ne doit pas faire planter
+     * l'export : le nom est nettoyé, le fichier reste lisible.
+     */
+    @Test
+    void shouldSanitizeSheetNameWithForbiddenChars() throws Exception {
+        ExportDataset<DemoRow> ds = new ExportDataset<>(
+                "Ventes : lignes / détails [2026]?*", sampleDataset().columns(), sampleDataset().rows());
+        byte[] bytes = writeBytes(ds);
+        try (Workbook wb = new XSSFWorkbook(new ByteArrayInputStream(bytes))) {
+            assertThat(wb.getNumberOfSheets()).isEqualTo(1);
+            String name = wb.getSheetAt(0).getSheetName();
+            assertThat(name).doesNotContain(":", "\\", "/", "?", "*", "[", "]");
+            assertThat(name.length()).isLessThanOrEqualTo(31);
+            assertThat(name).isNotBlank();
+        }
+    }
+
     /** L'en-tête porte le fond beige {@code #EAE5DA} et un texte gras 11 pt. */
     @Test
     void shouldStyleHeaderRowWithBeigeBackgroundAndBoldFont() throws Exception {
