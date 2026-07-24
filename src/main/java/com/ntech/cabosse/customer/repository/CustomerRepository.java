@@ -28,25 +28,30 @@ public class CustomerRepository {
         return coll().find().sort(new org.bson.Document("name", 1)).into(new ArrayList<>());
     }
 
-    public long countSearch(String q) {
-        return coll().countDocuments(searchFilter(q));
+    public long countSearch(String q, String type) {
+        return coll().countDocuments(searchFilter(q, type));
     }
 
-    public List<CustomerEntity> search(String q, int skip, int limit) {
-        return coll().find(searchFilter(q))
+    public List<CustomerEntity> search(String q, String type, int skip, int limit) {
+        return coll().find(searchFilter(q, type))
                 .sort(new org.bson.Document("name", 1))
                 .skip(skip)
                 .limit(limit)
                 .into(new ArrayList<>());
     }
 
-    private static org.bson.conversions.Bson searchFilter(String q) {
-        if (q == null || q.isBlank()) return new org.bson.Document();
-        String escaped = java.util.regex.Pattern.quote(q.trim());
-        return Filters.or(
-                Filters.regex("name", escaped, "i"),
-                Filters.regex("code", escaped, "i")
-        );
+    private static org.bson.conversions.Bson searchFilter(String q, String type) {
+        List<org.bson.conversions.Bson> filters = new ArrayList<>();
+        if (q != null && !q.isBlank()) {
+            String escaped = java.util.regex.Pattern.quote(q.trim());
+            filters.add(Filters.or(
+                    Filters.regex("name", escaped, "i"),
+                    Filters.regex("code", escaped, "i")));
+        }
+        if (type != null && !type.isBlank()) {
+            filters.add(Filters.eq("type", type.trim()));
+        }
+        return filters.isEmpty() ? new org.bson.Document() : Filters.and(filters);
     }
 
     public Optional<CustomerEntity> findById(UUID id) {

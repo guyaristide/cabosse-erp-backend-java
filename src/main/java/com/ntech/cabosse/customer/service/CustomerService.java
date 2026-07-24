@@ -39,13 +39,14 @@ public class CustomerService {
         return repo.listAll().stream().map(CustomerResponseDto::from).toList();
     }
 
-    public Pagination<CustomerResponseDto> page(String q, PageRequest pr) {
-        long total = repo.countSearch(q);
-        List<CustomerResponseDto> items = repo.search(q, pr.skip(), pr.perPage()).stream()
+    public Pagination<CustomerResponseDto> page(String q, String type, PageRequest pr) {
+        long total = repo.countSearch(q, type);
+        List<CustomerResponseDto> items = repo.search(q, type, pr.skip(), pr.perPage()).stream()
                 .map(CustomerResponseDto::from)
                 .toList();
         java.util.Map<String, String> filters = new java.util.HashMap<>();
         if (q != null && !q.isBlank()) filters.put("q", q.trim());
+        if (type != null && !type.isBlank()) filters.put("type", type.trim());
         return Pagination.of(total, pr, new String[]{"name"}, "asc", filters, items);
     }
 

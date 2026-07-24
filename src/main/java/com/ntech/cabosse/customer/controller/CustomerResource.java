@@ -47,9 +47,10 @@ public class CustomerResource {
 
     @GET
     public Response list(@QueryParam("q") String q,
+                         @QueryParam("type") String type,
                          @QueryParam("page") @DefaultValue("0") int page,
                          @QueryParam("perPage") @DefaultValue("20") int perPage) {
-        return Response.ok(ApiResponse.ok(service.page(q, PageRequest.of(page, perPage)))).build();
+        return Response.ok(ApiResponse.ok(service.page(q, type, PageRequest.of(page, perPage)))).build();
     }
 
     @POST
