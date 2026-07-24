@@ -21,8 +21,8 @@ public record CacaoSaleImportPreviewDto(
     public record Normalized(
             UUID customerId,
             String customerName,
-            String productCode,
-            String productLabel,
+            UUID articleId,
+            String articleLabel,
             String date,
             BigDecimal declaredKg,
             BigDecimal acceptedKg,

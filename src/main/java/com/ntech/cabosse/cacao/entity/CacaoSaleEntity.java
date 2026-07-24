@@ -41,9 +41,7 @@ public class CacaoSaleEntity {
     /** Contrat de vente ayant pré-rempli prix/primes (optionnel). */
     public UUID contractId;
 
-    // ─── Produit → article matière première ───
-    public String productCode;
-    public String productLabel;
+    // ─── Article vendu (matière première négociée / produit fini) ───
     public UUID articleId;
     public String articleCode;
     public String articleName;

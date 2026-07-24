@@ -21,8 +21,8 @@ public record ProducerPurchaseImportPreviewDto(
     public record Normalized(
             UUID memberId,
             String producerName,
-            String productCode,
-            String productLabel,
+            UUID articleId,
+            String articleLabel,
             String date,
             Integer nbSacs,
             BigDecimal weightKg,

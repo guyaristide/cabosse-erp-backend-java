@@ -212,6 +212,8 @@ public class PurchaseOrderImportService {
                 /* standardSalePrice */ null,
                 blankToNull(a.activityCode()),
                 /* stockable */ Boolean.TRUE,
+                /* purchasable */ null,
+                /* sellable */ null,
                 /* alertThreshold */ null,
                 /* barcode */ null,
                 /* vatRate */ null,

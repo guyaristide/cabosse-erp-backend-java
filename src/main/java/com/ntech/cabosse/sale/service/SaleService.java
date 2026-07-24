@@ -379,9 +379,9 @@ public class SaleService {
                 ArticleEntity art = articles.findById(raw.articleId()).orElseThrow(
                         () -> new NotFoundException("Article " + raw.articleId() + " introuvable.")
                 );
-                if (!ArticleType.FINISHED_PRODUCT.name().equals(art.type)) {
+                if (!art.sellable) {
                     throw new BusinessException(
-                            "L'article « " + art.name + " » n'est pas un produit fini.");
+                            "L'article « " + art.name + " » n'est pas marqué vendable.");
                 }
                 if (!art.active) {
                     throw new BusinessException("Article « " + art.name + " » désactivé.");

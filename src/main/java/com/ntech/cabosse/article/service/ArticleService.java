@@ -71,6 +71,9 @@ public class ArticleService {
         ArticleEntity e = new ArticleEntity();
         e.id = UuidCreator.getTimeOrderedEpoch();
         e.type = type.name();
+        // Défauts de rôle selon la nature ; surchargeables via le payload dans apply().
+        e.purchasable = defaultPurchasable(type);
+        e.sellable = defaultSellable(type);
         e.code = code;
         e.createdAt = Instant.now();
         e.updatedAt = e.createdAt;
@@ -112,6 +115,12 @@ public class ArticleService {
         if (p.stockable() != null) {
             e.stockable = p.stockable();
         }
+        if (p.purchasable() != null) {
+            e.purchasable = p.purchasable();
+        }
+        if (p.sellable() != null) {
+            e.sellable = p.sellable();
+        }
         // Les articles TRANSPORT ne sont jamais stockés (prestations de service).
         // Le toggle stockable=true serait incohérent → on le force.
         if (ArticleType.TRANSPORT.name().equals(e.type)) {
@@ -127,6 +136,16 @@ public class ArticleService {
         e.defaultProgram = blankToNull(p.defaultProgram());
         e.defaultProject = blankToNull(p.defaultProject());
         e.unitWeightGrams = p.unitWeightGrams();
+    }
+
+    /** Défaut du rôle achetable selon la nature (tout sauf produit fini). */
+    private static boolean defaultPurchasable(ArticleType type) {
+        return type != ArticleType.FINISHED_PRODUCT;
+    }
+
+    /** Défaut du rôle vendable selon la nature (produit fini par défaut). */
+    private static boolean defaultSellable(ArticleType type) {
+        return type == ArticleType.FINISHED_PRODUCT;
     }
 
     private void audit(ArticleEntity e, String action) {

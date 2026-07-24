@@ -17,8 +17,6 @@ public record CacaoSaleResponseDto(
         UUID customerId,
         String customerName,
         UUID contractId,
-        String productCode,
-        String productLabel,
         UUID articleId,
         String articleCode,
         String articleName,
@@ -50,7 +48,7 @@ public record CacaoSaleResponseDto(
         return new CacaoSaleResponseDto(
                 e.id, e.ref, e.date, e.campaignId, e.campaignYear, e.campaignType,
                 e.customerId, e.customerName, e.contractId,
-                e.productCode, e.productLabel, e.articleId, e.articleCode, e.articleName, e.articleUnit,
+                e.articleId, e.articleCode, e.articleName, e.articleUnit,
                 e.siteId, e.logistics, e.weights, e.refactions, e.quality,
                 e.pricePerKgFcfa, e.commercialFcfa, e.coopPrimeFcfa, e.producerPrimeFcfa,
                 e.socialPrimeFcfa, e.totalPrimeFcfa, e.amountInvoicedHtFcfa, e.vatRatePct,

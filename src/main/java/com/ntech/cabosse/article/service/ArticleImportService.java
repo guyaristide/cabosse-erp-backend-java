@@ -200,6 +200,8 @@ public class ArticleImportService {
                         n.standardSalePrice(),
                         n.activityCode(),
                         n.stockable(),
+                        /* purchasable */ null,
+                        /* sellable */ null,
                         n.alertThreshold(),
                         n.barcode(),
                         n.vatRate(),

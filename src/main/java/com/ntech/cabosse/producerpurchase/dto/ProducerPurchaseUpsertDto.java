@@ -23,7 +23,7 @@ import java.util.UUID;
 public record ProducerPurchaseUpsertDto(
         @NotNull LocalDate date,
         @NotNull UUID memberId,
-        @NotBlank @Size(max = 24) String productCode,
+        @NotNull UUID articleId,
 
         UUID siteId,
         UUID campaignId,

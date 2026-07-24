@@ -30,10 +30,7 @@ import com.ntech.cabosse.stock.entity.MovementKind;
 import com.ntech.cabosse.stock.entity.MovementSource;
 import com.ntech.cabosse.stock.repository.StockItemRepository;
 import com.ntech.cabosse.stock.service.StockService;
-import com.ntech.cabosse.tenant.entity.TenantEntity;
 import com.ntech.cabosse.tenant.entity.TenantPreferences;
-import com.ntech.cabosse.tenant.entity.TenantProduct;
-import com.ntech.cabosse.tenant.repository.TenantRepository;
 import com.ntech.cabosse.tenant.service.TenantPreferencesLookup;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -58,7 +55,6 @@ public class CacaoSaleService {
     @Inject CacaoRefService refService;
     @Inject CustomerRepository customers;
     @Inject ArticleRepository articles;
-    @Inject TenantRepository tenants;
     @Inject CampaignService campaigns;
     @Inject StockService stockService;
     @Inject StockItemRepository stockItems;
@@ -205,16 +201,11 @@ public class CacaoSaleService {
         var customer = customers.findById(p.customerId()).orElseThrow(
                 () -> new NotFoundException("Client " + p.customerId() + " introuvable."));
 
-        TenantEntity tenant = tenants.findById(tenantContext.tenantId());
-        TenantProduct product = tenant != null && tenant.productsSold != null
-                ? tenant.productsSold.stream()
-                        .filter(x -> x.code != null && x.code.equalsIgnoreCase(p.productCode().trim()))
-                        .findFirst().orElse(null)
-                : null;
-        if (product == null) throw new BusinessException("Produit « " + p.productCode() + " » inconnu de la coopérative.");
-        if (product.articleId == null) throw new BusinessException("Produit « " + product.label + " » non rattaché à un article.");
-        ArticleEntity article = articles.findById(product.articleId).orElseThrow(
-                () -> new NotFoundException("Article lié " + product.articleId + " introuvable."));
+        ArticleEntity article = articles.findById(p.articleId()).orElseThrow(
+                () -> new NotFoundException("Article " + p.articleId() + " introuvable."));
+        if (!article.sellable) {
+            throw new BusinessException("L'article « " + article.name + " » n'est pas marqué vendable.");
+        }
 
         CampaignEntity campaign = p.campaignId() != null ? campaigns.get(p.campaignId()) : campaigns.current();
 
@@ -261,8 +252,6 @@ public class CacaoSaleService {
         e.customerId = customer.id;
         e.customerName = customer.name;
         e.contractId = contract != null ? contract.id : null;
-        e.productCode = product.code;
-        e.productLabel = product.label;
         e.articleId = article.id;
         e.articleCode = article.code;
         e.articleName = article.name;

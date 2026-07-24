@@ -1,7 +1,6 @@
 package com.ntech.cabosse.me.service;
 
 import com.ntech.cabosse.me.dto.TenantAgrementDto;
-import com.ntech.cabosse.me.dto.TenantProductDto;
 import com.ntech.cabosse.me.dto.TenantProfileContactDto;
 import com.ntech.cabosse.me.dto.TenantProfileDto;
 import com.ntech.cabosse.me.dto.UpdateTenantProfilePayloadDto;
@@ -14,7 +13,6 @@ import com.ntech.cabosse.tenant.entity.TenantAddress;
 import com.ntech.cabosse.tenant.entity.TenantContact;
 import com.ntech.cabosse.tenant.entity.TenantEntity;
 import com.ntech.cabosse.tenant.entity.TenantLegal;
-import com.ntech.cabosse.tenant.entity.TenantProduct;
 import com.ntech.cabosse.tenant.repository.TenantRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -97,9 +95,6 @@ public class TenantProfileService {
         t.contact = t.contacts.stream().filter(c -> c.isPrimary).findFirst()
                 .orElse(t.contacts.isEmpty() ? t.contact : t.contacts.get(0));
 
-        // ─── Produits vendus (code auto, dédupliqué) ───
-        t.productsSold = buildProducts(p.productsSold());
-
         t.updatedAt = Instant.now();
         t.updatedBy = safeUserId();
         tenants.update(t);
@@ -132,23 +127,6 @@ public class TenantProfileService {
         return out;
     }
 
-    private List<TenantProduct> buildProducts(List<TenantProductDto> in) {
-        List<TenantProduct> out = new ArrayList<>();
-        if (in == null) return out;
-        Set<String> seen = new LinkedHashSet<>();
-        for (TenantProductDto d : in) {
-            if (d == null || d.label() == null || d.label().isBlank()) continue;
-            String label = d.label().trim();
-            String code = (d.code() != null && !d.code().isBlank())
-                    ? d.code().trim().toUpperCase(Locale.ROOT) : slugCode(label);
-            if (!seen.add(code)) {
-                throw new BusinessException("Code produit en double : « " + code + " ».");
-            }
-            out.add(new TenantProduct(code, label, d.articleId()));
-        }
-        return out;
-    }
-
     private TenantProfileDto toDto(TenantEntity t) {
         TenantLegal l = t.legal != null ? t.legal : new TenantLegal();
         TenantAddress a = t.address != null ? t.address : new TenantAddress();
@@ -168,15 +146,12 @@ public class TenantProfileService {
             contacts = List.of();
         }
 
-        List<TenantProductDto> products = (t.productsSold != null ? t.productsSold : List.<TenantProduct>of())
-                .stream().map(TenantProductDto::from).toList();
-
         return new TenantProfileDto(
                 t.id, t.name,
                 l.legalName, l.legalForm, l.sigle, l.rccm, l.taxId, l.vatNumber,
                 l.constitutedAt, agrements,
                 a.street, a.postalCode, a.city, a.country, a.regionCode, a.departmentCode,
-                contacts, products
+                contacts
         );
     }
 

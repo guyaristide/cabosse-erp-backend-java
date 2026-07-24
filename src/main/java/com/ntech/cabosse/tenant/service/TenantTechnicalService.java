@@ -106,7 +106,8 @@ public class TenantTechnicalService {
             new MigrationDescriptor("create_referential_geo_collections", "043", "neiba"),
             new MigrationDescriptor("backfill_member_name", "044", "neiba"),
             new MigrationDescriptor("create_producer_purchases_collection", "045", "neiba"),
-            new MigrationDescriptor("create_cacao_trade_collections", "046", "neiba")
+            new MigrationDescriptor("create_cacao_trade_collections", "046", "neiba"),
+            new MigrationDescriptor("backfill_article_roles", "047", "neiba")
     );
 
     /** Fréquence de backup par plan tarifaire (cf. plans.json catalogue). */

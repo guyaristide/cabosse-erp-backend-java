@@ -28,10 +28,7 @@ import com.ntech.cabosse.stock.dto.MovementInput;
 import com.ntech.cabosse.stock.entity.MovementKind;
 import com.ntech.cabosse.stock.entity.MovementSource;
 import com.ntech.cabosse.stock.service.StockService;
-import com.ntech.cabosse.tenant.entity.TenantEntity;
 import com.ntech.cabosse.tenant.entity.TenantPreferences;
-import com.ntech.cabosse.tenant.entity.TenantProduct;
-import com.ntech.cabosse.tenant.repository.TenantRepository;
 import com.ntech.cabosse.tenant.service.TenantPreferencesLookup;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -59,7 +56,6 @@ public class ProducerPurchaseService {
     @Inject MemberRepository members;
     @Inject SectionRepository sections;
     @Inject ArticleRepository articles;
-    @Inject TenantRepository tenants;
     @Inject CampaignService campaigns;
     @Inject CollectorAdvanceRepository advances;
     @Inject StockService stockService;
@@ -94,22 +90,11 @@ public class ProducerPurchaseService {
         MemberEntity m = members.findById(p.memberId()).orElseThrow(
                 () -> new NotFoundException("Producteur " + p.memberId() + " introuvable."));
 
-        TenantEntity tenant = tenants.findById(tenantContext.tenantId());
-        TenantProduct product = tenant != null && tenant.productsSold != null
-                ? tenant.productsSold.stream()
-                        .filter(x -> x.code != null && x.code.equalsIgnoreCase(p.productCode().trim()))
-                        .findFirst().orElse(null)
-                : null;
-        if (product == null) {
-            throw new BusinessException("Produit « " + p.productCode() + " » inconnu de la coopérative.");
+        ArticleEntity article = articles.findById(p.articleId()).orElseThrow(
+                () -> new NotFoundException("Article " + p.articleId() + " introuvable."));
+        if (!article.purchasable) {
+            throw new BusinessException("L'article « " + article.name + " » n'est pas marqué achetable.");
         }
-        if (product.articleId == null) {
-            throw new BusinessException(
-                    "Le produit « " + product.label + " » n'est pas rattaché à un article. "
-                            + "Rattachez-le dans le profil coopérative avant d'acheter.");
-        }
-        ArticleEntity article = articles.findById(product.articleId).orElseThrow(
-                () -> new NotFoundException("Article lié " + product.articleId + " introuvable."));
 
         CampaignEntity campaign = p.campaignId() != null ? campaigns.get(p.campaignId()) : campaigns.current();
 
@@ -150,8 +135,6 @@ public class ProducerPurchaseService {
         e.sectionId = m.sectionId;
         e.sectionName = m.sectionId != null
                 ? sections.findById(m.sectionId).map(s -> s.name).orElse(null) : null;
-        e.productCode = product.code;
-        e.productLabel = product.label;
         e.articleId = article.id;
         e.articleCode = article.code;
         e.articleName = article.name;
@@ -222,7 +205,7 @@ public class ProducerPurchaseService {
                 .target("producer_purchase", e.id.toString(), e.ref)
                 .tenant(tenantContext.tenantId(), null)
                 .description("Achat producteur " + e.ref + " : " + e.producerName
-                        + " · " + weight + " kg " + e.productLabel + " (" + amount + ")")
+                        + " · " + weight + " kg " + e.articleName + " (" + amount + ")")
                 .record();
 
         return ProducerPurchaseResponseDto.from(e);

@@ -35,7 +35,6 @@ public record TenantProfileDto(
         String regionCode,
         String departmentCode,
 
-        // ─── Contacts & produits ───
-        List<TenantProfileContactDto> contacts,
-        List<TenantProductDto> productsSold
+        // ─── Contacts ───
+        List<TenantProfileContactDto> contacts
 ) {}

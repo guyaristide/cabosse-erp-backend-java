@@ -335,10 +335,10 @@ public class MemberService {
         e.idCardFileId = p.idCardFileId();
         e.sectionId = p.sectionId();
         e.followUpAgentMemberId = p.followUpAgentMemberId();
-        e.deliveredProductCodes = p.deliveredProductCodes() == null ? new ArrayList<>()
-                : p.deliveredProductCodes().stream()
-                        .filter(c -> c != null && !c.isBlank())
-                        .map(String::trim).distinct().collect(Collectors.toList());
+        e.deliveredArticleIds = p.deliveredArticleIds() == null ? new ArrayList<>()
+                : p.deliveredArticleIds().stream()
+                        .filter(java.util.Objects::nonNull)
+                        .distinct().collect(Collectors.toList());
         e.externalProducerCodes = p.externalProducerCodes() == null ? new ArrayList<>()
                 : p.externalProducerCodes().stream()
                         .filter(x -> x != null && x.type() != null && !x.type().isBlank())

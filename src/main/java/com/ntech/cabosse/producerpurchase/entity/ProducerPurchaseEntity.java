@@ -46,8 +46,6 @@ public class ProducerPurchaseEntity {
     public String sectionName;
 
     // ─── Produit → article (lien manuel COOP-03/NEG-01) ───
-    public String productCode;
-    public String productLabel;
     public UUID articleId;
     public String articleCode;
     public String articleName;

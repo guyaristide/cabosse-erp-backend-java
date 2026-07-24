@@ -19,6 +19,8 @@ public record ArticleResponseDto(
         BigDecimal standardSalePrice,
         String activityCode,
         boolean stockable,
+        boolean purchasable,
+        boolean sellable,
         BigDecimal alertThreshold,
         String barcode,
         BigDecimal vatRate,
@@ -51,7 +53,7 @@ public record ArticleResponseDto(
         return new ArticleResponseDto(
                 e.id, e.type, e.code, e.name, e.description, e.unit,
                 e.standardCost, e.standardSalePrice, e.activityCode,
-                e.stockable, e.alertThreshold, e.barcode, e.vatRate,
+                e.stockable, e.purchasable, e.sellable, e.alertThreshold, e.barcode, e.vatRate,
                 e.purchaseChargeAccount,
                 e.salesRevenueAccount,
                 e.defaultCostCenter,

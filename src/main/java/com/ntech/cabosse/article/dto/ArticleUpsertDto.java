@@ -44,6 +44,12 @@ public record ArticleUpsertDto(
         /** {@code true}/{@code false}. {@code null} accepté à l'update (laissé inchangé). */
         Boolean stockable,
 
+        /** Rôle achetable. {@code null} = défaut selon la nature (création) / inchangé (update). */
+        Boolean purchasable,
+
+        /** Rôle vendable. {@code null} = défaut selon la nature (création) / inchangé (update). */
+        Boolean sellable,
+
         @DecimalMin(value = "0", message = "Seuil d'alerte négatif interdit")
         BigDecimal alertThreshold,
 

@@ -84,12 +84,6 @@ public class TenantEntity extends PanacheMongoEntityBase {
     /** 1..N activités, exactement une avec {@code isPrimary=true}. */
     public List<TenantActivity> activities = new ArrayList<>();
 
-    /**
-     * Produits vendus / collectés par la coopérative (backlog COOP-03).
-     * Liste légère alimentant le « produit livré » de la fiche membre.
-     */
-    public List<TenantProduct> productsSold = new ArrayList<>();
-
     /** Liste de codes ({@code "UTZ"}, {@code "Bio"}, etc.). */
     public List<String> certifications = new ArrayList<>();
 

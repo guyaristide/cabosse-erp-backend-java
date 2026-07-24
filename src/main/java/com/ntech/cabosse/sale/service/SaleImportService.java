@@ -257,6 +257,8 @@ public class SaleImportService {
                 /* standardSalePrice */ null,
                 /* activityCode */ null,
                 /* stockable */ Boolean.TRUE,
+                /* purchasable */ null,
+                /* sellable */ null,
                 /* alertThreshold */ null,
                 /* barcode */ null,
                 /* vatRate */ null,

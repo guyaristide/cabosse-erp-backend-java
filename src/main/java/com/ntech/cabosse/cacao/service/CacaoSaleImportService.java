@@ -8,12 +8,10 @@ import com.ntech.cabosse.cacao.dto.CacaoSaleImportPreviewDto.Row;
 import com.ntech.cabosse.cacao.dto.CacaoSaleImportPreviewDto.Status;
 import com.ntech.cabosse.cacao.dto.CacaoSaleImportRowDto;
 import com.ntech.cabosse.cacao.dto.CacaoSaleUpsertDto;
+import com.ntech.cabosse.article.entity.ArticleEntity;
+import com.ntech.cabosse.article.repository.ArticleRepository;
 import com.ntech.cabosse.customer.entity.CustomerEntity;
 import com.ntech.cabosse.customer.repository.CustomerRepository;
-import com.ntech.cabosse.shared.tenant.TenantContext;
-import com.ntech.cabosse.tenant.entity.TenantEntity;
-import com.ntech.cabosse.tenant.entity.TenantProduct;
-import com.ntech.cabosse.tenant.repository.TenantRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
@@ -36,8 +34,7 @@ import java.util.UUID;
 public class CacaoSaleImportService {
 
     @Inject CustomerRepository customers;
-    @Inject TenantRepository tenants;
-    @Inject TenantContext tenantContext;
+    @Inject ArticleRepository articles;
     @Inject CacaoSaleService saleService;
 
     public CacaoSaleImportPreviewDto preview(List<CacaoSaleImportRowDto> input) {
@@ -48,15 +45,14 @@ public class CacaoSaleImportService {
         for (CustomerEntity c : customers.listAll()) {
             if (c.name != null) byName.putIfAbsent(c.name.trim().toUpperCase(Locale.ROOT), c);
         }
-        Map<String, TenantProduct> productsByKey = new HashMap<>();
-        TenantEntity tenant = tenants.findById(tenantContext.tenantId());
-        if (tenant != null && tenant.productsSold != null) {
-            for (TenantProduct pr : tenant.productsSold) {
-                if (pr.code != null && !pr.code.isBlank())
-                    productsByKey.putIfAbsent(pr.code.trim().toUpperCase(Locale.ROOT), pr);
-                if (pr.label != null && !pr.label.isBlank())
-                    productsByKey.putIfAbsent(pr.label.trim().toUpperCase(Locale.ROOT), pr);
-            }
+        // Articles vendables, rapprochés par code OU nom.
+        Map<String, ArticleEntity> articlesByKey = new HashMap<>();
+        for (ArticleEntity a : articles.listAll()) {
+            if (!a.sellable || !a.active) continue;
+            if (a.code != null && !a.code.isBlank())
+                articlesByKey.putIfAbsent(a.code.trim().toUpperCase(Locale.ROOT), a);
+            if (a.name != null && !a.name.isBlank())
+                articlesByKey.putIfAbsent(a.name.trim().toUpperCase(Locale.ROOT), a);
         }
 
         List<Row> rows = new ArrayList<>();
@@ -68,10 +64,9 @@ public class CacaoSaleImportService {
                     ? null : byName.get(raw.customerName().trim().toUpperCase(Locale.ROOT));
             if (customer == null) issues.add(new FieldIssue("customerName", "Client introuvable (nom)."));
 
-            TenantProduct product = raw.productCode() == null || raw.productCode().isBlank()
-                    ? null : productsByKey.get(raw.productCode().trim().toUpperCase(Locale.ROOT));
-            if (product == null) issues.add(new FieldIssue("productCode", "Produit inconnu de la coopérative."));
-            else if (product.articleId == null) issues.add(new FieldIssue("productCode", "Produit non rattaché à un article."));
+            ArticleEntity article = raw.productCode() == null || raw.productCode().isBlank()
+                    ? null : articlesByKey.get(raw.productCode().trim().toUpperCase(Locale.ROOT));
+            if (article == null) issues.add(new FieldIssue("productCode", "Article vendable inconnu (code ou nom)."));
 
             LocalDate date = parseDate(raw.date());
             if (date == null) issues.add(new FieldIssue("date", "Date invalide ou manquante."));
@@ -93,8 +88,8 @@ public class CacaoSaleImportService {
                     new Normalized(
                             customer != null ? customer.id : null,
                             customer != null ? customer.name : null,
-                            product != null ? product.code : null,
-                            product != null ? product.label : null,
+                            article != null ? article.id : null,
+                            article != null ? article.name : null,
                             date != null ? date.toString() : null,
                             declared, accepted, montant),
                     issues));
@@ -121,7 +116,7 @@ public class CacaoSaleImportService {
                 var created = saleService.create(new CacaoSaleUpsertDto(
                         parseDate(raw.date()),
                         nrm.customerId(),
-                        nrm.productCode(),
+                        nrm.articleId(),
                         parseUuid(raw.siteId()),
                         parseUuid(raw.campaignId()),
                         blankToNull(raw.campaignType()),

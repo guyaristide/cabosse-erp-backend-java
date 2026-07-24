@@ -36,7 +36,6 @@ public record UpdateTenantProfilePayloadDto(
         @Size(max = 60) String regionCode,
         @Size(max = 60) String departmentCode,
 
-        // ─── Contacts & produits ───
-        List<@Valid TenantProfileContactDto> contacts,
-        List<@Valid TenantProductDto> productsSold
+        // ─── Contacts ───
+        List<@Valid TenantProfileContactDto> contacts
 ) {}

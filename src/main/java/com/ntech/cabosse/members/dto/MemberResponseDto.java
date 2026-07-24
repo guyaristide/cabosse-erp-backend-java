@@ -24,7 +24,7 @@ public record MemberResponseDto(
         UUID idCardFileId,
         UUID sectionId,
         UUID followUpAgentMemberId,
-        List<String> deliveredProductCodes,
+        List<UUID> deliveredArticleIds,
         List<MemberExternalCodeDto> externalProducerCodes,
         String village,
         String phone,
@@ -51,7 +51,7 @@ public record MemberResponseDto(
                 e.id, e.code, e.name, e.firstName, e.lastName, e.civilStatus,
                 e.birthDate, e.birthYear, e.idDocType, e.idDocNumber, e.idCardFileId,
                 e.sectionId, e.followUpAgentMemberId,
-                e.deliveredProductCodes != null ? List.copyOf(e.deliveredProductCodes) : List.of(),
+                e.deliveredArticleIds != null ? List.copyOf(e.deliveredArticleIds) : List.of(),
                 e.externalProducerCodes == null ? List.of() : e.externalProducerCodes.stream()
                         .map(MemberExternalCodeDto::from).toList(),
                 e.village, e.phone, e.email,

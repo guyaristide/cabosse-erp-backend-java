@@ -40,7 +40,7 @@ public record MemberUpsertDto(
 
         UUID sectionId,
         UUID followUpAgentMemberId,
-        List<@Size(max = 24) String> deliveredProductCodes,
+        List<UUID> deliveredArticleIds,
         List<@Valid MemberExternalCodeDto> externalProducerCodes,
 
         @Size(max = 80) String village,

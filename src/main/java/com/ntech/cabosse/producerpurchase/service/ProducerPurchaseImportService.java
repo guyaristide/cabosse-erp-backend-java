@@ -10,12 +10,10 @@ import com.ntech.cabosse.producerpurchase.dto.ProducerPurchaseImportPreviewDto.R
 import com.ntech.cabosse.producerpurchase.dto.ProducerPurchaseImportPreviewDto.Status;
 import com.ntech.cabosse.producerpurchase.dto.ProducerPurchaseImportRowDto;
 import com.ntech.cabosse.producerpurchase.dto.ProducerPurchaseUpsertDto;
+import com.ntech.cabosse.article.entity.ArticleEntity;
+import com.ntech.cabosse.article.repository.ArticleRepository;
 import com.ntech.cabosse.reception.entity.PaymentMethod;
-import com.ntech.cabosse.shared.tenant.TenantContext;
-import com.ntech.cabosse.tenant.entity.TenantEntity;
 import com.ntech.cabosse.tenant.entity.TenantPreferences;
-import com.ntech.cabosse.tenant.entity.TenantProduct;
-import com.ntech.cabosse.tenant.repository.TenantRepository;
 import com.ntech.cabosse.tenant.service.TenantPreferencesLookup;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -39,8 +37,7 @@ import java.util.UUID;
 public class ProducerPurchaseImportService {
 
     @Inject MemberRepository members;
-    @Inject TenantRepository tenants;
-    @Inject TenantContext tenantContext;
+    @Inject ArticleRepository articles;
     @Inject TenantPreferencesLookup preferences;
     @Inject ProducerPurchaseService purchaseService;
 
@@ -66,16 +63,14 @@ public class ProducerPurchaseImportService {
 
         // Indexé par code ET par libellé : le fichier reçu porte souvent le
         // libellé (« cacao ») plutôt que le code.
-        Map<String, TenantProduct> productsByCode = new HashMap<>();
-        TenantEntity tenant = tenants.findById(tenantContext.tenantId());
-        if (tenant != null && tenant.productsSold != null) {
-            for (TenantProduct pr : tenant.productsSold) {
-                if (pr.code != null && !pr.code.isBlank()) {
-                    productsByCode.putIfAbsent(pr.code.trim().toUpperCase(Locale.ROOT), pr);
-                }
-                if (pr.label != null && !pr.label.isBlank()) {
-                    productsByCode.putIfAbsent(pr.label.trim().toUpperCase(Locale.ROOT), pr);
-                }
+        Map<String, ArticleEntity> articlesByKey = new HashMap<>();
+        for (ArticleEntity a : articles.listAll()) {
+            if (!a.purchasable || !a.active) continue;
+            if (a.code != null && !a.code.isBlank()) {
+                articlesByKey.putIfAbsent(a.code.trim().toUpperCase(Locale.ROOT), a);
+            }
+            if (a.name != null && !a.name.isBlank()) {
+                articlesByKey.putIfAbsent(a.name.trim().toUpperCase(Locale.ROOT), a);
             }
         }
 
@@ -89,12 +84,10 @@ public class ProducerPurchaseImportService {
                 issues.add(new FieldIssue("producerRef", "Producteur introuvable (N° carte CCC ou N° interne)."));
             }
 
-            TenantProduct product = raw.productCode() == null || raw.productCode().isBlank()
-                    ? null : productsByCode.get(raw.productCode().trim().toUpperCase(Locale.ROOT));
-            if (product == null) {
-                issues.add(new FieldIssue("productCode", "Produit inconnu de la coopérative."));
-            } else if (product.articleId == null) {
-                issues.add(new FieldIssue("productCode", "Produit non rattaché à un article."));
+            ArticleEntity article = raw.productCode() == null || raw.productCode().isBlank()
+                    ? null : articlesByKey.get(raw.productCode().trim().toUpperCase(Locale.ROOT));
+            if (article == null) {
+                issues.add(new FieldIssue("productCode", "Article achetable inconnu (code ou nom)."));
             }
 
             LocalDate date = parseDate(raw.date());
@@ -138,8 +131,8 @@ public class ProducerPurchaseImportService {
             Normalized normalized = new Normalized(
                     member != null ? member.id : null,
                     member != null ? member.name : null,
-                    product != null ? product.code : null,
-                    product != null ? product.label : null,
+                    article != null ? article.id : null,
+                    article != null ? article.name : null,
                     date != null ? date.toString() : null,
                     sacs, weight, price, displayAmount,
                     normalizePayment(raw.paymentMethod()));
@@ -167,7 +160,7 @@ public class ProducerPurchaseImportService {
                 var created = purchaseService.create(new ProducerPurchaseUpsertDto(
                         parseDate(raw.date()),
                         n.memberId(),
-                        n.productCode(),
+                        n.articleId(),
                         parseUuid(raw.siteId()),
                         parseUuid(raw.campaignId()),
                         parseInt(raw.nbSacs()),

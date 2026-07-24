@@ -86,10 +86,10 @@ public class MemberEntity {
     public UUID followUpAgentMemberId;
 
     /**
-     * Produits livrés à la coopérative (backlog MEM-06). Codes issus de la
-     * liste {@code productsSold} du profil coopérative. Facultatif, multiple.
+     * Articles livrés à la coopérative (backlog MEM-06). Références vers des
+     * articles marqués achetables. Facultatif, multiple.
      */
-    public List<String> deliveredProductCodes = new ArrayList<>();
+    public List<UUID> deliveredArticleIds = new ArrayList<>();
 
     /** Identifiants externes du producteur (backlog MEM-06). Cumulables. */
     public List<MemberExternalCode> externalProducerCodes = new ArrayList<>();

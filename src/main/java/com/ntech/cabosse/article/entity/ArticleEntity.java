@@ -51,6 +51,22 @@ public class ArticleEntity {
     public boolean stockable = true;
 
     /**
+     * Rôle « achetable » : l'article peut être acheté (bon de commande,
+     * reçu d'achat producteur, livraison membre). Indépendant de la nature
+     * ({@link #type}) : un même article peut être achetable ET vendable
+     * (cas du négoce : cacao brut acheté aux producteurs puis revendu).
+     * Défaut posé à la création selon la nature, éditable ensuite.
+     */
+    public boolean purchasable = true;
+
+    /**
+     * Rôle « vendable » : l'article peut être vendu (vente classique,
+     * vente cacao export). Indépendant de la nature. Défaut posé à la
+     * création selon la nature, éditable ensuite.
+     */
+    public boolean sellable = false;
+
+    /**
      * Seuil d'alerte stock (dans l'unité de l'article). Une alerte
      * déclenche dans les écrans Stocks dès que la quantité physique
      * passe sous ce seuil. {@code null} = pas d'alerte.

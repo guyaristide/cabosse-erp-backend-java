@@ -20,7 +20,7 @@ import java.util.UUID;
 public record CacaoSaleUpsertDto(
         @NotNull LocalDate date,
         @NotNull UUID customerId,
-        @NotBlank @Size(max = 24) String productCode,
+        @NotNull UUID articleId,
         @NotNull UUID siteId,
         UUID campaignId,
         @Size(max = 20) String campaignType,

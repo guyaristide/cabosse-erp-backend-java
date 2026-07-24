@@ -20,8 +20,6 @@ public record ProducerPurchaseResponseDto(
         String producerPhone,
         UUID sectionId,
         String sectionName,
-        String productCode,
-        String productLabel,
         UUID articleId,
         String articleCode,
         String articleName,
@@ -47,7 +45,7 @@ public record ProducerPurchaseResponseDto(
         return new ProducerPurchaseResponseDto(
                 e.id, e.ref, e.date, e.memberId, e.producerName, e.producerCode,
                 e.producerExternalCode, e.village, e.producerPhone, e.sectionId, e.sectionName,
-                e.productCode, e.productLabel, e.articleId, e.articleCode, e.articleName, e.articleUnit,
+                e.articleId, e.articleCode, e.articleName, e.articleUnit,
                 e.siteId, e.campaignId, e.campaignYear,
                 e.nbSacs, e.weightKg, e.guaranteedPricePerKgFcfa, e.amountFcfa,
                 e.paymentMethod, e.paymentRef, e.payerMemberId, e.payerName, e.collectorAdvanceId,
