@@ -66,6 +66,28 @@ public class ParcelEntity {
     /** Variété cultivée (ex. "Mercedes", "F1", "Hévéa GT1"). Texte libre. */
     public String variety;
 
+    /**
+     * Culture pratiquée (backlog PARC-02). Code du référentiel tenant
+     * {@code crops}. La culture est portée par la parcelle, jamais par le
+     * producteur : c'est le seul endroit où superficie, géolocalisation et
+     * production sont déjà réunies.
+     */
+    public String cropCode;
+
+    /**
+     * Parcelle portant la culture principale du producteur (backlog PARC-02).
+     * Sert à composer la fiche signalétique. À défaut de parcelle marquée,
+     * la plus grande superficie fait office de principale.
+     */
+    public boolean mainCrop;
+
+    /**
+     * Date de création de la plantation (backlog PARC-02). Quand elle est
+     * renseignée, {@link #plantingYear} en est dérivé pour les lecteurs qui
+     * ne connaissent que l'année (registre producteurs, calcul d'âge).
+     */
+    public java.time.LocalDate plantingDate;
+
     /** Année de plantation (sert au calcul de l'âge des plants). */
     public Integer plantingYear;
 

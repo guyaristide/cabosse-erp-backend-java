@@ -57,7 +57,7 @@ public class MeService {
         String logoUrl = tenant != null && tenant.branding != null && tenant.branding.logoFileId != null
                 ? "/api/v1/admin/tenants/" + tenant.id + "/logo"
                 : null;
-        var capsDto = MeResponseDto.TenantCapabilitiesDto.from(caps);
+        var capsDto = caps.stream().map(Enum::name).sorted().toList();
         return new MeResponseDto(
                 user.id,
                 user.email,

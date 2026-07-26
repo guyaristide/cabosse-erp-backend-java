@@ -239,6 +239,46 @@ public class TenantPreferences {
         return stockMinWarningPct == null ? 20 : stockMinWarningPct;
     }
 
+    /** Durée de validité par défaut d'une enquête producteur, en mois. */
+    public static final int DEFAULT_PRODUCER_FILE_VALIDITY_MONTHS = 12;
+
+    /**
+     * Durée de validité d'une enquête producteur, en mois (backlog MEM-09).
+     * Passé ce délai depuis la date de collecte, le dossier est signalé
+     * comme à mettre à jour. Défaut : {@value #DEFAULT_PRODUCER_FILE_VALIDITY_MONTHS}.
+     */
+    public Integer producerFileValidityMonths;
+
+    public int producerFileValidityMonths() {
+        return producerFileValidityMonths == null || producerFileValidityMonths <= 0
+                ? DEFAULT_PRODUCER_FILE_VALIDITY_MONTHS
+                : producerFileValidityMonths;
+    }
+
+    /**
+     * Bloque l'achat au producteur si son dossier est incomplet ou périmé
+     * (backlog MEM-11). Désactivé par défaut : une coopérative qui démarre
+     * n'a pas encore de dossiers complets et ne doit pas voir sa collecte
+     * s'arrêter.
+     */
+    public Boolean blockProducerPurchaseOnIncompleteFile;
+
+    public boolean blockProducerPurchaseOnIncompleteFile() {
+        return blockProducerPurchaseOnIncompleteFile != null && blockProducerPurchaseOnIncompleteFile;
+    }
+
+    /**
+     * Vigilance sur les paiements aux producteurs (backlog MEM-12).
+     * Désactivée par défaut. Activée, un paiement au producteur exige une
+     * pièce d'identité scannée au dossier, et un versement mobile money sur
+     * un compte tiers exige un mandat écrit.
+     */
+    public Boolean requireProducerPaymentVigilance;
+
+    public boolean requireProducerPaymentVigilance() {
+        return requireProducerPaymentVigilance != null && requireProducerPaymentVigilance;
+    }
+
     /** Valeurs autorisées de {@link #memberCapitalFlow}. */
     public static final String CAPITAL_FLOW_DIRECT = "DIRECT";
     public static final String CAPITAL_FLOW_SUBSCRIPTION = "SUBSCRIPTION";

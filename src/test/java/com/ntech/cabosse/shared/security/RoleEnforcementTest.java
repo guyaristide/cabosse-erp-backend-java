@@ -71,7 +71,7 @@ class RoleEnforcementTest extends AbstractIntegrationTest {
         givenAs(p.user())
                 .contentType("application/json")
                 .body("{}")
-                .when().post("/api/v1/accounting/fiscal-years/arreter")
+                .when().post("/api/v1/accounting/fiscal-years/close")
                 .then().statusCode(403);
 
         // Validation d'OD : réservée TENANT_ADMIN.

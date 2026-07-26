@@ -7,6 +7,8 @@ import com.ntech.cabosse.producerpurchase.dto.ProducerPurchaseUpsertDto;
 import com.ntech.cabosse.shared.api.ApiResponse;
 import com.ntech.cabosse.shared.api.PageRequest;
 import com.ntech.cabosse.shared.exception.BusinessException;
+import com.ntech.cabosse.shared.export.ExportFormat;
+import com.ntech.cabosse.shared.export.ExportResponses;
 import com.ntech.cabosse.shared.security.Roles;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.tenant.capability.TenantCapability;
@@ -79,6 +81,16 @@ public class ProducerPurchaseResource {
     }
 
     // ─── Import de masse (NEG-01) ───────────────────────────────────
+
+    @GET
+    @Path("/import/template")
+    @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })
+    public Response importTemplate(@QueryParam("format") String formatRaw) {
+        ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
+        if (format == ExportFormat.PDF) format = ExportFormat.XLSX;
+        return ExportResponses.build("modele-import-recus-achat-producteur", format,
+                ProducerPurchaseImportTemplate.dataset());
+    }
 
     @POST
     @Path("/import/preview")

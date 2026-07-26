@@ -6,6 +6,7 @@ import com.ntech.cabosse.members.entity.MemberStatus;
 import com.ntech.cabosse.members.service.MemberContributionsService;
 import com.ntech.cabosse.members.service.MemberCardService;
 import com.ntech.cabosse.members.service.MemberDocumentService;
+import com.ntech.cabosse.members.service.MemberProfileSheetService;
 import com.ntech.cabosse.members.service.MemberService;
 import com.ntech.cabosse.members.register.MemberRegisterService;
 import com.ntech.cabosse.members.register.RegisterRow;
@@ -56,6 +57,7 @@ public class MemberResource {
     @Inject MemberContributionsService contributionsService;
     @Inject MemberDocumentService documents;
     @Inject MemberCardService card;
+    @Inject MemberProfileSheetService profileSheet;
     @Inject MemberRegisterService registerService;
     @Inject ExportAudit exportAudit;
     @Inject TenantCapabilityService capabilities;
@@ -70,6 +72,18 @@ public class MemberResource {
             throw new BusinessException(
                     "Module Membres non activé pour ce tenant. "
                             + "Réservé aux structures organizationModel COOPERATIVE / INFORMAL_GROUP.");
+        }
+    }
+
+    /**
+     * Vérifie que le tenant courant a HAS_PRODUCER_ENROLMENT active. Garde
+     * les surfaces d'enrôlement (fiche signalétique), qui n'ont de sens que
+     * pour une structure qui recense ses producteurs.
+     */
+    private void ensureEnrolmentCapability() {
+        if (!capabilities.has(tenantContext.tenantId(), TenantCapability.HAS_PRODUCER_ENROLMENT)) {
+            throw new BusinessException(
+                    "Enrôlement des producteurs non activé pour ce tenant.");
         }
     }
 
@@ -209,6 +223,25 @@ public class MemberResource {
         byte[] pdf = card.buildCard(id);
         return Response.ok(pdf)
                 .header("Content-Disposition", "attachment; filename=\"carte-membre.pdf\"")
+                .build();
+    }
+
+    // ─── Fiche signalétique (MEM-10) ────────────────────────────────
+
+    /**
+     * Fiche signalétique du producteur : identité, ménage, cultures et
+     * recensement, pour la campagne demandée (courante par défaut).
+     */
+    @GET
+    @Path("/{id}/profile-sheet")
+    @Produces("application/pdf")
+    public Response profileSheet(@PathParam("id") UUID id,
+                                 @QueryParam("campaignId") UUID campaignId) {
+        ensureCapability();
+        ensureEnrolmentCapability();
+        byte[] pdf = profileSheet.build(id, campaignId);
+        return Response.ok(pdf)
+                .header("Content-Disposition", "attachment; filename=\"fiche-producteur.pdf\"")
                 .build();
     }
 

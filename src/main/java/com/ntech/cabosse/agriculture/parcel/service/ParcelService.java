@@ -128,7 +128,17 @@ public class ParcelService {
         e.gpsPolygon = buildPolygonDocument(p.gpsPolygonCoordinates());
         e.gpsCenter = p.gpsCenter() != null ? new ArrayList<>(p.gpsCenter()) : null;
         e.variety = blankToNull(p.variety());
-        e.plantingYear = p.plantingYear();
+        e.cropCode = blankToNull(p.cropCode());
+        e.mainCrop = Boolean.TRUE.equals(p.mainCrop());
+        e.plantingDate = p.plantingDate();
+        // L'année reste la donnée de référence des lecteurs existants
+        // (registre, âge de la plantation) : dérivée dès qu'une date complète
+        // est saisie, sinon conservée telle quelle. Integer.valueOf() est
+        // indispensable : sans lui, le ternaire s'aligne sur le int de
+        // getYear() et déréférence un plantingYear null.
+        e.plantingYear = p.plantingDate() != null
+                ? Integer.valueOf(p.plantingDate().getYear())
+                : p.plantingYear();
         e.regionCode = blankToNull(p.regionCode());
         e.departmentCode = blankToNull(p.departmentCode());
         e.certifications = p.certifications() != null

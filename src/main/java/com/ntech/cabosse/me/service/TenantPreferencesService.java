@@ -62,7 +62,10 @@ public class TenantPreferencesService {
                 p.collectorAdvanceAccount(),
                 p.collectorDeliveryValuation(),
                 p.blockProductionOnStockShortage(),
-                p.stockMinWarningPct()
+                p.stockMinWarningPct(),
+                p.producerFileValidityMonths(),
+                p.blockProducerPurchaseOnIncompleteFile(),
+                p.requireProducerPaymentVigilance()
         );
     }
 
@@ -223,6 +226,34 @@ public class TenantPreferencesService {
                     "from", t.preferences.stockMinWarningPct(),
                     "to", payload.stockMinWarningPct()));
             t.preferences.stockMinWarningPct = payload.stockMinWarningPct();
+        }
+
+        if (payload.producerFileValidityMonths() != null
+                && payload.producerFileValidityMonths() != t.preferences.producerFileValidityMonths()) {
+            diffs.put("producerFileValidityMonths", Map.of(
+                    "from", t.preferences.producerFileValidityMonths(),
+                    "to", payload.producerFileValidityMonths()));
+            t.preferences.producerFileValidityMonths = payload.producerFileValidityMonths();
+        }
+
+        if (payload.blockProducerPurchaseOnIncompleteFile() != null
+                && payload.blockProducerPurchaseOnIncompleteFile()
+                        != t.preferences.blockProducerPurchaseOnIncompleteFile()) {
+            diffs.put("blockProducerPurchaseOnIncompleteFile", Map.of(
+                    "from", t.preferences.blockProducerPurchaseOnIncompleteFile(),
+                    "to", payload.blockProducerPurchaseOnIncompleteFile()));
+            t.preferences.blockProducerPurchaseOnIncompleteFile =
+                    payload.blockProducerPurchaseOnIncompleteFile();
+        }
+
+        if (payload.requireProducerPaymentVigilance() != null
+                && payload.requireProducerPaymentVigilance()
+                        != t.preferences.requireProducerPaymentVigilance()) {
+            diffs.put("requireProducerPaymentVigilance", Map.of(
+                    "from", t.preferences.requireProducerPaymentVigilance(),
+                    "to", payload.requireProducerPaymentVigilance()));
+            t.preferences.requireProducerPaymentVigilance =
+                    payload.requireProducerPaymentVigilance();
         }
 
         if (!diffs.isEmpty()) {

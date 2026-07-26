@@ -5,11 +5,13 @@ import com.ntech.cabosse.catalog.entity.CityEntity;
 import com.ntech.cabosse.catalog.entity.CountryEntity;
 import com.ntech.cabosse.catalog.entity.CurrencyEntity;
 import com.ntech.cabosse.catalog.entity.IndustryEntity;
+import com.ntech.cabosse.catalog.entity.OrganizationModelEntity;
 import com.ntech.cabosse.catalog.entity.RegionEntity;
 import com.ntech.cabosse.catalog.repository.CityRepository;
 import com.ntech.cabosse.catalog.repository.CountryRepository;
 import com.ntech.cabosse.catalog.repository.CurrencyRepository;
 import com.ntech.cabosse.catalog.repository.IndustryRepository;
+import com.ntech.cabosse.catalog.repository.OrganizationModelRepository;
 import com.ntech.cabosse.catalog.repository.RegionRepository;
 import com.ntech.cabosse.plan.entity.PlanEntity;
 import com.ntech.cabosse.plan.repository.PlanRepository;
@@ -21,7 +23,9 @@ import org.jboss.logging.Logger;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Charge les catalogues (pays, régions, villes, activités, plans) depuis
@@ -45,11 +49,27 @@ public class CatalogSeeder {
     @Inject RegionRepository regions;
     @Inject CityRepository cities;
     @Inject IndustryRepository industries;
+    @Inject OrganizationModelRepository organizationModels;
     @Inject CurrencyRepository currencies;
     @Inject PlanRepository plans;
     @Inject IdGenerator idGenerator;
     @Inject ObjectMapper objectMapper;
     @Inject Logger log;
+
+    /**
+     * Capacités introduites après le premier amorçage, à ajouter aux modèles
+     * d'organisation déjà en base (backlog MEM-07 et suivants).
+     *
+     * <p>La seed n'insère que les entrées absentes : sans ce rattrapage, une
+     * capacité nouvelle n'atteindrait jamais une plateforme déjà installée et
+     * la fonctionnalité resterait invisible. On n'ajoute que des codes
+     * explicitement listés ici, jamais l'ensemble du fichier : les
+     * ajustements faits au back-office restent intacts.</p>
+     */
+    private static final Map<String, List<String>> CAPABILITY_BACKFILL = Map.of(
+            "COOPERATIVE", List.of("HAS_PRODUCER_ENROLMENT"),
+            "INFORMAL_GROUP", List.of("HAS_PRODUCER_ENROLMENT")
+    );
 
     @Transactional
     public void seedAll() {
@@ -57,10 +77,33 @@ public class CatalogSeeder {
         int r = seedRegions();
         int v = seedCities();
         int i = seedIndustries();
+        int o = seedOrganizationModels();
+        int b = backfillOrganizationModelCapabilities();
         int p = seedPlans();
         int cur = seedCurrencies();
-        log.infof("Catalog seed : countries:%d, regions:%d, cities:%d, industries:%d, plans:%d, currencies:%d",
-                c, r, v, i, p, cur);
+        log.infof("Catalog seed : countries:%d, regions:%d, cities:%d, industries:%d, org-models:%d (+%d capacités), plans:%d, currencies:%d",
+                c, r, v, i, o, b, p, cur);
+    }
+
+    /** @return nombre de capacités ajoutées à des modèles existants */
+    private int backfillOrganizationModelCapabilities() {
+        int added = 0;
+        for (Map.Entry<String, List<String>> entry : CAPABILITY_BACKFILL.entrySet()) {
+            OrganizationModelEntity model = organizationModels.findByIdOptional(entry.getKey())
+                    .orElse(null);
+            if (model == null) continue;
+            if (model.activates == null) model.activates = new ArrayList<>();
+            boolean changed = false;
+            for (String capability : entry.getValue()) {
+                if (!model.activates.contains(capability)) {
+                    model.activates.add(capability);
+                    changed = true;
+                    added++;
+                }
+            }
+            if (changed) organizationModels.update(model);
+        }
+        return added;
     }
 
     private int seedCountries() {
@@ -105,6 +148,17 @@ public class CatalogSeeder {
         for (IndustryEntity e : read("/catalog/industries.json", IndustryEntity.class)) {
             if (!industries.codeExists(e.code)) {
                 industries.persist(e);
+                created++;
+            }
+        }
+        return created;
+    }
+
+    private int seedOrganizationModels() {
+        int created = 0;
+        for (OrganizationModelEntity e : read("/catalog/organization-models.json", OrganizationModelEntity.class)) {
+            if (!organizationModels.codeExists(e.code)) {
+                organizationModels.persist(e);
                 created++;
             }
         }

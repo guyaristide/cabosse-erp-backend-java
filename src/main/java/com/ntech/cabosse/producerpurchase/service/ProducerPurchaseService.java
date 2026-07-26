@@ -11,7 +11,10 @@ import com.ntech.cabosse.collector.entity.CollectorAdvanceStatus;
 import com.ntech.cabosse.collector.repository.CollectorAdvanceRepository;
 import com.ntech.cabosse.collector.repository.SectionRepository;
 import com.ntech.cabosse.members.entity.MemberEntity;
+import com.ntech.cabosse.members.dto.MemberFileStatusDto;
 import com.ntech.cabosse.members.repository.MemberRepository;
+import com.ntech.cabosse.members.service.MemberFileCompleteness;
+import com.ntech.cabosse.members.service.MemberPaymentVigilance;
 import com.ntech.cabosse.producerpurchase.dto.ProducerPurchaseResponseDto;
 import com.ntech.cabosse.producerpurchase.dto.ProducerPurchaseUpsertDto;
 import com.ntech.cabosse.producerpurchase.entity.ProducerPurchaseEntity;
@@ -89,6 +92,10 @@ public class ProducerPurchaseService {
 
         MemberEntity m = members.findById(p.memberId()).orElseThrow(
                 () -> new NotFoundException("Producteur " + p.memberId() + " introuvable."));
+        ensureProducerFileUsable(prefs, m);
+        if (prefs.requireProducerPaymentVigilance()) {
+            MemberPaymentVigilance.check(m, p.paymentMethod() != null ? p.paymentMethod().name() : null);
+        }
 
         ArticleEntity article = articles.findById(p.articleId()).orElseThrow(
                 () -> new NotFoundException("Article " + p.articleId() + " introuvable."));
@@ -259,6 +266,27 @@ public class ProducerPurchaseService {
     }
 
     // ─── Helpers ────────────────────────────────────────────────────
+
+    /**
+     * Garde optionnelle sur le dossier producteur (backlog MEM-11).
+     * Désactivée par défaut : une structure qui démarre sa collecte n'a pas
+     * encore de dossiers complets. Activée, elle empêche de payer un
+     * producteur dont l'identité n'est pas établie ou dont l'enquête est
+     * périmée, et dit précisément ce qui manque.
+     */
+    private void ensureProducerFileUsable(TenantPreferences prefs, MemberEntity m) {
+        if (!prefs.blockProducerPurchaseOnIncompleteFile()) return;
+        int validityMonths = prefs.producerFileValidityMonths();
+        MemberFileStatusDto status = MemberFileCompleteness.evaluate(m, validityMonths);
+        if (status.expired()) {
+            throw new BusinessException("Dossier du producteur « " + m.name + " » périmé depuis le "
+                    + status.expiresAt() + " : mettre à jour l'enquête avant d'enregistrer un achat.");
+        }
+        if (!status.missingFields().isEmpty()) {
+            throw new BusinessException("Dossier du producteur « " + m.name + " » incomplet ("
+                    + String.join(", ", status.missingFields()) + ").");
+        }
+    }
 
     private static String firstExternalCode(MemberEntity m) {
         if (m.externalProducerCodes == null) return null;

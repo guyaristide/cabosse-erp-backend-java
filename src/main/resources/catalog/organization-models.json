@@ -1,0 +1,10 @@
+[
+  { "code": "COOPERATIVE",     "label": "Coopérative",         "description": "Structure regroupant des membres-producteurs. Registre des membres, livraisons par campagne, ristournes, négoce matière première et reporting de durabilité.", "isActive": true,
+    "activates": ["HAS_MEMBERS", "HAS_SUSTAINABILITY", "HAS_COMMODITY_TRADE", "HAS_PRODUCER_ENROLMENT"] },
+  { "code": "INFORMAL_GROUP",  "label": "Groupement informel", "description": "Regroupement non constitué en société. Mêmes capacités membres, négoce et durabilité qu'une coopérative.", "isActive": true,
+    "activates": ["HAS_MEMBERS", "HAS_SUSTAINABILITY", "HAS_COMMODITY_TRADE", "HAS_PRODUCER_ENROLMENT"] },
+  { "code": "PRIVATE_COMPANY", "label": "Entreprise privée",   "description": "Société de transformation ou de négoce sans registre de membres. Capacités dérivées uniquement des filières déclarées.", "isActive": true,
+    "activates": [] },
+  { "code": "PUBLIC_ENTITY",   "label": "Entité publique",     "description": "Organisme ou établissement public. Capacités dérivées uniquement des filières déclarées.", "isActive": true,
+    "activates": [] }
+]

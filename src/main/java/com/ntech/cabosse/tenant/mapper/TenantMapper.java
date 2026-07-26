@@ -158,7 +158,10 @@ public final class TenantMapper {
                 entity.preferences.collectorAdvanceAccount(),
                 entity.preferences.collectorDeliveryValuation(),
                 entity.preferences.blockProductionOnStockShortage(),
-                entity.preferences.stockMinWarningPct()
+                entity.preferences.stockMinWarningPct(),
+                entity.preferences.producerFileValidityMonths(),
+                entity.preferences.blockProducerPurchaseOnIncompleteFile(),
+                entity.preferences.requireProducerPaymentVigilance()
         );
     }
 

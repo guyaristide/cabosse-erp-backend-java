@@ -90,6 +90,18 @@ public record TenantPreferencesDto(
 
         @Schema(description = "Pourcentage du seuil d'alerte sous lequel le stock passe en critique.",
                 example = "20", defaultValue = "20")
-        int stockMinWarningPct
+        int stockMinWarningPct,
+
+        @Schema(description = "Durée de validité d'une enquête producteur, en mois.",
+                example = "12", defaultValue = "12")
+        int producerFileValidityMonths,
+
+        @Schema(description = "Bloque l'achat au producteur si son dossier est incomplet ou périmé.",
+                defaultValue = "false")
+        boolean blockProducerPurchaseOnIncompleteFile,
+
+        @Schema(description = "Exige une pièce d'identité scannée, et un mandat pour un paiement mobile money à un tiers.",
+                defaultValue = "false")
+        boolean requireProducerPaymentVigilance
 
 ) {}

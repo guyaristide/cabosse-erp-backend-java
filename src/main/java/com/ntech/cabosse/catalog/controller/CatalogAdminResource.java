@@ -6,6 +6,8 @@ import com.ntech.cabosse.catalog.dto.CountryAdminDto;
 import com.ntech.cabosse.catalog.dto.CountryUpsertDto;
 import com.ntech.cabosse.catalog.dto.IndustryAdminDto;
 import com.ntech.cabosse.catalog.dto.IndustryUpsertDto;
+import com.ntech.cabosse.catalog.dto.OrganizationModelAdminDto;
+import com.ntech.cabosse.catalog.dto.OrganizationModelUpdateDto;
 import com.ntech.cabosse.catalog.dto.PlanAdminDto;
 import com.ntech.cabosse.catalog.dto.PlanUpsertDto;
 import com.ntech.cabosse.catalog.dto.RegionAdminDto;
@@ -13,10 +15,12 @@ import com.ntech.cabosse.catalog.dto.RegionUpsertDto;
 import com.ntech.cabosse.catalog.entity.CityEntity;
 import com.ntech.cabosse.catalog.entity.CountryEntity;
 import com.ntech.cabosse.catalog.entity.IndustryEntity;
+import com.ntech.cabosse.catalog.entity.OrganizationModelEntity;
 import com.ntech.cabosse.catalog.entity.RegionEntity;
 import com.ntech.cabosse.catalog.repository.CityRepository;
 import com.ntech.cabosse.catalog.repository.CountryRepository;
 import com.ntech.cabosse.catalog.repository.IndustryRepository;
+import com.ntech.cabosse.catalog.repository.OrganizationModelRepository;
 import com.ntech.cabosse.catalog.repository.RegionRepository;
 import com.ntech.cabosse.plan.entity.PlanEntity;
 import com.ntech.cabosse.plan.repository.PlanRepository;
@@ -73,6 +77,7 @@ public class CatalogAdminResource {
     @Inject RegionRepository regions;
     @Inject CityRepository cities;
     @Inject IndustryRepository industries;
+    @Inject OrganizationModelRepository organizationModels;
     @Inject PlanRepository plans;
     @Inject IdGenerator idGenerator;
     @Inject com.ntech.cabosse.shared.audit.AuditService audit;
@@ -395,6 +400,72 @@ public class CatalogAdminResource {
         return new IndustryAdminDto(
                 i.code, i.label, i.description, i.isActive,
                 i.activates != null ? List.copyOf(i.activates) : List.of()
+        );
+    }
+
+    // ─── Modèles d'organisation ──────────────────────────────────────
+    // Ensemble de codes fermé (aligné sur l'enum TenantOrganizationModel) :
+    // ni création ni suppression, uniquement lecture et mise à jour.
+
+    @GET
+    @Path("/organization-models")
+    public Response listOrganizationModels() {
+        List<OrganizationModelAdminDto> body = organizationModels.findAllSorted().stream()
+                .map(CatalogAdminResource::toOrganizationModelDto)
+                .toList();
+        return Response.ok(ApiResponse.ok(body)).build();
+    }
+
+    @PUT
+    @Path("/organization-models/{code}")
+    @Transactional
+    public Response updateOrganizationModel(@PathParam("code") String code,
+                                            @Valid OrganizationModelUpdateDto payload) {
+        OrganizationModelEntity entity = organizationModels.findById(code);
+        if (entity == null) throw new NotFoundException("Modèle d'organisation " + code + " introuvable.");
+        entity.label = payload.label().trim();
+        entity.description = payload.description() != null ? payload.description().trim() : null;
+        entity.isActive = payload.isActive();
+        entity.activates = normalizeCapabilities(payload.activates());
+        organizationModels.update(entity);
+        auditCatalog("organization-model", entity.code, entity.label, "Modification");
+        return Response.ok(ApiResponse.ok(toOrganizationModelDto(entity))).build();
+    }
+
+    @PATCH
+    @Path("/organization-models/{code}/active")
+    @Transactional
+    public Response toggleOrganizationModelActive(@PathParam("code") String code,
+                                                  @jakarta.ws.rs.QueryParam("value") boolean value) {
+        OrganizationModelEntity entity = organizationModels.findById(code);
+        if (entity == null) throw new NotFoundException("Modèle d'organisation " + code + " introuvable.");
+        entity.isActive = value;
+        organizationModels.update(entity);
+        auditCatalog("organization-model", entity.code, entity.label, value ? "Réactivation" : "Désactivation");
+        return Response.ok(ApiResponse.ok(toOrganizationModelDto(entity))).build();
+    }
+
+    /** Valide et dédoublonne une liste de codes de capacités (refuse les codes inconnus). */
+    private static List<String> normalizeCapabilities(List<String> raw) {
+        List<String> normalized = new java.util.ArrayList<>();
+        if (raw == null) return normalized;
+        for (String capName : raw) {
+            if (capName == null || capName.isBlank()) continue;
+            String trimmed = capName.trim();
+            try {
+                com.ntech.cabosse.tenant.capability.TenantCapability.valueOf(trimmed);
+            } catch (IllegalArgumentException ex) {
+                throw new BusinessException("Capacité inconnue : " + trimmed);
+            }
+            if (!normalized.contains(trimmed)) normalized.add(trimmed);
+        }
+        return normalized;
+    }
+
+    private static OrganizationModelAdminDto toOrganizationModelDto(OrganizationModelEntity o) {
+        return new OrganizationModelAdminDto(
+                o.code, o.label, o.description, o.isActive,
+                o.activates != null ? List.copyOf(o.activates) : List.of()
         );
     }
 

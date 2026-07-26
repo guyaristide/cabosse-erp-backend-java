@@ -47,10 +47,21 @@ public class CampaignService {
     @Inject TenantCapabilityService capabilityService;
     @Inject JsonWebToken jwt;
 
+    /**
+     * La campagne est un référentiel <strong>partagé</strong> : elle date les
+     * apports des membres, les rendements de parcelles, les achats aux
+     * producteurs et les ventes de commodité. Un négociant privé sans registre
+     * de membres en a donc besoin autant qu'une coopérative — d'où les deux
+     * capacités acceptées, l'une ou l'autre suffisant.
+     */
     private void ensureCapability() {
-        if (!capabilityService.has(tenantContext.tenantId(), TenantCapability.HAS_MEMBERS)) {
+        UUID tenantId = tenantContext.tenantId();
+        boolean allowed = capabilityService.has(tenantId, TenantCapability.HAS_MEMBERS)
+                || capabilityService.has(tenantId, TenantCapability.HAS_COMMODITY_TRADE);
+        if (!allowed) {
             throw new BusinessException(
-                    "Ce tenant n'a pas la capacité de gestion des membres-producteurs.");
+                    "Ce tenant n'a ni registre de membres ni négoce de matière première : "
+                            + "les campagnes ne s'appliquent pas.");
         }
     }
 

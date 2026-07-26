@@ -7,6 +7,7 @@ import com.ntech.cabosse.campaign.entity.CampaignEntity;
 import com.ntech.cabosse.campaign.service.CampaignService;
 import com.ntech.cabosse.department.repository.DepartmentRepository;
 import com.ntech.cabosse.members.entity.MemberCivilStatus;
+import com.ntech.cabosse.members.entity.MemberGender;
 import com.ntech.cabosse.members.entity.MemberEntity;
 import com.ntech.cabosse.members.entity.MemberStatus;
 import com.ntech.cabosse.members.repository.MemberRepository;
@@ -116,7 +117,7 @@ public class MemberRegisterService {
                 birth(m),
                 m.idDocType,
                 m.idDocNumber,
-                sexe(m.civilStatus),
+                sexe(m),
                 m.sectionId != null ? sectionNames.get(m.sectionId) : null,
                 m.village,
                 p != null ? p.code : null,
@@ -154,9 +155,15 @@ public class MemberRegisterService {
         return null;
     }
 
-    private static String sexe(MemberCivilStatus c) {
-        if (c == MemberCivilStatus.MALE) return "M";
-        if (c == MemberCivilStatus.FEMALE) return "F";
+    /**
+     * Sexe du producteur. Lit le champ dédié (MEM-07) et retombe sur le
+     * champ legacy pour les fiches non encore rouvertes après la migration.
+     */
+    private static String sexe(MemberEntity m) {
+        if (m.gender == MemberGender.MALE) return "M";
+        if (m.gender == MemberGender.FEMALE) return "F";
+        if (m.civilStatus == MemberCivilStatus.MALE) return "M";
+        if (m.civilStatus == MemberCivilStatus.FEMALE) return "F";
         return null;
     }
 

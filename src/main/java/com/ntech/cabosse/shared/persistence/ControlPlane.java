@@ -33,6 +33,7 @@ public final class ControlPlane {
         public static final String REGIONS         = "regions";
         public static final String CITIES          = "cities";
         public static final String INDUSTRIES      = "industries";
+        public static final String ORGANIZATION_MODELS = "organization_models";
         public static final String CURRENCIES      = "currencies";
 
         // ─── Paramètres plateforme (email, storage, payment, notifications) ───

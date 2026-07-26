@@ -41,7 +41,7 @@ public class FiscalYearResource {
     @Inject FiscalYearDocumentService documents;
 
     public record WipLinePayload(String label, BigDecimal amountFcfa) {}
-    public record ArreterPayload(BigDecimal taxFcfa, List<WipLinePayload> wipLines) {}
+    public record ClosePayload(BigDecimal taxFcfa, List<WipLinePayload> wipLines) {}
     public record AllocationLinePayload(String account, BigDecimal amountFcfa) {}
     public record AllocatePayload(List<AllocationLinePayload> lines) {}
 
@@ -64,15 +64,15 @@ public class FiscalYearResource {
     }
 
     @POST
-    @Path("/arreter")
+    @Path("/close")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
-    public Response arreter(ArreterPayload payload) {
+    public Response close(ClosePayload payload) {
         List<FiscalYearService.WipLine> wip = payload != null && payload.wipLines() != null
                 ? payload.wipLines().stream()
                         .map(l -> new FiscalYearService.WipLine(l.label(), l.amountFcfa()))
                         .toList()
                 : List.of();
-        var created = service.arreter(payload != null ? payload.taxFcfa() : null, wip);
+        var created = service.close(payload != null ? payload.taxFcfa() : null, wip);
         return Response.status(Response.Status.CREATED)
                 .entity(ApiResponse.created(FiscalYearDto.from(created)))
                 .build();

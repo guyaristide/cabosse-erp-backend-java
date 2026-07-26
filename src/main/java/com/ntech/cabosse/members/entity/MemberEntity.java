@@ -48,7 +48,31 @@ public class MemberEntity {
     /** Nom du producteur (backlog MEM-06). Pour une personne morale, raison sociale. */
     public String lastName;
 
+    /**
+     * <strong>Legacy</strong> — mélangeait genre et nature juridique. Reste
+     * maintenu <em>par le service</em> à partir de {@link #gender} et
+     * {@link #personType} pour les lecteurs existants (registre producteurs,
+     * exports, indicateurs). Ne plus lire ce champ dans du code neuf.
+     */
     public MemberCivilStatus civilStatus = MemberCivilStatus.UNKNOWN;
+
+    /** Genre du producteur (backlog MEM-07). */
+    public MemberGender gender = MemberGender.UNKNOWN;
+
+    /** Nature juridique (backlog MEM-07). Personne physique par défaut. */
+    public MemberPersonType personType = MemberPersonType.NATURAL_PERSON;
+
+    /** Situation matrimoniale (backlog MEM-07). */
+    public MemberMaritalStatus maritalStatus = MemberMaritalStatus.UNKNOWN;
+
+    /** Lieu de naissance déclaré (backlog MEM-07). Saisie libre. */
+    public String birthPlace;
+
+    /**
+     * Volet personne morale (backlog MEM-07). Null pour une personne
+     * physique.
+     */
+    public MemberLegalIdentity legalIdentity;
 
     /**
      * Date de naissance complète (backlog MEM-06). Facultative. Exclusive de
@@ -61,16 +85,30 @@ public class MemberEntity {
     public Integer birthYear;
 
     /**
-     * Type de pièce d'identité (libellé dénormalisé, choisi dans le référentiel
-     * des types de pièces, backlog MEM-06). Facultatif.
+     * Type de la <strong>première</strong> pièce d'identité (libellé
+     * dénormalisé, backlog MEM-06). Maintenu par le service depuis
+     * {@link #identityDocuments} pour les lecteurs existants (registre,
+     * exports). Ne plus écrire ce champ directement.
      */
     public String idDocType;
 
-    /** Numéro de la pièce d'identité (backlog MEM-06). Facultatif. */
+    /** Numéro de la première pièce d'identité. Voir {@link #idDocType}. */
     public String idDocNumber;
 
-    /** Référence vers {@code CloudFileEntity.id} pour la pièce d'identité scannée. */
+    /** Scan de la première pièce d'identité. Voir {@link #idDocType}. */
     public UUID idCardFileId;
+
+    /**
+     * Pièces d'identité du producteur (backlog MEM-07). Une carte d'identité,
+     * un identifiant national, une carte consulaire… cumulables.
+     */
+    public List<MemberIdentityDocument> identityDocuments = new ArrayList<>();
+
+    /** Ménage du producteur (backlog MEM-08). */
+    public MemberHousehold household = new MemberHousehold();
+
+    /** Recensement et fraîcheur du dossier (backlog MEM-09). */
+    public MemberEnrolment enrolment = new MemberEnrolment();
 
     /**
      * Section de rattachement (backlog MEM-06). FK vers
@@ -134,6 +172,17 @@ public class MemberEntity {
 
     /** Numéro mobile money pour réception des paiements (si applicable). */
     public String mobileMoneyNumber;
+
+    /**
+     * Titulaire déclaré du compte mobile money (backlog MEM-12). Vide, on
+     * suppose le membre lui-même. Renseigné et différent du membre, le
+     * paiement passe par un tiers : c'est là que se glissent les
+     * détournements, d'où le mandat écrit exigé ci-dessous.
+     */
+    public String mobileMoneyHolderName;
+
+    /** Mandat écrit au dossier autorisant le paiement à un tiers (MEM-12). */
+    public boolean mobileMoneyMandateOnFile;
 
     public String notes;
 

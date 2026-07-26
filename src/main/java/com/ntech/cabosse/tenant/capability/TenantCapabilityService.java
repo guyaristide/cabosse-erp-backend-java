@@ -1,7 +1,9 @@
 package com.ntech.cabosse.tenant.capability;
 
 import com.ntech.cabosse.catalog.entity.IndustryEntity;
+import com.ntech.cabosse.catalog.entity.OrganizationModelEntity;
 import com.ntech.cabosse.catalog.repository.IndustryRepository;
+import com.ntech.cabosse.catalog.repository.OrganizationModelRepository;
 import com.ntech.cabosse.tenant.entity.TenantActivity;
 import com.ntech.cabosse.tenant.entity.TenantEntity;
 import com.ntech.cabosse.tenant.entity.TenantOrganizationModel;
@@ -44,6 +46,7 @@ public class TenantCapabilityService {
 
     @Inject TenantRepository tenants;
     @Inject IndustryRepository industries;
+    @Inject OrganizationModelRepository organizationModels;
 
     /** Capacités d'un tenant par son UUID. */
     public Set<TenantCapability> capabilitiesOf(UUID tenantId) {
@@ -105,12 +108,20 @@ public class TenantCapabilityService {
                 : TenantOrganizationModel.PRIVATE_COMPANY;
 
         // ─── Dimension 1 : structure organisationnelle ───
-        if (org == TenantOrganizationModel.COOPERATIVE
-                || org == TenantOrganizationModel.INFORMAL_GROUP) {
-            addSource(result, TenantCapability.HAS_MEMBERS,
-                    CapabilitySource.organization(org));
-            addSource(result, TenantCapability.HAS_SUSTAINABILITY,
-                    CapabilitySource.organization(org));
+        // Les capacités activées par le modèle d'organisation sont pilotées
+        // par le catalogue (éditables au back-office), non codées en dur :
+        // COOPERATIVE/INFORMAL_GROUP activent HAS_MEMBERS + HAS_SUSTAINABILITY
+        // par défaut (seed), mais le super-admin peut ajuster.
+        OrganizationModelEntity orgModel = organizationModels.findById(org.name());
+        if (orgModel != null && orgModel.activates != null) {
+            for (String capName : orgModel.activates) {
+                try {
+                    TenantCapability cap = TenantCapability.valueOf(capName);
+                    addSource(result, cap, CapabilitySource.organization(org));
+                } catch (IllegalArgumentException ignored) {
+                    // Code invalide dans le seed — ignoré (couvert par test).
+                }
+            }
         }
 
         // ─── Élargissement HAS_SUSTAINABILITY par certifications ───

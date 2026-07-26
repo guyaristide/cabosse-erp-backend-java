@@ -29,6 +29,11 @@ public record ParcelUpsertDto(
         /** [longitude, latitude] — obligatoire. */
         @NotNull List<@NotNull Double> gpsCenter,
         @Size(max = 80) String variety,
+        // Culture pratiquée + marqueur de culture principale (PARC-02).
+        @Size(max = 60) String cropCode,
+        Boolean mainCrop,
+        // Date de création de la plantation ; plantingYear en est dérivé (PARC-02).
+        java.time.LocalDate plantingDate,
         Integer plantingYear,
         // Région / département de la parcelle (codes des référentiels tenant), PARC-01.
         @Size(max = 60) String regionCode,

@@ -105,6 +105,17 @@ public record UpdateTenantPreferencesPayloadDto(
         @jakarta.validation.constraints.Min(value = 0, message = "Pourcentage négatif interdit")
         @jakarta.validation.constraints.Max(value = 100, message = "Pourcentage supérieur à 100 interdit")
         @Schema(description = "Pourcentage du seuil d'alerte sous lequel le stock passe en critique.")
-        Integer stockMinWarningPct
+        Integer stockMinWarningPct,
+
+        @jakarta.validation.constraints.Min(value = 1, message = "Durée de validité inférieure à 1 mois interdite")
+        @jakarta.validation.constraints.Max(value = 120, message = "Durée de validité supérieure à 120 mois interdite")
+        @Schema(description = "Durée de validité d'une enquête producteur, en mois.")
+        Integer producerFileValidityMonths,
+
+        @Schema(description = "Bloque l'achat au producteur si son dossier est incomplet ou périmé.")
+        Boolean blockProducerPurchaseOnIncompleteFile,
+
+        @Schema(description = "Exige une pièce d'identité scannée, et un mandat pour un paiement mobile money à un tiers.")
+        Boolean requireProducerPaymentVigilance
 
 ) {}

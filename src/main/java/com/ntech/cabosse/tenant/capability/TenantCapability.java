@@ -69,5 +69,31 @@ public enum TenantCapability {
      * défaut ; peut aussi être activé par une certification déclarée
      * (Fairtrade, Rainforest Alliance, Bio).
      */
-    HAS_SUSTAINABILITY
+    HAS_SUSTAINABILITY,
+
+    /**
+     * Négoce de matière première : achat aux producteurs par reçu, sections
+     * d'origine, campagnes de collecte, vente / export de la commodité brute
+     * (réfactions, connaissement, grade, contrats). Agnostique de la filière.
+     * Activé par défaut pour les modèles collecteurs ({@code COOPERATIVE},
+     * {@code INFORMAL_GROUP}) ; activable aussi sur une filière d'agrégation
+     * ou pour un négociant privé via le catalogue.
+     */
+    HAS_COMMODITY_TRADE,
+
+    /**
+     * Enrôlement des producteurs : enquête ménage, volet recensement
+     * (producteur recensé, carte de producteur remise), fraîcheur du
+     * dossier et impression de la fiche signalétique.
+     *
+     * <p>Agnostique de la filière : toute structure qui recense ses
+     * producteurs (cacao, café, coton, anacarde, hévéa) en a besoin. Le
+     * vocabulaire propre à un pays ou à un conseil de filière reste une
+     * <strong>valeur</strong> (type de code externe, libellé d'un rôle
+     * d'agent), jamais un nom de champ.</p>
+     *
+     * <p>Seedée sur {@code COOPERATIVE} et {@code INFORMAL_GROUP} ;
+     * activable sur une filière via le catalogue.</p>
+     */
+    HAS_PRODUCER_ENROLMENT
 }

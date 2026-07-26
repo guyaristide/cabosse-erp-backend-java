@@ -6,6 +6,8 @@ import com.ntech.cabosse.cacao.service.CacaoSaleImportService;
 import com.ntech.cabosse.cacao.service.CacaoSaleService;
 import com.ntech.cabosse.shared.api.ApiResponse;
 import com.ntech.cabosse.shared.api.PageRequest;
+import com.ntech.cabosse.shared.export.ExportFormat;
+import com.ntech.cabosse.shared.export.ExportResponses;
 import com.ntech.cabosse.shared.security.Roles;
 import io.quarkus.security.Authenticated;
 import jakarta.annotation.security.RolesAllowed;
@@ -68,6 +70,15 @@ public class CacaoSaleResource {
     public Response create(@Valid CacaoSaleUpsertDto payload) {
         return Response.status(Response.Status.CREATED)
                 .entity(ApiResponse.created(service.create(payload))).build();
+    }
+
+    @GET
+    @Path("/import/template")
+    @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })
+    public Response importTemplate(@QueryParam("format") String formatRaw) {
+        ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
+        if (format == ExportFormat.PDF) format = ExportFormat.XLSX;
+        return ExportResponses.build("modele-import-ventes-cacao", format, CacaoSaleImportTemplate.dataset());
     }
 
     @POST

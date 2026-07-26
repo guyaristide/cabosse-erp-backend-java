@@ -2,7 +2,11 @@ package com.ntech.cabosse.members.dto;
 
 import com.ntech.cabosse.members.entity.MemberCivilStatus;
 import com.ntech.cabosse.members.entity.MemberEntity;
+import com.ntech.cabosse.members.entity.MemberGender;
+import com.ntech.cabosse.members.entity.MemberMaritalStatus;
+import com.ntech.cabosse.members.entity.MemberPersonType;
 import com.ntech.cabosse.members.entity.MemberStatus;
+import com.ntech.cabosse.members.service.MemberFileCompleteness;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -17,11 +21,20 @@ public record MemberResponseDto(
         String firstName,
         String lastName,
         MemberCivilStatus civilStatus,
+        MemberGender gender,
+        MemberPersonType personType,
+        MemberMaritalStatus maritalStatus,
+        String birthPlace,
+        MemberLegalIdentityDto legalIdentity,
         LocalDate birthDate,
         Integer birthYear,
         String idDocType,
         String idDocNumber,
         UUID idCardFileId,
+        List<MemberIdentityDocumentDto> identityDocuments,
+        MemberHouseholdDto household,
+        MemberEnrolmentDto enrolment,
+        MemberFileStatusDto fileStatus,
         UUID sectionId,
         UUID followUpAgentMemberId,
         List<UUID> deliveredArticleIds,
@@ -36,6 +49,8 @@ public record MemberResponseDto(
         List<UUID> parcels,
         String preferredPaymentMethod,
         String mobileMoneyNumber,
+        String mobileMoneyHolderName,
+        boolean mobileMoneyMandateOnFile,
         String notes,
         String statusReason,
         Instant approvedAt,
@@ -46,10 +61,28 @@ public record MemberResponseDto(
     public record DocumentView(UUID id, String label, String fileName,
                                String mimeType, long sizeBytes, Instant uploadedAt) {}
 
+    /**
+     * Durée de validité d'une enquête retenue quand l'appelant n'a pas les
+     * préférences du tenant sous la main. Le service, lui, passe la valeur
+     * paramétrée.
+     */
+    private static final int DEFAULT_FILE_VALIDITY_MONTHS = 12;
+
     public static MemberResponseDto from(MemberEntity e) {
+        return from(e, DEFAULT_FILE_VALIDITY_MONTHS);
+    }
+
+    public static MemberResponseDto from(MemberEntity e, int fileValidityMonths) {
         return new MemberResponseDto(
                 e.id, e.code, e.name, e.firstName, e.lastName, e.civilStatus,
+                e.gender, e.personType, e.maritalStatus, e.birthPlace,
+                MemberLegalIdentityDto.from(e.legalIdentity),
                 e.birthDate, e.birthYear, e.idDocType, e.idDocNumber, e.idCardFileId,
+                e.identityDocuments == null ? List.of() : e.identityDocuments.stream()
+                        .map(MemberIdentityDocumentDto::from).toList(),
+                MemberHouseholdDto.from(e.household),
+                MemberEnrolmentDto.from(e.enrolment),
+                MemberFileCompleteness.evaluate(e, fileValidityMonths),
                 e.sectionId, e.followUpAgentMemberId,
                 e.deliveredArticleIds != null ? List.copyOf(e.deliveredArticleIds) : List.of(),
                 e.externalProducerCodes == null ? List.of() : e.externalProducerCodes.stream()
@@ -58,7 +91,8 @@ public record MemberResponseDto(
                 e.joinedAt, e.partsSocialesAmount, e.status,
                 e.supplierId,
                 e.parcels != null ? List.copyOf(e.parcels) : List.of(),
-                e.preferredPaymentMethod, e.mobileMoneyNumber, e.notes,
+                e.preferredPaymentMethod, e.mobileMoneyNumber,
+                e.mobileMoneyHolderName, e.mobileMoneyMandateOnFile, e.notes,
                 e.statusReason, e.approvedAt,
                 e.documents == null ? List.of() : e.documents.stream()
                         .map(d -> new DocumentView(d.id, d.label, d.fileName,

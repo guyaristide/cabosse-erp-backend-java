@@ -1,11 +1,9 @@
 package com.ntech.cabosse.me.dto;
 
-import com.ntech.cabosse.tenant.capability.TenantCapability;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -32,48 +30,19 @@ public record MeResponseDto(
         String tenantBrandColor,
         /** URL relative du logo du tenant, ou {@code null} si aucun logo publié. */
         String tenantLogoUrl,
-        /** Capacités filière (packs activés selon les activités du tenant). */
-        TenantCapabilitiesDto capabilities,
+        /**
+         * Capacités fonctionnelles effectives du tenant, sous forme de codes
+         * (noms de {@code TenantCapability}, ex. {@code ["HAS_MEMBERS",
+         * "HAS_COMMODITY_TRADE"]}). Dérivées par {@code TenantCapabilityService}
+         * depuis la structure organisationnelle et les activités déclarées.
+         *
+         * <p>Contrat volontairement ouvert (liste de codes, pas d'objet de
+         * booléens) : ajouter une capacité ne change pas la forme du DTO. Le
+         * front teste l'appartenance au tableau.</p>
+         */
+        @Schema(description = "Codes des capacités fonctionnelles activées pour le tenant",
+                example = "[\"HAS_MEMBERS\", \"HAS_SUSTAINABILITY\"]")
+        List<String> capabilities,
         Instant lastLoginAt
 ) {
-
-    /**
-     * Drapeaux de capacités fonctionnelles du tenant. Dérivés par
-     * {@code TenantCapabilityService} depuis deux sources orthogonales :
-     * la structure organisationnelle (COOPERATIVE → HAS_MEMBERS) et les
-     * activités économiques déclarées (chaque industry active certaines
-     * capacités via son champ {@code activates}).
-     *
-     * <p>Le front utilise ces flags pour activer/désactiver routes,
-     * sections de sidebar et composants des modules optionnels (membres,
-     * parcelles, EUDR, etc.).</p>
-     */
-    @Schema(description = "Capacités fonctionnelles activées pour le tenant")
-    public record TenantCapabilitiesDto(
-            boolean hasMembers,
-            boolean hasParcels,
-            boolean hasFermentation,
-            boolean hasDrying,
-            boolean hasRoasting,
-            boolean hasEudrCompliance,
-            boolean hasSustainability
-    ) {
-        /**
-         * Projette l'ensemble des capacités effectives en drapeaux booléens.
-         * <strong>Source unique</strong> de la correspondance enum → booléen :
-         * ajouter une capacité = un champ ci-dessus + une ligne ici, rien
-         * d'autre côté back (le front reçoit l'objet tel quel).
-         */
-        public static TenantCapabilitiesDto from(Set<TenantCapability> caps) {
-            return new TenantCapabilitiesDto(
-                    caps.contains(TenantCapability.HAS_MEMBERS),
-                    caps.contains(TenantCapability.HAS_PARCELS),
-                    caps.contains(TenantCapability.HAS_FERMENTATION),
-                    caps.contains(TenantCapability.HAS_DRYING),
-                    caps.contains(TenantCapability.HAS_ROASTING),
-                    caps.contains(TenantCapability.HAS_EUDR_COMPLIANCE),
-                    caps.contains(TenantCapability.HAS_SUSTAINABILITY)
-            );
-        }
-    }
 }

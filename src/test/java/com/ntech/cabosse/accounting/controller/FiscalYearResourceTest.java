@@ -103,7 +103,7 @@ class FiscalYearResourceTest extends AbstractIntegrationTest {
         givenAs(admin)
                 .contentType("application/json")
                 .body("{}")
-                .when().post("/api/v1/accounting/fiscal-years/arreter")
+                .when().post("/api/v1/accounting/fiscal-years/close")
                 .then().statusCode(422);
 
         lockAllMonths(admin, previousYear);
@@ -123,7 +123,7 @@ class FiscalYearResourceTest extends AbstractIntegrationTest {
                         { "taxFcfa": 30000,
                           "wipLines": [ { "label": "OF tablettes en cours", "amountFcfa": 50000 } ] }
                         """)
-                .when().post("/api/v1/accounting/fiscal-years/arreter")
+                .when().post("/api/v1/accounting/fiscal-years/close")
                 .then().statusCode(201)
                 .body("data.status", equalTo("ARRETE"))
                 .body("data.resultBeforeTaxFcfa", equalTo(350000))
@@ -149,7 +149,7 @@ class FiscalYearResourceTest extends AbstractIntegrationTest {
         givenAs(admin)
                 .contentType("application/json")
                 .body("{}")
-                .when().post("/api/v1/accounting/fiscal-years/arreter")
+                .when().post("/api/v1/accounting/fiscal-years/close")
                 .then().statusCode(422);
 
         // Affectation : total différent du résultat net → refus.

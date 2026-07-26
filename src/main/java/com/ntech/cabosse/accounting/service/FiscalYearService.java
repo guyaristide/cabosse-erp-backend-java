@@ -148,7 +148,7 @@ public class FiscalYearService {
 
     // ─── Arrêté ─────────────────────────────────────────────────────
 
-    public FiscalYearEntity arreter(BigDecimal taxFcfa, List<WipLine> wipLines) {
+    public FiscalYearEntity close(BigDecimal taxFcfa, List<WipLine> wipLines) {
         Bounds b = nextBounds();
         List<String> unlocked = unlockedPeriods(b);
         if (!unlocked.isEmpty()) {

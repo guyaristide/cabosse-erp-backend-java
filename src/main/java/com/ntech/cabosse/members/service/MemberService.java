@@ -1,9 +1,17 @@
 package com.ntech.cabosse.members.service;
 
 import com.ntech.cabosse.members.dto.MemberExternalCodeDto;
+import com.ntech.cabosse.members.dto.MemberIdentityDocumentDto;
 import com.ntech.cabosse.members.dto.MemberResponseDto;
 import com.ntech.cabosse.members.dto.MemberUpsertDto;
+import com.ntech.cabosse.members.entity.MemberCivilStatus;
+import com.ntech.cabosse.members.entity.MemberEnrolment;
 import com.ntech.cabosse.members.entity.MemberEntity;
+import com.ntech.cabosse.members.entity.MemberGender;
+import com.ntech.cabosse.members.entity.MemberHousehold;
+import com.ntech.cabosse.members.entity.MemberIdentityDocument;
+import com.ntech.cabosse.members.entity.MemberMaritalStatus;
+import com.ntech.cabosse.members.entity.MemberPersonType;
 import com.ntech.cabosse.accounting.service.AccountingService;
 import com.ntech.cabosse.accounting.entity.SyscohadaAccounts;
 import com.ntech.cabosse.members.entity.MemberStatus;
@@ -70,9 +78,10 @@ public class MemberService {
                                               com.ntech.cabosse.members.entity.MemberStatus statusFilter,
                                               PageRequest pr) {
         long total = members.countSearch(q, statusFilter);
+        int validityMonths = fileValidityMonths();
         List<MemberResponseDto> items = members.search(q, statusFilter, pr.skip(), pr.perPage())
                 .stream()
-                .map(MemberResponseDto::from)
+                .map(m -> MemberResponseDto.from(m, validityMonths))
                 .toList();
         Map<String, String> filters = new HashMap<>();
         if (q != null && !q.isBlank()) filters.put("q", q.trim());
@@ -81,7 +90,7 @@ public class MemberService {
     }
 
     public MemberResponseDto getById(UUID id) {
-        return MemberResponseDto.from(loadOrFail(id));
+        return MemberResponseDto.from(loadOrFail(id), fileValidityMonths());
     }
 
     // ─── Création ───────────────────────────────────────────────────
@@ -108,7 +117,7 @@ public class MemberService {
         if (e.status != MemberStatus.PENDING) {
             postCapitalIfEnabled(e);
         }
-        return MemberResponseDto.from(e);
+        return MemberResponseDto.from(e, fileValidityMonths());
     }
 
     // ─── Workflow d'adhésion (backlog MEM-01) ───────────────────────
@@ -139,7 +148,7 @@ public class MemberService {
                 .tenant(tenantContext.tenantId(), null)
                 .description("Adhésion validée : " + e.name + " (" + e.code + ")")
                 .record();
-        return MemberResponseDto.from(e);
+        return MemberResponseDto.from(e, fileValidityMonths());
     }
 
     /** Rejette le dossier avec motif : le membre passe inactif, motif tracé. */
@@ -163,7 +172,7 @@ public class MemberService {
                 .tenant(tenantContext.tenantId(), null)
                 .description("Adhésion rejetée : " + e.name + " (" + e.code + ") : " + e.statusReason)
                 .record();
-        return MemberResponseDto.from(e);
+        return MemberResponseDto.from(e, fileValidityMonths());
     }
 
     // ─── Update ─────────────────────────────────────────────────────
@@ -174,7 +183,9 @@ public class MemberService {
             throw new BusinessException(
                     "La radiation passe par l'action dédiée (remboursement des parts et clôture).");
         }
+        String previousPaymentDetails = paymentDetails(e);
         applyPayload(e, payload);
+        auditPaymentDetailsChange(e, previousPaymentDetails);
         e.updatedAt = Instant.now();
         members.replace(e);
 
@@ -189,7 +200,7 @@ public class MemberService {
                 suppliers.replace(s);
             });
         }
-        return MemberResponseDto.from(e);
+        return MemberResponseDto.from(e, fileValidityMonths());
     }
 
     // ─── Helpers ────────────────────────────────────────────────────
@@ -241,7 +252,7 @@ public class MemberService {
                 .tenant(tenantContext.tenantId(), null)
                 .description("Radiation : " + e.name + " (" + e.code + ") : " + e.statusReason)
                 .record();
-        return MemberResponseDto.from(e);
+        return MemberResponseDto.from(e, fileValidityMonths());
     }
 
     /**
@@ -294,6 +305,49 @@ public class MemberService {
     }
 
     /**
+     * Trace tout changement de coordonnées de paiement (backlog MEM-12).
+     * Inconditionnel : c'est le point d'entrée d'un détournement, et le
+     * journal ne coûte rien. La vigilance bloquante, elle, reste sous
+     * préférence tenant.
+     */
+    private void auditPaymentDetailsChange(MemberEntity e, String previous) {
+        String current = paymentDetails(e);
+        if (current.equals(previous)) return;
+        audit.event(AuditEventType.MEMBER_PAYMENT_DETAILS_CHANGED)
+                .actorEmail(actor())
+                .target("member", e.id.toString(), e.name)
+                .tenant(tenantContext.tenantId(), null)
+                .description("Coordonnées de paiement modifiées pour " + e.name
+                        + " (" + e.code + ") : " + previous + " → " + current)
+                .record();
+    }
+
+    /** Empreinte lisible des coordonnées de paiement, pour le journal d'audit. */
+    private static String paymentDetails(MemberEntity e) {
+        return "mode=" + nullToDash(e.preferredPaymentMethod)
+                + ", numéro=" + nullToDash(e.mobileMoneyNumber)
+                + ", titulaire=" + nullToDash(e.mobileMoneyHolderName)
+                + ", mandat=" + (e.mobileMoneyMandateOnFile ? "oui" : "non");
+    }
+
+    private static String nullToDash(String s) {
+        return s == null || s.isBlank() ? "-" : s;
+    }
+
+    /**
+     * Durée de validité d'une enquête producteur, en mois (backlog MEM-09).
+     * Best-effort : hors contexte tenant (tests unitaires, tâches internes),
+     * on retombe sur le défaut plutôt que d'échouer une lecture.
+     */
+    private int fileValidityMonths() {
+        try {
+            return preferences.current().producerFileValidityMonths();
+        } catch (RuntimeException e) {
+            return TenantPreferences.DEFAULT_PRODUCER_FILE_VALIDITY_MONTHS;
+        }
+    }
+
+    /**
      * Résout le code d'un membre à la création : code saisi (unique) sinon
      * séquence {@code MB-YYYY-NNNN} (backlog MEM-06).
      */
@@ -327,12 +381,13 @@ public class MemberService {
         e.lastName = lastName;
         e.firstName = firstName;
         e.name = recomposeName(lastName, firstName);
-        e.civilStatus = p.civilStatus();
+        applyIdentity(e, p);
         e.birthDate = p.birthDate();
         e.birthYear = p.birthYear();
-        e.idDocType = blankToNull(p.idDocType());
-        e.idDocNumber = blankToNull(p.idDocNumber());
-        e.idCardFileId = p.idCardFileId();
+        applyIdentityDocuments(e, p);
+        e.household = p.household() == null ? new MemberHousehold() : p.household().toEntity();
+        MemberHouseholdRules.validate(e.household);
+        e.enrolment = p.enrolment() == null ? new MemberEnrolment() : p.enrolment().toEntity();
         e.sectionId = p.sectionId();
         e.followUpAgentMemberId = p.followUpAgentMemberId();
         e.deliveredArticleIds = p.deliveredArticleIds() == null ? new ArrayList<>()
@@ -351,7 +406,81 @@ public class MemberService {
         e.status = p.status();
         e.preferredPaymentMethod = blankToNull(p.preferredPaymentMethod());
         e.mobileMoneyNumber = blankToNull(p.mobileMoneyNumber());
+        e.mobileMoneyHolderName = blankToNull(p.mobileMoneyHolderName());
+        e.mobileMoneyMandateOnFile = Boolean.TRUE.equals(p.mobileMoneyMandateOnFile());
         e.notes = blankToNull(p.notes());
+    }
+
+    /**
+     * Genre, nature juridique, situation matrimoniale (backlog MEM-07).
+     *
+     * <p>Le champ legacy {@code civilStatus} mélangeait genre et nature
+     * juridique. On accepte les deux sens de lecture : un client récent
+     * envoie {@code gender} / {@code personType} et le legacy est recalculé
+     * pour les lecteurs existants (registre, exports) ; un client ancien
+     * n'envoie que {@code civilStatus} et les champs dédiés en sont
+     * dérivés.</p>
+     */
+    private static void applyIdentity(MemberEntity e, MemberUpsertDto p) {
+        MemberGender gender = p.gender();
+        MemberPersonType personType = p.personType();
+
+        if (gender == null && personType == null && p.civilStatus() != null) {
+            gender = switch (p.civilStatus()) {
+                case MALE -> MemberGender.MALE;
+                case FEMALE -> MemberGender.FEMALE;
+                default -> MemberGender.UNKNOWN;
+            };
+            personType = p.civilStatus() == MemberCivilStatus.LEGAL_ENTITY
+                    ? MemberPersonType.LEGAL_ENTITY
+                    : MemberPersonType.NATURAL_PERSON;
+        }
+
+        e.gender = gender != null ? gender : MemberGender.UNKNOWN;
+        e.personType = personType != null ? personType : MemberPersonType.NATURAL_PERSON;
+        e.maritalStatus = p.maritalStatus() != null ? p.maritalStatus() : MemberMaritalStatus.UNKNOWN;
+        e.birthPlace = blankToNull(p.birthPlace());
+        e.civilStatus = deriveCivilStatus(e.gender, e.personType);
+
+        e.legalIdentity = e.personType == MemberPersonType.LEGAL_ENTITY && p.legalIdentity() != null
+                ? p.legalIdentity().toEntity()
+                : null;
+    }
+
+    /** Valeur legacy équivalente, pour les lecteurs qui n'ont pas migré. */
+    private static MemberCivilStatus deriveCivilStatus(MemberGender gender, MemberPersonType type) {
+        if (type == MemberPersonType.LEGAL_ENTITY) return MemberCivilStatus.LEGAL_ENTITY;
+        return switch (gender) {
+            case MALE -> MemberCivilStatus.MALE;
+            case FEMALE -> MemberCivilStatus.FEMALE;
+            case UNKNOWN -> MemberCivilStatus.UNKNOWN;
+        };
+    }
+
+    /**
+     * Pièces d'identité (backlog MEM-07). La liste fait foi ; le triplet
+     * legacy {@code idDocType / idDocNumber / idCardFileId} reflète sa
+     * première entrée pour que le registre producteurs et les exports
+     * continuent de fonctionner sans modification. Un client ancien qui
+     * n'envoie que le triplet alimente la liste.
+     */
+    private static void applyIdentityDocuments(MemberEntity e, MemberUpsertDto p) {
+        List<MemberIdentityDocument> docs = p.identityDocuments() == null ? new ArrayList<>()
+                : p.identityDocuments().stream()
+                        .filter(d -> d != null && d.number() != null && !d.number().isBlank())
+                        .map(MemberIdentityDocumentDto::toEntity)
+                        .collect(Collectors.toCollection(ArrayList::new));
+
+        if (docs.isEmpty() && blankToNull(p.idDocNumber()) != null) {
+            docs.add(new MemberIdentityDocument(
+                    blankToNull(p.idDocType()), blankToNull(p.idDocNumber()), p.idCardFileId()));
+        }
+
+        e.identityDocuments = docs;
+        MemberIdentityDocument first = docs.isEmpty() ? null : docs.get(0);
+        e.idDocType = first != null ? first.type : null;
+        e.idDocNumber = first != null ? first.number : null;
+        e.idCardFileId = first != null ? first.fileId : null;
     }
 
     private SupplierEntity createMirrorSupplier(MemberEntity m) {
