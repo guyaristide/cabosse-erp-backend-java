@@ -31,10 +31,10 @@ import java.util.UUID;
  *
  * <p>C'est ainsi que la coopérative construit sa prévision : elle part du
  * potentiel de chaque producteur, pas d'un objectif global. Le potentiel
- * d'un producteur vaut {@code estimation / superficie}, celui de la
- * structure {@code somme des estimations / somme des superficies} — une
- * moyenne des ratios individuels donnerait un chiffre faux en pondérant
- * pareil un hectare et vingt.</p>
+ * est une production attendue en kilos ; le rendement à l'hectare la
+ * rapporte à la surface. Celui de la structure vaut somme des estimations
+ * divisée par somme des superficies : moyenner les rendements individuels
+ * donnerait un chiffre faux, en pondérant pareil un hectare et vingt.</p>
  *
  * <p>Aucune donnée nouvelle n'est demandée : la projection se lit dans ce
  * qui est déjà renseigné sur le producteur et ses parcelles.</p>
@@ -42,7 +42,7 @@ import java.util.UUID;
 @ApplicationScoped
 public class ProductionPotentialService {
 
-    /** Décimales du ratio kg/ha. Deux suffisent à comparer des producteurs. */
+    /** Décimales du rendement kg/ha. Deux suffisent à comparer des producteurs. */
     private static final int RATIO_SCALE = 2;
 
     @Inject MemberRepository members;

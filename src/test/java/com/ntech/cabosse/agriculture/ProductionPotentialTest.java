@@ -24,10 +24,11 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 
 /**
- * Potentiel de production d'une campagne : le chiffre de la structure est
- * la somme des estimations divisée par la somme des superficies, jamais la
- * moyenne des ratios individuels. Un producteur de 20 ha ne pèse pas comme
- * un producteur d'un hectare.
+ * Potentiel de production d'une campagne. Deux grandeurs à ne pas confondre :
+ * le potentiel de la structure est une production attendue en kilos, le
+ * rendement à l'hectare la rapporte à la surface. Ce rendement se calcule sur
+ * les sommes, jamais en moyennant les rendements individuels : un producteur
+ * de 20 ha ne pèse pas comme un producteur d'un hectare.
  */
 @QuarkusTest
 @QuarkusTestResource(MongoReplicaSetTestResource.class)
@@ -115,7 +116,8 @@ class ProductionPotentialTest extends AbstractIntegrationTest {
         String petit = createMember(admin, "Petit");
         createParcel(admin, petit, campaignId, "1", "2000");
 
-        // Structure : 20 000 kg / 21 ha ≈ 952,38 kg/ha, et non (900+2000)/2.
+        // Potentiel de la structure : 20 000 kg. Rendement : 20 000 / 21 ≈ 952,38
+        // kg/ha, et non la moyenne (900 + 2000) / 2.
         JsonPath body = givenAs(admin)
                 .queryParam("campaignId", campaignId)
                 .when().get("/api/v1/production-potential")
@@ -129,9 +131,9 @@ class ProductionPotentialTest extends AbstractIntegrationTest {
 
         assertThat(body.getDouble("data.totalSurfaceHa")).isEqualTo(21.0);
         assertThat(body.getDouble("data.totalEstimateKg")).isEqualTo(20000.0);
-        assertThat(body.getDouble("data.potentialKgPerHa")).isEqualTo(952.38);
-        assertThat(body.getDouble("data.rows[0].potentialKgPerHa")).isEqualTo(900.0);
-        assertThat(body.getDouble("data.rows[1].potentialKgPerHa")).isEqualTo(2000.0);
+        assertThat(body.getDouble("data.yieldKgPerHa")).isEqualTo(952.38);
+        assertThat(body.getDouble("data.rows[0].yieldKgPerHa")).isEqualTo(900.0);
+        assertThat(body.getDouble("data.rows[1].yieldKgPerHa")).isEqualTo(2000.0);
     }
 
     @Test
@@ -163,6 +165,6 @@ class ProductionPotentialTest extends AbstractIntegrationTest {
                 .extract().jsonPath();
 
         assertThat(body.getDouble("data.totalSurfaceHa")).isEqualTo(10.0);
-        assertThat(body.getDouble("data.potentialKgPerHa")).isEqualTo(900.0);
+        assertThat(body.getDouble("data.yieldKgPerHa")).isEqualTo(900.0);
     }
 }

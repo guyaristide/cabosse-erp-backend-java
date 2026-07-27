@@ -9,10 +9,12 @@ import java.util.UUID;
 /**
  * Potentiel de production de la structure sur une campagne.
  *
- * <p>Le potentiel de la coopérative n'est pas la moyenne des potentiels
- * individuels : c'est la somme des estimations divisée par la somme des
- * superficies. Un producteur de 20 ha pèse vingt fois plus qu'un producteur
- * d'un hectare, et une moyenne simple écraserait cette différence.</p>
+ * <p>Deux grandeurs distinctes, souvent confondues. Le <strong>potentiel de
+ * la structure</strong> ({@code totalEstimateKg}) est la production attendue
+ * en kilos : la somme des estimations. Le <strong>rendement à l'hectare</strong>
+ * ({@code yieldKgPerHa}) rapporte cette production à la surface : somme des
+ * estimations divisée par somme des superficies, jamais la moyenne des
+ * rendements individuels, qui ferait peser un hectare autant que vingt.</p>
  *
  * @param membersWithoutEstimate producteurs actifs sans estimation saisie
  *                               pour la campagne : ils ne sont pas comptés
@@ -30,7 +32,7 @@ public record ProductionPotentialResponseDto(
         int parcelCount,
         BigDecimal totalSurfaceHa,
         BigDecimal totalEstimateKg,
-        BigDecimal potentialKgPerHa,
+        BigDecimal yieldKgPerHa,
         int membersWithoutEstimate,
         List<ProductionPotentialRowDto> rows
 ) {}
