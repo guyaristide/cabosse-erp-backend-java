@@ -42,10 +42,17 @@ public class HarvestEntity {
     public String memberName;
 
     /**
-     * Année de la campagne agricole (ex. 2026). Une campagne dure
-     * généralement d'octobre N à mars N+1, mais le système n'impose pas
-     * de calendrier rigide — on saisit l'année de référence pour les
-     * regroupements de paie membre.
+     * Campagne de rattachement. FK vers {@code CampaignEntity.id}. C'est la
+     * donnée de référence : deux campagnes d'une même année (principale et
+     * intermédiaire) n'ont ni le même prix de base ni la même période.
+     */
+    public UUID campaignId;
+
+    /**
+     * Année de la campagne, <strong>dénormalisée</strong> depuis
+     * {@link #campaignId} pour les regroupements et les listes sans
+     * jointure. Ne plus l'écrire directement : elle est dérivée par le
+     * service à partir de la campagne choisie.
      */
     public int campaignYear;
 

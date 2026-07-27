@@ -1,11 +1,15 @@
 package com.ntech.cabosse.agriculture.parcel.controller;
 
+import com.ntech.cabosse.agriculture.parcel.dto.ParcelImportRowDto;
 import com.ntech.cabosse.agriculture.parcel.dto.ParcelResponseDto;
 import com.ntech.cabosse.agriculture.parcel.dto.ParcelUpsertDto;
 import com.ntech.cabosse.agriculture.parcel.entity.ParcelStatus;
+import com.ntech.cabosse.agriculture.parcel.service.ParcelImportService;
 import com.ntech.cabosse.agriculture.parcel.service.ParcelService;
 import com.ntech.cabosse.shared.api.ApiResponse;
 import com.ntech.cabosse.shared.api.PageRequest;
+import com.ntech.cabosse.shared.export.ExportFormat;
+import com.ntech.cabosse.shared.export.ExportResponses;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.security.Roles;
 import com.ntech.cabosse.shared.tenant.TenantContext;
@@ -39,6 +43,7 @@ import java.util.UUID;
 public class ParcelResource {
 
     @Inject ParcelService service;
+    @Inject ParcelImportService importService;
     @Inject TenantCapabilityService capabilities;
     @Inject TenantContext tenantContext;
 
@@ -69,6 +74,42 @@ public class ParcelResource {
         ensureCapability();
         ParcelResponseDto dto = service.getById(id);
         return Response.ok(ApiResponse.ok(dto)).build();
+    }
+
+    // ─── Import de masse ────────────────────────────────────────────
+
+    @GET
+    @Path("/import/template")
+    @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })
+    public Response importTemplate(@QueryParam("format") String formatRaw) {
+        ensureCapability();
+        ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
+        if (format == ExportFormat.PDF) format = ExportFormat.XLSX;
+        return ExportResponses.build("modele-import-parcelles", format, ParcelImportTemplate.dataset());
+    }
+
+    @POST
+    @Path("/import/preview")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    public Response importPreview(java.util.List<ParcelImportRowDto> rows) {
+        ensureCapability();
+        return Response.ok(ApiResponse.ok(importService.preview(rows))).build();
+    }
+
+    /**
+     * @param campaignId      campagne portant les estimations du fichier
+     * @param includeWarnings crée aussi les parcelles dont le producteur
+     *                        n'a pas été retrouvé, sans rattachement
+     */
+    @POST
+    @Path("/import/commit")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    public Response importCommit(java.util.List<ParcelImportRowDto> rows,
+                                 @QueryParam("campaignId") UUID campaignId,
+                                 @QueryParam("includeWarnings") boolean includeWarnings) {
+        ensureCapability();
+        return Response.ok(ApiResponse.ok(
+                importService.commit(rows, campaignId, includeWarnings))).build();
     }
 
     @POST

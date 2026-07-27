@@ -5,6 +5,8 @@ import com.ntech.cabosse.agriculture.harvest.dto.HarvestUpsertDto;
 import com.ntech.cabosse.agriculture.harvest.entity.HarvestEntity;
 import com.ntech.cabosse.agriculture.harvest.repository.HarvestRepository;
 import com.ntech.cabosse.agriculture.parcel.entity.ParcelEntity;
+import com.ntech.cabosse.campaign.entity.CampaignEntity;
+import com.ntech.cabosse.campaign.service.CampaignResolver;
 import com.ntech.cabosse.agriculture.parcel.repository.ParcelRepository;
 import com.ntech.cabosse.members.repository.MemberRepository;
 import com.ntech.cabosse.shared.api.PageRequest;
@@ -33,6 +35,7 @@ public class HarvestService {
     @Inject HarvestRefService refService;
     @Inject ParcelRepository parcels;
     @Inject MemberRepository members;
+    @Inject CampaignResolver campaignResolver;
     @Inject IdGenerator idGenerator;
     @Inject TenantContext tenantContext;
     @Inject JsonWebToken jwt;
@@ -45,17 +48,19 @@ public class HarvestService {
         try { return tenantContext.userId(); } catch (Exception e) { return null; }
     }
 
-    public Pagination<HarvestResponseDto> page(UUID parcelId, UUID memberId, Integer campaignYear,
-                                               String q, PageRequest pr) {
-        long total = harvests.countSearch(parcelId, memberId, campaignYear, q);
+    public Pagination<HarvestResponseDto> page(UUID parcelId, UUID memberId, UUID campaignId,
+                                               Integer campaignYear, String q, PageRequest pr) {
+        long total = harvests.countSearch(parcelId, memberId, campaignId, campaignYear, q);
         List<HarvestResponseDto> items =
-                harvests.search(parcelId, memberId, campaignYear, q, pr.skip(), pr.perPage())
+                harvests.search(parcelId, memberId, campaignId, campaignYear, q,
+                                pr.skip(), pr.perPage())
                         .stream()
                         .map(HarvestResponseDto::from)
                         .toList();
         Map<String, String> filters = new HashMap<>();
         if (parcelId != null) filters.put("parcelId", parcelId.toString());
         if (memberId != null) filters.put("memberId", memberId.toString());
+        if (campaignId != null) filters.put("campaignId", campaignId.toString());
         if (campaignYear != null) filters.put("campaignYear", campaignYear.toString());
         if (q != null && !q.isBlank()) filters.put("q", q.trim());
         return Pagination.of(total, pr, new String[]{"harvestDate", "createdAt"}, "desc",
@@ -112,7 +117,10 @@ public class HarvestService {
             e.memberId = null;
             e.memberName = null;
         }
-        e.campaignYear = p.campaignYear();
+        // La campagne fait foi ; l'année n'est qu'une dénormalisation.
+        CampaignEntity campaign = campaignResolver.resolve(p.campaignId(), p.campaignYear());
+        e.campaignId = campaign.id;
+        e.campaignYear = campaign.campaignYear;
         e.harvestDate = p.harvestDate();
         e.cabossesKg = p.cabossesKg();
         e.freshBeansKg = p.freshBeansKg();

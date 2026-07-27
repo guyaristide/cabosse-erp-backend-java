@@ -8,6 +8,8 @@ import com.ntech.cabosse.article.repository.ArticleRepository;
 import com.ntech.cabosse.collector.dto.CollectorAdvanceResponseDto;
 import com.ntech.cabosse.collector.dto.CreateAdvanceDto;
 import com.ntech.cabosse.collector.dto.RecordDeliveryDto;
+import com.ntech.cabosse.campaign.entity.CampaignEntity;
+import com.ntech.cabosse.campaign.service.CampaignResolver;
 import com.ntech.cabosse.collector.entity.CollectorAdvanceEntity;
 import com.ntech.cabosse.collector.entity.CollectorAdvanceStatus;
 import com.ntech.cabosse.collector.repository.CollectorAdvanceRepository;
@@ -43,6 +45,7 @@ public class CollectorAdvanceService {
     @Inject CollectorAdvanceRepository repo;
     @Inject CollectorAdvanceRefService refService;
     @Inject SupplierRepository suppliers;
+    @Inject CampaignResolver campaignResolver;
     @Inject SectionRepository sections;
     @Inject ArticleRepository articles;
     @Inject StockService stockService;
@@ -84,7 +87,11 @@ public class CollectorAdvanceService {
         if (delegate.sectionId != null) {
             sections.findById(delegate.sectionId).ifPresent(s -> e.sectionName = s.name);
         }
-        e.campaignYear = p.campaignYear();
+        // La campagne rattache l'avance sans la conditionner : une avance
+        // consentie avant l'ouverture d'une campagne reste valable.
+        CampaignEntity campaign = campaignResolver.resolveOptional(p.campaignId(), p.campaignYear());
+        e.campaignId = campaign != null ? campaign.id : null;
+        e.campaignYear = campaign != null ? campaign.campaignYear : null;
         e.siteId = siteId;
         e.advanceDate = p.advanceDate();
         e.advanceAmountFcfa = p.advanceAmountFcfa();

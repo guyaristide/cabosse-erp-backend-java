@@ -1,10 +1,14 @@
 package com.ntech.cabosse.agriculture.harvest.controller;
 
+import com.ntech.cabosse.agriculture.harvest.dto.HarvestImportRowDto;
 import com.ntech.cabosse.agriculture.harvest.dto.HarvestResponseDto;
 import com.ntech.cabosse.agriculture.harvest.dto.HarvestUpsertDto;
+import com.ntech.cabosse.agriculture.harvest.service.HarvestImportService;
 import com.ntech.cabosse.agriculture.harvest.service.HarvestService;
 import com.ntech.cabosse.shared.api.ApiResponse;
 import com.ntech.cabosse.shared.api.PageRequest;
+import com.ntech.cabosse.shared.export.ExportFormat;
+import com.ntech.cabosse.shared.export.ExportResponses;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.security.Roles;
 import com.ntech.cabosse.shared.tenant.TenantContext;
@@ -38,6 +42,7 @@ import java.util.UUID;
 public class HarvestResource {
 
     @Inject HarvestService service;
+    @Inject HarvestImportService importService;
     @Inject TenantCapabilityService capabilities;
     @Inject TenantContext tenantContext;
 
@@ -49,16 +54,54 @@ public class HarvestResource {
         }
     }
 
+    // ─── Import de masse ────────────────────────────────────────────
+
+    @GET
+    @Path("/import/template")
+    @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })
+    public Response importTemplate(@QueryParam("format") String formatRaw) {
+        ensureCapability();
+        ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
+        if (format == ExportFormat.PDF) format = ExportFormat.XLSX;
+        return ExportResponses.build("modele-import-recoltes", format, HarvestImportTemplate.dataset());
+    }
+
+    @POST
+    @Path("/import/preview")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    public Response importPreview(java.util.List<HarvestImportRowDto> rows,
+                                  @QueryParam("campaignId") UUID campaignId) {
+        ensureCapability();
+        return Response.ok(ApiResponse.ok(importService.preview(rows, campaignId))).build();
+    }
+
+    /**
+     * @param campaignId      campagne de rattachement de tout le fichier
+     * @param includeWarnings applique aussi les récoltes datées hors période
+     */
+    @POST
+    @Path("/import/commit")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    public Response importCommit(java.util.List<HarvestImportRowDto> rows,
+                                 @QueryParam("campaignId") UUID campaignId,
+                                 @QueryParam("includeWarnings") boolean includeWarnings) {
+        ensureCapability();
+        return Response.ok(ApiResponse.ok(
+                importService.commit(rows, campaignId, includeWarnings))).build();
+    }
+
     @GET
     public Response list(@QueryParam("parcelId") String parcelIdRaw,
                          @QueryParam("memberId") String memberIdRaw,
+                         @QueryParam("campaignId") String campaignIdRaw,
                          @QueryParam("campaignYear") Integer campaignYear,
                          @QueryParam("q") String q,
                          @QueryParam("page") @DefaultValue("0") int page,
                          @QueryParam("perPage") @DefaultValue("20") int perPage) {
         ensureCapability();
         return Response.ok(ApiResponse.ok(
-                service.page(parseUuid(parcelIdRaw), parseUuid(memberIdRaw), campaignYear, q,
+                service.page(parseUuid(parcelIdRaw), parseUuid(memberIdRaw),
+                        parseUuid(campaignIdRaw), campaignYear, q,
                         PageRequest.of(page, perPage))
         )).build();
     }

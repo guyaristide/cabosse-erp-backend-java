@@ -1,11 +1,13 @@
 package com.ntech.cabosse.members.controller;
 
+import com.ntech.cabosse.members.dto.MemberImportRowDto;
 import com.ntech.cabosse.members.dto.MemberResponseDto;
 import com.ntech.cabosse.members.dto.MemberUpsertDto;
 import com.ntech.cabosse.members.entity.MemberStatus;
 import com.ntech.cabosse.members.service.MemberContributionsService;
 import com.ntech.cabosse.members.service.MemberCardService;
 import com.ntech.cabosse.members.service.MemberDocumentService;
+import com.ntech.cabosse.members.service.MemberImportService;
 import com.ntech.cabosse.members.service.MemberProfileSheetService;
 import com.ntech.cabosse.members.service.MemberService;
 import com.ntech.cabosse.members.register.MemberRegisterService;
@@ -58,6 +60,7 @@ public class MemberResource {
     @Inject MemberDocumentService documents;
     @Inject MemberCardService card;
     @Inject MemberProfileSheetService profileSheet;
+    @Inject MemberImportService importService;
     @Inject MemberRegisterService registerService;
     @Inject ExportAudit exportAudit;
     @Inject TenantCapabilityService capabilities;
@@ -252,6 +255,40 @@ public class MemberResource {
     public Response contributions(@PathParam("id") UUID id) {
         ensureCapability();
         return Response.ok(ApiResponse.ok(contributionsService.contributions(id))).build();
+    }
+
+    // ─── Import de masse ────────────────────────────────────────────
+
+    @GET
+    @Path("/import/template")
+    @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })
+    public Response importTemplate(@QueryParam("format") String formatRaw) {
+        ensureCapability();
+        ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
+        if (format == ExportFormat.PDF) format = ExportFormat.XLSX;
+        return ExportResponses.build("modele-import-membres", format, MemberImportTemplate.dataset());
+    }
+
+    @POST
+    @Path("/import/preview")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    public Response importPreview(java.util.List<MemberImportRowDto> rows) {
+        ensureCapability();
+        return Response.ok(ApiResponse.ok(importService.preview(rows))).build();
+    }
+
+    /**
+     * @param includeWarnings applique aussi les lignes au ménage incohérent,
+     *                        que l'utilisateur a choisi d'accepter après les
+     *                        avoir vues dans l'aperçu
+     */
+    @POST
+    @Path("/import/commit")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    public Response importCommit(java.util.List<MemberImportRowDto> rows,
+                                 @QueryParam("includeWarnings") boolean includeWarnings) {
+        ensureCapability();
+        return Response.ok(ApiResponse.ok(importService.commit(rows, includeWarnings))).build();
     }
 
     // ─── Registre producteurs (REG-01) ──────────────────────────────

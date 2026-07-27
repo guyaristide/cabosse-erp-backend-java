@@ -18,6 +18,7 @@ public record CreateAdvanceDto(
         @DecimalMin(value = "0", inclusive = false, message = "Montant > 0 requis")
         BigDecimal advanceAmountFcfa,
         @NotNull(message = "Mode de paiement requis") PaymentMethod paymentMethod,
+        UUID campaignId,
         Integer campaignYear,
         @Size(max = 1000) String notes
 ) {}

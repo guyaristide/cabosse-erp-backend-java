@@ -32,6 +32,14 @@ public class CollectorAdvanceEntity {
     public String sectionName;
 
     /** Campagne de rattachement (année, snapshot). */
+    /**
+     * Campagne de rattachement. FK vers {@code CampaignEntity.id} : c'est
+     * elle qui porte le prix de base appliqué aux livraisons imputées sur
+     * l'avance, pas une année isolée.
+     */
+    public UUID campaignId;
+
+    /** Année de la campagne, dénormalisée depuis {@link #campaignId}. */
     public Integer campaignYear;
 
     /** Site de collecte où entrent les livraisons. */
