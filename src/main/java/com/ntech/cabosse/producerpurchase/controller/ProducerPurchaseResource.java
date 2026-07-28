@@ -56,13 +56,13 @@ public class ProducerPurchaseResource {
 
     @GET
     public Response list(@QueryParam("q") String q,
-                         @QueryParam("campaignYear") Integer campaignYear,
+                         @QueryParam("campaignId") UUID campaignId,
                          @QueryParam("memberId") UUID memberId,
                          @QueryParam("page") @DefaultValue("0") int page,
                          @QueryParam("perPage") @DefaultValue("20") int perPage) {
         ensureCapability();
         return Response.ok(ApiResponse.ok(
-                service.page(q, campaignYear, memberId, PageRequest.of(page, perPage)))).build();
+                service.page(q, campaignId, memberId, PageRequest.of(page, perPage)))).build();
     }
 
     @GET

@@ -3,6 +3,7 @@ package com.ntech.cabosse.cacao.dto;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 /**
  * État de suivi des pertes / qualité des ventes cacao pour une campagne
@@ -10,7 +11,8 @@ import java.math.BigDecimal;
  */
 @Schema(description = "État de suivi des pertes des ventes cacao")
 public record CacaoLossReportDto(
-        Integer campaignYear,
+        UUID campaignId,
+        String campaignLabel,
         int salesCount,
         BigDecimal totalDeclaredKg,
         BigDecimal totalDischargedKg,

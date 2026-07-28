@@ -49,11 +49,10 @@ public class HarvestService {
     }
 
     public Pagination<HarvestResponseDto> page(UUID parcelId, UUID memberId, UUID campaignId,
-                                               Integer campaignYear, String q, PageRequest pr) {
-        long total = harvests.countSearch(parcelId, memberId, campaignId, campaignYear, q);
+                                               String q, PageRequest pr) {
+        long total = harvests.countSearch(parcelId, memberId, campaignId, q);
         List<HarvestResponseDto> items =
-                harvests.search(parcelId, memberId, campaignId, campaignYear, q,
-                                pr.skip(), pr.perPage())
+                harvests.search(parcelId, memberId, campaignId, q, pr.skip(), pr.perPage())
                         .stream()
                         .map(HarvestResponseDto::from)
                         .toList();
@@ -61,7 +60,6 @@ public class HarvestService {
         if (parcelId != null) filters.put("parcelId", parcelId.toString());
         if (memberId != null) filters.put("memberId", memberId.toString());
         if (campaignId != null) filters.put("campaignId", campaignId.toString());
-        if (campaignYear != null) filters.put("campaignYear", campaignYear.toString());
         if (q != null && !q.isBlank()) filters.put("q", q.trim());
         return Pagination.of(total, pr, new String[]{"harvestDate", "createdAt"}, "desc",
                 filters, items);
@@ -118,8 +116,9 @@ public class HarvestService {
             e.memberName = null;
         }
         // La campagne fait foi ; l'année n'est qu'une dénormalisation.
-        CampaignEntity campaign = campaignResolver.resolve(p.campaignId(), p.campaignYear());
+        CampaignEntity campaign = campaignResolver.resolve(p.campaignId());
         e.campaignId = campaign.id;
+        e.campaignLabel = campaign.label;
         e.campaignYear = campaign.campaignYear;
         e.harvestDate = p.harvestDate();
         e.cabossesKg = p.cabossesKg();

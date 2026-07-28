@@ -28,9 +28,11 @@ import java.util.UUID;
  * <ul>
  *   <li>Capacité {@link TenantCapability#HAS_MEMBERS} requise pour
  *       toute opération.</li>
- *   <li>Une seule campagne {@link CampaignStatus#OPEN} à la fois (tous
- *       campaignYear confondus). Validé à la création et à toute
- *       réouverture.</li>
+ *   <li>Plusieurs campagnes {@link CampaignStatus#OPEN} peuvent coexister :
+ *       une saison se joue en campagne principale puis intermédiaire, chacune
+ *       avec sa période et son prix bord champ. La principale n'est pas
+ *       close le jour où l'intermédiaire s'ouvre. La campagne « courante »
+ *       est celle dont la période couvre le jour, pas la seule ouverte.</li>
  *   <li>Une campagne {@link CampaignStatus#CLOSED} est immuable. La
  *       réouverture n'est pas exposée — supposée passer par une action
  *       d'administration future.</li>
@@ -83,16 +85,12 @@ public class CampaignService {
 
     public CampaignEntity create(CampaignUpsertDto payload) {
         ensureCapability();
-        if (repo.hasOpenOtherThan(null)) {
-            throw new BusinessException(
-                    "Une campagne est déjà ouverte. Clôturez-la avant d'en démarrer une nouvelle.");
-        }
         validateDates(payload);
 
         Instant now = Instant.now();
         CampaignEntity e = new CampaignEntity();
         e.id = UuidCreator.getTimeOrderedEpoch();
-        e.code = refService.next(payload.campaignYear());
+        e.code = refService.next(payload.startDate().getYear());
         applyPayload(e, payload);
         e.status = CampaignStatus.OPEN;
         e.createdAt = now;
@@ -156,7 +154,10 @@ public class CampaignService {
 
     private static void applyPayload(CampaignEntity e, CampaignUpsertDto p) {
         e.label = p.label().trim();
-        e.campaignYear = p.campaignYear();
+        // Déduite, jamais saisie : l'année d'une saison est celle de son
+        // ouverture. Le code de référence, lui, reste celui émis à la
+        // création même si la date de début est corrigée ensuite.
+        e.campaignYear = p.startDate().getYear();
         e.startDate = p.startDate();
         e.endDate = p.endDate();
         e.basePricePerKgFcfa = p.basePricePerKgFcfa();

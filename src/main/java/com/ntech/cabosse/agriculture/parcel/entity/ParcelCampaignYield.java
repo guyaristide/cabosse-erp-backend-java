@@ -9,17 +9,14 @@ import java.util.UUID;
  * liste {@code campaignYields}.
  *
  * <p>Historisé par campagne : une entrée par campagne renseignée. Les deux
- * valeurs sont saisies manuellement (pas de calcul dérivé au MVP). Le
- * {@code campaignYear} est dénormalisé pour les listes / le registre sans
- * jointure sur {@code CampaignEntity}.</p>
+ * valeurs sont saisies manuellement (pas de calcul dérivé au MVP). Seule
+ * la campagne est référencée : son libellé et son année se lisent dans le
+ * référentiel, jamais recopiés ici.</p>
  */
 public class ParcelCampaignYield {
 
     /** FK vers {@code CampaignEntity.id}. */
     public UUID campaignId;
-
-    /** Année de la campagne (dénormalisée). */
-    public Integer campaignYear;
 
     /** Rendement saisi (typiquement kg/ha). */
     public BigDecimal yieldPerHa;
@@ -29,10 +26,9 @@ public class ParcelCampaignYield {
 
     public ParcelCampaignYield() {}
 
-    public ParcelCampaignYield(UUID campaignId, Integer campaignYear,
+    public ParcelCampaignYield(UUID campaignId,
                                BigDecimal yieldPerHa, BigDecimal estimateKg) {
         this.campaignId = campaignId;
-        this.campaignYear = campaignYear;
         this.yieldPerHa = yieldPerHa;
         this.estimateKg = estimateKg;
     }

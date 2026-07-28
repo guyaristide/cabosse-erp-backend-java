@@ -218,7 +218,7 @@ public class ParcelImportService {
         boolean needsCampaign = preview.rows().stream()
                 .anyMatch(r -> r.normalized() != null && r.normalized().estimateKg() != null);
         if (needsCampaign) {
-            campaign = campaignResolver.resolveOptional(campaignId, null);
+            campaign = campaignResolver.resolveOptional(campaignId);
         }
 
         for (Row row : preview.rows()) {
@@ -239,7 +239,7 @@ public class ParcelImportService {
                 List<ParcelCampaignYieldDto> yields = new ArrayList<>();
                 if (n.estimateKg() != null && campaign != null) {
                     yields.add(new ParcelCampaignYieldDto(
-                            campaign.id, campaign.campaignYear, n.yieldPerHa(), n.estimateKg()));
+                            campaign.id, n.yieldPerHa(), n.estimateKg()));
                 }
 
                 ParcelUpsertDto payload = new ParcelUpsertDto(

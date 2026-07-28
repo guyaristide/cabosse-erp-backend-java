@@ -71,11 +71,11 @@ public class ProducerPurchaseService {
 
     // ─── Lecture ────────────────────────────────────────────────────
 
-    public Pagination<ProducerPurchaseResponseDto> page(String q, Integer campaignYear,
+    public Pagination<ProducerPurchaseResponseDto> page(String q, UUID campaignId,
                                                         UUID memberId, PageRequest pr) {
-        long total = repo.countSearch(q, campaignYear, memberId);
+        long total = repo.countSearch(q, campaignId, memberId);
         List<ProducerPurchaseResponseDto> items = repo
-                .search(q, campaignYear, memberId, pr.skip(), pr.perPage())
+                .search(q, campaignId, memberId, pr.skip(), pr.perPage())
                 .stream().map(ProducerPurchaseResponseDto::from).toList();
         return Pagination.of(total, pr, new String[]{"date"}, "desc",
                 new java.util.HashMap<>(), items);

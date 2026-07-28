@@ -11,8 +11,10 @@ package com.ntech.cabosse.campaign.entity;
  *       intangibles, l'historique sert au reporting.</li>
  * </ul>
  *
- * <p>Une seule campagne {@link #OPEN} par campaignYear à un moment donné
- * (contrainte applicative).</p>
+ * <p>Plusieurs campagnes {@link #OPEN} coexistent : la principale et
+ * l'intermédiaire d'une même saison se recouvrent en fin de période. La
+ * clôture est un acte de gestion, pas un préalable à l'ouverture de la
+ * suivante.</p>
  */
 public enum CampaignStatus {
     OPEN,

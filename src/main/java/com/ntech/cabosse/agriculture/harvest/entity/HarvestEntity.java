@@ -49,10 +49,16 @@ public class HarvestEntity {
     public UUID campaignId;
 
     /**
+     * Libellé de la campagne, <strong>dénormalisé</strong> depuis
+     * {@link #campaignId} : les listes de récoltes l'affichent sans
+     * recharger le référentiel.
+     */
+    public String campaignLabel;
+
+    /**
      * Année de la campagne, <strong>dénormalisée</strong> depuis
-     * {@link #campaignId} pour les regroupements et les listes sans
-     * jointure. Ne plus l'écrire directement : elle est dérivée par le
-     * service à partir de la campagne choisie.
+     * {@link #campaignId} et dérivée par le service. Sert de clé de tri,
+     * pas d'identification : deux campagnes peuvent partager une année.
      */
     public int campaignYear;
 

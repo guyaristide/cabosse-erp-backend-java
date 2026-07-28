@@ -2,8 +2,6 @@ package com.ntech.cabosse.campaign.dto;
 
 import com.ntech.cabosse.agriculture.qc.entity.BeanGrade;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -19,6 +17,11 @@ import java.util.List;
  * <p>Le code {@code CMP-YYYY-NN} est généré côté serveur (jamais saisi).
  * Le statut n'est pas modifiable via ce payload — la clôture passe par
  * un endpoint dédié.</p>
+ *
+ * <p>L'année agricole n'est pas saisie non plus : elle se déduit de
+ * {@code startDate}. Une saison à cheval sur deux années civiles rendait
+ * la saisie ambiguë, et deux campagnes équivalentes se retrouvaient avec
+ * des années différentes selon la personne qui les créait.</p>
  */
 @Schema(description = "Payload de création / édition d'une campagne membres")
 public record CampaignUpsertDto(
@@ -26,10 +29,6 @@ public record CampaignUpsertDto(
         @NotBlank(message = "Libellé requis")
         @Size(min = 3, max = 120, message = "Libellé entre 3 et 120 caractères")
         String label,
-
-        @Min(value = 2000, message = "Année invalide")
-        @Max(value = 2100, message = "Année invalide")
-        int campaignYear,
 
         @NotNull(message = "Date d'ouverture requise")
         LocalDate startDate,

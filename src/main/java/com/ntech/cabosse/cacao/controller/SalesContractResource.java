@@ -33,9 +33,9 @@ public class SalesContractResource {
     @Inject SalesContractService service;
 
     @GET
-    public Response list(@QueryParam("campaignYear") Integer campaignYear,
+    public Response list(@QueryParam("campaignId") UUID campaignId,
                          @QueryParam("customerId") UUID customerId) {
-        return Response.ok(ApiResponse.ok(service.list(campaignYear, customerId))).build();
+        return Response.ok(ApiResponse.ok(service.list(campaignId, customerId))).build();
     }
 
     @GET

@@ -94,14 +94,13 @@ public class HarvestResource {
     public Response list(@QueryParam("parcelId") String parcelIdRaw,
                          @QueryParam("memberId") String memberIdRaw,
                          @QueryParam("campaignId") String campaignIdRaw,
-                         @QueryParam("campaignYear") Integer campaignYear,
                          @QueryParam("q") String q,
                          @QueryParam("page") @DefaultValue("0") int page,
                          @QueryParam("perPage") @DefaultValue("20") int perPage) {
         ensureCapability();
         return Response.ok(ApiResponse.ok(
                 service.page(parseUuid(parcelIdRaw), parseUuid(memberIdRaw),
-                        parseUuid(campaignIdRaw), campaignYear, q,
+                        parseUuid(campaignIdRaw), q,
                         PageRequest.of(page, perPage))
         )).build();
     }

@@ -16,7 +16,8 @@ public record MemberContributionsDto(
         List<CampaignContribution> campaigns
 ) {
     public record CampaignContribution(
-            int campaignYear,
+            UUID campaignId,
+            String campaignLabel,
             int harvestCount,
             BigDecimal cabossesKg,
             BigDecimal freshBeansKg,

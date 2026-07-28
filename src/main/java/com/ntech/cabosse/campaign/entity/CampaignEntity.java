@@ -22,10 +22,12 @@ import java.util.UUID;
  * vit dans {@code MemberPayoutService} (livré au ticket 4.2).</p>
  *
  * <p>La référence affichable {@link #code} est de la forme
- * {@code CMP-YYYY-NN} (ex : {@code CMP-2026-01}). Plusieurs campagnes
- * peuvent exister pour la même année (mi-saison, fin de saison) mais
- * une seule peut être {@link CampaignStatus#OPEN} à un instant donné
- * — contrainte applicative validée par {@code CampaignService}.</p>
+ * {@code CMP-YYYY-NN} (ex : {@code CMP-2026-01}). Une saison se joue en
+ * plusieurs campagnes : principale puis intermédiaire, chacune avec sa
+ * période et son prix bord champ fixé en début de campagne. Elles sont
+ * ouvertes en même temps : la principale n'est pas close le jour où
+ * l'intermédiaire démarre. La campagne « courante » est celle dont la
+ * période couvre le jour, pas la seule ouverte.</p>
  */
 public class CampaignEntity {
 
@@ -39,9 +41,10 @@ public class CampaignEntity {
     public String label;
 
     /**
-     * Année agricole de référence. Sert au regroupement et à
-     * l'identification rapide de la campagne courante. Plusieurs
-     * campagnes possibles pour une même année (intermédiaire, principale).
+     * Année agricole de référence, <strong>déduite de {@link #startDate}
+     * et jamais saisie</strong>. Sert de clé de tri dénormalisée sur les
+     * flux rattachés à la campagne ; elle n'identifie rien à elle seule,
+     * plusieurs campagnes pouvant démarrer la même année.
      */
     public int campaignYear;
 

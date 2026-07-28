@@ -7,8 +7,6 @@ import com.ntech.cabosse.shared.exception.NotFoundException;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
-import java.util.Comparator;
-import java.util.List;
 import java.util.UUID;
 
 /**
@@ -19,10 +17,9 @@ import java.util.UUID;
  * être la même partout, sinon deux écrans rattachent différemment la même
  * opération.</p>
  *
- * <p>Ordre de préférence : la campagne demandée explicitement, sinon
- * l'année fournie par un client antérieur à la liaison, sinon la campagne
- * ouverte. L'année seule est un repli : quand elle porte plusieurs
- * campagnes, on prend la plus récemment démarrée, faute de mieux.</p>
+ * <p>Ordre de préférence : la campagne demandée explicitement, sinon la
+ * campagne ouverte. Aucun repli par année : une année civile peut porter
+ * plusieurs campagnes, elle ne permet donc pas de trancher.</p>
  */
 @ApplicationScoped
 public class CampaignResolver {
@@ -37,12 +34,11 @@ public class CampaignResolver {
      * campagne (une récolte, par exemple).
      *
      * @param campaignId campagne explicitement choisie, prioritaire
-     * @param campaignYear repli pour les clients antérieurs à la liaison
      * @return la campagne retenue, jamais null
      * @throws BusinessException si rien ne permet de trancher
      */
-    public CampaignEntity resolve(UUID campaignId, Integer campaignYear) {
-        CampaignEntity resolved = resolveOptional(campaignId, campaignYear);
+    public CampaignEntity resolve(UUID campaignId) {
+        CampaignEntity resolved = resolveOptional(campaignId);
         if (resolved == null) {
             throw new BusinessException(
                     "Aucune campagne ouverte : créez une campagne avant d'enregistrer cette opération.");
@@ -56,19 +52,10 @@ public class CampaignResolver {
      * rattachement, pas une condition d'existence — une avance consentie
      * hors campagne reste une avance.
      */
-    public CampaignEntity resolveOptional(UUID campaignId, Integer campaignYear) {
+    public CampaignEntity resolveOptional(UUID campaignId) {
         if (campaignId != null) {
             return repo.findById(campaignId).orElseThrow(
                     () -> new NotFoundException("Campagne " + campaignId + " introuvable"));
-        }
-        if (campaignYear != null) {
-            List<CampaignEntity> sameYear = repo.listAll().stream()
-                    .filter(c -> c.campaignYear == campaignYear)
-                    .sorted(Comparator.comparing(
-                            (CampaignEntity c) -> c.startDate,
-                            Comparator.nullsLast(Comparator.reverseOrder())))
-                    .toList();
-            if (!sameYear.isEmpty()) return sameYear.get(0);
         }
         return repo.findCurrent().orElse(null);
     }

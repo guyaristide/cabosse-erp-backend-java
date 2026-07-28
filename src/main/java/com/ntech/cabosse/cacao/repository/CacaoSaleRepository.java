@@ -26,7 +26,7 @@ public class CacaoSaleRepository {
         return tenantDb.collection(COLLECTION, CacaoSaleEntity.class);
     }
 
-    private Bson searchFilter(String q, Integer campaignYear, UUID customerId) {
+    private Bson searchFilter(String q, UUID campaignId, UUID customerId) {
         List<Bson> f = new ArrayList<>();
         if (q != null && !q.isBlank()) {
             String escaped = Pattern.quote(q.trim());
@@ -35,24 +35,24 @@ public class CacaoSaleRepository {
                     Filters.regex("customerName", escaped, "i"),
                     Filters.regex("logistics.connaissementRef", escaped, "i")));
         }
-        if (campaignYear != null) f.add(Filters.eq("campaignYear", campaignYear));
+        if (campaignId != null) f.add(Filters.eq("campaignId", campaignId));
         if (customerId != null) f.add(Filters.eq("customerId", customerId));
         return f.isEmpty() ? new Document() : Filters.and(f);
     }
 
-    public long countSearch(String q, Integer campaignYear, UUID customerId) {
-        return coll().countDocuments(searchFilter(q, campaignYear, customerId));
+    public long countSearch(String q, UUID campaignId, UUID customerId) {
+        return coll().countDocuments(searchFilter(q, campaignId, customerId));
     }
 
-    public List<CacaoSaleEntity> search(String q, Integer campaignYear, UUID customerId, int skip, int limit) {
-        return coll().find(searchFilter(q, campaignYear, customerId))
+    public List<CacaoSaleEntity> search(String q, UUID campaignId, UUID customerId, int skip, int limit) {
+        return coll().find(searchFilter(q, campaignId, customerId))
                 .sort(new Document("date", -1).append("ref", -1))
                 .skip(skip).limit(limit).into(new ArrayList<>());
     }
 
     /** Toutes les ventes filtrées par campagne (état de suivi des pertes, NEG-02). */
-    public List<CacaoSaleEntity> listAll(Integer campaignYear) {
-        return coll().find(searchFilter(null, campaignYear, null))
+    public List<CacaoSaleEntity> listAll(UUID campaignId) {
+        return coll().find(searchFilter(null, campaignId, null))
                 .sort(new Document("date", 1)).into(new ArrayList<>());
     }
 

@@ -12,15 +12,14 @@ import java.util.UUID;
 @Schema(description = "Rendement et estimation de production par campagne")
 public record ParcelCampaignYieldDto(
         @NotNull UUID campaignId,
-        Integer campaignYear,
         @DecimalMin("0.0") BigDecimal yieldPerHa,
         @DecimalMin("0.0") BigDecimal estimateKg
 ) {
     public static ParcelCampaignYieldDto from(ParcelCampaignYield e) {
-        return new ParcelCampaignYieldDto(e.campaignId, e.campaignYear, e.yieldPerHa, e.estimateKg);
+        return new ParcelCampaignYieldDto(e.campaignId, e.yieldPerHa, e.estimateKg);
     }
 
     public ParcelCampaignYield toEntity() {
-        return new ParcelCampaignYield(campaignId, campaignYear, yieldPerHa, estimateKg);
+        return new ParcelCampaignYield(campaignId, yieldPerHa, estimateKg);
     }
 }

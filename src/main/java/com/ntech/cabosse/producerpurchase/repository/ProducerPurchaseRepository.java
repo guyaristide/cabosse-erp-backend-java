@@ -26,7 +26,7 @@ public class ProducerPurchaseRepository {
         return tenantDb.collection(COLLECTION, ProducerPurchaseEntity.class);
     }
 
-    private Bson searchFilter(String q, Integer campaignYear, UUID memberId) {
+    private Bson searchFilter(String q, UUID campaignId, UUID memberId) {
         List<Bson> filters = new ArrayList<>();
         if (q != null && !q.isBlank()) {
             String escaped = Pattern.quote(q.trim());
@@ -36,26 +36,26 @@ public class ProducerPurchaseRepository {
                     Filters.regex("producerCode", escaped, "i"),
                     Filters.regex("producerExternalCode", escaped, "i")));
         }
-        if (campaignYear != null) filters.add(Filters.eq("campaignYear", campaignYear));
+        if (campaignId != null) filters.add(Filters.eq("campaignId", campaignId));
         if (memberId != null) filters.add(Filters.eq("memberId", memberId));
         return filters.isEmpty() ? new Document() : Filters.and(filters);
     }
 
-    public long countSearch(String q, Integer campaignYear, UUID memberId) {
-        return coll().countDocuments(searchFilter(q, campaignYear, memberId));
+    public long countSearch(String q, UUID campaignId, UUID memberId) {
+        return coll().countDocuments(searchFilter(q, campaignId, memberId));
     }
 
-    public List<ProducerPurchaseEntity> search(String q, Integer campaignYear, UUID memberId,
+    public List<ProducerPurchaseEntity> search(String q, UUID campaignId, UUID memberId,
                                                int skip, int limit) {
-        return coll().find(searchFilter(q, campaignYear, memberId))
+        return coll().find(searchFilter(q, campaignId, memberId))
                 .sort(new Document("date", -1).append("ref", -1))
                 .skip(skip).limit(limit)
                 .into(new ArrayList<>());
     }
 
     /** Tous les reçus filtrés (registre / état de synthèse, NEG-01). */
-    public List<ProducerPurchaseEntity> listAll(Integer campaignYear) {
-        return coll().find(searchFilter(null, campaignYear, null))
+    public List<ProducerPurchaseEntity> listAll(UUID campaignId) {
+        return coll().find(searchFilter(null, campaignId, null))
                 .sort(new Document("date", 1)).into(new ArrayList<>());
     }
 

@@ -55,9 +55,13 @@ public class MemberRegisterService {
 
     public MemberRegister build(UUID campaignId) {
         CampaignEntity campaign = campaignId != null ? campaigns.get(campaignId) : campaigns.current();
-        Integer campaignYear = campaign != null ? campaign.campaignYear : null;
+        // L'âge d'une plantation s'observe à une date, pas sur un entier :
+        // on prend l'ouverture de la campagne retenue.
+        Integer observationYear = campaign != null && campaign.startDate != null
+                ? campaign.startDate.getYear()
+                : null;
         String title = "Registre producteurs — "
-                + (campaign != null ? campaign.label + " (" + campaign.campaignYear + ")" : "toutes campagnes");
+                + (campaign != null ? campaign.label : "toutes campagnes");
 
         String coopName = coopName();
         Map<UUID, String> sectionNames = sections.listAll().stream()
@@ -81,11 +85,11 @@ public class MemberRegisterService {
             if (m.status != MemberStatus.ACTIVE) continue;
             List<ParcelEntity> memberParcels = parcelsByMember.getOrDefault(m.id, List.of());
             if (memberParcels.isEmpty()) {
-                rows.add(row(no++, coopName, m, null, campaign, campaignYear,
+                rows.add(row(no++, coopName, m, null, campaign, observationYear,
                         sectionNames, regionNames, deptNames, membersById));
             } else {
                 for (ParcelEntity p : memberParcels) {
-                    rows.add(row(no++, coopName, m, p, campaign, campaignYear,
+                    rows.add(row(no++, coopName, m, p, campaign, observationYear,
                             sectionNames, regionNames, deptNames, membersById));
                 }
             }
@@ -94,7 +98,7 @@ public class MemberRegisterService {
     }
 
     private RegisterRow row(int no, String coopName, MemberEntity m, ParcelEntity p,
-                            CampaignEntity campaign, Integer campaignYear,
+                            CampaignEntity campaign, Integer observationYear,
                             Map<UUID, String> sectionNames, Map<String, String> regionNames,
                             Map<String, String> deptNames, Map<UUID, MemberEntity> membersById) {
 
@@ -122,7 +126,7 @@ public class MemberRegisterService {
                 m.village,
                 p != null ? p.code : null,
                 p != null ? p.plantingYear : null,
-                age(campaignYear, p),
+                age(observationYear, p),
                 p != null ? p.surfaceHa : null,
                 yield != null ? yield.yieldPerHa : null,
                 yield != null ? yield.estimateKg : null,
@@ -167,9 +171,15 @@ public class MemberRegisterService {
         return null;
     }
 
-    private static Integer age(Integer campaignYear, ParcelEntity p) {
-        if (campaignYear == null || p == null || p.plantingYear == null) return null;
-        int age = campaignYear - p.plantingYear;
+    /**
+     * Âge de la plantation à l'ouverture de la campagne observée. Rien à
+     * voir avec un « numéro d'année » saisi : deux campagnes ouvertes la
+     * même année donnent le même âge, une campagne ouverte l'année
+     * suivante en donne un de plus.
+     */
+    private static Integer age(Integer observationYear, ParcelEntity p) {
+        if (observationYear == null || p == null || p.plantingYear == null) return null;
+        int age = observationYear - p.plantingYear;
         return age >= 0 ? age : null;
     }
 

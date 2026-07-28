@@ -70,7 +70,7 @@ class ProductionPotentialTest extends AbstractIntegrationTest {
         return givenAs(admin)
                 .contentType("application/json")
                 .body("""
-                        { "label": "Campagne principale 2026", "campaignYear": 2026,
+                        { "label": "Campagne principale 2026",
                           "startDate": "2025-09-01", "endDate": "2026-02-28",
                           "basePricePerKgFcfa": 1500 }
                         """)
@@ -96,7 +96,7 @@ class ProductionPotentialTest extends AbstractIntegrationTest {
                         { "name": "Parcelle %s", "surfaceHa": %s,
                           "gpsCenter": [-4.02, 5.23], "memberId": "%s", "status": "ACTIVE",
                           "campaignYields": [
-                            { "campaignId": "%s", "campaignYear": 2026, "estimateKg": %s }
+                            { "campaignId": "%s", "estimateKg": %s }
                           ] }
                         """.formatted(surfaceHa, surfaceHa, memberId, campaignId, estimateKg))
                 .when().post("/api/v1/parcels")

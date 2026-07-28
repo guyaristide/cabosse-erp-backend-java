@@ -47,28 +47,24 @@ public class HarvestRepository {
                 .into(new ArrayList<>());
     }
 
-    public long countSearch(UUID parcelId, UUID memberId, UUID campaignId,
-                            Integer campaignYear, String q) {
-        return coll().countDocuments(searchFilter(parcelId, memberId, campaignId, campaignYear, q));
+    public long countSearch(UUID parcelId, UUID memberId, UUID campaignId, String q) {
+        return coll().countDocuments(searchFilter(parcelId, memberId, campaignId, q));
     }
 
     public List<HarvestEntity> search(UUID parcelId, UUID memberId, UUID campaignId,
-                                      Integer campaignYear,
                                       String q, int skip, int limit) {
-        return coll().find(searchFilter(parcelId, memberId, campaignId, campaignYear, q))
+        return coll().find(searchFilter(parcelId, memberId, campaignId, q))
                 .sort(new Document("harvestDate", -1).append("createdAt", -1))
                 .skip(skip)
                 .limit(limit)
                 .into(new ArrayList<>());
     }
 
-    private static Bson searchFilter(UUID parcelId, UUID memberId, UUID campaignId,
-                                     Integer campaignYear, String q) {
+    private static Bson searchFilter(UUID parcelId, UUID memberId, UUID campaignId, String q) {
         List<Bson> filters = new ArrayList<>();
         if (parcelId != null) filters.add(Filters.eq("parcelId", parcelId));
         if (memberId != null) filters.add(Filters.eq("memberId", memberId));
         if (campaignId != null) filters.add(Filters.eq("campaignId", campaignId));
-        if (campaignYear != null) filters.add(Filters.eq("campaignYear", campaignYear));
         if (q != null && !q.isBlank()) {
             String escaped = java.util.regex.Pattern.quote(q.trim());
             filters.add(Filters.or(

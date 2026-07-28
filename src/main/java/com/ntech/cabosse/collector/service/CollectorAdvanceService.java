@@ -89,7 +89,7 @@ public class CollectorAdvanceService {
         }
         // La campagne rattache l'avance sans la conditionner : une avance
         // consentie avant l'ouverture d'une campagne reste valable.
-        CampaignEntity campaign = campaignResolver.resolveOptional(p.campaignId(), p.campaignYear());
+        CampaignEntity campaign = campaignResolver.resolveOptional(p.campaignId());
         e.campaignId = campaign != null ? campaign.id : null;
         e.campaignYear = campaign != null ? campaign.campaignYear : null;
         e.siteId = siteId;

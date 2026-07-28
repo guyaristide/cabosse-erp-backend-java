@@ -10,6 +10,7 @@ import com.ntech.cabosse.cacao.entity.SalesContractEntity;
 import com.ntech.cabosse.cacao.repository.CacaoSaleRepository;
 import com.ntech.cabosse.cacao.repository.SalesContractRepository;
 import com.ntech.cabosse.campaign.entity.CampaignEntity;
+import com.ntech.cabosse.campaign.service.CampaignResolver;
 import com.ntech.cabosse.campaign.service.CampaignService;
 import com.ntech.cabosse.cacao.dto.CacaoRefactionDashboardDto;
 import com.ntech.cabosse.cacao.dto.CacaoRefactionDashboardDto.GradeQuantityLine;
@@ -56,6 +57,9 @@ public class CacaoSaleService {
     @Inject CustomerRepository customers;
     @Inject ArticleRepository articles;
     @Inject CampaignService campaigns;
+    // Résolution sans contrôle de capacité : les états de négoce restent
+    // consultables par une structure sans module membres.
+    @Inject CampaignResolver campaignResolver;
     @Inject StockService stockService;
     @Inject StockItemRepository stockItems;
     @Inject ProducerPurchaseRepository producerPurchases;
@@ -66,9 +70,9 @@ public class CacaoSaleService {
     @Inject AuditService audit;
     @Inject JsonWebToken jwt;
 
-    public Pagination<CacaoSaleResponseDto> page(String q, Integer campaignYear, UUID customerId, PageRequest pr) {
-        long total = repo.countSearch(q, campaignYear, customerId);
-        List<CacaoSaleResponseDto> items = repo.search(q, campaignYear, customerId, pr.skip(), pr.perPage())
+    public Pagination<CacaoSaleResponseDto> page(String q, UUID campaignId, UUID customerId, PageRequest pr) {
+        long total = repo.countSearch(q, campaignId, customerId);
+        List<CacaoSaleResponseDto> items = repo.search(q, campaignId, customerId, pr.skip(), pr.perPage())
                 .stream().map(CacaoSaleResponseDto::from).toList();
         return Pagination.of(total, pr, new String[]{"date"}, "desc", new java.util.HashMap<>(), items);
     }
@@ -78,8 +82,9 @@ public class CacaoSaleService {
     }
 
     /** État de suivi des pertes / qualité pour une campagne (backlog NEG-02). */
-    public com.ntech.cabosse.cacao.dto.CacaoLossReportDto lossReport(Integer campaignYear) {
-        List<CacaoSaleEntity> sales = repo.listAll(campaignYear);
+    public com.ntech.cabosse.cacao.dto.CacaoLossReportDto lossReport(UUID campaignId) {
+        CampaignEntity campaign = campaignResolver.resolveOptional(campaignId);
+        List<CacaoSaleEntity> sales = repo.listAll(campaign != null ? campaign.id : null);
         BigDecimal declared = BigDecimal.ZERO, discharged = BigDecimal.ZERO, accepted = BigDecimal.ZERO;
         BigDecimal commercial = BigDecimal.ZERO, ttc = BigDecimal.ZERO, margin = BigDecimal.ZERO;
         BigDecimal humSum = BigDecimal.ZERO, grainSum = BigDecimal.ZERO;
@@ -103,7 +108,9 @@ public class CacaoSaleService {
         BigDecimal avgGrain = grainCount > 0
                 ? grainSum.divide(BigDecimal.valueOf(grainCount), 2, RoundingMode.HALF_UP) : null;
         return new com.ntech.cabosse.cacao.dto.CacaoLossReportDto(
-                campaignYear, sales.size(), declared, discharged, accepted, loss, rate,
+                campaign != null ? campaign.id : null,
+                campaign != null ? campaign.label : null,
+                sales.size(), declared, discharged, accepted, loss, rate,
                 avgHum, avgGrain, commercial, ttc, margin);
     }
 
@@ -112,8 +119,9 @@ public class CacaoSaleService {
      * par type de réfaction (kg × prix bord champ de la campagne), taux sur le
      * volume déchargé, quantités et qualité moyennes par grade et par label.
      */
-    public CacaoRefactionDashboardDto refactionDashboard(Integer campaignYear) {
-        List<CacaoSaleEntity> sales = repo.listAll(campaignYear);
+    public CacaoRefactionDashboardDto refactionDashboard(UUID campaignId) {
+        CampaignEntity campaign = campaignResolver.resolveOptional(campaignId);
+        List<CacaoSaleEntity> sales = repo.listAll(campaign != null ? campaign.id : null);
 
         // Prix bord champ par campagne, pour valoriser les réfactions au prix
         // d'achat au producteur (l'argent déjà payé et refusé par le client).
@@ -181,7 +189,7 @@ public class CacaoSaleService {
             quantityByGrade.add(new GradeQuantityLine(en.getKey(), en.getValue(), pct));
         }
 
-        BigDecimal volumePaid = producerPurchases.listAll(campaignYear).stream()
+        BigDecimal volumePaid = producerPurchases.listAll(campaign != null ? campaign.id : null).stream()
                 .map(pp -> nz(pp.weightKg)).reduce(BigDecimal.ZERO, BigDecimal::add);
 
         List<NamedQuality> qByGrade = byGrade.entrySet().stream()
@@ -190,7 +198,9 @@ public class CacaoSaleService {
                 .map(en -> new NamedQuality(en.getKey(), en.getValue().n, en.getValue().toDto())).toList();
 
         return new CacaoRefactionDashboardDto(
-                campaignYear, sales.size(), costByType, totalRefKg, totalCost,
+                campaign != null ? campaign.id : null,
+                campaign != null ? campaign.label : null,
+                sales.size(), costByType, totalRefKg, totalCost,
                 volumePaid, discharged, accepted, rate,
                 quantityByGrade, overall.toDto(), qByGrade, qByLabel);
     }

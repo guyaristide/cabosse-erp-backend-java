@@ -66,7 +66,7 @@ class HarvestImportTest extends AbstractIntegrationTest {
         return givenAs(admin)
                 .contentType("application/json")
                 .body("""
-                        { "label": "Campagne principale 2026", "campaignYear": 2026,
+                        { "label": "Campagne principale 2026",
                           "startDate": "2025-09-01", "endDate": "2026-02-28",
                           "basePricePerKgFcfa": 1500 }
                         """)

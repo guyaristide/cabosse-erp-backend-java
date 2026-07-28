@@ -16,6 +16,7 @@ public record HarvestResponseDto(
         UUID memberId,
         String memberName,
         UUID campaignId,
+        String campaignLabel,
         int campaignYear,
         LocalDate harvestDate,
         BigDecimal cabossesKg,
@@ -28,7 +29,7 @@ public record HarvestResponseDto(
     public static HarvestResponseDto from(HarvestEntity e) {
         return new HarvestResponseDto(
                 e.id, e.code, e.parcelId, e.parcelCode, e.parcelName,
-                e.memberId, e.memberName, e.campaignId, e.campaignYear, e.harvestDate,
+                e.memberId, e.memberName, e.campaignId, e.campaignLabel, e.campaignYear, e.harvestDate,
                 e.cabossesKg, e.freshBeansKg,
                 e.qualityNotes, e.notes,
                 e.createdAt, e.updatedAt

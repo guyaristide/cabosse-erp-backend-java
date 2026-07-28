@@ -84,7 +84,7 @@ class CollectorValuationTest extends AbstractIntegrationTest {
         return givenAs(admin).contentType("application/json")
                 .body("""
                         { "delegateSupplierId": "%s", "advanceDate": "%s",
-                          "advanceAmountFcfa": 400000, "paymentMethod": "CASH", "campaignYear": 2026 }
+                          "advanceAmountFcfa": 400000, "paymentMethod": "CASH" }
                         """.formatted(delegateId, LocalDate.now()))
                 .when().post("/api/v1/collector-advances?siteId=" + siteId)
                 .then().statusCode(201).extract().path("data.id");

@@ -109,7 +109,8 @@ public class TenantTechnicalService {
             new MigrationDescriptor("create_cacao_trade_collections", "046", "neiba"),
             new MigrationDescriptor("backfill_article_roles", "047", "neiba"),
             new MigrationDescriptor("producer_enrolment", "048", "neiba"),
-            new MigrationDescriptor("link_campaign_on_harvests_and_advances", "049", "neiba")
+            new MigrationDescriptor("link_campaign_on_harvests_and_advances", "049", "neiba"),
+            new MigrationDescriptor("derive_campaign_year", "050", "neiba")
     );
 
     /** Fréquence de backup par plan tarifaire (cf. plans.json catalogue). */

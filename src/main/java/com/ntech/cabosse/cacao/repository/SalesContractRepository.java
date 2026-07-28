@@ -25,15 +25,15 @@ public class SalesContractRepository {
         return tenantDb.collection(COLLECTION, SalesContractEntity.class);
     }
 
-    private Bson filter(Integer campaignYear, UUID customerId) {
+    private Bson filter(UUID campaignId, UUID customerId) {
         List<Bson> f = new ArrayList<>();
-        if (campaignYear != null) f.add(Filters.eq("campaignYear", campaignYear));
+        if (campaignId != null) f.add(Filters.eq("campaignId", campaignId));
         if (customerId != null) f.add(Filters.eq("customerId", customerId));
         return f.isEmpty() ? new Document() : Filters.and(f);
     }
 
-    public List<SalesContractEntity> list(Integer campaignYear, UUID customerId) {
-        return coll().find(filter(campaignYear, customerId))
+    public List<SalesContractEntity> list(UUID campaignId, UUID customerId) {
+        return coll().find(filter(campaignId, customerId))
                 .sort(new Document("createdAt", -1)).into(new ArrayList<>());
     }
 

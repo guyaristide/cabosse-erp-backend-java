@@ -39,24 +39,24 @@ public class CacaoSaleResource {
 
     @GET
     public Response list(@QueryParam("q") String q,
-                         @QueryParam("campaignYear") Integer campaignYear,
+                         @QueryParam("campaignId") UUID campaignId,
                          @QueryParam("customerId") UUID customerId,
                          @QueryParam("page") @DefaultValue("0") int page,
                          @QueryParam("perPage") @DefaultValue("20") int perPage) {
         return Response.ok(ApiResponse.ok(
-                service.page(q, campaignYear, customerId, PageRequest.of(page, perPage)))).build();
+                service.page(q, campaignId, customerId, PageRequest.of(page, perPage)))).build();
     }
 
     @GET
     @Path("/loss-report")
-    public Response lossReport(@QueryParam("campaignYear") Integer campaignYear) {
-        return Response.ok(ApiResponse.ok(service.lossReport(campaignYear))).build();
+    public Response lossReport(@QueryParam("campaignId") UUID campaignId) {
+        return Response.ok(ApiResponse.ok(service.lossReport(campaignId))).build();
     }
 
     @GET
     @Path("/refaction-dashboard")
-    public Response refactionDashboard(@QueryParam("campaignYear") Integer campaignYear) {
-        return Response.ok(ApiResponse.ok(service.refactionDashboard(campaignYear))).build();
+    public Response refactionDashboard(@QueryParam("campaignId") UUID campaignId) {
+        return Response.ok(ApiResponse.ok(service.refactionDashboard(campaignId))).build();
     }
 
     @GET

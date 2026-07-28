@@ -34,8 +34,8 @@ public class SalesContractService {
     @Inject AuditService audit;
     @Inject JsonWebToken jwt;
 
-    public List<SalesContractResponseDto> list(Integer campaignYear, UUID customerId) {
-        return repo.list(campaignYear, customerId).stream().map(SalesContractResponseDto::from).toList();
+    public List<SalesContractResponseDto> list(UUID campaignId, UUID customerId) {
+        return repo.list(campaignId, customerId).stream().map(SalesContractResponseDto::from).toList();
     }
 
     public SalesContractResponseDto getById(UUID id) {

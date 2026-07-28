@@ -13,10 +13,9 @@ import jakarta.inject.Inject;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
-import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
 import java.util.UUID;
 
 /**
@@ -41,13 +40,16 @@ public class MemberContributionsService {
                 .map(p -> p.surfaceHa != null ? p.surfaceHa : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        Map<Integer, List<HarvestEntity>> byCampaign = new TreeMap<>(Comparator.reverseOrder());
+        // Regroupement par campagne, pas par année : une coopérative peut
+        // ouvrir une campagne principale et une intermédiaire la même
+        // année, et leurs apports ne se cumulent pas.
+        Map<UUID, List<HarvestEntity>> byCampaign = new LinkedHashMap<>();
         for (HarvestEntity h : harvests.listByMember(memberId)) {
-            byCampaign.computeIfAbsent(h.campaignYear, k -> new ArrayList<>()).add(h);
+            byCampaign.computeIfAbsent(h.campaignId, k -> new ArrayList<>()).add(h);
         }
 
         List<MemberContributionsDto.CampaignContribution> campaigns = new ArrayList<>();
-        for (Map.Entry<Integer, List<HarvestEntity>> en : byCampaign.entrySet()) {
+        for (Map.Entry<UUID, List<HarvestEntity>> en : byCampaign.entrySet()) {
             BigDecimal cabosses = BigDecimal.ZERO;
             BigDecimal freshBeans = BigDecimal.ZERO;
             for (HarvestEntity h : en.getValue()) {
@@ -58,9 +60,23 @@ public class MemberContributionsService {
                     ? freshBeans.divide(totalSurface, 1, RoundingMode.HALF_UP)
                     : null;
             campaigns.add(new MemberContributionsDto.CampaignContribution(
-                    en.getKey(), en.getValue().size(), cabosses, freshBeans, yield));
+                    en.getKey(), campaignLabel(en.getKey(), en.getValue()),
+                    en.getValue().size(), cabosses, freshBeans, yield));
         }
 
         return new MemberContributionsDto(memberId, memberParcels.size(), totalSurface, campaigns);
+    }
+
+    /**
+     * Libellé porté par les récoltes elles-mêmes : le référentiel n'est
+     * pas relu, et une campagne renommée n'efface pas l'historique déjà
+     * affiché.
+     */
+    private static String campaignLabel(UUID campaignId, List<HarvestEntity> harvests) {
+        return harvests.stream()
+                .map(h -> h.campaignLabel)
+                .filter(l -> l != null && !l.isBlank())
+                .findFirst()
+                .orElse(campaignId != null ? "Campagne" : "Hors campagne");
     }
 }

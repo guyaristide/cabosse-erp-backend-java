@@ -66,7 +66,7 @@ public class HarvestImportService {
             return new HarvestImportPreviewDto(0, 0, 0, 0, 0, 0, List.of());
         }
 
-        CampaignEntity campaign = campaignResolver.resolveOptional(campaignId, null);
+        CampaignEntity campaign = campaignResolver.resolveOptional(campaignId);
         List<ParcelEntity> allParcels = parcels.listAll();
         Set<String> keysSeen = new HashSet<>();
 
@@ -153,7 +153,7 @@ public class HarvestImportService {
     public HarvestImportCommitResponseDto commit(List<HarvestImportRowDto> input,
                                                  UUID campaignId, boolean includeWarnings) {
         HarvestImportPreviewDto preview = preview(input, campaignId);
-        CampaignEntity campaign = campaignResolver.resolve(campaignId, null);
+        CampaignEntity campaign = campaignResolver.resolve(campaignId);
 
         List<UUID> created = new ArrayList<>();
         List<UUID> updated = new ArrayList<>();
@@ -170,8 +170,7 @@ public class HarvestImportService {
             Normalized n = row.normalized();
             try {
                 HarvestUpsertDto payload = new HarvestUpsertDto(
-                        n.parcelId(), n.memberId(),
-                        campaign.id, campaign.campaignYear,
+                        n.parcelId(), n.memberId(), campaign.id,
                         LocalDate.parse(n.harvestDate()),
                         n.cabossesKg(), n.freshBeansKg(),
                         n.qualityNotes(), n.notes());

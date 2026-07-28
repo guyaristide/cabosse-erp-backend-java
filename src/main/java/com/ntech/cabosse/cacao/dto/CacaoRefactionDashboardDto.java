@@ -4,6 +4,7 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Tableau de bord de suivi des réfactions usines (backlog NEG-03), reproduit
@@ -18,7 +19,8 @@ import java.util.List;
  */
 @Schema(description = "Tableau de bord des réfactions usines (ventes cacao)")
 public record CacaoRefactionDashboardDto(
-        Integer campaignYear,
+        UUID campaignId,
+        String campaignLabel,
         int salesCount,
 
         // ─── Coût des réfactions ────────────────────────────────
