@@ -129,8 +129,46 @@ public class MemberEntity {
      */
     public List<UUID> deliveredArticleIds = new ArrayList<>();
 
-    /** Identifiants externes du producteur (backlog MEM-06). Cumulables. */
+    /**
+     * Identifiants externes du producteur. <strong>Remplacés par les pièces
+     * dont le type est coché « sert d'identifiant »</strong> (migration
+     * M052) : un numéro de carte est une pièce, avec un émetteur, une
+     * validité et une photocopie. Conservé en lecture pour les fiches non
+     * encore rouvertes, alimenté par le service depuis les pièces.
+     */
+    @Deprecated
     public List<MemberExternalCode> externalProducerCodes = new ArrayList<>();
+
+    /**
+     * Le producteur est aussi <strong>délégué collecteur</strong> : il
+     * reçoit des avances de fonds et achète aux autres producteurs pour le
+     * compte de la structure.
+     *
+     * <p>La qualité de délégué se porte techniquement sur le fournisseur
+     * miroir, seul objet que connaissent les avances. Ce drapeau existe
+     * pour que la déclaration se fasse depuis la fiche du producteur, là où
+     * le gérant la pense, plutôt qu'en allant cocher une case sur une fiche
+     * fournisseur créée automatiquement dont personne ne soupçonne
+     * l'existence. Les deux restent synchronisés dans les deux sens.</p>
+     */
+    public boolean collector = false;
+
+    /**
+     * Rémunération propre à ce délégué, dans l'unité du mode retenu par le
+     * tenant. {@code null} : le taux commun s'applique. Recopiée sur le
+     * fournisseur miroir, qui la porte pour les reçus d'achat.
+     */
+    public java.math.BigDecimal collectorMarginRate;
+
+    /**
+     * Numéros normalisés par lesquels ce producteur peut être retrouvé dans
+     * un fichier importé, dérivés des pièces dont le type sert
+     * d'identifiant. Un index unique porte sur cette liste : deux
+     * producteurs ne peuvent pas revendiquer la même carte, faute de quoi
+     * un achat serait payé à la mauvaise personne sans que rien ne le
+     * signale.
+     */
+    public List<String> producerRefKeys = new ArrayList<>();
 
     /** Village / localité d'origine. Saisie libre. */
     public String village;

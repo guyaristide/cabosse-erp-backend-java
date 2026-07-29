@@ -70,7 +70,8 @@ public class SiteService {
 
     public SiteResponseDto create(SiteUpsertDto payload) {
         if (payload.type() == null || payload.type().isBlank()) {
-            throw new BusinessException("Type requis à la création (TRANSFORMATION | SALES_POINT).");
+            throw new BusinessException("Type requis à la création (TRANSFORMATION | SALES_POINT "
+                    + "| SECTION_WAREHOUSE | CENTRAL_WAREHOUSE).");
         }
         SiteType type = SiteType.valueOf(payload.type());
         assertWithinQuota();

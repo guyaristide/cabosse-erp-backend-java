@@ -44,6 +44,7 @@ public class ProducerPurchaseResource {
 
     @Inject ProducerPurchaseService service;
     @Inject ProducerPurchaseImportService importService;
+    @Inject ProducerPurchaseImportTemplate importTemplate;
     @Inject TenantCapabilityService capabilities;
     @Inject TenantContext tenantContext;
 
@@ -89,7 +90,7 @@ public class ProducerPurchaseResource {
         ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
         if (format == ExportFormat.PDF) format = ExportFormat.XLSX;
         return ExportResponses.build("modele-import-recus-achat-producteur", format,
-                ProducerPurchaseImportTemplate.dataset());
+                importTemplate.dataset());
     }
 
     @POST
@@ -103,8 +104,10 @@ public class ProducerPurchaseResource {
     @POST
     @Path("/import/commit")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
-    public Response importCommit(java.util.List<ProducerPurchaseImportRowDto> rows) {
+    public Response importCommit(java.util.List<ProducerPurchaseImportRowDto> rows,
+                                 @QueryParam("includeWarnings") @DefaultValue("false")
+                                 boolean includeWarnings) {
         ensureCapability();
-        return Response.ok(ApiResponse.ok(importService.commit(rows))).build();
+        return Response.ok(ApiResponse.ok(importService.commit(rows, includeWarnings))).build();
     }
 }

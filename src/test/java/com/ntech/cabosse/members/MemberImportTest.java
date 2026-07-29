@@ -118,10 +118,25 @@ class MemberImportTest extends AbstractIntegrationTest {
                 .then().statusCode(200)
                 .body("data.createdCount", equalTo(1))
                 .body("data.updatedCount", equalTo(0))
-                // Section et type de pièce absents sont créés à la volée.
+                // Section et types absents sont créés à la volée : la pièce
+                // d'identité, et le type de carte porté par la colonne de
+                // code externe.
                 .body("data.createdSections", hasSize(1))
-                .body("data.createdIdDocTypes", hasSize(1))
-                .body("data.createdIdDocTypes[0]", equalTo("Carte nationale d'identité"));
+                .body("data.createdIdDocTypes", hasSize(2))
+                .body("data.createdIdDocTypes",
+                        org.hamcrest.Matchers.containsInAnyOrder(
+                                "Carte nationale d'identité", "Code producteur"));
+
+        // Chaque type est créé avec l'usage que sa colonne annonce : la
+        // carte retrouve le producteur sans prouver son identité.
+        givenAs(admin).when().get("/api/v1/id-document-types")
+                .then().statusCode(200)
+                .body("data.find { it.name == 'Code producteur' }.usableAsProducerRef", equalTo(true))
+                .body("data.find { it.name == 'Code producteur' }.identityProof", equalTo(false))
+                .body("data.find { it.name == \"Carte nationale d'identité\" }.usableAsProducerRef",
+                        equalTo(false))
+                .body("data.find { it.name == \"Carte nationale d'identité\" }.identityProof",
+                        equalTo(true));
 
         // Deuxième passe du même fichier : mise à jour, jamais de doublon.
         givenAs(admin).contentType("application/json").body(body)

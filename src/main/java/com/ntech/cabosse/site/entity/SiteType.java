@@ -13,7 +13,20 @@ package com.ntech.cabosse.site.entity;
  *       transformation. Aucun lien dur (un point de vente appartient au
  *       tenant, pas à un site précis ; le rattachement se fait
  *       dynamiquement via les transferts de stock).</li>
+ *   <li>{@code SECTION_WAREHOUSE} — magasin de stockage d'une section.
+ *       Première étape du circuit de collecte : la matière achetée aux
+ *       producteurs y entre avant d'être acheminée. Plusieurs par
+ *       structure, un par zone de collecte en général.</li>
+ *   <li>{@code CENTRAL_WAREHOUSE} — magasin central. Regroupe ce que les
+ *       magasins de section ont collecté, avant transport vers le client
+ *       ou vers la transformation. C'est là que se constituent les lots
+ *       expédiés.</li>
  * </ul>
+ *
+ * <p>Le type ne conditionne aucun traitement : il nomme le rôle du site
+ * dans la chaîne, il ne restreint ni les mouvements de stock ni les
+ * opérations. Un magasin qui se met à transformer n'a pas à changer de
+ * type pour que le système l'accepte.</p>
  *
  * <p>Le quota du plan est appliqué globalement (tous types confondus) au
  * MVP — voir {@code SiteService.assertWithinQuota}. Si on veut plus tard
@@ -22,5 +35,7 @@ package com.ntech.cabosse.site.entity;
  */
 public enum SiteType {
     TRANSFORMATION,
-    SALES_POINT;
+    SALES_POINT,
+    SECTION_WAREHOUSE,
+    CENTRAL_WAREHOUSE;
 }

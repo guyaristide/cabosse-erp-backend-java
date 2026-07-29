@@ -147,16 +147,22 @@ public class SiteImportService {
 
     private static String parseSiteType(String raw, List<FieldIssue> issues) {
         if (raw == null || raw.isBlank()) {
-            issues.add(new FieldIssue("type", "Type requis (Transformation ou Point de vente)."));
+            issues.add(new FieldIssue("type",
+                    "Type requis (Transformation, Point de vente, Magasin de section ou Magasin central)."));
             return null;
         }
         String n = normalize(raw);
         return switch (n) {
-            case "transformation" -> "TRANSFORMATION";
+            case "transformation", "usine", "atelier" -> "TRANSFORMATION";
             case "sales point", "point de vente", "pointdevente", "boutique" -> "SALES_POINT";
+            case "magasin de section", "magasin section", "magasindesection",
+                 "section warehouse", "magasin de stockage de section" -> "SECTION_WAREHOUSE";
+            case "magasin central", "magasincentral", "central warehouse",
+                 "magasin central de stockage" -> "CENTRAL_WAREHOUSE";
             default -> {
                 issues.add(new FieldIssue("type",
-                        "Type « " + raw + " » non reconnu (Transformation ou Point de vente)."));
+                        "Type « " + raw + " » non reconnu (Transformation, Point de vente, "
+                                + "Magasin de section ou Magasin central)."));
                 yield null;
             }
         };

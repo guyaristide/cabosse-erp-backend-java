@@ -17,8 +17,9 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
 @Schema(description = "Payload d'écriture d'un site")
 public record SiteUpsertDto(
 
-        @Pattern(regexp = "^$|^(TRANSFORMATION|SALES_POINT)$",
-                message = "Type autorisé : TRANSFORMATION | SALES_POINT")
+        @Pattern(regexp = "^$|^(TRANSFORMATION|SALES_POINT|SECTION_WAREHOUSE|CENTRAL_WAREHOUSE)$",
+                message = "Type autorisé : TRANSFORMATION | SALES_POINT "
+                        + "| SECTION_WAREHOUSE | CENTRAL_WAREHOUSE")
         String type,
 
         @Pattern(regexp = "^$|^[a-z0-9-]{2,40}$",

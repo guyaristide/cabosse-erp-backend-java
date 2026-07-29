@@ -25,6 +25,8 @@ import java.util.UUID;
 @ApplicationScoped
 public class SupplierService {
 
+    @Inject com.ntech.cabosse.members.repository.MemberRepository members;
+
     @Inject SupplierRepository repo;
     @Inject TenantContext tenantContext;
     @Inject AuditService audit;
@@ -78,7 +80,27 @@ public class SupplierService {
         e.updatedAt = Instant.now();
         repo.replace(e);
         auditEvt(e, "Modification");
+        syncMirroredMember(e);
         return SupplierResponseDto.from(e);
+    }
+
+    /**
+     * Renvoie la qualité de délégué vers la fiche du producteur quand ce
+     * fournisseur est son miroir. Sans ce retour, une case décochée ici
+     * laisserait la fiche du producteur affirmer le contraire, et la
+     * question « qui est délégué ? » aurait deux réponses.
+     */
+    private void syncMirroredMember(SupplierEntity e) {
+        members.findBySupplierId(e.id).ifPresent(m -> {
+            if (m.collector == e.collector
+                    && java.util.Objects.equals(m.collectorMarginRate, e.collectorMarginRate)) {
+                return;
+            }
+            m.collector = e.collector;
+            m.collectorMarginRate = e.collectorMarginRate;
+            m.updatedAt = Instant.now();
+            members.replace(m);
+        });
     }
 
     public SupplierResponseDto setActive(UUID id, boolean active) {
@@ -106,6 +128,7 @@ public class SupplierService {
         e.notes = blank(p.notes());
         e.collector = p.collector() != null && p.collector();
         e.sectionId = e.collector ? p.sectionId() : null;
+        e.collectorMarginRate = e.collector ? p.collectorMarginRate() : null;
     }
 
     private void auditEvt(SupplierEntity e, String action) {

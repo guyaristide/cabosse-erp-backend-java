@@ -110,7 +110,10 @@ public class TenantTechnicalService {
             new MigrationDescriptor("backfill_article_roles", "047", "neiba"),
             new MigrationDescriptor("producer_enrolment", "048", "neiba"),
             new MigrationDescriptor("link_campaign_on_harvests_and_advances", "049", "neiba"),
-            new MigrationDescriptor("derive_campaign_year", "050", "neiba")
+            new MigrationDescriptor("derive_campaign_year", "050", "neiba"),
+            new MigrationDescriptor("delegate_current_account", "051", "neiba"),
+            new MigrationDescriptor("producer_cards_as_documents", "052", "neiba"),
+            new MigrationDescriptor("align_syscohada_merchandise_accounts", "053", "neiba")
     );
 
     /** Fréquence de backup par plan tarifaire (cf. plans.json catalogue). */

@@ -169,7 +169,8 @@ public class PurchaseOrderImportService {
                 blankToNull(s.paymentTerms()),
                 /* notes */ null,
                 /* collector */ null,
-                /* sectionId */ null
+                /* sectionId */ null,
+                /* collectorMarginRate */ null
         );
         var created = supplierService.create(create);
         return new ResolvedSupplier(created.id(), created.name(), true);

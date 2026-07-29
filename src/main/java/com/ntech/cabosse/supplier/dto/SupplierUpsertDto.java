@@ -33,5 +33,8 @@ public record SupplierUpsertDto(
         /** Délégué collecteur (backlog ACH-02). */
         Boolean collector,
         /** Section rattachée au délégué. */
-        java.util.UUID sectionId
+        java.util.UUID sectionId,
+        /** Taux de rémunération propre au délégué. Vide : taux du tenant. */
+        @jakarta.validation.constraints.DecimalMin(value = "0", message = "Taux négatif interdit")
+        java.math.BigDecimal collectorMarginRate
 ) {}

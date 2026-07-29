@@ -7,7 +7,6 @@ import com.ntech.cabosse.article.entity.ArticleType;
 import com.ntech.cabosse.article.repository.ArticleRepository;
 import com.ntech.cabosse.collector.dto.CollectorAdvanceResponseDto;
 import com.ntech.cabosse.collector.dto.CreateAdvanceDto;
-import com.ntech.cabosse.collector.dto.RecordDeliveryDto;
 import com.ntech.cabosse.campaign.entity.CampaignEntity;
 import com.ntech.cabosse.campaign.service.CampaignResolver;
 import com.ntech.cabosse.collector.entity.CollectorAdvanceEntity;
@@ -35,9 +34,14 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Avances aux délégués collecteurs (backlog ACH-02) : versement, puis
- * livraisons de matière imputées sur l'avance jusqu'au solde, puis
- * clôture. Chaque étape produit ses écritures comptables.
+ * Avances aux délégués collecteurs (backlog ACH-02) : versement des fonds,
+ * puis clôture au décompte de campagne. Chaque étape produit ses écritures.
+ *
+ * <p>L'apurement ne se saisit pas ici. La matière n'entre que par les reçus
+ * d'achat producteur, seuls à porter l'origine de chaque kilo : une
+ * livraison en bloc sans détail producteur romprait la traçabilité, que la
+ * vente exige. Ce sont donc les reçus rattachés au délégué qui décrémentent
+ * son compte, et {@link DelegateAccountService} en donne la lecture.</p>
  */
 @ApplicationScoped
 public class CollectorAdvanceService {
@@ -112,57 +116,6 @@ public class CollectorAdvanceService {
         repo.insert(e);
         audit(e, AuditEventType.COLLECTOR_ADVANCE_CREATED,
                 "Avance " + e.advanceAmountFcfa + " au délégué " + e.delegateName);
-        return CollectorAdvanceResponseDto.from(e);
-    }
-
-    public CollectorAdvanceResponseDto recordDelivery(UUID id, RecordDeliveryDto p) {
-        CollectorAdvanceEntity e = loadOrFail(id);
-        if (e.status != CollectorAdvanceStatus.OPEN) {
-            throw new BusinessException("Cette avance est clôturée — plus aucune livraison possible.");
-        }
-        BigDecimal amount = p.quantity().multiply(p.unitPriceFcfa());
-        if (amount.compareTo(e.remainingFcfa) > 0) {
-            throw new BusinessException(
-                    "La livraison (" + amount + ") dépasse le solde de l'avance (" + e.remainingFcfa + ").");
-        }
-        ArticleEntity article = articles.findById(p.articleId()).orElseThrow(
-                () -> new NotFoundException("Article " + p.articleId() + " introuvable."));
-
-        Instant now = Instant.now();
-        CollectorAdvanceEntity.Delivery d = new CollectorAdvanceEntity.Delivery();
-        d.id = UuidCreator.getTimeOrderedEpoch();
-        d.date = p.date();
-        d.articleId = article.id;
-        d.articleCode = article.code;
-        d.articleName = article.name;
-        d.articleUnit = article.unit;
-        d.quantity = p.quantity();
-        d.unitPriceFcfa = p.unitPriceFcfa();
-        d.amountFcfa = amount;
-        d.recordedAt = now;
-
-        // Entrée de stock au coût bord champ. Selon la préférence tenant :
-        // mode « par lot » (défaut) → le coût de l'avance fait autorité, le
-        // CMUP prend ce PU ; mode « CMUP pondéré » → pondération classique.
-        boolean replaceCmup = preferencesLookup.current().collectorDeliveryReplacesCmup();
-        stockService.applyMovement(new MovementInput(
-                article.id, e.siteId, MovementKind.IN,
-                p.quantity(), p.unitPriceFcfa(),
-                MovementSource.COLLECTOR_DELIVERY, e.ref, d.id, null,
-                "Livraison délégué " + e.delegateName, null, null,
-                false, e.ref, replaceCmup));
-
-        ArticleType type = parseType(article.type);
-        accounting.postFromCollectorDelivery(d.id, e.ref, article.id, type, article.name, amount, p.date())
-                .ifPresent(piece -> d.pieceRef = piece.ref);
-
-        e.deliveries.add(d);
-        e.consumedAmountFcfa = e.consumedAmountFcfa.add(amount);
-        e.remainingFcfa = e.remainingFcfa.subtract(amount);
-        e.updatedAt = now;
-        repo.replace(e);
-        audit(e, AuditEventType.COLLECTOR_ADVANCE_DELIVERY,
-                "Livraison " + p.quantity() + " " + article.unit + " (" + amount + ")");
         return CollectorAdvanceResponseDto.from(e);
     }
 

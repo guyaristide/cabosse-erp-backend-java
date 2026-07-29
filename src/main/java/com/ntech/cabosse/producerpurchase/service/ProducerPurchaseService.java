@@ -31,6 +31,8 @@ import com.ntech.cabosse.stock.dto.MovementInput;
 import com.ntech.cabosse.stock.entity.MovementKind;
 import com.ntech.cabosse.stock.entity.MovementSource;
 import com.ntech.cabosse.stock.service.StockService;
+import com.ntech.cabosse.supplier.entity.SupplierEntity;
+import com.ntech.cabosse.supplier.repository.SupplierRepository;
 import com.ntech.cabosse.tenant.entity.TenantPreferences;
 import com.ntech.cabosse.tenant.service.TenantPreferencesLookup;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -61,6 +63,8 @@ public class ProducerPurchaseService {
     @Inject ArticleRepository articles;
     @Inject CampaignService campaigns;
     @Inject CollectorAdvanceRepository advances;
+    @Inject SupplierRepository suppliers;
+    @Inject com.ntech.cabosse.members.service.ProducerRefKeyService producerRefKeys;
     @Inject StockService stockService;
     @Inject AccountingService accounting;
     @Inject TenantPreferencesLookup preferences;
@@ -94,7 +98,8 @@ public class ProducerPurchaseService {
                 () -> new NotFoundException("Producteur " + p.memberId() + " introuvable."));
         ensureProducerFileUsable(prefs, m);
         if (prefs.requireProducerPaymentVigilance()) {
-            MemberPaymentVigilance.check(m, p.paymentMethod() != null ? p.paymentMethod().name() : null);
+            MemberPaymentVigilance.check(m, p.paymentMethod() != null ? p.paymentMethod().name() : null,
+                    producerRefKeys.identityProofTypeNames());
         }
 
         ArticleEntity article = articles.findById(p.articleId()).orElseThrow(
@@ -114,19 +119,22 @@ public class ProducerPurchaseService {
             throw new BusinessException("Site d'entrée en stock requis.");
         }
 
-        // Avance rattachée : validation + payeur.
-        CollectorAdvanceEntity advance = null;
-        if (p.collectorAdvanceId() != null) {
-            advance = advances.findById(p.collectorAdvanceId()).orElseThrow(
-                    () -> new NotFoundException("Avance " + p.collectorAdvanceId() + " introuvable."));
-            if (advance.status != CollectorAdvanceStatus.OPEN) {
-                throw new BusinessException("Cette avance est clôturée — plus aucun achat imputable.");
-            }
-            if (amount.compareTo(advance.remainingFcfa) > 0) {
-                throw new BusinessException("L'achat (" + amount + ") dépasse le solde de l'avance ("
-                        + advance.remainingFcfa + ").");
+        // Délégué rattaché : son compte courant porte le reçu. Aucun
+        // plafond ici — il livre souvent plus que ce qu'il a reçu, et la
+        // coopérative lui doit alors la différence jusqu'au décompte de
+        // fin de campagne.
+        SupplierEntity delegate = null;
+        if (p.delegateSupplierId() != null) {
+            delegate = suppliers.findById(p.delegateSupplierId()).orElseThrow(
+                    () -> new NotFoundException("Délégué " + p.delegateSupplierId() + " introuvable."));
+            if (!delegate.collector) {
+                throw new BusinessException(
+                        "« " + delegate.name + " » n'est pas un délégué collecteur.");
             }
         }
+        BigDecimal margin = delegate != null
+                ? delegateMargin(prefs, delegate, weight, amount) : BigDecimal.ZERO;
+        BigDecimal paid = resolvePaid(prefs, p, amount);
 
         Instant now = Instant.now();
         ProducerPurchaseEntity e = new ProducerPurchaseEntity();
@@ -136,7 +144,7 @@ public class ProducerPurchaseService {
         e.memberId = m.id;
         e.producerName = m.name;
         e.producerCode = m.code;
-        e.producerExternalCode = firstExternalCode(m);
+        e.producerExternalCode = externalCodeFor(m, p.producerExternalCode(), prefs);
         e.village = m.village;
         e.producerPhone = m.phone;
         e.sectionId = m.sectionId;
@@ -153,11 +161,16 @@ public class ProducerPurchaseService {
         e.weightKg = weight;
         e.guaranteedPricePerKgFcfa = price;
         e.amountFcfa = amount;
+        e.officialReceiptRef = blankToNull(p.officialReceiptRef());
+        e.amountPaidFcfa = paid;
         e.paymentMethod = p.paymentMethod();
         e.paymentRef = blankToNull(p.paymentRef());
-        e.collectorAdvanceId = p.collectorAdvanceId();
-        if (advance != null) {
-            e.payerName = advance.delegateName;
+        e.deliveryRef = blankToNull(p.deliveryRef());
+        if (delegate != null) {
+            e.delegateSupplierId = delegate.id;
+            e.delegateName = delegate.name;
+            e.delegateMarginFcfa = margin;
+            e.payerName = delegate.name;
         } else if (p.payerMemberId() != null) {
             e.payerMemberId = p.payerMemberId();
             e.payerName = members.findById(p.payerMemberId()).map(x -> x.name).orElse(blankToNull(p.payerName()));
@@ -169,40 +182,65 @@ public class ProducerPurchaseService {
         e.createdBy = safeUserId();
         e.createdByEmail = actor();
 
-        // 1) Imputation ATOMIQUE de l'avance (décrément conditionnel en une
-        //    opération) : réserve les fonds avant tout autre effet de bord.
-        if (advance != null && !advances.tryImpute(advance.id, amount)) {
-            throw new BusinessException("Avance close ou solde insuffisant pour cet achat ("
-                    + amount + ").");
+        // 1) Imputation du compte courant du délégué. Le reçu et sa
+        //    rémunération réduisent tous deux ce qu'il doit. L'avance la
+        //    plus ancienne encore ouverte porte l'écriture ; son solde
+        //    peut devenir négatif, c'est le sens même du compte courant.
+        BigDecimal imputed = amount.add(margin);
+        CollectorAdvanceEntity advance = delegate != null
+                ? advances.oldestOpenForDelegate(delegate.id).orElse(null) : null;
+        if (advance != null) {
+            advances.impute(advance.id, imputed);
+            e.collectorAdvanceId = advance.id;
         }
 
         // 2) Écriture EN PREMIER : échoue tôt (période close, pièce déséquilibrée)
         //    avant tout mouvement de stock. En cas d'échec, on recrédite l'avance.
-        String creditAccount;
-        String creditLabel;
-        if (advance != null) {
-            creditAccount = prefs.collectorAdvanceAccount();
-            creditLabel = "Apurement avance " + advance.ref;
+        List<AccountingService.PurchaseLeg> credits = new java.util.ArrayList<>();
+        if (delegate != null) {
+            credits.add(new AccountingService.PurchaseLeg(
+                    prefs.collectorAdvanceAccount(),
+                    "Apurement délégué " + delegate.name, paid));
         } else {
-            creditAccount = accounting.treasuryAccountFor(p.paymentMethod());
-            creditLabel = "Règlement achat " + e.ref;
+            credits.add(new AccountingService.PurchaseLeg(
+                    accounting.treasuryAccountFor(p.paymentMethod()),
+                    "Règlement achat " + e.ref, paid));
+        }
+        BigDecimal remainder = amount.subtract(paid);
+        if (remainder.signum() > 0) {
+            credits.add(new AccountingService.PurchaseLeg(
+                    prefs.producerPayableAccount(),
+                    "Reliquat dû à " + e.producerName, remainder));
+        }
+        AccountingService.PurchaseLeg marginCharge = null;
+        AccountingService.PurchaseLeg marginCredit = null;
+        if (margin.signum() > 0) {
+            marginCharge = new AccountingService.PurchaseLeg(
+                    prefs.delegateMarginAccount(), "Rémunération délégué " + delegate.name, margin);
+            marginCredit = new AccountingService.PurchaseLeg(
+                    prefs.collectorAdvanceAccount(), "Rémunération délégué " + delegate.name, margin);
         }
         try {
             accounting.postFromProducerPurchase(e.id, e.ref, article.id, parseType(article.type),
-                            article.name, amount, p.date(), creditAccount, creditLabel)
+                            article.name, amount, p.date(), credits, marginCharge, marginCredit)
                     .ifPresent(piece -> e.pieceRef = piece.ref);
         } catch (RuntimeException ex) {
-            if (advance != null) advances.creditBack(advance.id, amount);
+            if (advance != null) advances.creditBack(advance.id, imputed);
             throw ex;
         }
 
-        // 3) Entrée de stock au CMUP pondéré (coût = montant ÷ poids), datée du reçu.
+        // 3) Entrée de stock au coût du reçu (montant ÷ poids), datée du reçu.
+        //    Rattaché à un délégué, le bordereau fait lot : selon la préférence
+        //    tenant, son coût s'impose au CMUP au lieu d'être pondéré.
         BigDecimal unitCost = amount.divide(weight, 6, RoundingMode.HALF_UP);
+        boolean replaceCmup = delegate != null && prefs.collectorDeliveryReplacesCmup();
+        String lotRef = e.deliveryRef != null ? e.deliveryRef : e.ref;
         stockService.applyMovement(new MovementInput(
                 article.id, siteId, MovementKind.IN, weight, unitCost,
                 MovementSource.PRODUCER_PURCHASE, e.ref, e.id, null,
                 "Achat producteur " + e.producerName, null,
-                p.date().atStartOfDay(java.time.ZoneOffset.UTC).toInstant()));
+                p.date().atStartOfDay(java.time.ZoneOffset.UTC).toInstant(),
+                false, lotRef, replaceCmup));
         e.movementRef = e.ref;
 
         repo.insert(e);
@@ -277,7 +315,8 @@ public class ProducerPurchaseService {
     private void ensureProducerFileUsable(TenantPreferences prefs, MemberEntity m) {
         if (!prefs.blockProducerPurchaseOnIncompleteFile()) return;
         int validityMonths = prefs.producerFileValidityMonths();
-        MemberFileStatusDto status = MemberFileCompleteness.evaluate(m, validityMonths);
+        MemberFileStatusDto status = MemberFileCompleteness.evaluate(m, validityMonths,
+                producerRefKeys.identityProofTypeNames());
         if (status.expired()) {
             throw new BusinessException("Dossier du producteur « " + m.name + " » périmé depuis le "
                     + status.expiresAt() + " : mettre à jour l'enquête avant d'enregistrer un achat.");
@@ -288,8 +327,33 @@ public class ProducerPurchaseService {
         }
     }
 
-    private static String firstExternalCode(MemberEntity m) {
-        if (m.externalProducerCodes == null) return null;
+    /**
+     * Code externe à recopier sur le reçu. Un producteur en cumule souvent
+     * plusieurs (carte filière, programme de certification) : recopier le
+     * premier venu ferait figurer un numéro que l'administration ne
+     * reconnaît pas. Ordre : le code porté par le document, sinon celui du
+     * type déclaré comme référence par le tenant, sinon le premier connu.
+     */
+    private static String externalCodeFor(MemberEntity m, String fromDocument,
+                                          TenantPreferences prefs) {
+        if (m.externalProducerCodes == null || m.externalProducerCodes.isEmpty()) return null;
+        String provided = blankToNull(fromDocument);
+        if (provided != null) {
+            for (var c : m.externalProducerCodes) {
+                if (c.number != null && c.number.trim().equalsIgnoreCase(provided)) {
+                    return c.number.trim();
+                }
+            }
+        }
+        String referenceType = blankToNull(prefs.producerReferenceCodeType);
+        if (referenceType != null) {
+            for (var c : m.externalProducerCodes) {
+                if (c.type != null && c.number != null && !c.number.isBlank()
+                        && c.type.trim().equalsIgnoreCase(referenceType)) {
+                    return c.number.trim();
+                }
+            }
+        }
         return m.externalProducerCodes.stream()
                 .filter(c -> c.number != null && !c.number.isBlank())
                 .map(c -> c.number.trim())
@@ -300,6 +364,44 @@ public class ProducerPurchaseService {
         if (name == null) return ArticleType.RAW_MATERIAL;
         try { return ArticleType.valueOf(name); }
         catch (IllegalArgumentException e) { return ArticleType.RAW_MATERIAL; }
+    }
+
+    /**
+     * Rémunération du délégué sur ce reçu, selon le mode retenu par le
+     * tenant. Le taux du délégué prime sur celui du tenant : sur le
+     * terrain, deux délégués ne sont pas payés pareil.
+     */
+    static BigDecimal delegateMargin(TenantPreferences prefs, SupplierEntity delegate,
+                                             BigDecimal weight, BigDecimal amount) {
+        String mode = prefs.delegateMarginMode();
+        if (TenantPreferences.DELEGATE_MARGIN_NONE.equals(mode)) return BigDecimal.ZERO;
+        BigDecimal rate = delegate.collectorMarginRate != null
+                ? delegate.collectorMarginRate : prefs.delegateMarginRate();
+        if (rate == null || rate.signum() <= 0) return BigDecimal.ZERO;
+        if (TenantPreferences.DELEGATE_MARGIN_PER_KG.equals(mode)) {
+            return weight.multiply(rate).setScale(2, RoundingMode.HALF_UP);
+        }
+        return amount.multiply(rate)
+                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * Montant réellement remis au producteur. Sans l'option de paiement
+     * partiel, le montant dû est réputé payé : un reliquat ne peut pas
+     * apparaître par simple oubli de saisie.
+     */
+    private static BigDecimal resolvePaid(TenantPreferences prefs, ProducerPurchaseUpsertDto p,
+                                          BigDecimal amount) {
+        if (!prefs.producerPartialPaymentEnabled() || p.amountPaidFcfa() == null) return amount;
+        BigDecimal paid = p.amountPaidFcfa();
+        if (paid.signum() < 0) {
+            throw new BusinessException("Montant payé négatif.");
+        }
+        if (paid.compareTo(amount) > 0) {
+            throw new BusinessException("Montant payé (" + paid + ") supérieur au montant dû ("
+                    + amount + ").");
+        }
+        return paid;
     }
 
     private static String blankToNull(String s) {

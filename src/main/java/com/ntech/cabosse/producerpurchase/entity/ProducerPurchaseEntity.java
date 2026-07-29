@@ -19,10 +19,13 @@ import java.util.UUID;
  * produits de la coopérative, résolue vers l'{@link #articleId} matière
  * première (lien manuel) pour l'entrée stock + le CMUP.</p>
  *
- * <p>Le reçu peut être <strong>autonome</strong> (payé directement,
- * {@link #collectorAdvanceId} null) ou <strong>rattaché à une avance
- * délégué</strong> (ACH-02) : dans ce cas l'écriture impute le compte
- * d'avance (4091) au lieu de la trésorerie et l'avance est décrémentée.</p>
+ * <p>Le reçu peut être <strong>autonome</strong> (payé directement sur la
+ * trésorerie) ou <strong>rattaché à un délégué collecteur</strong> (ACH-02) :
+ * dans ce cas l'écriture impute le compte d'avance du délégué au lieu de la
+ * trésorerie, et son compte courant de campagne est décrémenté d'autant. Le
+ * solde du délégué peut devenir créditeur : il livre alors plus que ce qu'il
+ * a reçu, et la coopérative lui doit la différence jusqu'au décompte de fin
+ * de campagne.</p>
  */
 public class ProducerPurchaseEntity {
 
@@ -33,6 +36,13 @@ public class ProducerPurchaseEntity {
     public String ref;
 
     public LocalDate date;
+
+    /**
+     * Numéro du reçu d'achat officiel remis au producteur (carnet
+     * réglementaire). C'est sa preuve de vente ; il est saisi tel quel,
+     * jamais généré, et n'est pas la référence interne {@link #ref}.
+     */
+    public String officialReceiptRef;
 
     // ─── Producteur (snapshot fiche membre MEM-06) ───
     public UUID memberId;
@@ -60,16 +70,41 @@ public class ProducerPurchaseEntity {
     public Integer nbSacs;
     public BigDecimal weightKg;
     public BigDecimal guaranteedPricePerKgFcfa;
+    /** Montant dû au producteur : poids × prix garanti. */
     public BigDecimal amountFcfa;
+
+    /**
+     * Montant effectivement remis au producteur. Égal au montant dû sauf
+     * si le paiement partiel est autorisé au niveau du tenant ; l'écart
+     * devient une dette envers le producteur.
+     */
+    public BigDecimal amountPaidFcfa;
 
     public PaymentMethod paymentMethod;
     public String paymentRef;
 
-    /** Payeur : délégué de l'avance si rattaché, sinon référence choisie. */
+    /** Payeur : délégué si rattaché, sinon référence choisie. */
     public UUID payerMemberId;
     public String payerName;
 
-    /** Rattachement optionnel à une avance délégué (ACH-02). */
+    /** Délégué collecteur dont le compte courant porte ce reçu (ACH-02). */
+    public UUID delegateSupplierId;
+    public String delegateName;
+
+    /**
+     * Rémunération du délégué constatée sur ce reçu. Elle vient s'ajouter
+     * à ce que la coopérative lui doit, donc réduit d'autant sa dette.
+     */
+    public BigDecimal delegateMarginFcfa;
+
+    /**
+     * Bordereau de livraison : les reçus qu'un délégué apporte en une fois.
+     * Simple clé de regroupement attribuée à l'import, pas un objet à part,
+     * pour que la matière n'ait qu'une seule origine, le reçu.
+     */
+    public String deliveryRef;
+
+    /** Avance sur laquelle le reçu a été imputé, quand il y en avait une. */
     public UUID collectorAdvanceId;
 
     // ─── Traces d'intégration ───

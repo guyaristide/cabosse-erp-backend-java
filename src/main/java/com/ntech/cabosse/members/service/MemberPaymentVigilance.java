@@ -38,8 +38,9 @@ public final class MemberPaymentVigilance {
      * @param member        producteur payé
      * @param paymentMethod mode de règlement de l'opération
      */
-    public static void check(MemberEntity member, String paymentMethod) {
-        if (!hasScannedIdentityDocument(member)) {
+    public static void check(MemberEntity member, String paymentMethod,
+                             java.util.Set<String> identityProofTypes) {
+        if (!hasScannedIdentityDocument(member, identityProofTypes)) {
             throw new BusinessException(
                     "Vigilance paiements : aucune pièce d'identité scannée au dossier de « "
                             + member.name + " ». Joindre le scan avant de payer.");
@@ -53,12 +54,20 @@ public final class MemberPaymentVigilance {
         }
     }
 
-    private static boolean hasScannedIdentityDocument(MemberEntity m) {
+    private static boolean hasScannedIdentityDocument(MemberEntity m,
+                                                     java.util.Set<String> identityProofTypes) {
         if (m.identityDocuments != null && m.identityDocuments.stream()
-                .anyMatch(MemberPaymentVigilance::isScanned)) {
+                .anyMatch(d -> isScanned(d) && proves(d.type, identityProofTypes))) {
             return true;
         }
         return m.idCardFileId != null;
+    }
+
+    /** {@code null} : pas de référentiel, toute pièce scannée compte (voir complétude). */
+    private static boolean proves(String type, java.util.Set<String> identityProofTypes) {
+        if (identityProofTypes == null) return true;
+        return type != null
+                && identityProofTypes.contains(type.trim().toLowerCase(java.util.Locale.ROOT));
     }
 
     private static boolean isScanned(MemberIdentityDocument d) {

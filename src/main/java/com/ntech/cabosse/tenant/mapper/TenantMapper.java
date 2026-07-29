@@ -161,7 +161,13 @@ public final class TenantMapper {
                 entity.preferences.stockMinWarningPct(),
                 entity.preferences.producerFileValidityMonths(),
                 entity.preferences.blockProducerPurchaseOnIncompleteFile(),
-                entity.preferences.requireProducerPaymentVigilance()
+                entity.preferences.requireProducerPaymentVigilance(),
+                entity.preferences.delegateMarginMode(),
+                entity.preferences.delegateMarginRate(),
+                entity.preferences.delegateMarginAccount(),
+                entity.preferences.producerPartialPaymentEnabled(),
+                entity.preferences.producerPayableAccount(),
+                entity.preferences.producerReferenceCodeType
         );
     }
 

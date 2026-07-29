@@ -22,6 +22,16 @@ import java.util.UUID;
 @Schema(description = "Création d'un reçu d'achat producteur")
 public record ProducerPurchaseUpsertDto(
         @NotNull LocalDate date,
+
+        /** N° du reçu officiel remis au producteur. */
+        @Size(max = 60) String officialReceiptRef,
+
+        /**
+         * Code externe du producteur effectivement porté par le document.
+         * Vide : le code de référence du tenant, à défaut le premier connu.
+         */
+        @Size(max = 60) String producerExternalCode,
+
         @NotNull UUID memberId,
         @NotNull UUID articleId,
 
@@ -32,6 +42,8 @@ public record ProducerPurchaseUpsertDto(
         @DecimalMin("0.0") BigDecimal weightKg,
         @DecimalMin("0.0") BigDecimal guaranteedPricePerKgFcfa,
         @DecimalMin("0.0") BigDecimal amountFcfa,
+        /** Montant remis au producteur. Vide : le montant dû est réputé payé. */
+        @DecimalMin("0.0") BigDecimal amountPaidFcfa,
 
         @NotNull PaymentMethod paymentMethod,
         @Size(max = 80) String paymentRef,
@@ -39,5 +51,9 @@ public record ProducerPurchaseUpsertDto(
         UUID payerMemberId,
         @Size(max = 120) String payerName,
 
-        UUID collectorAdvanceId
+        /** Délégué collecteur dont le compte porte ce reçu. */
+        UUID delegateSupplierId,
+
+        /** Bordereau de livraison (regroupement). Attribué à l'import. */
+        @Size(max = 40) String deliveryRef
 ) {}

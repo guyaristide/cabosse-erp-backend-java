@@ -22,8 +22,14 @@ public final class SyscohadaAccounts {
     public static final String CLIENTS = "411000";
 
     // ─── Charges (achats) ───
-    /** Achats de matières premières. */
-    public static final String ACHATS_MATIERES = "601000";
+    /**
+     * Achats de marchandises : biens achetés pour être revendus en l'état.
+     * C'est bien le 601 au SYSCOHADA révisé, là où le plan français place
+     * les marchandises en 607.
+     */
+    public static final String ACHATS_MARCHANDISES = "601000";
+    /** Achats de matières premières et fournitures liées. */
+    public static final String ACHATS_MATIERES = "602000";
     /** Achats stockés — autres approvisionnements (consommables). */
     public static final String ACHATS_AUTRES = "604000";
     /** Achats d'emballages. */
@@ -32,8 +38,10 @@ public final class SyscohadaAccounts {
     public static final String TRANSPORTS_SUR_ACHATS = "624000";
 
     // ─── Produits (ventes) ───
-    /** Ventes de marchandises / produits finis (MVP : compte unique 701). */
-    public static final String VENTES_PRODUITS_FINIS = "701000";
+    /** Ventes de marchandises (revendues en l'état). */
+    public static final String VENTES_MARCHANDISES = "701000";
+    /** Ventes de produits finis (issus de la transformation). */
+    public static final String VENTES_PRODUITS_FINIS = "702000";
 
     // ─── TVA ───
     /** TVA déductible sur achats. */
@@ -42,14 +50,18 @@ public final class SyscohadaAccounts {
     public static final String TVA_COLLECTEE = "445700";
 
     // ─── Stocks et variations (inventaire) ───
-    /** Stocks de marchandises (produits agricoles achetés-revendus, réf. jeux d'écritures v7). */
+    /** Stocks de marchandises (achetées pour être revendues en l'état). */
     public static final String STOCKS_MARCHANDISES = "310000";
+    /** Stocks de matières premières et fournitures liées. */
+    public static final String STOCKS_MATIERES = "320000";
     /** Stocks d'autres approvisionnements (consommables, emballages). */
     public static final String STOCKS_AUTRES_APPRO = "330000";
     /** Stocks de produits finis. */
     public static final String STOCKS_PRODUITS_FINIS = "360000";
     /** Variation des stocks de marchandises. */
     public static final String VARIATION_STOCKS_MARCHANDISES = "603100";
+    /** Variation des stocks de matières premières. */
+    public static final String VARIATION_STOCKS_MATIERES = "603200";
     /** Variation des stocks d'autres approvisionnements. */
     public static final String VARIATION_STOCKS_AUTRES = "603300";
     /** Variation des stocks de produits fabriqués (compte de produits). */
@@ -102,7 +114,8 @@ public final class SyscohadaAccounts {
             case TRANSPORT -> null;
             case CONSUMABLE, PACKAGING -> STOCKS_AUTRES_APPRO;
             case FINISHED_PRODUCT -> STOCKS_PRODUITS_FINIS;
-            case RAW_MATERIAL -> STOCKS_MARCHANDISES;
+            case MERCHANDISE -> STOCKS_MARCHANDISES;
+            case RAW_MATERIAL -> STOCKS_MATIERES;
         };
     }
 
@@ -113,7 +126,8 @@ public final class SyscohadaAccounts {
             case TRANSPORT -> null;
             case CONSUMABLE, PACKAGING -> VARIATION_STOCKS_AUTRES;
             case FINISHED_PRODUCT -> VARIATION_STOCKS_PRODUITS;
-            case RAW_MATERIAL -> VARIATION_STOCKS_MARCHANDISES;
+            case MERCHANDISE -> VARIATION_STOCKS_MARCHANDISES;
+            case RAW_MATERIAL -> VARIATION_STOCKS_MATIERES;
         };
     }
 
@@ -123,7 +137,23 @@ public final class SyscohadaAccounts {
             case TRANSPORT -> TRANSPORTS_SUR_ACHATS;
             case CONSUMABLE -> ACHATS_AUTRES;
             case PACKAGING -> ACHATS_EMBALLAGES;
-            case RAW_MATERIAL, FINISHED_PRODUCT -> ACHATS_MATIERES;
+            case RAW_MATERIAL -> ACHATS_MATIERES;
+            // Un produit fini acheté ne l'est que pour être revendu tel
+            // quel : c'est une marchandise, quel que soit le fait qu'on
+            // sache aussi le fabriquer.
+            case MERCHANDISE, FINISHED_PRODUCT -> ACHATS_MARCHANDISES;
+        };
+    }
+
+    /**
+     * Compte de produit par défaut d'une vente, selon la nature de
+     * l'article vendu. La fiche article peut le surcharger.
+     */
+    public static String saleRevenueAccountFor(ArticleType type) {
+        if (type == null) return VENTES_PRODUITS_FINIS;
+        return switch (type) {
+            case MERCHANDISE -> VENTES_MARCHANDISES;
+            default -> VENTES_PRODUITS_FINIS;
         };
     }
 }

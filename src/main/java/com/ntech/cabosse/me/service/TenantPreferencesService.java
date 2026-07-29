@@ -65,7 +65,13 @@ public class TenantPreferencesService {
                 p.stockMinWarningPct(),
                 p.producerFileValidityMonths(),
                 p.blockProducerPurchaseOnIncompleteFile(),
-                p.requireProducerPaymentVigilance()
+                p.requireProducerPaymentVigilance(),
+                p.delegateMarginMode(),
+                p.delegateMarginRate(),
+                p.delegateMarginAccount(),
+                p.producerPartialPaymentEnabled(),
+                p.producerPayableAccount(),
+                p.producerReferenceCodeType
         );
     }
 
@@ -256,6 +262,58 @@ public class TenantPreferencesService {
                     payload.requireProducerPaymentVigilance();
         }
 
+        if (payload.delegateMarginMode() != null && !payload.delegateMarginMode().isBlank()
+                && !payload.delegateMarginMode().equals(t.preferences.delegateMarginMode())) {
+            diffs.put("delegateMarginMode", Map.of(
+                    "from", t.preferences.delegateMarginMode(),
+                    "to", payload.delegateMarginMode()));
+            t.preferences.delegateMarginMode = payload.delegateMarginMode().trim();
+        }
+
+        if (payload.delegateMarginRate() != null
+                && payload.delegateMarginRate().compareTo(t.preferences.delegateMarginRate()) != 0) {
+            diffs.put("delegateMarginRate", Map.of(
+                    "from", t.preferences.delegateMarginRate(),
+                    "to", payload.delegateMarginRate()));
+            t.preferences.delegateMarginRate = payload.delegateMarginRate();
+        }
+
+        if (payload.delegateMarginAccount() != null && !payload.delegateMarginAccount().isBlank()
+                && !payload.delegateMarginAccount().equals(t.preferences.delegateMarginAccount())) {
+            diffs.put("delegateMarginAccount", Map.of(
+                    "from", t.preferences.delegateMarginAccount(),
+                    "to", payload.delegateMarginAccount()));
+            t.preferences.delegateMarginAccount = payload.delegateMarginAccount().trim();
+        }
+
+        if (payload.producerPartialPaymentEnabled() != null
+                && payload.producerPartialPaymentEnabled()
+                        != t.preferences.producerPartialPaymentEnabled()) {
+            diffs.put("producerPartialPaymentEnabled", Map.of(
+                    "from", t.preferences.producerPartialPaymentEnabled(),
+                    "to", payload.producerPartialPaymentEnabled()));
+            t.preferences.producerPartialPaymentEnabled = payload.producerPartialPaymentEnabled();
+        }
+
+        if (payload.producerPayableAccount() != null && !payload.producerPayableAccount().isBlank()
+                && !payload.producerPayableAccount().equals(t.preferences.producerPayableAccount())) {
+            diffs.put("producerPayableAccount", Map.of(
+                    "from", t.preferences.producerPayableAccount(),
+                    "to", payload.producerPayableAccount()));
+            t.preferences.producerPayableAccount = payload.producerPayableAccount().trim();
+        }
+
+        if (payload.producerReferenceCodeType() != null
+                && !payload.producerReferenceCodeType().trim()
+                        .equals(nullSafe(t.preferences.producerReferenceCodeType))) {
+            diffs.put("producerReferenceCodeType", Map.of(
+                    "from", nullSafe(t.preferences.producerReferenceCodeType),
+                    "to", payload.producerReferenceCodeType().trim()));
+            t.preferences.producerReferenceCodeType =
+                    payload.producerReferenceCodeType().isBlank()
+                            ? null : payload.producerReferenceCodeType().trim();
+        }
+
         if (!diffs.isEmpty()) {
             t.updatedAt = Instant.now();
             tenants.update(t);
@@ -278,5 +336,9 @@ public class TenantPreferencesService {
             throw new NotFoundException("Tenant courant introuvable.");
         }
         return t;
+    }
+
+    private static String nullSafe(String s) {
+        return s == null ? "" : s;
     }
 }

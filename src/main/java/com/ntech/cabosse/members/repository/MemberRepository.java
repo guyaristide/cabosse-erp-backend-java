@@ -75,6 +75,28 @@ public class MemberRepository {
         return coll().countDocuments();
     }
 
+    /** Producteurs portant ce numéro normalisé. Doit rester vide ou singleton. */
+    public List<MemberEntity> findByProducerRefKey(String normalizedNumber) {
+        if (normalizedNumber == null || normalizedNumber.isBlank()) return List.of();
+        return coll().find(Filters.eq("producerRefKeys", normalizedNumber))
+                .into(new java.util.ArrayList<>());
+    }
+
+    /** Producteurs portant au moins une pièce de ce type. */
+    public List<MemberEntity> findByDocumentType(String typeName) {
+        if (typeName == null || typeName.isBlank()) return List.of();
+        return coll().find(Filters.eq("identityDocuments.type", typeName))
+                .into(new java.util.ArrayList<>());
+    }
+
+    /** Écriture ciblée des clés de rapprochement (resynchronisation d'un type). */
+    public void updateProducerRefKeys(MemberEntity e) {
+        coll().updateOne(Filters.eq("_id", e.id),
+                com.mongodb.client.model.Updates.combine(
+                        com.mongodb.client.model.Updates.set("producerRefKeys", e.producerRefKeys),
+                        com.mongodb.client.model.Updates.set("identityDocuments", e.identityDocuments)));
+    }
+
     public void insert(MemberEntity e) { coll().insertOne(e); }
 
     public void replace(MemberEntity e) { coll().replaceOne(Filters.eq("_id", e.id), e); }

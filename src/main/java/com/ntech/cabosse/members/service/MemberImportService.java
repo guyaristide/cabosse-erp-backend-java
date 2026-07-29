@@ -225,6 +225,7 @@ public class MemberImportService {
                 }
                 UUID sectionId = resolveSection(n.sectionName(), createdSections);
                 ensureIdDocumentType(n.idDocType(), createdDocTypes);
+                ensureIdDocumentType(externalCodeType(n), createdDocTypes, false, true);
 
                 MemberUpsertDto payload = toUpsert(n, sectionId);
                 if (row.matchedMemberId() != null) {
@@ -279,12 +280,13 @@ public class MemberImportService {
                     .findFirst();
             if (byCode.isPresent()) return byCode.get();
         }
-        if (n.externalCode() != null) {
-            Optional<MemberEntity> byExternal = existing.stream()
-                    .filter(m -> m.externalProducerCodes != null && m.externalProducerCodes.stream()
-                            .anyMatch(c -> c.number != null && c.number.equalsIgnoreCase(n.externalCode())))
+        String cardKey = com.ntech.cabosse.members.entity.MemberIdentityDocument
+                .normalize(n.externalCode());
+        if (cardKey != null) {
+            Optional<MemberEntity> byCard = existing.stream()
+                    .filter(m -> m.producerRefKeys != null && m.producerRefKeys.contains(cardKey))
                     .findFirst();
-            if (byExternal.isPresent()) return byExternal.get();
+            if (byCard.isPresent()) return byCard.get();
         }
         String phone = digits(n.phone());
         if (phone != null && phone.length() >= 8) {
@@ -330,6 +332,17 @@ public class MemberImportService {
     }
 
     private void ensureIdDocumentType(String label, LinkedHashSet<String> createdDocTypes) {
+        ensureIdDocumentType(label, createdDocTypes, true, false);
+    }
+
+    /**
+     * Crée le type absent du référentiel avec l'usage que sa colonne
+     * annonce : une pièce d'identité établit l'identité, un code producteur
+     * externe sert à retrouver le producteur. Rien n'est deviné, chaque
+     * colonne dit ce qu'elle contient.
+     */
+    private void ensureIdDocumentType(String label, LinkedHashSet<String> createdDocTypes,
+                                      boolean identityProof, boolean usableAsProducerRef) {
         if (label == null || label.isBlank()) return;
         for (IdDocumentTypeEntity t : idDocumentTypes.listAll()) {
             if (FuzzyLabels.matches(t.name, label)) return;
@@ -338,6 +351,8 @@ public class MemberImportService {
         created.id = idGenerator.newId();
         created.code = FuzzyLabels.canonical(label).replace(' ', '-');
         created.name = label.trim();
+        created.identityProof = identityProof;
+        created.usableAsProducerRef = usableAsProducerRef;
         created.active = true;
         created.createdAt = Instant.now();
         created.updatedAt = created.createdAt;
@@ -347,22 +362,31 @@ public class MemberImportService {
 
     // ─── Conversion vers le payload métier ──────────────────────────
 
+    /** Libellé du type de code externe porté par la ligne, à défaut générique. */
+    private static String externalCodeType(Normalized n) {
+        if (n.externalCode() == null) return null;
+        return n.externalCodeType() != null ? n.externalCodeType() : "Carte producteur";
+    }
+
     private static MemberUpsertDto toUpsert(Normalized n, UUID sectionId) {
         List<MemberIdentityDocumentDto> docs = new ArrayList<>();
         if (n.idDocNumber() != null) {
             docs.add(new MemberIdentityDocumentDto(
-                    n.idDocType() != null ? n.idDocType() : "Pièce d'identité", n.idDocNumber(), null));
+                    n.idDocType() != null ? n.idDocType() : "Pièce d'identité",
+                    n.idDocNumber(), null, null, null));
         }
         if (n.nationalIdNumber() != null) {
-            docs.add(new MemberIdentityDocumentDto("Identifiant national", n.nationalIdNumber(), null));
+            docs.add(new MemberIdentityDocumentDto(
+                    "Identifiant national", n.nationalIdNumber(), null, null, null));
+        }
+        // Le code externe est une pièce comme une autre : son type dit
+        // simplement qu'il sert à retrouver le producteur.
+        if (n.externalCode() != null) {
+            docs.add(new MemberIdentityDocumentDto(
+                    externalCodeType(n), n.externalCode(), null, null, null));
         }
 
-        List<MemberExternalCodeDto> externals = new ArrayList<>();
-        if (n.externalCode() != null) {
-            externals.add(new MemberExternalCodeDto(
-                    n.externalCodeType() != null ? n.externalCodeType() : "Code producteur",
-                    n.externalCode()));
-        }
+        List<MemberExternalCodeDto> externals = List.of();
 
         MemberHouseholdDto household = new MemberHouseholdDto(
                 n.spousesCount(), n.childrenCount(), n.girlsCount(), n.boysCount(),
@@ -389,7 +413,8 @@ public class MemberImportService {
                 n.birthYear(),
                 null, null, null, docs,
                 household, enrolment,
-                sectionId, null, List.of(), externals,
+                sectionId, null, /* collector */ null, /* collectorMarginRate */ null,
+                List.of(), externals,
                 n.village(), n.phone(), n.email(),
                 n.joinedAt() != null ? LocalDate.parse(n.joinedAt()) : null,
                 n.partsSocialesAmount(),

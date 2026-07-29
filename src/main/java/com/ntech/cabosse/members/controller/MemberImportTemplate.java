@@ -33,8 +33,12 @@ final class MemberImportTemplate {
     static ExportDataset<TemplateRow> dataset() {
         List<ExportColumn<TemplateRow>> cols = List.of(
                 ExportColumn.of("Code producteur",           TemplateRow::code),
-                ExportColumn.of("Type de code externe",      TemplateRow::externalCodeType),
-                ExportColumn.of("Code externe",              TemplateRow::externalCode),
+                // Carte délivrée par un tiers (organisme de filière). Le type
+                // absent du référentiel est créé et déclaré comme servant à
+                // retrouver le producteur ; laissez les deux vides si votre
+                // filière n'en délivre pas.
+                ExportColumn.of("Type de carte producteur",  TemplateRow::externalCodeType),
+                ExportColumn.of("N° carte producteur",       TemplateRow::externalCode),
                 ExportColumn.of("Nom",                       TemplateRow::lastName),
                 ExportColumn.of("Prénoms",                   TemplateRow::firstName),
                 ExportColumn.of("Genre",                     TemplateRow::gender),
@@ -67,7 +71,7 @@ final class MemberImportTemplate {
 
         List<TemplateRow> samples = List.of(
                 new TemplateRow(
-                        "", "Code producteur", "CCC-2021-183667",
+                        "", "Carte producteur", "CCC-2021-183667",
                         "N'Guessan", "Konan", "Homme", "Personne physique",
                         "Marié(e)", "19/10/1962", "Sakassou",
                         "Carte nationale d'identité", "CI60013389083", "863794026542",

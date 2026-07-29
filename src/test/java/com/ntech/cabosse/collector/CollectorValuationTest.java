@@ -20,13 +20,13 @@ import java.time.LocalDate;
 import java.util.HashSet;
 
 /**
- * Valorisation d'une livraison délégué (backlog v21, 1er circuit Production),
- * paramétrable par tenant : mode « par lot » (défaut) où le coût de l'avance
- * fait autorité (le CMUP prend ce coût), et mode « CMUP pondéré » où la
- * livraison se fond dans la moyenne pondérée comme un achat classique.
+ * Valorisation de la matière apportée par un délégué, paramétrable par
+ * tenant : mode « par lot » (défaut) où le coût du bordereau fait autorité
+ * et s'impose au CMUP, et mode « CMUP pondéré » où l'apport se fond dans la
+ * moyenne pondérée comme un achat classique.
  *
- * <p>Deux livraisons de même article/site sur la même avance, à 1000 puis
- * 1500 : par lot le CMUP final vaut 1500 (le dernier coût), pondéré il vaut
+ * <p>Deux reçus du même article et du même site, à 1000 puis 1500 le kilo :
+ * par lot le CMUP final vaut 1500, pondéré il vaut
  * (100·1000 + 100·1500) / 200 = 1250.</p>
  */
 @QuarkusTest
@@ -39,6 +39,9 @@ class CollectorValuationTest extends AbstractIntegrationTest {
     private UserEntity tenantAdmin() {
         TenantEntity tenant = fixtures.createActiveTenant(
                 "coop-valo-" + TestFixtures.randomSlugSuffix(), "Coopérative Valorisation");
+        tenant.organizationModel =
+                com.ntech.cabosse.tenant.entity.TenantOrganizationModel.COOPERATIVE;
+        tenants.update(tenant);
         UserEntity u = new UserEntity();
         u.id = idGenerator.newId();
         u.email = "admin@" + tenant.slug + ".ci";
@@ -90,13 +93,28 @@ class CollectorValuationTest extends AbstractIntegrationTest {
                 .then().statusCode(201).extract().path("data.id");
     }
 
-    private void deliver(UserEntity admin, String advanceId, String articleId, int qty, int unitPrice) {
+    private String createProducer(UserEntity admin, String lastName) {
+        return givenAs(admin).contentType("application/json")
+                .body("{\"lastName\":\"" + lastName + "\",\"gender\":\"MALE\",\"status\":\"ACTIVE\"}")
+                .when().post("/api/v1/members").then().statusCode(201).extract().path("data.id");
+    }
+
+    /**
+     * La matière n'entre que par un reçu d'achat producteur, rattaché au
+     * délégué qui a payé. C'est la seule voie possible : une livraison sans
+     * producteur romprait la traçabilité exigée à la vente.
+     */
+    private void deliver(UserEntity admin, String delegateId, String memberId,
+                         String articleId, String siteId, int qty, int unitPrice) {
         givenAs(admin).contentType("application/json")
                 .body("""
-                        { "articleId": "%s", "date": "%s", "quantity": %d, "unitPriceFcfa": %d }
-                        """.formatted(articleId, LocalDate.now(), qty, unitPrice))
-                .when().post("/api/v1/collector-advances/" + advanceId + "/deliveries")
-                .then().statusCode(200);
+                        { "date": "%s", "memberId": "%s", "articleId": "%s", "siteId": "%s",
+                          "weightKg": %d, "guaranteedPricePerKgFcfa": %d,
+                          "paymentMethod": "CASH", "delegateSupplierId": "%s" }
+                        """.formatted(LocalDate.now(), memberId, articleId, siteId,
+                                qty, unitPrice, delegateId))
+                .when().post("/api/v1/producer-purchases")
+                .then().statusCode(201);
     }
 
     private double cmup(UserEntity admin, String articleId, String siteId) {
@@ -112,12 +130,13 @@ class CollectorValuationTest extends AbstractIntegrationTest {
         String delegateId = createDelegate(admin, "Délégué A", sectionId);
         String articleId = createArticle(admin, "Cacao marchand");
         String siteId = createSite(admin);
-        String advanceId = openAdvance(admin, delegateId, siteId);
+        openAdvance(admin, delegateId, siteId);
+        String memberId = createProducer(admin, "Kouassi");
 
-        deliver(admin, advanceId, articleId, 100, 1000);
-        deliver(admin, advanceId, articleId, 100, 1500);
+        deliver(admin, delegateId, memberId, articleId, siteId, 100, 1000);
+        deliver(admin, delegateId, memberId, articleId, siteId, 100, 1500);
 
-        // Par lot : le dernier coût d'avance fait autorité.
+        // Par lot : le dernier coût apporté fait autorité.
         Assertions.assertEquals(1500.0, cmup(admin, articleId, siteId), 0.01);
     }
 
@@ -134,10 +153,11 @@ class CollectorValuationTest extends AbstractIntegrationTest {
         String delegateId = createDelegate(admin, "Délégué B", sectionId);
         String articleId = createArticle(admin, "Cacao marchand");
         String siteId = createSite(admin);
-        String advanceId = openAdvance(admin, delegateId, siteId);
+        openAdvance(admin, delegateId, siteId);
+        String memberId = createProducer(admin, "Diabate");
 
-        deliver(admin, advanceId, articleId, 100, 1000);
-        deliver(admin, advanceId, articleId, 100, 1500);
+        deliver(admin, delegateId, memberId, articleId, siteId, 100, 1000);
+        deliver(admin, delegateId, memberId, articleId, siteId, 100, 1500);
 
         // Pondéré : (100·1000 + 100·1500) / 200 = 1250.
         Assertions.assertEquals(1250.0, cmup(admin, articleId, siteId), 0.01);

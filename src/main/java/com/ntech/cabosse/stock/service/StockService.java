@@ -40,6 +40,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 /**
@@ -599,6 +600,123 @@ public class StockService {
     public record TransferResult(UUID transferId,
                                   StockItemResponseDto sourceAfter,
                                   StockItemResponseDto destinationAfter) {}
+
+    // ─── Requalification de nature ─────────────────────────────────
+
+    public record ReclassifyResult(UUID reclassificationId,
+                                    StockItemResponseDto sourceAfter,
+                                    StockItemResponseDto destinationAfter,
+                                    String pieceRef) {}
+
+    /**
+     * Fait passer une quantité d'une nature à une autre sur le même site :
+     * une marchandise achetée pour être revendue en l'état devient matière
+     * première parce qu'une part part en fabrication, ou l'inverse.
+     *
+     * <p>Rien ne bouge physiquement, mais tout change comptablement : la
+     * charge quitte le compte d'achat de marchandises pour celui des
+     * matières premières. C'est pour ça que l'écriture est produite
+     * systématiquement, à la différence d'un transfert entre sites qui,
+     * lui, est neutre et reste optionnel.</p>
+     *
+     * <p>Le coût suit la matière : l'entrée se fait au CMUP de l'article
+     * source, sans quoi la requalification créerait ou détruirait de la
+     * valeur au passage.</p>
+     */
+    public ReclassifyResult reclassify(UUID fromArticleId, UUID toArticleId, UUID siteId,
+                                        BigDecimal quantity, String reason, String notes,
+                                        Instant occurredAt) {
+        if (fromArticleId == null || toArticleId == null || siteId == null) {
+            throw new BusinessException("Articles source et destination, et site, sont requis.");
+        }
+        if (fromArticleId.equals(toArticleId)) {
+            throw new BusinessException("Articles source et destination doivent différer.");
+        }
+        if (quantity == null || quantity.signum() <= 0) {
+            throw new BusinessException("Quantité strictement positive requise.");
+        }
+        ArticleEntity from = articles.findById(fromArticleId).orElseThrow(
+                () -> new NotFoundException("Article " + fromArticleId + " introuvable."));
+        ArticleEntity to = articles.findById(toArticleId).orElseThrow(
+                () -> new NotFoundException("Article " + toArticleId + " introuvable."));
+
+        ArticleType fromType = parseType(from.type);
+        ArticleType toType = parseType(to.type);
+        if (fromType == toType) {
+            throw new BusinessException(
+                    "Les deux articles sont de même nature : utilisez un transfert, pas une requalification.");
+        }
+        if (!isReclassifiable(fromType) || !isReclassifiable(toType)) {
+            throw new BusinessException(
+                    "La requalification ne concerne que les marchandises et les matières premières.");
+        }
+        if (!Objects.equals(from.unit, to.unit)) {
+            throw new BusinessException(
+                    "Unités différentes (« " + from.unit + " » et « " + to.unit
+                            + " ») : la quantité requalifiée n'aurait pas le même sens.");
+        }
+
+        BigDecimal cmup = stockItems.findByArticleAndSite(fromArticleId, siteId)
+                .map(e -> e.cmupFcfa)
+                .orElseThrow(() -> new BusinessException(
+                        "Aucun stock de « " + from.name + " » sur ce site."));
+
+        UUID reclassificationId = UuidCreator.getTimeOrderedEpoch();
+        Instant when = occurredAt != null ? occurredAt : Instant.now();
+        String motive = reason != null && !reason.isBlank()
+                ? reason : "Requalification " + from.name + " vers " + to.name;
+
+        StockItemResponseDto sourceAfter = applyMovement(new MovementInput(
+                fromArticleId, siteId, MovementKind.TRANSFER_OUT,
+                quantity, cmup,
+                MovementSource.RECLASSIFICATION, null, null,
+                reclassificationId, motive, notes, when));
+
+        StockItemResponseDto destinationAfter;
+        try {
+            destinationAfter = applyMovement(new MovementInput(
+                    toArticleId, siteId, MovementKind.TRANSFER_IN,
+                    quantity, cmup,
+                    MovementSource.RECLASSIFICATION, null, null,
+                    reclassificationId, motive, notes, when));
+        } catch (RuntimeException ex) {
+            try {
+                applyMovement(new MovementInput(
+                        fromArticleId, siteId, MovementKind.IN,
+                        quantity, cmup,
+                        MovementSource.MANUAL, "Rollback requalification " + reclassificationId, null,
+                        null, "Compensation requalification échouée", null, Instant.now()));
+            } catch (RuntimeException ignored) { /* best-effort */ }
+            throw ex;
+        }
+
+        BigDecimal value = quantity.multiply(cmup);
+        String pieceRef = accounting.postFromStockReclassification(
+                        reclassificationId, fromType, toType, from.name, to.name, value,
+                        when.atZone(java.time.ZoneOffset.UTC).toLocalDate())
+                .map(p -> p.ref).orElse(null);
+
+        audit.event(AuditEventType.STOCK_TRANSFER_RECORDED)
+                .actorEmail(actor())
+                .target("stock_reclassification", reclassificationId.toString(), motive)
+                .tenant(tenantContext.tenantId(), null)
+                .description("Requalification " + quantity + " " + from.unit + " : « " + from.name
+                        + " » vers « " + to.name + " »")
+                .record();
+
+        return new ReclassifyResult(reclassificationId, sourceAfter, destinationAfter, pieceRef);
+    }
+
+    /** Seules ces deux natures se requalifient : les autres n'ont pas de sens ici. */
+    private static boolean isReclassifiable(ArticleType type) {
+        return type == ArticleType.MERCHANDISE || type == ArticleType.RAW_MATERIAL;
+    }
+
+    private static ArticleType parseType(String name) {
+        if (name == null) return ArticleType.RAW_MATERIAL;
+        try { return ArticleType.valueOf(name); }
+        catch (IllegalArgumentException e) { return ArticleType.RAW_MATERIAL; }
+    }
 
     // ─── Amorçage initial ──────────────────────────────────────────
 

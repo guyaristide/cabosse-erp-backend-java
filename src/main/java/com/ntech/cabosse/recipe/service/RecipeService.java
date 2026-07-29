@@ -135,6 +135,15 @@ public class RecipeService {
             boolean usable = ArticleType.RAW_MATERIAL.name().equals(a.type)
                     || ArticleType.PACKAGING.name().equals(a.type)
                     || ArticleType.CONSUMABLE.name().equals(a.type);
+            if (ArticleType.MERCHANDISE.name().equals(a.type)) {
+                // Une marchandise est achetée pour être revendue en l'état :
+                // la consommer en fabrication contredirait le compte d'achat
+                // qui l'a enregistrée. Le passage à la matière première se
+                // fait par une requalification de stock.
+                throw new BusinessException(
+                        "« " + a.name + " » est une marchandise : requalifiez la quantité en matière "
+                                + "première avant de l'utiliser dans une recette.");
+            }
             if (!usable) {
                 throw new BusinessException(
                         "Article « " + a.name + " » n'est pas utilisable dans une recette (type " + a.type + ")."

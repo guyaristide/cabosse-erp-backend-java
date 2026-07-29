@@ -54,6 +54,16 @@ public class ProducerPurchaseRepository {
     }
 
     /** Tous les reçus filtrés (registre / état de synthèse, NEG-01). */
+    /** Reçus portés par le compte courant d'un délégué, du plus ancien au plus récent. */
+    public List<ProducerPurchaseEntity> listByDelegate(UUID delegateSupplierId, UUID campaignId) {
+        List<Bson> filters = new ArrayList<>();
+        filters.add(Filters.eq("delegateSupplierId", delegateSupplierId));
+        if (campaignId != null) filters.add(Filters.eq("campaignId", campaignId));
+        return coll().find(Filters.and(filters))
+                .sort(new Document("date", 1).append("ref", 1))
+                .into(new ArrayList<>());
+    }
+
     public List<ProducerPurchaseEntity> listAll(UUID campaignId) {
         return coll().find(searchFilter(null, campaignId, null))
                 .sort(new Document("date", 1)).into(new ArrayList<>());

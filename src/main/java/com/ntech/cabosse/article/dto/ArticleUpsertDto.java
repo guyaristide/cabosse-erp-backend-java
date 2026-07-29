@@ -13,8 +13,9 @@ import java.math.BigDecimal;
 @Schema(description = "Payload d'écriture article")
 public record ArticleUpsertDto(
 
-        @Pattern(regexp = "^$|^(RAW_MATERIAL|FINISHED_PRODUCT|CONSUMABLE|PACKAGING|TRANSPORT)$",
-                message = "Type autorisé : RAW_MATERIAL | FINISHED_PRODUCT | CONSUMABLE | PACKAGING | TRANSPORT")
+        @Pattern(regexp = "^$|^(RAW_MATERIAL|MERCHANDISE|FINISHED_PRODUCT|CONSUMABLE|PACKAGING|TRANSPORT)$",
+                message = "Type autorisé : RAW_MATERIAL | MERCHANDISE | FINISHED_PRODUCT "
+                        + "| CONSUMABLE | PACKAGING | TRANSPORT")
         String type,
 
         @Pattern(regexp = "^$|^[A-Za-z0-9-]{2,40}$",

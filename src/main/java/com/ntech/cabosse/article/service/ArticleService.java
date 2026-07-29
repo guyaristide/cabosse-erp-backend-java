@@ -143,9 +143,11 @@ public class ArticleService {
         return type != ArticleType.FINISHED_PRODUCT;
     }
 
+    /** Une marchandise est par nature achetée pour être revendue. */
+
     /** Défaut du rôle vendable selon la nature (produit fini par défaut). */
     private static boolean defaultSellable(ArticleType type) {
-        return type == ArticleType.FINISHED_PRODUCT;
+        return type == ArticleType.FINISHED_PRODUCT || type == ArticleType.MERCHANDISE;
     }
 
     private void audit(ArticleEntity e, String action) {

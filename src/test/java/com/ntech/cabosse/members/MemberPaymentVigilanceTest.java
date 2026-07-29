@@ -27,17 +27,20 @@ class MemberPaymentVigilanceTest {
         return m;
     }
 
+    /** Référentiel type : seule la carte nationale prouve l'identité. */
+    private static final java.util.Set<String> PROOF_TYPES = java.util.Set.of("cni");
+
     @Test
     void a_scanned_identity_document_is_required() {
         MemberEntity sansScan = new MemberEntity();
         sansScan.name = "Konan N'Guessan";
         sansScan.identityDocuments = List.of(new MemberIdentityDocument("CNI", "CI001", null));
 
-        assertThatThrownBy(() -> MemberPaymentVigilance.check(sansScan, "CASH"))
+        assertThatThrownBy(() -> MemberPaymentVigilance.check(sansScan, "CASH", PROOF_TYPES))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("pièce d'identité scannée");
 
-        assertThatCode(() -> MemberPaymentVigilance.check(memberWithScan(), "CASH"))
+        assertThatCode(() -> MemberPaymentVigilance.check(memberWithScan(), "CASH", PROOF_TYPES))
                 .doesNotThrowAnyException();
     }
 
@@ -47,7 +50,7 @@ class MemberPaymentVigilanceTest {
         m.name = "Ama Koffi";
         m.idCardFileId = UUID.randomUUID();
 
-        assertThatCode(() -> MemberPaymentVigilance.check(m, "CASH"))
+        assertThatCode(() -> MemberPaymentVigilance.check(m, "CASH", PROOF_TYPES))
                 .doesNotThrowAnyException();
     }
 
@@ -56,12 +59,12 @@ class MemberPaymentVigilanceTest {
         MemberEntity m = memberWithScan();
         m.mobileMoneyHolderName = "Yao Kouassi";
 
-        assertThatThrownBy(() -> MemberPaymentVigilance.check(m, "MOBILE_MONEY"))
+        assertThatThrownBy(() -> MemberPaymentVigilance.check(m, "MOBILE_MONEY", PROOF_TYPES))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("mandat écrit");
 
         m.mobileMoneyMandateOnFile = true;
-        assertThatCode(() -> MemberPaymentVigilance.check(m, "MOBILE_MONEY"))
+        assertThatCode(() -> MemberPaymentVigilance.check(m, "MOBILE_MONEY", PROOF_TYPES))
                 .doesNotThrowAnyException();
     }
 
@@ -71,7 +74,7 @@ class MemberPaymentVigilanceTest {
         // Même nom à la casse et aux accents près : c'est bien le producteur.
         m.mobileMoneyHolderName = "  konan n'guessan ";
 
-        assertThatCode(() -> MemberPaymentVigilance.check(m, "MOBILE_MONEY"))
+        assertThatCode(() -> MemberPaymentVigilance.check(m, "MOBILE_MONEY", PROOF_TYPES))
                 .doesNotThrowAnyException();
     }
 
@@ -80,7 +83,7 @@ class MemberPaymentVigilanceTest {
         MemberEntity m = memberWithScan();
         m.mobileMoneyHolderName = "Yao Kouassi";
 
-        assertThatCode(() -> MemberPaymentVigilance.check(m, "CASH"))
+        assertThatCode(() -> MemberPaymentVigilance.check(m, "CASH", PROOF_TYPES))
                 .doesNotThrowAnyException();
     }
 }

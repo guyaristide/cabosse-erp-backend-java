@@ -2,8 +2,8 @@ package com.ntech.cabosse.collector.controller;
 
 import com.ntech.cabosse.collector.dto.CollectorAdvanceResponseDto;
 import com.ntech.cabosse.collector.dto.CreateAdvanceDto;
-import com.ntech.cabosse.collector.dto.RecordDeliveryDto;
 import com.ntech.cabosse.collector.service.CollectorAdvanceService;
+import com.ntech.cabosse.collector.service.DelegateAccountService;
 import com.ntech.cabosse.shared.api.ApiResponse;
 import com.ntech.cabosse.shared.api.PageRequest;
 import com.ntech.cabosse.shared.api.Pagination;
@@ -37,6 +37,7 @@ import java.util.UUID;
 public class CollectorAdvanceResource {
 
     @Inject CollectorAdvanceService service;
+    @Inject DelegateAccountService accountService;
 
     @GET
     public Response list(@QueryParam("status") String status,
@@ -65,19 +66,24 @@ public class CollectorAdvanceResource {
     }
 
     @POST
-    @Path("/{id}/deliveries")
-    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
-    public Response recordDelivery(@PathParam("id") UUID id, @Valid RecordDeliveryDto payload) {
-        return Response.ok(ApiResponse.ok(service.recordDelivery(id, payload))).build();
-    }
-
-    public record ClosePayload(String note) {}
-
-    @POST
     @Path("/{id}/close")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response close(@PathParam("id") UUID id, ClosePayload payload) {
         return Response.ok(ApiResponse.ok(
                 service.close(id, payload != null ? payload.note() : null))).build();
     }
+
+    /**
+     * Compte courant d'un délégué : ses avances, ses bordereaux de
+     * livraison et le solde qui en résulte. C'est la vue que le gérant
+     * suit pendant la campagne.
+     */
+    @GET
+    @Path("/delegates/{supplierId}")
+    public Response delegateAccount(@PathParam("supplierId") UUID supplierId,
+                                    @QueryParam("campaignId") UUID campaignId) {
+        return Response.ok(ApiResponse.ok(accountService.account(supplierId, campaignId))).build();
+    }
+
+    public record ClosePayload(String note) {}
 }

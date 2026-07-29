@@ -11,10 +11,16 @@ import java.util.UUID;
 public record ProducerPurchaseImportPreviewDto(
         int totalRows,
         int readyRows,
+        int warningRows,
         int invalidRows,
+        /**
+         * Récapitulatif par délégué : c'est là que se lit l'apurement avant
+         * de l'appliquer. Une entrée par délégué visé par le fichier.
+         */
+        List<DelegateSummary> delegates,
         List<Row> rows
 ) {
-    public enum Status { READY, INVALID }
+    public enum Status { READY, WARNING, INVALID }
 
     public record Row(int rowNumber, Status status, Normalized normalized, List<FieldIssue> issues) {}
 
@@ -24,11 +30,32 @@ public record ProducerPurchaseImportPreviewDto(
             UUID articleId,
             String articleLabel,
             String date,
+            String officialReceiptRef,
             Integer nbSacs,
             BigDecimal weightKg,
             BigDecimal price,
             BigDecimal amount,
-            String paymentMethod
+            BigDecimal amountPaid,
+            String paymentMethod,
+            UUID delegateSupplierId,
+            String delegateName,
+            String campaignLabel
+    ) {}
+
+    /**
+     * Solde d'un délégué avant et après application du fichier, du point de
+     * vue de la coopérative : positif, il doit encore livrer ; négatif, la
+     * coopérative lui doit.
+     */
+    public record DelegateSummary(
+            UUID delegateSupplierId,
+            String delegateName,
+            int receiptCount,
+            BigDecimal totalWeightKg,
+            BigDecimal totalAmountFcfa,
+            BigDecimal totalMarginFcfa,
+            BigDecimal balanceBeforeFcfa,
+            BigDecimal balanceAfterFcfa
     ) {}
 
     public record FieldIssue(String field, String message) {}

@@ -301,7 +301,7 @@ public class DirectReceiptImportService {
                 SupplierResponseDto s = supplierService.create(new SupplierUpsertDto(
                         key,
                         n.resolvedSupplierName() != null ? n.resolvedSupplierName() : key,
-                        null, null, null, null, null, null, null, null, null, null, null, null
+                        null, null, null, null, null, null, null, null, null, null, null, null, null
                 ));
                 createdSupplierByKey.put(key, s.id());
                 createdSupplierIds.add(s.id());

@@ -90,13 +90,13 @@ class SaleRevenueAccountTest extends AbstractIntegrationTest {
                 .when().post("/api/v1/sales?asQuote=false")
                 .then().statusCode(201);
 
-        // Le crédit de produit tombe sur 701102, pas sur le 701000 générique.
+        // Le crédit de produit tombe sur 701102, pas sur le compte générique.
         givenAs(admin).when().get("/api/v1/accounting/journal")
                 .then().statusCode(200)
                 .body("data.total", equalTo(1))
                 .body("data.items[0].sourceType", equalTo("SALE"))
                 .body("data.items[0].entries.syscohadaAccount", hasItem("701102"))
-                .body("data.items[0].entries.syscohadaAccount", not(hasItem("701000")));
+                .body("data.items[0].entries.syscohadaAccount", not(hasItem("702000")));
     }
 
     @Test
@@ -122,6 +122,7 @@ class SaleRevenueAccountTest extends AbstractIntegrationTest {
 
         givenAs(admin).when().get("/api/v1/accounting/journal")
                 .then().statusCode(200)
-                .body("data.items[0].entries.syscohadaAccount", hasItem("701000"));
+                // Produit fini : 702 au SYSCOHADA, 701 restant aux marchandises.
+                .body("data.items[0].entries.syscohadaAccount", hasItem("702000"));
     }
 }

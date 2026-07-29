@@ -27,8 +27,12 @@ public final class MemberFileCompleteness {
     /**
      * @param m              membre à évaluer
      * @param validityMonths durée de validité d'une enquête, en mois
+     * @param identityProofTypes libellés (en minuscules) des types de pièce
+     *        qui établissent l'identité. Une carte de filière n'en fait pas
+     *        partie : elle retrouve un producteur, elle ne dit pas qui il est.
      */
-    public static MemberFileStatusDto evaluate(MemberEntity m, int validityMonths) {
+    public static MemberFileStatusDto evaluate(MemberEntity m, int validityMonths,
+                                               java.util.Set<String> identityProofTypes) {
         List<String> missing = new ArrayList<>();
         int total = 0;
         int filled = 0;
@@ -51,7 +55,8 @@ public final class MemberFileCompleteness {
         if (isFilled(m.birthPlace)) filled++; else missing.add("Lieu de naissance");
 
         total++;
-        if (hasIdentityDocument(m)) filled++; else missing.add("Pièce d'identité");
+        if (hasIdentityDocument(m, identityProofTypes)) filled++;
+        else missing.add("Pièce d'identité");
 
         total++;
         if (isFilled(m.phone)) filled++; else missing.add("Téléphone");
@@ -101,17 +106,31 @@ public final class MemberFileCompleteness {
     }
 
     /** Dossier exploitable pour un paiement : complet et non périmé. */
-    public static boolean isUsable(MemberEntity m, int validityMonths) {
-        MemberFileStatusDto status = evaluate(m, validityMonths);
+    public static boolean isUsable(MemberEntity m, int validityMonths,
+                                   java.util.Set<String> identityProofTypes) {
+        MemberFileStatusDto status = evaluate(m, validityMonths, identityProofTypes);
         return status.missingFields().isEmpty() && !status.expired();
     }
 
-    private static boolean hasIdentityDocument(MemberEntity m) {
+    private static boolean hasIdentityDocument(MemberEntity m,
+                                              java.util.Set<String> identityProofTypes) {
         if (m.identityDocuments != null && m.identityDocuments.stream()
-                .anyMatch(d -> d != null && isFilled(d.number))) {
+                .anyMatch(d -> d != null && isFilled(d.number) && proves(d.type, identityProofTypes))) {
             return true;
         }
         return isFilled(m.idDocNumber);
+    }
+
+    /**
+     * {@code null} : aucun référentiel de types n'existe encore, toute pièce
+     * compte, pour ne pas faire régresser des dossiers déjà saisis. Un
+     * ensemble vide veut dire l'inverse : des types existent, aucun ne
+     * prouve l'identité, et rien ne doit passer.
+     */
+    private static boolean proves(String type, java.util.Set<String> identityProofTypes) {
+        if (identityProofTypes == null) return true;
+        return type != null
+                && identityProofTypes.contains(type.trim().toLowerCase(java.util.Locale.ROOT));
     }
 
     private static boolean hasHousehold(MemberHousehold h) {

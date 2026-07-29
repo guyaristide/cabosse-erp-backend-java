@@ -125,6 +125,38 @@ class ArticleChargeAccountTest extends AbstractIntegrationTest {
                 .when().get("/api/v1/accounting/journal")
                 .then().statusCode(200)
                 .body("data.total", equalTo(1))
+                // Matière première : 602 au SYSCOHADA, pas 601 qui est le
+                // compte des marchandises.
+                .body("data.items[0].entries.syscohadaAccount", hasItem("602000"));
+    }
+
+    @Test
+    void a_merchandise_is_charged_to_the_merchandise_account() {
+        UserEntity admin = tenantAdmin();
+        String supplierId = givenAs(admin)
+                .contentType("application/json")
+                .body("{\"name\":\"Négociant Koffi\"}")
+                .when().post("/api/v1/suppliers")
+                .then().statusCode(201)
+                .extract().path("data.id");
+
+        String articleId = givenAs(admin).contentType("application/json")
+                .body("""
+                        { "type": "MERCHANDISE", "name": "Cacao acheté pour revente", "unit": "kg" }
+                        """)
+                .when().post("/api/v1/articles").then().statusCode(201)
+                .extract().path("data.id");
+
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "articleId": "%s", "receivedDate": "%s",
+                          "lines": [ { "supplierId": "%s", "quantity": 10, "unitPriceFcfa": 1000 } ] }
+                        """.formatted(articleId, LocalDate.now(), supplierId))
+                .when().post("/api/v1/direct-receipts")
+                .then().statusCode(201);
+
+        givenAs(admin).when().get("/api/v1/accounting/journal")
+                .then().statusCode(200)
                 .body("data.items[0].entries.syscohadaAccount", hasItem("601000"));
     }
 }

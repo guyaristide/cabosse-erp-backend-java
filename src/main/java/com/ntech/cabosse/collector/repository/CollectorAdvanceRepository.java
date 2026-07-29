@@ -59,27 +59,45 @@ public class CollectorAdvanceRepository {
         }
     }
 
+    /** Avances ouvertes d'un délégué, la plus ancienne en tête. */
+    public List<CollectorAdvanceEntity> listOpenByDelegate(UUID delegateSupplierId) {
+        return coll().find(Filters.and(
+                        Filters.eq("delegateSupplierId", delegateSupplierId),
+                        Filters.eq("status", "OPEN")))
+                .sort(new org.bson.Document("advanceDate", 1).append("createdAt", 1))
+                .into(new ArrayList<>());
+    }
+
+    /** Toutes les avances d'un délégué, la plus récente en tête. */
+    public List<CollectorAdvanceEntity> listByDelegate(UUID delegateSupplierId) {
+        return coll().find(Filters.eq("delegateSupplierId", delegateSupplierId))
+                .sort(new org.bson.Document("advanceDate", -1).append("createdAt", -1))
+                .into(new ArrayList<>());
+    }
+
+    public Optional<CollectorAdvanceEntity> oldestOpenForDelegate(UUID delegateSupplierId) {
+        List<CollectorAdvanceEntity> open = listOpenByDelegate(delegateSupplierId);
+        return open.isEmpty() ? Optional.empty() : Optional.of(open.get(0));
+    }
+
     /**
-     * Impute atomiquement un montant sur l'avance (backlog NEG-01) : décrément
-     * conditionnel en une seule opération {@code updateOne} — l'avance doit
-     * être OPEN et son solde suffisant, sinon {@code modifiedCount == 0} et
-     * rien n'est modifié. Évite le read-modify-replace (course / sur-imputation).
+     * Impute atomiquement un montant sur l'avance : décrément conditionnel
+     * en une seule opération {@code updateOne}, sans read-modify-replace qui
+     * ouvrirait une course.
      *
-     * @return {@code true} si l'imputation a été appliquée, {@code false} si
-     *         l'avance est close ou le solde insuffisant (aucune modification).
+     * <p>Aucun plafond : le solde peut devenir négatif. Le délégué livre
+     * régulièrement plus que ce qu'il a reçu, et la coopérative lui doit
+     * alors la différence jusqu'au décompte de fin de campagne. Refuser
+     * l'imputation reviendrait à refuser un achat déjà payé au producteur.</p>
      */
-    public boolean tryImpute(UUID id, BigDecimal amount) {
-        var result = coll().updateOne(
-                Filters.and(
-                        Filters.eq("_id", id),
-                        Filters.eq("status", "OPEN"),
-                        Filters.gte("remainingFcfa", amount)),
+    public void impute(UUID id, BigDecimal amount) {
+        coll().updateOne(
+                Filters.and(Filters.eq("_id", id), Filters.eq("status", "OPEN")),
                 Updates.combine(
                         Updates.inc("remainingFcfa", amount.negate()),
                         Updates.inc("consumedAmountFcfa", amount),
                         Updates.inc("version", 1L),
                         Updates.set("updatedAt", Instant.now())));
-        return result.getModifiedCount() > 0;
     }
 
     /**

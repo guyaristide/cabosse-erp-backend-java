@@ -337,6 +337,70 @@ public class TenantPreferences {
     /** Poids standard d'un sac (kg), utilisé en mode {@code FROM_BAGS}. Nullable. */
     public java.math.BigDecimal producerStandardBagKg;
 
+    // ─── Délégué collecteur : marge et compte courant (ACH-02 / NEG-01) ───
+
+    public static final String DELEGATE_MARGIN_NONE = "NONE";
+    public static final String DELEGATE_MARGIN_PER_KG = "PER_KG";
+    public static final String DELEGATE_MARGIN_PERCENT = "PERCENT";
+
+    /**
+     * Mode de rémunération du délégué collecteur sur les reçus qui lui sont
+     * rattachés : {@code NONE} (défaut, il rembourse exactement ce qu'il a
+     * payé aux producteurs), {@code PER_KG} (montant par kilo livré) ou
+     * {@code PERCENT} (pourcentage du montant du reçu).
+     */
+    public String delegateMarginMode;
+
+    public String delegateMarginMode() {
+        if (DELEGATE_MARGIN_PER_KG.equals(delegateMarginMode)) return DELEGATE_MARGIN_PER_KG;
+        if (DELEGATE_MARGIN_PERCENT.equals(delegateMarginMode)) return DELEGATE_MARGIN_PERCENT;
+        return DELEGATE_MARGIN_NONE;
+    }
+
+    /** Taux de marge par défaut, surchargeable délégué par délégué. */
+    public java.math.BigDecimal delegateMarginRate;
+
+    public java.math.BigDecimal delegateMarginRate() {
+        return delegateMarginRate != null ? delegateMarginRate : java.math.BigDecimal.ZERO;
+    }
+
+    /** Compte de charge de la rémunération des délégués. Défaut « 632100 ». */
+    public String delegateMarginAccount;
+
+    public String delegateMarginAccount() {
+        return delegateMarginAccount == null || delegateMarginAccount.isBlank()
+                ? "632100" : delegateMarginAccount;
+    }
+
+    /**
+     * Autorise un reçu dont le montant payé au producteur est inférieur au
+     * montant dû. Le reliquat devient une dette envers le producteur, portée
+     * par {@link #producerPayableAccount()}. Défaut faux : le montant payé
+     * suit le montant dû.
+     */
+    public Boolean producerPartialPaymentEnabled;
+
+    public boolean producerPartialPaymentEnabled() {
+        return producerPartialPaymentEnabled != null && producerPartialPaymentEnabled;
+    }
+
+    /**
+     * Libellé du type de code externe qui fait référence chez ce tenant
+     * (« Code CCC », « Code planteur »…). Un producteur en cumule souvent
+     * plusieurs ; sans cette indication, le reçu recopierait le premier de
+     * la liste, qui n'est pas forcément celui que l'administration attend.
+     * {@code null} : le premier code renseigné est retenu.
+     */
+    public String producerReferenceCodeType;
+
+    /** Compte de dette envers les producteurs (reliquats). Défaut « 401100 ». */
+    public String producerPayableAccount;
+
+    public String producerPayableAccount() {
+        return producerPayableAccount == null || producerPayableAccount.isBlank()
+                ? "401100" : producerPayableAccount;
+    }
+
     /** {@code true} : site imposé au reçu ; {@code false} (défaut) : site actif surchargeable. */
     public Boolean producerPurchaseSiteRequired;
 

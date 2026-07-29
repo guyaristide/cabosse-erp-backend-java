@@ -46,6 +46,7 @@ public class MemberRegisterService {
     @Inject CampaignService campaigns;
     @Inject TenantRepository tenants;
     @Inject TenantContext tenantContext;
+    @Inject com.ntech.cabosse.members.service.ProducerRefKeyService producerRefKeys;
 
     /** Registre prêt à exporter (titre + colonnes du modèle + lignes). */
     public ExportDataset<RegisterRow> dataset(UUID campaignId) {
@@ -144,11 +145,19 @@ public class MemberRegisterService {
         return t != null ? t.name : null;
     }
 
-    private static String externalCodes(MemberEntity m) {
-        if (m.externalProducerCodes == null || m.externalProducerCodes.isEmpty()) return null;
-        String joined = m.externalProducerCodes.stream()
-                .filter(c -> c.number != null && !c.number.isBlank())
-                .map(c -> c.number.trim())
+    /**
+     * Numéros de carte du producteur, dérivés des pièces dont le type sert
+     * d'identifiant. La liste d'identifiants externes n'est plus lue : elle
+     * n'est qu'un miroir de ces pièces.
+     */
+    private String externalCodes(MemberEntity m) {
+        java.util.Set<String> identifiers = producerRefKeys.identifierTypeNames();
+        if (m.identityDocuments == null || identifiers.isEmpty()) return null;
+        String joined = m.identityDocuments.stream()
+                .filter(d -> d != null && d.type != null && d.number != null && !d.number.isBlank())
+                .filter(d -> identifiers.contains(
+                        d.type.trim().toLowerCase(java.util.Locale.ROOT)))
+                .map(d -> d.number.trim())
                 .collect(Collectors.joining(" / "));
         return joined.isBlank() ? null : joined;
     }

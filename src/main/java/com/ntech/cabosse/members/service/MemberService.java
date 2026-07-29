@@ -37,6 +37,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Set;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -58,6 +59,7 @@ public class MemberService {
     @Inject MemberRefService refService;
     @Inject SupplierRepository suppliers;
     @Inject IdGenerator idGenerator;
+    @Inject ProducerRefKeyService producerRefKeys;
     @Inject TenantContext tenantContext;
     @Inject AuditService audit;
     @Inject AccountingService accounting;
@@ -79,9 +81,10 @@ public class MemberService {
                                               PageRequest pr) {
         long total = members.countSearch(q, statusFilter);
         int validityMonths = fileValidityMonths();
+        java.util.Set<String> proofTypes = producerRefKeys.identityProofTypeNames();
         List<MemberResponseDto> items = members.search(q, statusFilter, pr.skip(), pr.perPage())
                 .stream()
-                .map(m -> MemberResponseDto.from(m, validityMonths))
+                .map(m -> MemberResponseDto.from(m, validityMonths, proofTypes))
                 .toList();
         Map<String, String> filters = new HashMap<>();
         if (q != null && !q.isBlank()) filters.put("q", q.trim());
@@ -90,7 +93,7 @@ public class MemberService {
     }
 
     public MemberResponseDto getById(UUID id) {
-        return MemberResponseDto.from(loadOrFail(id), fileValidityMonths());
+        return MemberResponseDto.from(loadOrFail(id), fileValidityMonths(), producerRefKeys.identityProofTypeNames());
     }
 
     // ─── Création ───────────────────────────────────────────────────
@@ -117,7 +120,7 @@ public class MemberService {
         if (e.status != MemberStatus.PENDING) {
             postCapitalIfEnabled(e);
         }
-        return MemberResponseDto.from(e, fileValidityMonths());
+        return MemberResponseDto.from(e, fileValidityMonths(), producerRefKeys.identityProofTypeNames());
     }
 
     // ─── Workflow d'adhésion (backlog MEM-01) ───────────────────────
@@ -148,7 +151,7 @@ public class MemberService {
                 .tenant(tenantContext.tenantId(), null)
                 .description("Adhésion validée : " + e.name + " (" + e.code + ")")
                 .record();
-        return MemberResponseDto.from(e, fileValidityMonths());
+        return MemberResponseDto.from(e, fileValidityMonths(), producerRefKeys.identityProofTypeNames());
     }
 
     /** Rejette le dossier avec motif : le membre passe inactif, motif tracé. */
@@ -172,7 +175,7 @@ public class MemberService {
                 .tenant(tenantContext.tenantId(), null)
                 .description("Adhésion rejetée : " + e.name + " (" + e.code + ") : " + e.statusReason)
                 .record();
-        return MemberResponseDto.from(e, fileValidityMonths());
+        return MemberResponseDto.from(e, fileValidityMonths(), producerRefKeys.identityProofTypeNames());
     }
 
     // ─── Update ─────────────────────────────────────────────────────
@@ -189,18 +192,8 @@ public class MemberService {
         e.updatedAt = Instant.now();
         members.replace(e);
 
-        // Synchroniser le supplier miroir (nom + contact).
-        if (e.supplierId != null) {
-            suppliers.findById(e.supplierId).ifPresent(s -> {
-                s.name = e.name;
-                s.phone = e.phone;
-                s.email = e.email;
-                s.cityName = e.village;
-                s.updatedAt = Instant.now();
-                suppliers.replace(s);
-            });
-        }
-        return MemberResponseDto.from(e, fileValidityMonths());
+        syncMirrorSupplier(e);
+        return MemberResponseDto.from(e, fileValidityMonths(), producerRefKeys.identityProofTypeNames());
     }
 
     // ─── Helpers ────────────────────────────────────────────────────
@@ -252,7 +245,7 @@ public class MemberService {
                 .tenant(tenantContext.tenantId(), null)
                 .description("Radiation : " + e.name + " (" + e.code + ") : " + e.statusReason)
                 .record();
-        return MemberResponseDto.from(e, fileValidityMonths());
+        return MemberResponseDto.from(e, fileValidityMonths(), producerRefKeys.identityProofTypeNames());
     }
 
     /**
@@ -389,15 +382,13 @@ public class MemberService {
         MemberHouseholdRules.validate(e.household);
         e.enrolment = p.enrolment() == null ? new MemberEnrolment() : p.enrolment().toEntity();
         e.sectionId = p.sectionId();
+        e.collector = p.collector() != null && p.collector();
+        e.collectorMarginRate = e.collector ? p.collectorMarginRate() : null;
         e.followUpAgentMemberId = p.followUpAgentMemberId();
         e.deliveredArticleIds = p.deliveredArticleIds() == null ? new ArrayList<>()
                 : p.deliveredArticleIds().stream()
                         .filter(java.util.Objects::nonNull)
                         .distinct().collect(Collectors.toList());
-        e.externalProducerCodes = p.externalProducerCodes() == null ? new ArrayList<>()
-                : p.externalProducerCodes().stream()
-                        .filter(x -> x != null && x.type() != null && !x.type().isBlank())
-                        .map(MemberExternalCodeDto::toEntity).collect(Collectors.toList());
         e.village = blankToNull(p.village());
         e.phone = blankToNull(p.phone());
         e.email = blankToNull(p.email());
@@ -464,7 +455,7 @@ public class MemberService {
      * continuent de fonctionner sans modification. Un client ancien qui
      * n'envoie que le triplet alimente la liste.
      */
-    private static void applyIdentityDocuments(MemberEntity e, MemberUpsertDto p) {
+    private void applyIdentityDocuments(MemberEntity e, MemberUpsertDto p) {
         List<MemberIdentityDocument> docs = p.identityDocuments() == null ? new ArrayList<>()
                 : p.identityDocuments().stream()
                         .filter(d -> d != null && d.number() != null && !d.number().isBlank())
@@ -477,10 +468,58 @@ public class MemberService {
         }
 
         e.identityDocuments = docs;
-        MemberIdentityDocument first = docs.isEmpty() ? null : docs.get(0);
+
+        // Le triplet legacy représente la pièce qui établit l'identité, pas
+        // la première de la liste : une carte de filière n'a rien à faire
+        // dans la colonne « pièce d'identité » du registre.
+        Set<String> proofs = producerRefKeys.identityProofTypeNames();
+        MemberIdentityDocument first = docs.stream()
+                .filter(d -> proofs == null || (d.type != null
+                        && proofs.contains(d.type.trim().toLowerCase(java.util.Locale.ROOT))))
+                .findFirst()
+                .orElse(null);
         e.idDocType = first != null ? first.type : null;
         e.idDocNumber = first != null ? first.number : null;
         e.idCardFileId = first != null ? first.fileId : null;
+
+        // Clés de rapprochement : dérivées des pièces dont le type sert
+        // d'identifiant. Le contrôle d'unicité nomme le porteur en cas de
+        // collision, plutôt que de laisser l'index refuser sans explication.
+        e.producerRefKeys = producerRefKeys.keysOf(docs);
+        producerRefKeys.ensureAvailable(e.producerRefKeys, e.id);
+
+        // Miroir de l'ancienne liste, pour les lecteurs non encore repris.
+        Set<String> identifiers = producerRefKeys.identifierTypeNames();
+        e.externalProducerCodes = docs.stream()
+                .filter(d -> d.type != null
+                        && identifiers.contains(d.type.trim().toLowerCase(java.util.Locale.ROOT)))
+                .map(d -> new com.ntech.cabosse.members.entity.MemberExternalCode(d.type, d.number))
+                .collect(Collectors.toCollection(ArrayList::new));
+    }
+
+    /**
+     * Reporte sur le fournisseur miroir ce que la fiche du producteur porte :
+     * son identité de contact, et sa qualité de délégué. Les avances ne
+     * connaissent que le fournisseur ; sans ce report, cocher la case sur le
+     * producteur n'aurait aucun effet.
+     *
+     * <p>La section du délégué est celle du producteur : c'est la même zone
+     * de collecte, et la redemander ouvrirait la porte à deux réponses
+     * différentes pour une seule réalité.</p>
+     */
+    private void syncMirrorSupplier(MemberEntity e) {
+        if (e.supplierId == null) return;
+        suppliers.findById(e.supplierId).ifPresent(s -> {
+            s.name = e.name;
+            s.phone = e.phone;
+            s.email = e.email;
+            s.cityName = e.village;
+            s.collector = e.collector;
+            s.sectionId = e.collector ? e.sectionId : null;
+            s.collectorMarginRate = e.collector ? e.collectorMarginRate : null;
+            s.updatedAt = Instant.now();
+            suppliers.replace(s);
+        });
     }
 
     private SupplierEntity createMirrorSupplier(MemberEntity m) {
@@ -493,6 +532,12 @@ public class MemberService {
         s.cityName = m.village;
         s.contactName = m.name;
         s.notes = "Miroir membre " + m.code + " (auto-créé)";
+        // Un producteur déclaré délégué avant la validation de son dossier
+        // doit l'être aussi sur le miroir, sinon la case cochée sur sa
+        // fiche resterait sans effet.
+        s.collector = m.collector;
+        s.sectionId = m.collector ? m.sectionId : null;
+        s.collectorMarginRate = m.collector ? m.collectorMarginRate : null;
         s.active = true;
         s.createdAt = Instant.now();
         s.updatedAt = s.createdAt;

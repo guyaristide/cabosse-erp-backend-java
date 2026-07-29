@@ -35,6 +35,9 @@ class CollectorAdvanceTest extends AbstractIntegrationTest {
     private UserEntity tenantAdmin() {
         TenantEntity tenant = fixtures.createActiveTenant(
                 "coop-av-" + TestFixtures.randomSlugSuffix(), "Coopérative Avances");
+        tenant.organizationModel =
+                com.ntech.cabosse.tenant.entity.TenantOrganizationModel.COOPERATIVE;
+        tenants.update(tenant);
         UserEntity u = new UserEntity();
         u.id = idGenerator.newId();
         u.email = "admin@" + tenant.slug + ".ci";
@@ -85,6 +88,26 @@ class CollectorAdvanceTest extends AbstractIntegrationTest {
                 .body("data.find { it.code == 'MEAGUI' }.name", equalTo("Section Méagui"));
     }
 
+    private String createProducer(UserEntity admin, String lastName) {
+        return givenAs(admin).contentType("application/json")
+                .body("{\"lastName\":\"" + lastName + "\",\"gender\":\"MALE\",\"status\":\"ACTIVE\"}")
+                .when().post("/api/v1/members").then().statusCode(201).extract().path("data.id");
+    }
+
+    /** Reçu d'achat producteur payé par le délégué : la seule voie d'apurement. */
+    private void buyFromProducer(UserEntity admin, String delegateId, String memberId,
+                                 String articleId, String siteId, int kg, int pricePerKg) {
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "date": "%s", "memberId": "%s", "articleId": "%s", "siteId": "%s",
+                          "weightKg": %d, "guaranteedPricePerKgFcfa": %d,
+                          "paymentMethod": "CASH", "delegateSupplierId": "%s" }
+                        """.formatted(LocalDate.now(), memberId, articleId, siteId,
+                                kg, pricePerKg, delegateId))
+                .when().post("/api/v1/producer-purchases")
+                .then().statusCode(201);
+    }
+
     @Test
     void advance_deliveries_and_balance() {
         UserEntity admin = tenantAdmin();
@@ -109,40 +132,39 @@ class CollectorAdvanceTest extends AbstractIntegrationTest {
         givenAs(admin).when().get("/api/v1/accounting/journal")
                 .then().statusCode(200).body("data.total", equalTo(1));
 
-        // Livraison de 500 kg à 1500 = 750 000, imputée sur l'avance.
-        givenAs(admin).contentType("application/json")
-                .body("""
-                        { "articleId": "%s", "date": "%s", "quantity": 500, "unitPriceFcfa": 1500 }
-                        """.formatted(articleId, LocalDate.now()))
-                .when().post("/api/v1/collector-advances/" + advanceId + "/deliveries")
+        String memberId = createProducer(admin, "Kouadio");
+
+        // 500 kg à 1500 = 750 000 apurés sur le compte du délégué.
+        buyFromProducer(admin, delegateId, memberId, articleId, siteId, 500, 1500);
+        givenAs(admin).when().get("/api/v1/collector-advances/" + advanceId)
                 .then().statusCode(200)
                 .body("data.consumedAmountFcfa", equalTo(750000))
                 .body("data.remainingFcfa", equalTo(250000));
 
-        // Le stock a été crédité au coût bord champ.
         givenAs(admin).when().get("/api/v1/accounting/journal")
                 .then().statusCode(200).body("data.total", equalTo(2));
 
-        // Livraison qui dépasse le solde restant : refusée.
-        givenAs(admin).contentType("application/json")
-                .body("""
-                        { "articleId": "%s", "date": "%s", "quantity": 200, "unitPriceFcfa": 1500 }
-                        """.formatted(articleId, LocalDate.now()))
-                .when().post("/api/v1/collector-advances/" + advanceId + "/deliveries")
-                .then().statusCode(422);
+        // Livraison qui dépasse ce qu'il a reçu : acceptée, son solde
+        // devient créditeur. La coopérative lui doit alors la différence,
+        // qui se compensera au versement suivant.
+        buyFromProducer(admin, delegateId, memberId, articleId, siteId, 200, 1500);
+        givenAs(admin).when().get("/api/v1/collector-advances/" + advanceId)
+                .then().statusCode(200)
+                .body("data.remainingFcfa", equalTo(-50000));
 
-        // Clôture avec solde résiduel.
+        // Le compte courant du délégué dit la même chose, tous versements
+        // et tous bordereaux confondus.
+        givenAs(admin).when().get("/api/v1/collector-advances/delegates/" + delegateId)
+                .then().statusCode(200)
+                .body("data.totalAdvancedFcfa", equalTo(1000000))
+                .body("data.totalDeliveredFcfa", equalTo(1050000))
+                .body("data.balanceFcfa", equalTo(-50000))
+                .body("data.deliveryNotes", org.hamcrest.Matchers.hasSize(2));
+
+        // Clôture au décompte de fin de campagne.
         givenAs(admin).contentType("application/json").body("{\"note\":\"Fin de campagne\"}")
                 .when().post("/api/v1/collector-advances/" + advanceId + "/close")
                 .then().statusCode(200).body("data.status", equalTo("CLOSED"));
-
-        // Plus de livraison après clôture.
-        givenAs(admin).contentType("application/json")
-                .body("""
-                        { "articleId": "%s", "date": "%s", "quantity": 10, "unitPriceFcfa": 1500 }
-                        """.formatted(articleId, LocalDate.now()))
-                .when().post("/api/v1/collector-advances/" + advanceId + "/deliveries")
-                .then().statusCode(422);
     }
 
     @Test

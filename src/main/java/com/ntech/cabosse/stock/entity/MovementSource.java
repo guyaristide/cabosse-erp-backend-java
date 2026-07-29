@@ -28,6 +28,15 @@ public enum MovementSource {
     /** Transfert inter-sites — paire OUT/IN. */
     TRANSFER,
 
+    /**
+     * Requalification de nature : la même matière passe de marchandise à
+     * matière première, ou l'inverse, sur le même site. Paire OUT/IN entre
+     * deux articles, au coût de l'article source. Ce n'est pas un
+     * mouvement physique mais un changement de destination : ce qui devait
+     * être revendu en l'état part en fabrication, ou l'inverse.
+     */
+    RECLASSIFICATION,
+
     /** Mouvement saisi manuellement par un opérateur, hors processus métier. */
     MANUAL,
 

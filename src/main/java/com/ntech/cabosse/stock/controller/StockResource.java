@@ -133,6 +133,22 @@ public class StockResource {
                 .build();
     }
 
+    /**
+     * Requalification : la même matière change de nature sur place, du
+     * stock de marchandises vers celui des matières premières ou l'inverse.
+     */
+    @POST
+    @Path("/reclassify")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    public Response reclassify(@Valid com.ntech.cabosse.stock.dto.ReclassifyDto payload) {
+        StockService.ReclassifyResult r = service.reclassify(
+                payload.fromArticleId(), payload.toArticleId(), payload.siteId(),
+                payload.quantity(), payload.reason(), payload.notes(), payload.occurredAt());
+        return Response.status(Response.Status.CREATED)
+                .entity(ApiResponse.created(r))
+                .build();
+    }
+
     @POST
     @Path("/transfer")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })

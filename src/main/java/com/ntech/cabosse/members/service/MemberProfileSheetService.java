@@ -91,6 +91,8 @@ public class MemberProfileSheetService {
     @Inject CropService crops;
     @Inject TenantRepository tenants;
     @Inject TenantContext tenantContext;
+    @Inject ProducerRefKeyService producerRefKeys;
+    @Inject com.ntech.cabosse.tenant.service.TenantPreferencesLookup preferences;
 
     public byte[] build(UUID memberId, UUID campaignId) {
         MemberEntity m = members.findById(memberId)
@@ -239,7 +241,10 @@ public class MemberProfileSheetService {
     }
 
     private PdfPTable baseGrid(MemberEntity m) {
-        List<MemberIdentityDocument> docs = identityDocuments(m);
+        // Le modèle imprime la pièce d'<em>identité</em> : une carte de
+        // filière n'a rien à faire dans ces cases, même si elle vit
+        // désormais dans la même liste.
+        List<MemberIdentityDocument> docs = identityProofs(m);
         PdfPTable t = fieldGrid();
 
         row(t, "1.Identifiant interne Producteur", m.code, true,
@@ -480,13 +485,43 @@ public class MemberProfileSheetService {
         return docNumber(docs, 1);
     }
 
-    /** Matricule de la carte producteur : premier code externe renseigné. */
-    private static String matricule(MemberEntity m) {
-        if (m.externalProducerCodes == null) return null;
-        for (MemberExternalCode c : m.externalProducerCodes) {
-            if (c != null && c.number != null && !c.number.isBlank()) return c.number.trim();
+    /**
+     * Numéro de la carte du producteur : la carte du type déclaré comme
+     * référence par la structure, à défaut la première renseignée. Même
+     * règle que sur le reçu d'achat, pour que les deux documents portent
+     * le même numéro.
+     */
+    private String matricule(MemberEntity m) {
+        List<MemberIdentityDocument> cards = documentsOfTypes(m, producerRefKeys.identifierTypeNames());
+        if (cards.isEmpty()) return null;
+        String referenceType = preferences.current().producerReferenceCodeType;
+        if (referenceType != null && !referenceType.isBlank()) {
+            for (MemberIdentityDocument d : cards) {
+                if (d.type != null && d.type.trim().equalsIgnoreCase(referenceType.trim())) {
+                    return d.number != null ? d.number.trim() : null;
+                }
+            }
         }
-        return null;
+        return cards.get(0).number != null ? cards.get(0).number.trim() : null;
+    }
+
+    /** Pièces qui établissent l'identité, dans l'ordre du dossier. */
+    private List<MemberIdentityDocument> identityProofs(MemberEntity m) {
+        java.util.Set<String> proofs = producerRefKeys.identityProofTypeNames();
+        if (proofs == null) return identityDocuments(m);
+        List<MemberIdentityDocument> filtered = documentsOfTypes(m, proofs);
+        return filtered.isEmpty() && m.idDocNumber != null && !m.idDocNumber.isBlank()
+                ? List.of(new MemberIdentityDocument(m.idDocType, m.idDocNumber, m.idCardFileId))
+                : filtered;
+    }
+
+    private static List<MemberIdentityDocument> documentsOfTypes(MemberEntity m,
+                                                                java.util.Set<String> typeNames) {
+        if (m.identityDocuments == null || typeNames == null) return List.of();
+        return m.identityDocuments.stream()
+                .filter(d -> d != null && d.type != null && d.number != null && !d.number.isBlank())
+                .filter(d -> typeNames.contains(d.type.trim().toLowerCase(Locale.ROOT)))
+                .toList();
     }
 
     private static String cropLabel(ParcelEntity p, Map<String, String> cropNames) {

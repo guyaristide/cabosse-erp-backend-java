@@ -36,6 +36,8 @@ public record MemberResponseDto(
         MemberEnrolmentDto enrolment,
         MemberFileStatusDto fileStatus,
         UUID sectionId,
+        boolean collector,
+        java.math.BigDecimal collectorMarginRate,
         UUID followUpAgentMemberId,
         List<UUID> deliveredArticleIds,
         List<MemberExternalCodeDto> externalProducerCodes,
@@ -69,10 +71,11 @@ public record MemberResponseDto(
     private static final int DEFAULT_FILE_VALIDITY_MONTHS = 12;
 
     public static MemberResponseDto from(MemberEntity e) {
-        return from(e, DEFAULT_FILE_VALIDITY_MONTHS);
+        return from(e, DEFAULT_FILE_VALIDITY_MONTHS, null);
     }
 
-    public static MemberResponseDto from(MemberEntity e, int fileValidityMonths) {
+    public static MemberResponseDto from(MemberEntity e, int fileValidityMonths,
+                                         java.util.Set<String> identityProofTypes) {
         return new MemberResponseDto(
                 e.id, e.code, e.name, e.firstName, e.lastName, e.civilStatus,
                 e.gender, e.personType, e.maritalStatus, e.birthPlace,
@@ -82,8 +85,8 @@ public record MemberResponseDto(
                         .map(MemberIdentityDocumentDto::from).toList(),
                 MemberHouseholdDto.from(e.household),
                 MemberEnrolmentDto.from(e.enrolment),
-                MemberFileCompleteness.evaluate(e, fileValidityMonths),
-                e.sectionId, e.followUpAgentMemberId,
+                MemberFileCompleteness.evaluate(e, fileValidityMonths, identityProofTypes),
+                e.sectionId, e.collector, e.collectorMarginRate, e.followUpAgentMemberId,
                 e.deliveredArticleIds != null ? List.copyOf(e.deliveredArticleIds) : List.of(),
                 e.externalProducerCodes == null ? List.of() : e.externalProducerCodes.stream()
                         .map(MemberExternalCodeDto::from).toList(),

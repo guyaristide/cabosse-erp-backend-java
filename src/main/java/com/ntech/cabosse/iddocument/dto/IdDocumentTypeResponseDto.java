@@ -9,9 +9,12 @@ import java.util.UUID;
 @Schema(description = "Type de pièce d'identité accepté par le tenant")
 public record IdDocumentTypeResponseDto(
         UUID id, String code, String name,
+        boolean identityProof, boolean usableAsProducerRef,
         boolean active, Instant createdAt, Instant updatedAt
 ) {
     public static IdDocumentTypeResponseDto from(IdDocumentTypeEntity e) {
-        return new IdDocumentTypeResponseDto(e.id, e.code, e.name, e.active, e.createdAt, e.updatedAt);
+        return new IdDocumentTypeResponseDto(e.id, e.code, e.name,
+                e.identityProof, e.usableAsProducerRef,
+                e.active, e.createdAt, e.updatedAt);
     }
 }

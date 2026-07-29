@@ -292,7 +292,10 @@ public class AccountingService {
                         .map(a -> new String[]{
                                 blankNull(a.salesRevenueAccount) != null
                                         ? a.salesRevenueAccount
-                                        : SyscohadaAccounts.VENTES_PRODUITS_FINIS,
+                                        // Marchandise revendue en l'état ou produit
+                                        // issu de la transformation : deux comptes
+                                        // distincts, que le cabinet attend séparés.
+                                        : SyscohadaAccounts.saleRevenueAccountFor(parseArticleType(a.type)),
                                 blankNull(a.defaultProgram), blankNull(a.defaultProject)})
                         .orElse(new String[]{SyscohadaAccounts.VENTES_PRODUITS_FINIS, null, null});
             });
@@ -365,18 +368,42 @@ public class AccountingService {
      * le mode) pour un reçu direct, ou compte d'avances (4091) si le reçu est
      * rattaché à une avance délégué. Pas de TVA (producteurs non assujettis).
      */
+    /** Une contrepartie de l'achat producteur : compte, libellé, montant. */
+    public record PurchaseLeg(String account, String label, BigDecimal amount) {}
+
+    /**
+     * Reçu d'achat producteur : débit du compte de charge de l'article pour
+     * le montant dû, crédité par une ou plusieurs contreparties selon qui a
+     * réglé (trésorerie, compte d'avance du délégué, dette envers le
+     * producteur si le paiement est partiel).
+     *
+     * <p>La rémunération du délégué, quand elle existe, s'ajoute en deux
+     * lignes sur la même pièce : charge de rémunération au débit, compte du
+     * délégué au crédit. Elle réduit d'autant ce qu'il doit à la
+     * coopérative.</p>
+     */
     public Optional<JournalPieceEntity> postFromProducerPurchase(
             UUID purchaseId, String ref, UUID articleId, ArticleType articleType,
             String articleName, BigDecimal amount, LocalDate date,
-            String creditAccount, String creditLabel) {
+            List<PurchaseLeg> credits, PurchaseLeg marginCharge, PurchaseLeg marginCredit) {
         if (amount == null || amount.signum() <= 0) return Optional.empty();
         String chargeAccount = chargeAccountFor(articleId, articleType, new java.util.HashMap<>());
         JournalEntry charge = imputeCharge(
                 JournalEntry.debit(chargeAccount, "Achat producteur " + nullSafe(articleName), amount),
                 articleId, new java.util.HashMap<>(), costCenters.byCode());
-        List<JournalEntry> entries = List.of(
-                charge,
-                JournalEntry.credit(creditAccount, creditLabel, amount));
+        List<JournalEntry> entries = new ArrayList<>();
+        entries.add(charge);
+        for (PurchaseLeg leg : credits) {
+            if (leg == null || leg.amount() == null || leg.amount().signum() <= 0) continue;
+            entries.add(JournalEntry.credit(leg.account(), leg.label(), leg.amount()));
+        }
+        if (marginCharge != null && marginCharge.amount() != null
+                && marginCharge.amount().signum() > 0 && marginCredit != null) {
+            entries.add(JournalEntry.debit(
+                    marginCharge.account(), marginCharge.label(), marginCharge.amount()));
+            entries.add(JournalEntry.credit(
+                    marginCredit.account(), marginCredit.label(), marginCredit.amount()));
+        }
         return postPiece(new PostingRequest(
                 date != null ? date : LocalDate.now(),
                 PostingSourceType.PRODUCER_PURCHASE, purchaseId, ref,
@@ -899,6 +926,32 @@ public class AccountingService {
      * la balance. Des sous-comptes par site affineront le schéma si
      * l'expert-comptable du tenant le demande.
      */
+    /**
+     * Requalification d'une quantité d'une nature à une autre : la charge
+     * d'achat quitte le compte de la nature d'origine pour celui de la
+     * nature d'arrivée. Rien n'entre ni ne sort de l'entreprise, seule la
+     * destination du bien change, donc le résultat est inchangé et seule
+     * la ventilation bouge.
+     */
+    public Optional<JournalPieceEntity> postFromStockReclassification(
+            UUID reclassificationId, ArticleType fromType, ArticleType toType,
+            String fromName, String toName, BigDecimal valueFcfa, LocalDate date) {
+        if (valueFcfa == null || valueFcfa.signum() <= 0) return Optional.empty();
+        String fromAccount = SyscohadaAccounts.purchaseChargeAccountFor(fromType);
+        String toAccount = SyscohadaAccounts.purchaseChargeAccountFor(toType);
+        if (fromAccount.equals(toAccount)) return Optional.empty();
+        BigDecimal value = valueFcfa.setScale(MONEY_SCALE, RoundingMode.HALF_UP);
+        List<JournalEntry> entries = List.of(
+                JournalEntry.debit(toAccount, "Requalification vers " + nullSafe(toName), value),
+                JournalEntry.credit(fromAccount, "Requalification depuis " + nullSafe(fromName), value)
+        );
+        return postPiece(new PostingRequest(
+                date != null ? date : LocalDate.now(),
+                PostingSourceType.STOCK_TRANSFER, reclassificationId,
+                "REQ-" + reclassificationId.toString().substring(0, 8),
+                "Requalification " + nullSafe(fromName) + " vers " + nullSafe(toName), entries));
+    }
+
     public Optional<JournalPieceEntity> postFromStockTransfer(UUID transferId,
                                                               ArticleType articleType,
                                                               String articleName,

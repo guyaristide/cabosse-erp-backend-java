@@ -116,6 +116,32 @@ public record UpdateTenantPreferencesPayloadDto(
         Boolean blockProducerPurchaseOnIncompleteFile,
 
         @Schema(description = "Exige une pièce d'identité scannée, et un mandat pour un paiement mobile money à un tiers.")
-        Boolean requireProducerPaymentVigilance
+        Boolean requireProducerPaymentVigilance,
+
+        @jakarta.validation.constraints.Pattern(regexp = "^$|^(NONE|PER_KG|PERCENT)$",
+                message = "Rémunération délégué : NONE | PER_KG | PERCENT")
+        @Schema(description = "Rémunération du délégué collecteur sur les reçus rattachés.")
+        String delegateMarginMode,
+
+        @jakarta.validation.constraints.DecimalMin(value = "0", message = "Taux négatif interdit")
+        @Schema(description = "Taux de rémunération par défaut du délégué (FCFA/kg ou %).")
+        java.math.BigDecimal delegateMarginRate,
+
+        @jakarta.validation.constraints.Pattern(regexp = "^$|^[0-9]{2,8}$",
+                message = "Compte de rémunération : 2 à 8 chiffres")
+        @Schema(description = "Compte de charge de la rémunération des délégués.")
+        String delegateMarginAccount,
+
+        @Schema(description = "Autorise un reçu partiellement payé au producteur.")
+        Boolean producerPartialPaymentEnabled,
+
+        @jakarta.validation.constraints.Pattern(regexp = "^$|^[0-9]{2,8}$",
+                message = "Compte de dette producteur : 2 à 8 chiffres")
+        @Schema(description = "Compte de dette envers les producteurs (reliquats).")
+        String producerPayableAccount,
+
+        @jakarta.validation.constraints.Size(max = 60, message = "Type de code trop long")
+        @Schema(description = "Type de code externe producteur qui fait référence.")
+        String producerReferenceCodeType
 
 ) {}

@@ -32,8 +32,10 @@ final class SiteExportColumns {
     private static String humanType(String code) {
         if (code == null) return "";
         return switch (code) {
-            case "TRANSFORMATION" -> "Transformation";
-            case "SALES_POINT"    -> "Point de vente";
+            case "TRANSFORMATION"     -> "Transformation";
+            case "SALES_POINT"        -> "Point de vente";
+            case "SECTION_WAREHOUSE"  -> "Magasin de section";
+            case "CENTRAL_WAREHOUSE"  -> "Magasin central";
             default               -> code;
         };
     }

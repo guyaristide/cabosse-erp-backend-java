@@ -25,6 +25,7 @@ import java.util.UUID;
 public class IdDocumentTypeService {
 
     @Inject IdDocumentTypeRepository repo;
+    @Inject com.ntech.cabosse.members.service.ProducerRefKeyService producerRefKeys;
     @Inject TenantContext tenantContext;
     @Inject AuditService audit;
     @Inject JsonWebToken jwt;
@@ -44,6 +45,8 @@ public class IdDocumentTypeService {
         e.id = UuidCreator.getTimeOrderedEpoch();
         e.code = code;
         e.name = p.name().trim();
+        e.identityProof = p.identityProof() == null || p.identityProof();
+        e.usableAsProducerRef = p.usableAsProducerRef() != null && p.usableAsProducerRef();
         e.active = true;
         e.createdAt = Instant.now();
         e.updatedAt = e.createdAt;
@@ -56,10 +59,21 @@ public class IdDocumentTypeService {
     public IdDocumentTypeResponseDto update(UUID id, IdDocumentTypeUpsertDto p) {
         IdDocumentTypeEntity e = repo.findById(id).orElseThrow(
                 () -> new NotFoundException("Type de pièce " + id + " introuvable."));
+        String previousName = e.name;
+        boolean wasProducerRef = e.usableAsProducerRef;
         e.name = p.name().trim();
+        if (p.identityProof() != null) e.identityProof = p.identityProof();
+        if (p.usableAsProducerRef() != null) e.usableAsProducerRef = p.usableAsProducerRef();
         e.updatedAt = Instant.now();
         repo.replace(e);
         auditEvt(e, "Modification");
+
+        // Le drapeau « sert d'identifiant » décide quelles pièces alimentent
+        // les clés de rapprochement des membres : le changer sans les
+        // recalculer laisserait des clés fantômes, ou en priverait d'autres.
+        if (wasProducerRef != e.usableAsProducerRef || !previousName.equals(e.name)) {
+            producerRefKeys.resyncForType(previousName, e.name);
+        }
         return IdDocumentTypeResponseDto.from(e);
     }
 

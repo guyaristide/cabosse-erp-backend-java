@@ -21,6 +21,7 @@ import com.ntech.cabosse.department.entity.DepartmentEntity;
 import com.ntech.cabosse.department.repository.DepartmentRepository;
 import com.ntech.cabosse.members.entity.MemberEntity;
 import com.ntech.cabosse.members.repository.MemberRepository;
+import com.ntech.cabosse.members.service.ProducerLookup;
 import com.ntech.cabosse.region.entity.RegionEntity;
 import com.ntech.cabosse.region.repository.RegionRepository;
 import com.ntech.cabosse.shared.imports.FuzzyLabels;
@@ -82,6 +83,7 @@ public class ParcelImportService {
     @Inject ParcelRepository parcels;
     @Inject ParcelService parcelService;
     @Inject MemberRepository members;
+    @Inject ProducerLookup producerLookup;
     @Inject CropRepository crops;
     @Inject RegionRepository regions;
     @Inject DepartmentRepository departments;
@@ -97,6 +99,7 @@ public class ParcelImportService {
 
         List<ParcelEntity> existing = parcels.listAll();
         List<MemberEntity> allMembers = members.listAll();
+        ProducerLookup.Index producers = producerLookup.index();
         List<String> knownCrops = crops.listAll().stream().map(c -> c.name).toList();
         List<String> knownRegions = regions.listAll().stream().map(r -> r.name).toList();
         List<String> knownDepartments = departments.listAll().stream().map(d -> d.name).toList();
@@ -142,7 +145,7 @@ public class ParcelImportService {
             String departmentName = resolveLabel(raw.department(), knownDepartments);
             String status = parseStatus(raw.status(), issues);
 
-            MemberEntity member = findMember(allMembers, raw.producerCode(), raw.producerName());
+            MemberEntity member = findMember(producers, allMembers, raw.producerCode(), raw.producerName());
             boolean producerRequested = trim(raw.producerCode()) != null || trim(raw.producerName()) != null;
 
             Normalized normalized = new Normalized(
@@ -281,19 +284,17 @@ public class ParcelImportService {
 
     // ─── Rapprochements ─────────────────────────────────────────────
 
-    /** Producteur par code interne, code externe, puis nom complet. */
-    private static MemberEntity findMember(List<MemberEntity> all, String rawCode, String rawName) {
+    /**
+     * Producteur par numéro, puis par nom complet. Le numéro passe par le
+     * rapprochement partagé, qui distingue code interne et carte et refuse
+     * un numéro porté par deux producteurs.
+     */
+    private static MemberEntity findMember(ProducerLookup.Index producers, List<MemberEntity> all,
+                                           String rawCode, String rawName) {
         String code = trim(rawCode);
         if (code != null) {
-            Optional<MemberEntity> byCode = all.stream()
-                    .filter(m -> code.equalsIgnoreCase(m.code))
-                    .findFirst();
-            if (byCode.isPresent()) return byCode.get();
-            Optional<MemberEntity> byExternal = all.stream()
-                    .filter(m -> m.externalProducerCodes != null && m.externalProducerCodes.stream()
-                            .anyMatch(c -> c.number != null && c.number.equalsIgnoreCase(code)))
-                    .findFirst();
-            if (byExternal.isPresent()) return byExternal.get();
+            ProducerLookup.Match match = producers.resolve(code, null);
+            if (match.found()) return match.member();
         }
         String name = trim(rawName);
         if (name != null) {

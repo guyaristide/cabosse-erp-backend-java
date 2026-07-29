@@ -102,6 +102,30 @@ public record TenantPreferencesDto(
 
         @Schema(description = "Exige une pièce d'identité scannée, et un mandat pour un paiement mobile money à un tiers.",
                 defaultValue = "false")
-        boolean requireProducerPaymentVigilance
+        boolean requireProducerPaymentVigilance,
+
+        @Schema(description = "Rémunération du délégué collecteur : NONE, PER_KG ou PERCENT.",
+                example = "NONE", defaultValue = "NONE")
+        String delegateMarginMode,
+
+        @Schema(description = "Taux de rémunération par défaut du délégué (FCFA/kg ou %).",
+                example = "25", defaultValue = "0")
+        java.math.BigDecimal delegateMarginRate,
+
+        @Schema(description = "Compte de charge de la rémunération des délégués.",
+                example = "632100", defaultValue = "632100")
+        String delegateMarginAccount,
+
+        @Schema(description = "Autorise un reçu partiellement payé au producteur (reliquat en dette).",
+                defaultValue = "false")
+        boolean producerPartialPaymentEnabled,
+
+        @Schema(description = "Compte de dette envers les producteurs (reliquats de paiement).",
+                example = "401100", defaultValue = "401100")
+        String producerPayableAccount,
+
+        @Schema(description = "Type de code externe producteur qui fait référence (ex. « Code CCC »).",
+                example = "Code CCC")
+        String producerReferenceCodeType
 
 ) {}

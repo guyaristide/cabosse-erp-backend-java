@@ -61,6 +61,12 @@ public record MemberUpsertDto(
 
         UUID sectionId,
         UUID followUpAgentMemberId,
+
+        /** Le producteur est aussi délégué collecteur. */
+        Boolean collector,
+        /** Rémunération propre au délégué. Vide : taux commun du tenant. */
+        @jakarta.validation.constraints.DecimalMin(value = "0", message = "Taux négatif interdit")
+        java.math.BigDecimal collectorMarginRate,
         List<UUID> deliveredArticleIds,
         List<@Valid MemberExternalCodeDto> externalProducerCodes,
 

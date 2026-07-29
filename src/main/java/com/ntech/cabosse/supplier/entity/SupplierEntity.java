@@ -44,6 +44,15 @@ public class SupplierEntity {
     /** Section de collecte rattachée au délégué. {@code null} si non délégué. */
     public UUID sectionId;
 
+    /**
+     * Rémunération du délégué sur les reçus qui lui sont rattachés, dans
+     * l'unité du mode retenu au niveau du tenant (montant par kilo ou
+     * pourcentage). {@code null} : le taux du tenant s'applique. Un délégué
+     * mieux payé qu'un autre n'est pas une exception, c'est la règle sur le
+     * terrain.
+     */
+    public java.math.BigDecimal collectorMarginRate;
+
     public boolean active = true;
 
     public Instant createdAt;

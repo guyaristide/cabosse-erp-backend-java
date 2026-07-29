@@ -12,5 +12,11 @@ public record IdDocumentTypeUpsertDto(
         String code,
 
         @NotBlank @Size(min = 1, max = 120)
-        String name
+        String name,
+
+        /** La pièce établit l'identité. Vide : vrai. */
+        Boolean identityProof,
+
+        /** Le numéro retrouve le producteur dans un import. Vide : faux. */
+        Boolean usableAsProducerRef
 ) {}

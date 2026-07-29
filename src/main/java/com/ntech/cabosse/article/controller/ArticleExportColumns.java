@@ -20,6 +20,7 @@ final class ArticleExportColumns {
     static String titleFor(com.ntech.cabosse.article.entity.ArticleType type) {
         return switch (type) {
             case RAW_MATERIAL     -> "Matières premières";
+            case MERCHANDISE      -> "Marchandises";
             case FINISHED_PRODUCT -> "Produits finis";
             case CONSUMABLE       -> "Consommables";
             case PACKAGING        -> "Emballages";
