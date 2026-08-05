@@ -103,7 +103,7 @@ public class AccountingQueryService {
                         d -> d.getString("_id"),
                         d -> new AccountStats(
                                 bd(d.get("debit")).subtract(bd(d.get("credit"))),
-                                d.getLong("count"))
+                                count(d.get("count")))
                 ));
     }
 
@@ -487,6 +487,15 @@ public class AccountingQueryService {
      * BigDecimal sans précision perdue. Les sommes faites par $sum sur
      * des Decimal128 ressortent en Decimal128 ; sur des entiers, en Long.
      */
+    /**
+     * Compteur issu d'une agrégation. Mongo renvoie un {@code $sum: 1} en
+     * Int32 tant que le total tient dans un entier, et en Int64 au delà :
+     * lire un type fixe casse dès que la base change d'avis.
+     */
+    private static long count(Object v) {
+        return v instanceof Number n ? n.longValue() : 0L;
+    }
+
     private static BigDecimal bd(Object v) {
         if (v == null) return BigDecimal.ZERO;
         if (v instanceof Decimal128 d) return d.bigDecimalValue();
