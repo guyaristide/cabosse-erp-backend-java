@@ -87,5 +87,13 @@ public class CollectorAdvanceEntity {
         public Instant recordedAt;
     }
 
+    /**
+     * Pièces justifiant l'avance : demande signée, décision, reçu de
+     * remise des fonds. Déposées à la création ou plus tard, quand le
+     * papier remonte du terrain.
+     */
+    public java.util.List<com.ntech.cabosse.shared.storage.AttachmentRef> attachments =
+            new java.util.ArrayList<>();
+
     public CollectorAdvanceEntity() {}
 }

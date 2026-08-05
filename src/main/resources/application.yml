@@ -20,6 +20,12 @@ quarkus:
     # injecte APP_HTTP_PORT=8080 si nécessaire.
     port: ${APP_HTTP_PORT:8088}
     test-port: ${APP_HTTP_TEST_PORT:8089}
+    body:
+      # Les champs texte d'un envoi multipart (libellé d'une pièce jointe,
+      # par exemple) sont émis en UTF-8 par les navigateurs sans que le
+      # charset soit déclaré. Sans ce réglage, la valeur par défaut mange
+      # les accents.
+      default-charset: UTF-8
     # CORS configuré par environnement (cf. CLAUDE.md §2.5).
 
   mongodb:

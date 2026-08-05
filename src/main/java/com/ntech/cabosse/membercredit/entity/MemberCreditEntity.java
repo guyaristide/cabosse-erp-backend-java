@@ -118,5 +118,13 @@ public class MemberCreditEntity {
         public String notes;
     }
 
+    /**
+     * Pièces justifiant l'engagement : demande signée, procès-verbal du
+     * conseil, pièce d'identité, reçu de décaissement. Déposées à la
+     * création ou plus tard.
+     */
+    public java.util.List<com.ntech.cabosse.shared.storage.AttachmentRef> attachments =
+            new java.util.ArrayList<>();
+
     public MemberCreditEntity() {}
 }

@@ -64,6 +64,7 @@ public class MemberCreditService {
     @Inject AuditService audit;
     @Inject IdGenerator idGenerator;
     @Inject JsonWebToken jwt;
+    @Inject com.ntech.cabosse.shared.storage.AttachmentService attachments;
 
     private String actor() {
         try { return jwt.getName(); } catch (Exception e) { return null; }
@@ -310,6 +311,51 @@ public class MemberCreditService {
     }
 
     // ─── Helpers ────────────────────────────────────────────────────
+
+
+    // ─── Pièces jointes ─────────────────────────────────────────────
+
+    /**
+     * Dépose une pièce justificative. Le fichier part au stockage avant
+     * d'être référencé : rien n'apparaît dans la liste qui ne soit
+     * réellement consultable.
+     */
+    public MemberCreditResponseDto attach(java.util.UUID id, byte[] bytes,
+                                          String mimeType, String fileName, String label) {
+        MemberCreditEntity e = loadOrFail(id);
+        var ref = attachments.store(bytes, mimeType, fileName, label, e.id, "member_credit");
+        repo.pushAttachment(e.id, ref);
+        audit.event(AuditEventType.MEMBER_CREDIT_ATTACHMENT)
+                .actorEmail(actor())
+                .target("member_credit", e.id.toString(), e.ref)
+                .tenant(tenantContext.tenantId(), null)
+                .description("Pièce jointe « " + (ref.label != null ? ref.label : ref.fileName)
+                        + " » ajoutée sur " + e.ref)
+                .record();
+        return MemberCreditResponseDto.from(loadOrFail(id));
+    }
+
+    /** Retire une pièce et archive son binaire. */
+    public MemberCreditResponseDto detach(java.util.UUID id, java.util.UUID fileId) {
+        MemberCreditEntity e = loadOrFail(id);
+        var ref = attachments.find(e.attachments, fileId);
+        repo.pullAttachment(e.id, fileId);
+        attachments.discard(ref);
+        audit.event(AuditEventType.MEMBER_CREDIT_ATTACHMENT)
+                .actorEmail(actor())
+                .target("member_credit", e.id.toString(), e.ref)
+                .tenant(tenantContext.tenantId(), null)
+                .description("Pièce jointe « " + (ref.label != null ? ref.label : ref.fileName)
+                        + " » retirée de " + e.ref)
+                .record();
+        return MemberCreditResponseDto.from(loadOrFail(id));
+    }
+
+    /** Contenu d'une pièce, servi en téléchargement. */
+    public com.ntech.cabosse.shared.storage.AttachmentService.AttachmentStream openAttachment(
+            java.util.UUID id, java.util.UUID fileId) {
+        return attachments.open(loadOrFail(id).attachments, fileId);
+    }
 
     private MemberCreditEntity loadOrFail(UUID id) {
         return repo.findById(id).orElseThrow(

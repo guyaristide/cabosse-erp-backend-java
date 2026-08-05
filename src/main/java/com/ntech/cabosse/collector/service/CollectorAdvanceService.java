@@ -58,6 +58,7 @@ public class CollectorAdvanceService {
     @Inject TenantContext tenantContext;
     @Inject AuditService audit;
     @Inject JsonWebToken jwt;
+    @Inject com.ntech.cabosse.shared.storage.AttachmentService attachments;
 
     // ─── Lecture ────────────────────────────────────────────────────
 
@@ -150,6 +151,51 @@ public class CollectorAdvanceService {
                 .tenant(tenantContext.tenantId(), null)
                 .description(desc + " — avance " + e.ref)
                 .record();
+    }
+
+
+    // ─── Pièces jointes ─────────────────────────────────────────────
+
+    /**
+     * Dépose une pièce justificative. Le fichier part au stockage avant
+     * d'être référencé : rien n'apparaît dans la liste qui ne soit
+     * réellement consultable.
+     */
+    public CollectorAdvanceResponseDto attach(java.util.UUID id, byte[] bytes,
+                                              String mimeType, String fileName, String label) {
+        CollectorAdvanceEntity e = loadOrFail(id);
+        var ref = attachments.store(bytes, mimeType, fileName, label, e.id, "collector_advance");
+        repo.pushAttachment(e.id, ref);
+        audit.event(AuditEventType.COLLECTOR_ADVANCE_ATTACHMENT)
+                .actorEmail(actor())
+                .target("collector_advance", e.id.toString(), e.ref)
+                .tenant(tenantContext.tenantId(), null)
+                .description("Pièce jointe « " + (ref.label != null ? ref.label : ref.fileName)
+                        + " » ajoutée sur " + e.ref)
+                .record();
+        return CollectorAdvanceResponseDto.from(loadOrFail(id));
+    }
+
+    /** Retire une pièce et archive son binaire. */
+    public CollectorAdvanceResponseDto detach(java.util.UUID id, java.util.UUID fileId) {
+        CollectorAdvanceEntity e = loadOrFail(id);
+        var ref = attachments.find(e.attachments, fileId);
+        repo.pullAttachment(e.id, fileId);
+        attachments.discard(ref);
+        audit.event(AuditEventType.COLLECTOR_ADVANCE_ATTACHMENT)
+                .actorEmail(actor())
+                .target("collector_advance", e.id.toString(), e.ref)
+                .tenant(tenantContext.tenantId(), null)
+                .description("Pièce jointe « " + (ref.label != null ? ref.label : ref.fileName)
+                        + " » retirée de " + e.ref)
+                .record();
+        return CollectorAdvanceResponseDto.from(loadOrFail(id));
+    }
+
+    /** Contenu d'une pièce, servi en téléchargement. */
+    public com.ntech.cabosse.shared.storage.AttachmentService.AttachmentStream openAttachment(
+            java.util.UUID id, java.util.UUID fileId) {
+        return attachments.open(loadOrFail(id).attachments, fileId);
     }
 
     private CollectorAdvanceEntity loadOrFail(UUID id) {

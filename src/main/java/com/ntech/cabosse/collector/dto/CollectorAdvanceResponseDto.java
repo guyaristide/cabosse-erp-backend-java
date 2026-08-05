@@ -19,7 +19,8 @@ public record CollectorAdvanceResponseDto(
         BigDecimal consumedAmountFcfa, BigDecimal remainingFcfa,
         String status, String pieceRef, String notes,
         List<DeliveryView> deliveries,
-        Instant closedAt, Instant createdAt, String createdByEmail
+        Instant closedAt, Instant createdAt, String createdByEmail,
+        java.util.List<com.ntech.cabosse.shared.storage.AttachmentDto> attachments
 ) {
     public record DeliveryView(UUID id, LocalDate date, UUID articleId, String articleCode,
                                String articleName, String articleUnit, BigDecimal quantity,
@@ -36,6 +37,7 @@ public record CollectorAdvanceResponseDto(
                 e.paymentMethod != null ? e.paymentMethod.name() : null,
                 e.consumedAmountFcfa, e.remainingFcfa,
                 e.status != null ? e.status.name() : null, e.pieceRef, e.notes,
-                deliveries, e.closedAt, e.createdAt, e.createdByEmail);
+                deliveries, e.closedAt, e.createdAt, e.createdByEmail,
+                com.ntech.cabosse.shared.storage.AttachmentDto.fromAll(e.attachments));
     }
 }

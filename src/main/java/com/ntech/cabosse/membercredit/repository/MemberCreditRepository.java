@@ -110,6 +110,23 @@ public class MemberCreditRepository {
                         Updates.set("updatedAt", Instant.now())));
     }
 
+    /**
+     * Ajoute une pièce jointe. Poussée atomiquement : deux dépôts
+     * simultanés ne doivent pas s'écraser l'un l'autre.
+     */
+    public void pushAttachment(UUID id, com.ntech.cabosse.shared.storage.AttachmentRef ref) {
+        coll().updateOne(Filters.eq("_id", id), Updates.combine(
+                Updates.push("attachments", ref),
+                Updates.set("updatedAt", Instant.now())));
+    }
+
+    /** Retire une pièce jointe de la liste. */
+    public void pullAttachment(UUID id, UUID fileId) {
+        coll().updateOne(Filters.eq("_id", id), Updates.combine(
+                Updates.pull("attachments", new Document("fileId", fileId)),
+                Updates.set("updatedAt", Instant.now())));
+    }
+
     /** Enregistre la retenue dans le journal du crédit et solde s'il y a lieu. */
     public void appendImputation(UUID id, MemberCreditEntity.Imputation imputation, boolean settled) {
         List<Bson> updates = new ArrayList<>();

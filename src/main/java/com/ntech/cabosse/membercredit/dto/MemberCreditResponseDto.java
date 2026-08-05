@@ -26,7 +26,8 @@ public record MemberCreditResponseDto(
         LocalDate disbursedAt, String paymentMethod, String paymentRef, String pieceRef,
         BigDecimal imputedAmountFcfa, BigDecimal remainingFcfa,
         List<ImputationView> imputations,
-        String notes, Instant settledAt, Instant createdAt
+        String notes, Instant settledAt, Instant createdAt,
+        java.util.List<com.ntech.cabosse.shared.storage.AttachmentDto> attachments
 ) {
     @Schema(description = "Retenue opérée sur une livraison")
     public record ImputationView(UUID id, UUID purchaseId, String purchaseRef, LocalDate date,
@@ -54,6 +55,7 @@ public record MemberCreditResponseDto(
                 e.paymentMethod != null ? e.paymentMethod.name() : null,
                 e.paymentRef, e.pieceRef,
                 e.imputedAmountFcfa, e.remainingFcfa,
-                imputations, e.notes, e.settledAt, e.createdAt);
+                imputations, e.notes, e.settledAt, e.createdAt,
+                com.ntech.cabosse.shared.storage.AttachmentDto.fromAll(e.attachments));
     }
 }

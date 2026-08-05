@@ -8,6 +8,10 @@ import com.ntech.cabosse.shared.api.ApiResponse;
 import com.ntech.cabosse.shared.api.PageRequest;
 import com.ntech.cabosse.shared.api.Pagination;
 import com.ntech.cabosse.shared.security.Roles;
+import com.ntech.cabosse.shared.storage.AttachmentEndpoints;
+import jakarta.ws.rs.DELETE;
+import org.jboss.resteasy.reactive.multipart.FileUpload;
+import org.jboss.resteasy.reactive.RestForm;
 import io.quarkus.security.Authenticated;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
@@ -86,4 +90,37 @@ public class CollectorAdvanceResource {
     }
 
     public record ClosePayload(String note) {}
+
+    // ─── Pièces jointes ─────────────────────────────────────────────
+
+    /**
+     * Ajoute une pièce justificative. Le fichier est téléversé tel quel :
+     * le formulaire envoie un fichier, jamais un identifiant à saisir.
+     */
+    @POST
+    @Path("/{id}/attachments")
+    @Consumes(MediaType.MULTIPART_FORM_DATA)
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    public Response addAttachment(@PathParam("id") UUID id,
+                                  @RestForm("file") FileUpload file,
+                                  @RestForm("label") String label) {
+        return Response.ok(ApiResponse.ok(service.attach(
+                id, AttachmentEndpoints.readBytes(file),
+                file.contentType(), file.fileName(), label))).build();
+    }
+
+    @GET
+    @Path("/{id}/attachments/{fileId}")
+    @Produces({ "application/pdf", "image/png", "image/jpeg", "application/octet-stream" })
+    public Response getAttachment(@PathParam("id") UUID id, @PathParam("fileId") UUID fileId) {
+        return AttachmentEndpoints.download(service.openAttachment(id, fileId));
+    }
+
+    @DELETE
+    @Path("/{id}/attachments/{fileId}")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    public Response removeAttachment(@PathParam("id") UUID id, @PathParam("fileId") UUID fileId) {
+        return Response.ok(ApiResponse.ok(service.detach(id, fileId))).build();
+    }
+
 }
