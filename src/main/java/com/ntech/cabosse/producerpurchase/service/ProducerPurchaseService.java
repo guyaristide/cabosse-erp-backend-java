@@ -15,6 +15,8 @@ import com.ntech.cabosse.members.dto.MemberFileStatusDto;
 import com.ntech.cabosse.members.repository.MemberRepository;
 import com.ntech.cabosse.members.service.MemberFileCompleteness;
 import com.ntech.cabosse.members.service.MemberPaymentVigilance;
+import com.ntech.cabosse.membercredit.entity.MemberCreditEntity;
+import com.ntech.cabosse.membercredit.service.MemberCreditService;
 import com.ntech.cabosse.producerpurchase.dto.ProducerPurchaseResponseDto;
 import com.ntech.cabosse.producerpurchase.dto.ProducerPurchaseUpsertDto;
 import com.ntech.cabosse.producerpurchase.entity.ProducerPurchaseEntity;
@@ -65,6 +67,9 @@ public class ProducerPurchaseService {
     @Inject CollectorAdvanceRepository advances;
     @Inject SupplierRepository suppliers;
     @Inject com.ntech.cabosse.members.service.ProducerRefKeyService producerRefKeys;
+    @Inject MemberCreditService memberCredits;
+    @Inject com.ntech.cabosse.suppliercategory.service.SupplierMarginResolver marginResolver;
+    @Inject com.ntech.cabosse.suppliercategory.repository.SupplierCategoryRepository supplierCategories;
     @Inject StockService stockService;
     @Inject AccountingService accounting;
     @Inject TenantPreferencesLookup preferences;
@@ -132,9 +137,36 @@ public class ProducerPurchaseService {
                         "« " + delegate.name + " » n'est pas un délégué collecteur.");
             }
         }
+        // L'apporteur est le délégué quand il y en a un, sinon le
+        // producteur par sa fiche fournisseur miroir. C'est lui qui porte
+        // la catégorie de reprise, et donc les conditions appliquées.
+        SupplierEntity carrier = delegate != null ? delegate
+                : (m.supplierId != null ? suppliers.findById(m.supplierId).orElse(null) : null);
+        var categoryOfCarrier = carrier != null
+                ? supplierCategories.findById(carrier.categoryId).orElse(null) : null;
+        // La rémunération reste attachée au délégué : un producteur qui
+        // livre en direct est payé au prix, sans intermédiaire à
+        // rétribuer. La catégorie sert alors au classement seul.
         BigDecimal margin = delegate != null
-                ? delegateMargin(prefs, delegate, weight, amount) : BigDecimal.ZERO;
-        BigDecimal paid = resolvePaid(prefs, p, amount);
+                ? marginResolver.resolve(prefs, delegate, categoryOfCarrier).on(weight, amount)
+                : BigDecimal.ZERO;
+        // Retenues décidées sur les crédits du producteur. Une retenue
+        // n'est pas un impayé : la livraison est intégralement soldée, une
+        // part en espèces, l'autre en remboursement de dette. Elle réduit
+        // donc le versement quel que soit le paramétrage du paiement
+        // partiel.
+        List<ProducerPurchaseUpsertDto.CreditImputationDto> imputations =
+                p.creditImputations() == null ? List.of()
+                        : p.creditImputations().stream().filter(java.util.Objects::nonNull).toList();
+        BigDecimal creditImputed = imputations.stream()
+                .map(ProducerPurchaseUpsertDto.CreditImputationDto::amountFcfa)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (creditImputed.compareTo(amount) > 0) {
+            throw new BusinessException("Les retenues (" + creditImputed
+                    + ") dépassent le montant dû au producteur (" + amount + ").");
+        }
+        BigDecimal payable = amount.subtract(creditImputed);
+        BigDecimal paid = resolvePaid(prefs, p, payable);
 
         Instant now = Instant.now();
         ProducerPurchaseEntity e = new ProducerPurchaseEntity();
@@ -163,9 +195,14 @@ public class ProducerPurchaseService {
         e.amountFcfa = amount;
         e.officialReceiptRef = blankToNull(p.officialReceiptRef());
         e.amountPaidFcfa = paid;
+        e.creditImputedFcfa = creditImputed;
         e.paymentMethod = p.paymentMethod();
         e.paymentRef = blankToNull(p.paymentRef());
         e.deliveryRef = blankToNull(p.deliveryRef());
+        if (categoryOfCarrier != null) {
+            e.supplierCategoryId = categoryOfCarrier.id;
+            e.supplierCategoryName = categoryOfCarrier.name;
+        }
         if (delegate != null) {
             e.delegateSupplierId = delegate.id;
             e.delegateName = delegate.name;
@@ -194,6 +231,23 @@ public class ProducerPurchaseService {
             e.collectorAdvanceId = advance.id;
         }
 
+        // 1 bis) Retenues sur les crédits : décrément atomique par
+        //    engagement, avant l'écriture, pour qu'un solde insuffisant
+        //    arrête l'opération avant tout effet de bord.
+        List<MemberCreditEntity> imputedCredits = new java.util.ArrayList<>();
+        try {
+            for (ProducerPurchaseUpsertDto.CreditImputationDto imputation : imputations) {
+                imputedCredits.add(memberCredits.impute(
+                        imputation.creditId(), imputation.amountFcfa(), m.id));
+            }
+        } catch (RuntimeException ex) {
+            for (int i = 0; i < imputedCredits.size(); i++) {
+                memberCredits.creditBack(imputedCredits.get(i).id, imputations.get(i).amountFcfa());
+            }
+            if (advance != null) advances.creditBack(advance.id, imputed);
+            throw ex;
+        }
+
         // 2) Écriture EN PREMIER : échoue tôt (période close, pièce déséquilibrée)
         //    avant tout mouvement de stock. En cas d'échec, on recrédite l'avance.
         List<AccountingService.PurchaseLeg> credits = new java.util.ArrayList<>();
@@ -206,11 +260,22 @@ public class ProducerPurchaseService {
                     accounting.treasuryAccountFor(p.paymentMethod()),
                     "Règlement achat " + e.ref, paid));
         }
-        BigDecimal remainder = amount.subtract(paid);
-        if (remainder.signum() > 0) {
+        if (creditImputed.signum() > 0) {
             credits.add(new AccountingService.PurchaseLeg(
-                    prefs.producerPayableAccount(),
-                    "Reliquat dû à " + e.producerName, remainder));
+                    prefs.memberCreditAccount(),
+                    "Remboursement crédit " + e.producerName, creditImputed));
+        }
+        // Reliquat : la coopérative doit encore. À qui, dépend de qui a
+        // apporté la matière. Le délégué a déjà payé le producteur sur son
+        // avance ; c'est lui le créancier, et c'est son compte que le
+        // règlement viendra solder.
+        BigDecimal remainder = amount.subtract(paid).subtract(creditImputed);
+        if (remainder.signum() > 0) {
+            credits.add(delegate != null
+                    ? new AccountingService.PurchaseLeg(prefs.delegatePayableAccount(),
+                            "Reliquat dû à " + delegate.name, remainder)
+                    : new AccountingService.PurchaseLeg(prefs.producerPayableAccount(),
+                            "Reliquat dû à " + e.producerName, remainder));
         }
         AccountingService.PurchaseLeg marginCharge = null;
         AccountingService.PurchaseLeg marginCredit = null;
@@ -226,6 +291,9 @@ public class ProducerPurchaseService {
                     .ifPresent(piece -> e.pieceRef = piece.ref);
         } catch (RuntimeException ex) {
             if (advance != null) advances.creditBack(advance.id, imputed);
+            for (int i = 0; i < imputedCredits.size(); i++) {
+                memberCredits.creditBack(imputedCredits.get(i).id, imputations.get(i).amountFcfa());
+            }
             throw ex;
         }
 
@@ -244,6 +312,13 @@ public class ProducerPurchaseService {
         e.movementRef = e.ref;
 
         repo.insert(e);
+
+        // Journal des retenues, une fois la livraison acquise : elle est la
+        // pièce que le producteur peut venir contester.
+        for (int i = 0; i < imputedCredits.size(); i++) {
+            memberCredits.recordImputation(imputedCredits.get(i), e.id, e.ref, e.date,
+                    imputations.get(i).amountFcfa(), imputations.get(i).notes());
+        }
 
         audit.event(AuditEventType.PRODUCER_PURCHASE_CREATED)
                 .actorEmail(actor())
@@ -371,35 +446,28 @@ public class ProducerPurchaseService {
      * tenant. Le taux du délégué prime sur celui du tenant : sur le
      * terrain, deux délégués ne sont pas payés pareil.
      */
-    static BigDecimal delegateMargin(TenantPreferences prefs, SupplierEntity delegate,
-                                             BigDecimal weight, BigDecimal amount) {
-        String mode = prefs.delegateMarginMode();
-        if (TenantPreferences.DELEGATE_MARGIN_NONE.equals(mode)) return BigDecimal.ZERO;
-        BigDecimal rate = delegate.collectorMarginRate != null
-                ? delegate.collectorMarginRate : prefs.delegateMarginRate();
-        if (rate == null || rate.signum() <= 0) return BigDecimal.ZERO;
-        if (TenantPreferences.DELEGATE_MARGIN_PER_KG.equals(mode)) {
-            return weight.multiply(rate).setScale(2, RoundingMode.HALF_UP);
-        }
-        return amount.multiply(rate)
-                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-    }
 
     /**
      * Montant réellement remis au producteur. Sans l'option de paiement
      * partiel, le montant dû est réputé payé : un reliquat ne peut pas
      * apparaître par simple oubli de saisie.
      */
+    /**
+     * Montant réellement remis au producteur, sur ce qui lui revient une
+     * fois les retenues déduites. Sans l'option de paiement partiel, ce
+     * solde est réputé versé : un reliquat ne peut pas apparaître par
+     * simple oubli de saisie.
+     */
     private static BigDecimal resolvePaid(TenantPreferences prefs, ProducerPurchaseUpsertDto p,
-                                          BigDecimal amount) {
-        if (!prefs.producerPartialPaymentEnabled() || p.amountPaidFcfa() == null) return amount;
+                                          BigDecimal payable) {
+        if (!prefs.producerPartialPaymentEnabled() || p.amountPaidFcfa() == null) return payable;
         BigDecimal paid = p.amountPaidFcfa();
         if (paid.signum() < 0) {
             throw new BusinessException("Montant payé négatif.");
         }
-        if (paid.compareTo(amount) > 0) {
-            throw new BusinessException("Montant payé (" + paid + ") supérieur au montant dû ("
-                    + amount + ").");
+        if (paid.compareTo(payable) > 0) {
+            throw new BusinessException("Montant payé (" + paid
+                    + ") supérieur au solde dû après retenues (" + payable + ").");
         }
         return paid;
     }

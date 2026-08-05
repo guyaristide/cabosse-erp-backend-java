@@ -71,7 +71,11 @@ public class TenantPreferencesService {
                 p.delegateMarginAccount(),
                 p.producerPartialPaymentEnabled(),
                 p.producerPayableAccount(),
-                p.producerReferenceCodeType
+                p.delegatePayableAccount(),
+                p.producerReferenceCodeType,
+                p.memberCreditApprovalThresholdFcfa(),
+                p.memberCreditAccount(),
+                p.cashDiscrepancyAccount()
         );
     }
 
@@ -302,6 +306,13 @@ public class TenantPreferencesService {
                     "to", payload.producerPayableAccount()));
             t.preferences.producerPayableAccount = payload.producerPayableAccount().trim();
         }
+        if (payload.delegatePayableAccount() != null && !payload.delegatePayableAccount().isBlank()
+                && !payload.delegatePayableAccount().equals(t.preferences.delegatePayableAccount())) {
+            diffs.put("delegatePayableAccount", Map.of(
+                    "from", t.preferences.delegatePayableAccount(),
+                    "to", payload.delegatePayableAccount()));
+            t.preferences.delegatePayableAccount = payload.delegatePayableAccount().trim();
+        }
 
         if (payload.producerReferenceCodeType() != null
                 && !payload.producerReferenceCodeType().trim()
@@ -312,6 +323,32 @@ public class TenantPreferencesService {
             t.preferences.producerReferenceCodeType =
                     payload.producerReferenceCodeType().isBlank()
                             ? null : payload.producerReferenceCodeType().trim();
+        }
+
+        if (payload.memberCreditApprovalThresholdFcfa() != null
+                && payload.memberCreditApprovalThresholdFcfa()
+                        .compareTo(t.preferences.memberCreditApprovalThresholdFcfa()) != 0) {
+            diffs.put("memberCreditApprovalThresholdFcfa", Map.of(
+                    "from", t.preferences.memberCreditApprovalThresholdFcfa(),
+                    "to", payload.memberCreditApprovalThresholdFcfa()));
+            t.preferences.memberCreditApprovalThresholdFcfa =
+                    payload.memberCreditApprovalThresholdFcfa();
+        }
+
+        if (payload.memberCreditAccount() != null && !payload.memberCreditAccount().isBlank()
+                && !payload.memberCreditAccount().equals(t.preferences.memberCreditAccount())) {
+            diffs.put("memberCreditAccount", Map.of(
+                    "from", t.preferences.memberCreditAccount(),
+                    "to", payload.memberCreditAccount()));
+            t.preferences.memberCreditAccount = payload.memberCreditAccount().trim();
+        }
+
+        if (payload.cashDiscrepancyAccount() != null && !payload.cashDiscrepancyAccount().isBlank()
+                && !payload.cashDiscrepancyAccount().equals(t.preferences.cashDiscrepancyAccount())) {
+            diffs.put("cashDiscrepancyAccount", Map.of(
+                    "from", t.preferences.cashDiscrepancyAccount(),
+                    "to", payload.cashDiscrepancyAccount()));
+            t.preferences.cashDiscrepancyAccount = payload.cashDiscrepancyAccount().trim();
         }
 
         if (!diffs.isEmpty()) {

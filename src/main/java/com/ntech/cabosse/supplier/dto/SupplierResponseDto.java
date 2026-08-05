@@ -14,14 +14,21 @@ public record SupplierResponseDto(
         String addressLine, String cityName, String countryCode,
         String contactName, String paymentTerms, String notes,
         boolean collector, UUID sectionId, java.math.BigDecimal collectorMarginRate,
+        UUID categoryId, String categoryName,
         boolean active, Instant createdAt, Instant updatedAt
 ) {
     public static SupplierResponseDto from(SupplierEntity e) {
+        return from(e, null);
+    }
+
+    /** Variante nommant la catégorie, quand le référentiel est déjà chargé. */
+    public static SupplierResponseDto from(SupplierEntity e, String categoryName) {
         return new SupplierResponseDto(
                 e.id, e.code, e.name, e.legalName, e.taxNumber,
                 e.email, e.phone, e.addressLine, e.cityName, e.countryCode,
                 e.contactName, e.paymentTerms, e.notes,
                 e.collector, e.sectionId, e.collectorMarginRate,
+                e.categoryId, categoryName,
                 e.active, e.createdAt, e.updatedAt
         );
     }

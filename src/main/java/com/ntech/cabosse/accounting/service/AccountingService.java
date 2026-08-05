@@ -340,6 +340,98 @@ public class AccountingService {
      * compte d'avances (4091 paramétrable), crédit de la trésorerie.
      * Idempotent sur {@code (COLLECTOR_ADVANCE, advanceId)}.
      */
+    /**
+     * Décaissement d'un crédit ou d'une avance à un producteur membre :
+     * débit du compte de créance sur le producteur, crédit de la
+     * trésorerie. Le remboursement, lui, se constate à la livraison, par
+     * une contrepartie sur ce même compte de créance.
+     */
+    /**
+     * Sortie de fonds vers un autre compte de trésorerie : le montant
+     * quitte le compte d'origine pour le compte de virements internes, où
+     * il reste tant que la réception n'est pas confirmée.
+     */
+    public Optional<JournalPieceEntity> postTreasuryTransferOut(
+            UUID transferId, String ref, String fromAccount, String fromLabel,
+            BigDecimal amount, LocalDate date) {
+        if (amount == null || amount.signum() <= 0) return Optional.empty();
+        List<JournalEntry> entries = List.of(
+                JournalEntry.debit(SyscohadaAccounts.VIREMENTS_INTERNES, "Fonds en transit " + ref, amount),
+                JournalEntry.credit(fromAccount, "Sortie " + nullSafe(fromLabel), amount));
+        return postPiece(new PostingRequest(
+                date != null ? date : LocalDate.now(),
+                PostingSourceType.TREASURY_TRANSFER, transferId, ref,
+                "Transport de fonds " + ref + " : sortie", entries));
+    }
+
+    /**
+     * Réception des fonds. Le compte de virements internes se solde du
+     * montant parti ; si l'arrivée diffère, l'écart est constaté
+     * immédiatement, faute de quoi le compte de passage traînerait un
+     * résidu que personne ne saurait plus expliquer à la clôture.
+     */
+    public Optional<JournalPieceEntity> postTreasuryTransferIn(
+            UUID transferId, String ref, String toAccount, String toLabel,
+            BigDecimal sent, BigDecimal received, String discrepancyAccount, LocalDate date) {
+        if (sent == null || sent.signum() <= 0) return Optional.empty();
+        BigDecimal receivedAmount = received != null ? received : sent;
+        BigDecimal gap = receivedAmount.subtract(sent);
+        List<JournalEntry> entries = new ArrayList<>();
+        if (receivedAmount.signum() > 0) {
+            entries.add(JournalEntry.debit(toAccount, "Entrée " + nullSafe(toLabel), receivedAmount));
+        }
+        if (gap.signum() < 0) {
+            entries.add(JournalEntry.debit(discrepancyAccount,
+                    "Manquant sur transport " + ref, gap.negate()));
+        }
+        entries.add(JournalEntry.credit(SyscohadaAccounts.VIREMENTS_INTERNES,
+                "Fonds reçus " + ref, sent));
+        if (gap.signum() > 0) {
+            entries.add(JournalEntry.credit(discrepancyAccount,
+                    "Excédent sur transport " + ref, gap));
+        }
+        return postPiece(new PostingRequest(
+                date != null ? date : LocalDate.now(),
+                PostingSourceType.TREASURY_TRANSFER_IN, transferId, ref + "-R",
+                "Transport de fonds " + ref + " : réception", entries));
+    }
+
+    /**
+     * Régularisation d'un écart de caisse constaté au comptage. L'écriture
+     * aligne la comptabilité sur ce qui est physiquement présent.
+     */
+    public Optional<JournalPieceEntity> postFromCashCount(
+            UUID countId, String ref, String cashAccount, String cashLabel,
+            BigDecimal discrepancy, String discrepancyAccount, LocalDate date) {
+        if (discrepancy == null || discrepancy.signum() == 0) return Optional.empty();
+        List<JournalEntry> entries = discrepancy.signum() < 0
+                ? List.of(
+                        JournalEntry.debit(discrepancyAccount, "Manquant de caisse " + ref,
+                                discrepancy.negate()),
+                        JournalEntry.credit(cashAccount, nullSafe(cashLabel), discrepancy.negate()))
+                : List.of(
+                        JournalEntry.debit(cashAccount, nullSafe(cashLabel), discrepancy),
+                        JournalEntry.credit(discrepancyAccount, "Excédent de caisse " + ref, discrepancy));
+        return postPiece(new PostingRequest(
+                date != null ? date : LocalDate.now(),
+                PostingSourceType.CASH_COUNT, countId, ref,
+                "Point de caisse " + ref + " : régularisation", entries));
+    }
+
+    public Optional<JournalPieceEntity> postFromMemberCredit(
+            UUID creditId, String ref, String memberName,
+            String creditAccount, String treasuryAccount,
+            BigDecimal amount, LocalDate date) {
+        if (amount == null || amount.signum() <= 0) return Optional.empty();
+        List<JournalEntry> entries = List.of(
+                JournalEntry.debit(creditAccount, "Créance sur " + nullSafe(memberName), amount),
+                JournalEntry.credit(treasuryAccount, "Décaissement " + ref, amount));
+        return postPiece(new PostingRequest(
+                date != null ? date : LocalDate.now(),
+                PostingSourceType.MEMBER_CREDIT, creditId, ref,
+                "Crédit producteur " + ref + " : " + nullSafe(memberName), entries));
+    }
+
     public Optional<JournalPieceEntity> postFromCollectorAdvance(
             UUID advanceId, String ref, String delegateLabel, BigDecimal amount,
             com.ntech.cabosse.reception.entity.PaymentMethod method, LocalDate date) {
@@ -408,6 +500,29 @@ public class AccountingService {
                 date != null ? date : LocalDate.now(),
                 PostingSourceType.PRODUCER_PURCHASE, purchaseId, ref,
                 "Achat producteur " + ref, entries));
+    }
+
+    /**
+     * Règlement d'une ou plusieurs livraisons producteur : débit du compte
+     * de dette constitué au reçu, crédit de la trésorerie selon le mode de
+     * paiement.
+     *
+     * <p>Une livraison peut se régler en plusieurs fois : chaque versement
+     * porte sa propre pièce, et le compte de dette se solde par
+     * accumulation. Rien ne se compense en silence.</p>
+     */
+    public Optional<JournalPieceEntity> postFromProducerPayment(
+            UUID paymentId, String ref, String beneficiaryName, String debtAccount,
+            com.ntech.cabosse.reception.entity.PaymentMethod method,
+            BigDecimal amount, LocalDate date) {
+        if (amount == null || amount.signum() <= 0) return Optional.empty();
+        List<JournalEntry> entries = List.of(
+                JournalEntry.debit(debtAccount, "Solde dû à " + nullSafe(beneficiaryName), amount),
+                JournalEntry.credit(treasuryAccountFor(method), "Règlement " + ref, amount));
+        return postPiece(new PostingRequest(
+                date != null ? date : LocalDate.now(),
+                PostingSourceType.PRODUCER_PAYMENT, paymentId, ref,
+                "Règlement " + ref + " : " + nullSafe(beneficiaryName), entries));
     }
 
     /**

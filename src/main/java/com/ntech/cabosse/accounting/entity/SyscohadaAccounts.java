@@ -96,6 +96,12 @@ public final class SyscohadaAccounts {
     public static final String BANQUE_DEFAULT = "521000";
     /** Caisse — espèces par défaut (57x AUDCIF, réf. jeux d'écritures v7). */
     public static final String CAISSE_DEFAULT = "571000";
+    /**
+     * Virements de fonds : compte de passage entre deux comptes de
+     * trésorerie. Sans lui, un retrait parti le matin et reçu le soir
+     * ferait disparaître la somme d'un jour à l'autre.
+     */
+    public static final String VIREMENTS_INTERNES = "585000";
 
     /**
      * Résout le compte de charge à débiter pour une ligne d'achat selon

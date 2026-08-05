@@ -123,9 +123,23 @@ public record TenantPreferencesDto(
         @Schema(description = "Compte de dette envers les producteurs (reliquats de paiement).",
                 example = "401100", defaultValue = "401100")
         String producerPayableAccount,
+        String delegatePayableAccount,
 
         @Schema(description = "Type de code externe producteur qui fait référence (ex. « Code CCC »).",
                 example = "Code CCC")
-        String producerReferenceCodeType
+        String producerReferenceCodeType,
+
+        @Schema(description = "Montant à partir duquel un crédit producteur exige l'approbation "
+                + "de l'organe de gouvernance. Zéro : aucune approbation imposée.",
+                example = "500000", defaultValue = "0")
+        java.math.BigDecimal memberCreditApprovalThresholdFcfa,
+
+        @Schema(description = "Compte de créance sur les producteurs (crédits et avances).",
+                example = "409200", defaultValue = "409200")
+        String memberCreditAccount,
+
+        @Schema(description = "Compte où se constate un écart de trésorerie (manquant de transport "
+                + "ou de caisse).", example = "658800", defaultValue = "658800")
+        String cashDiscrepancyAccount
 
 ) {}

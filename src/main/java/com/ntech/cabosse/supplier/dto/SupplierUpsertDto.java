@@ -36,5 +36,7 @@ public record SupplierUpsertDto(
         java.util.UUID sectionId,
         /** Taux de rémunération propre au délégué. Vide : taux du tenant. */
         @jakarta.validation.constraints.DecimalMin(value = "0", message = "Taux négatif interdit")
-        java.math.BigDecimal collectorMarginRate
+        java.math.BigDecimal collectorMarginRate,
+        /** Catégorie de reprise (backlog ACH-07). Vide : aucune. */
+        java.util.UUID categoryId
 ) {}

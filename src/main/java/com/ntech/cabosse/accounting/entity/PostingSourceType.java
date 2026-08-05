@@ -45,6 +45,18 @@ public enum PostingSourceType {
     /** Opération diverse saisie manuellement puis validée (backlog CPT-07). */
     MANUAL_ENTRY,
     /** Avance de fonds à un délégué collecteur (backlog ACH-02). */
+    /** Décaissement d'un crédit ou d'une avance à un producteur membre. */
+    MEMBER_CREDIT,
+
+    /** Sortie de fonds vers un autre compte de trésorerie. */
+    TREASURY_TRANSFER,
+
+    /** Réception des fonds transportés. */
+    TREASURY_TRANSFER_IN,
+
+    /** Régularisation d'un écart constaté au comptage de caisse. */
+    CASH_COUNT,
+
     COLLECTOR_ADVANCE,
     /** Contre-passation d'une avance délégué. */
     COLLECTOR_ADVANCE_REVERSAL,
@@ -69,5 +81,7 @@ public enum PostingSourceType {
     /** Achat de matière première au producteur membre (reçu, backlog NEG-01). */
     PRODUCER_PURCHASE,
     /** Vente de cacao en gros / export (backlog NEG-02). */
-    CACAO_SALE
+    CACAO_SALE,
+    /** Règlement versé à un fournisseur au titre de ses livraisons. */
+    PRODUCER_PAYMENT
 }

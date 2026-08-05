@@ -55,5 +55,23 @@ public record ProducerPurchaseUpsertDto(
         UUID delegateSupplierId,
 
         /** Bordereau de livraison (regroupement). Attribué à l'import. */
-        @Size(max = 40) String deliveryRef
-) {}
+        @Size(max = 40) String deliveryRef,
+
+        /**
+         * Retenues décidées sur cette livraison au titre des crédits et
+         * avances du producteur. Rien n'est retenu d'office : c'est une
+         * personne qui fixe, engagement par engagement, ce qu'elle prélève.
+         */
+        java.util.List<@jakarta.validation.Valid CreditImputationDto> creditImputations
+) {
+
+    /** Retenue sur un engagement précis. */
+    @Schema(description = "Retenue décidée au titre d'un crédit ou d'une avance")
+    public record CreditImputationDto(
+            @NotNull(message = "Engagement requis") UUID creditId,
+            @NotNull(message = "Montant requis")
+            @DecimalMin(value = "0", inclusive = false, message = "Montant > 0 requis")
+            BigDecimal amountFcfa,
+            @Size(max = 500) String notes
+    ) {}
+}

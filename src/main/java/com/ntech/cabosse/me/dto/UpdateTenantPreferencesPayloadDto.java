@@ -139,9 +139,24 @@ public record UpdateTenantPreferencesPayloadDto(
                 message = "Compte de dette producteur : 2 à 8 chiffres")
         @Schema(description = "Compte de dette envers les producteurs (reliquats).")
         String producerPayableAccount,
+        String delegatePayableAccount,
 
         @jakarta.validation.constraints.Size(max = 60, message = "Type de code trop long")
         @Schema(description = "Type de code externe producteur qui fait référence.")
-        String producerReferenceCodeType
+        String producerReferenceCodeType,
+
+        @jakarta.validation.constraints.DecimalMin(value = "0", message = "Seuil négatif interdit")
+        @Schema(description = "Seuil d'approbation de gouvernance des crédits producteurs.")
+        java.math.BigDecimal memberCreditApprovalThresholdFcfa,
+
+        @jakarta.validation.constraints.Pattern(regexp = "^$|^[0-9]{2,8}$",
+                message = "Compte de créance : 2 à 8 chiffres")
+        @Schema(description = "Compte de créance sur les producteurs.")
+        String memberCreditAccount,
+
+        @jakarta.validation.constraints.Pattern(regexp = "^$|^[0-9]{2,8}$",
+                message = "Compte d'écart de trésorerie : 2 à 8 chiffres")
+        @Schema(description = "Compte où se constate un écart de trésorerie.")
+        String cashDiscrepancyAccount
 
 ) {}

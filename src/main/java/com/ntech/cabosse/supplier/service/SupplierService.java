@@ -9,6 +9,7 @@ import com.ntech.cabosse.shared.exception.ConflictException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.supplier.dto.SupplierResponseDto;
+import com.ntech.cabosse.supplier.dto.SupplierDuplicateDto;
 import com.ntech.cabosse.supplier.dto.SupplierUpsertDto;
 import com.ntech.cabosse.supplier.entity.SupplierEntity;
 import com.ntech.cabosse.supplier.repository.SupplierRepository;
@@ -30,6 +31,7 @@ public class SupplierService {
     @Inject SupplierRepository repo;
     @Inject TenantContext tenantContext;
     @Inject AuditService audit;
+    @Inject com.ntech.cabosse.suppliercategory.repository.SupplierCategoryRepository categories;
     @Inject JsonWebToken jwt;
 
     private String actor() {
@@ -38,13 +40,15 @@ public class SupplierService {
 
     /** Liste complète, réservée aux exports — l'API de liste passe par {@link #page}. */
     public List<SupplierResponseDto> list() {
-        return repo.listAll().stream().map(SupplierResponseDto::from).toList();
+        var refs = categories.byId();
+        return repo.listAll().stream().map(e -> SupplierResponseDto.from(e, categoryName(refs, e))).toList();
     }
 
     public Pagination<SupplierResponseDto> page(String q, PageRequest pr) {
         long total = repo.countSearch(q);
+        var refs = categories.byId();
         List<SupplierResponseDto> items = repo.search(q, pr.skip(), pr.perPage()).stream()
-                .map(SupplierResponseDto::from)
+                .map(e -> SupplierResponseDto.from(e, categoryName(refs, e)))
                 .toList();
         java.util.Map<String, String> filters = new java.util.HashMap<>();
         if (q != null && !q.isBlank()) filters.put("q", q.trim());
@@ -52,10 +56,36 @@ public class SupplierService {
     }
 
     public SupplierResponseDto getById(UUID id) {
-        return SupplierResponseDto.from(repo.findById(id).orElseThrow(
-                () -> new NotFoundException("Fournisseur " + id + " introuvable.")));
+        SupplierEntity e = repo.findById(id).orElseThrow(
+                () -> new NotFoundException("Fournisseur " + id + " introuvable."));
+        return SupplierResponseDto.from(e, categoryName(categories.byId(), e));
     }
 
+    private static String categoryName(
+            java.util.Map<UUID, com.ntech.cabosse.suppliercategory.entity.SupplierCategoryEntity> refs,
+            SupplierEntity e) {
+        if (e.categoryId == null) return null;
+        var ref = refs.get(e.categoryId);
+        return ref != null ? ref.name : null;
+    }
+
+    @Inject SupplierDuplicateDetector duplicates;
+
+    /**
+     * Fournisseurs déjà enregistrés proches de cette identité (EF-03).
+     * Consultée à la saisie, et de nouveau à la création pour que la règle
+     * ne dépende pas de l'écran qui appelle.
+     */
+    public List<SupplierDuplicateDto> findDuplicates(String name, String phone,
+                                                     String cityName, UUID excludeId) {
+        return duplicates.search(name, phone, cityName, excludeId);
+    }
+
+    /**
+     * Création sans contrôle de doublon. Réservée aux flux qui font leur
+     * propre rapprochement (imports de masse, miroir d'un producteur) :
+     * leur imposer une confirmation interactive n'aurait pas de sens.
+     */
     public SupplierResponseDto create(SupplierUpsertDto p) {
         String code = (p.code() != null && !p.code().isBlank()) ? p.code().trim() : slugify(p.name());
         if (repo.codeExists(code)) {
@@ -129,6 +159,12 @@ public class SupplierService {
         e.collector = p.collector() != null && p.collector();
         e.sectionId = e.collector ? p.sectionId() : null;
         e.collectorMarginRate = e.collector ? p.collectorMarginRate() : null;
+        // La catégorie classe le fournisseur quelle que soit sa qualité :
+        // un planteur qui livre en direct en a une comme un délégué.
+        if (p.categoryId() != null && categories.findById(p.categoryId()).isEmpty()) {
+            throw new NotFoundException("Catégorie de fournisseur " + p.categoryId() + " introuvable.");
+        }
+        e.categoryId = p.categoryId();
     }
 
     private void auditEvt(SupplierEntity e, String action) {

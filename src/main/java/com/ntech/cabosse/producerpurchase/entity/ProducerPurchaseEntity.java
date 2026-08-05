@@ -87,6 +87,12 @@ public class ProducerPurchaseEntity {
     public UUID payerMemberId;
     public String payerName;
 
+    /**
+     * Total retenu sur cette livraison au titre des crédits et avances du
+     * producteur. Ce montant ne lui est pas versé : il rembourse sa dette.
+     */
+    public BigDecimal creditImputedFcfa;
+
     /** Délégué collecteur dont le compte courant porte ce reçu (ACH-02). */
     public UUID delegateSupplierId;
     public String delegateName;
@@ -96,6 +102,15 @@ public class ProducerPurchaseEntity {
      * à ce que la coopérative lui doit, donc réduit d'autant sa dette.
      */
     public BigDecimal delegateMarginFcfa;
+
+    /**
+     * Catégorie de reprise de l'apporteur, figée au reçu : le délégué s'il
+     * y en a un, sinon le producteur lui-même. Figée, parce qu'un
+     * fournisseur qui change de catégorie en cours de campagne ne doit pas
+     * réécrire ce que ses apports passés ont coûté.
+     */
+    public UUID supplierCategoryId;
+    public String supplierCategoryName;
 
     /**
      * Bordereau de livraison : les reçus qu'un délégué apporte en une fois.

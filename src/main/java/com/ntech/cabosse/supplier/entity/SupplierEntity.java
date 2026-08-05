@@ -53,6 +53,13 @@ public class SupplierEntity {
      */
     public java.math.BigDecimal collectorMarginRate;
 
+    /**
+     * Catégorie de reprise du fournisseur (backlog ACH-07). {@code null} :
+     * le fournisseur n'est rattaché à aucune catégorie et suit le réglage
+     * du tenant.
+     */
+    public UUID categoryId;
+
     public boolean active = true;
 
     public Instant createdAt;

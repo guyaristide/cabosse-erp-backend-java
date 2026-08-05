@@ -167,7 +167,11 @@ public final class TenantMapper {
                 entity.preferences.delegateMarginAccount(),
                 entity.preferences.producerPartialPaymentEnabled(),
                 entity.preferences.producerPayableAccount(),
-                entity.preferences.producerReferenceCodeType
+                entity.preferences.delegatePayableAccount(),
+                entity.preferences.producerReferenceCodeType,
+                entity.preferences.memberCreditApprovalThresholdFcfa(),
+                entity.preferences.memberCreditAccount(),
+                entity.preferences.cashDiscrepancyAccount()
         );
     }
 

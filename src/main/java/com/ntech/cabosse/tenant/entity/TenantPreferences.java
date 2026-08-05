@@ -393,12 +393,66 @@ public class TenantPreferences {
      */
     public String producerReferenceCodeType;
 
+    /**
+     * Montant à partir duquel un crédit ou une avance à un producteur exige
+     * l'approbation de l'organe de gouvernance, en plus de celle de la
+     * direction. En dessous, la direction tranche seule : faire remonter au
+     * conseil une avance de carburant paralyserait le terrain. Zéro : aucune
+     * approbation de gouvernance n'est imposée.
+     */
+    public java.math.BigDecimal memberCreditApprovalThresholdFcfa;
+
+    public java.math.BigDecimal memberCreditApprovalThresholdFcfa() {
+        return memberCreditApprovalThresholdFcfa != null
+                ? memberCreditApprovalThresholdFcfa : java.math.BigDecimal.ZERO;
+    }
+
+    /**
+     * Compte de créance sur les producteurs au titre des crédits et avances.
+     * Distinct du compte d'avance aux délégués : mélanger les deux rendrait
+     * la balance illisible pour le cabinet. Défaut « 409200 ».
+     */
+    public String memberCreditAccount;
+
+    public String memberCreditAccount() {
+        return memberCreditAccount == null || memberCreditAccount.isBlank()
+                ? "409200" : memberCreditAccount;
+    }
+
+    /**
+     * Compte où se constate un écart de trésorerie : manquant à l'arrivée
+     * d'un transport de fonds, ou différence entre la caisse comptée et le
+     * solde attendu. Défaut « 658800 » (charges diverses). Un excédent y
+     * est porté au crédit.
+     */
+    public String cashDiscrepancyAccount;
+
+    public String cashDiscrepancyAccount() {
+        return cashDiscrepancyAccount == null || cashDiscrepancyAccount.isBlank()
+                ? "658800" : cashDiscrepancyAccount;
+    }
+
     /** Compte de dette envers les producteurs (reliquats). Défaut « 401100 ». */
     public String producerPayableAccount;
 
     public String producerPayableAccount() {
         return producerPayableAccount == null || producerPayableAccount.isBlank()
                 ? "401100" : producerPayableAccount;
+    }
+
+    /**
+     * Compte de dette envers les délégués collecteurs. Défaut « 401200 ».
+     *
+     * <p>Distinct du compte producteur : une livraison apportée par un
+     * délégué est due au délégué, qui a déjà payé le producteur. Les
+     * confondre rendrait impossible de dire à qui la coopérative doit
+     * l'argent, et le règlement solderait la mauvaise dette.</p>
+     */
+    public String delegatePayableAccount;
+
+    public String delegatePayableAccount() {
+        return delegatePayableAccount == null || delegatePayableAccount.isBlank()
+                ? "401200" : delegatePayableAccount;
     }
 
     /** {@code true} : site imposé au reçu ; {@code false} (défaut) : site actif surchargeable. */

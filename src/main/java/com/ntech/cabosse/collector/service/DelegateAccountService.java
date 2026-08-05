@@ -36,6 +36,7 @@ public class DelegateAccountService {
     @Inject SectionRepository sections;
     @Inject CollectorAdvanceRepository advances;
     @Inject ProducerPurchaseRepository purchases;
+    @Inject com.ntech.cabosse.producerpayment.repository.ProducerPaymentRepository payments;
 
     public DelegateAccountDto account(UUID delegateSupplierId, UUID campaignId) {
         SupplierEntity delegate = suppliers.findById(delegateSupplierId).orElseThrow(
@@ -58,14 +59,22 @@ public class DelegateAccountService {
             margin = margin.add(nz(r.delegateMarginFcfa));
         }
 
+        // Ce que la coopérative lui a versé en règlement : des fonds
+        // sortis vers lui, exactement comme une avance.
+        List<com.ntech.cabosse.producerpayment.entity.ProducerPaymentEntity> settlements =
+                payments.listForDelegate(delegateSupplierId);
+        BigDecimal paid = settlements.stream()
+                .map(s -> nz(s.totalAmountFcfa)).reduce(BigDecimal.ZERO, BigDecimal::add);
+
         return new DelegateAccountDto(
                 delegate.id, delegate.code, delegate.name,
                 delegate.sectionId,
                 delegate.sectionId != null
                         ? sections.findById(delegate.sectionId).map(s -> s.name).orElse(null) : null,
-                advanced, delivered, margin,
-                advanced.subtract(delivered).subtract(margin),
+                advanced, delivered, margin, paid,
+                advanced.add(paid).subtract(delivered).subtract(margin),
                 all.stream().map(DelegateAccountService::advanceLine).toList(),
+                settlements.stream().map(DelegateAccountService::paymentLine).toList(),
                 groupByDeliveryNote(receipts));
     }
 
@@ -73,6 +82,14 @@ public class DelegateAccountService {
         return new DelegateAccountDto.AdvanceLine(
                 a.id, a.ref, a.advanceDate, nz(a.advanceAmountFcfa), nz(a.remainingFcfa),
                 a.status != null ? a.status.name() : null);
+    }
+
+    private static DelegateAccountDto.PaymentLine paymentLine(
+            com.ntech.cabosse.producerpayment.entity.ProducerPaymentEntity p) {
+        return new DelegateAccountDto.PaymentLine(
+                p.id, p.ref, p.date, nz(p.totalAmountFcfa),
+                p.paymentMethod != null ? p.paymentMethod.name() : null,
+                p.paymentRef, p.allocations != null ? p.allocations.size() : 0);
     }
 
     /**

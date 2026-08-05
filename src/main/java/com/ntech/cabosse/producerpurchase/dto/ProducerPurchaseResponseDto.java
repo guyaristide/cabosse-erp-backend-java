@@ -33,6 +33,8 @@ public record ProducerPurchaseResponseDto(
         BigDecimal guaranteedPricePerKgFcfa,
         BigDecimal amountFcfa,
         BigDecimal amountPaidFcfa,
+        /** Total retenu sur cette livraison au titre des crédits du producteur. */
+        BigDecimal creditImputedFcfa,
         /** Reliquat dû au producteur = montant dû moins montant payé. */
         BigDecimal remainderFcfa,
         PaymentMethod paymentMethod,
@@ -42,6 +44,9 @@ public record ProducerPurchaseResponseDto(
         UUID delegateSupplierId,
         String delegateName,
         BigDecimal delegateMarginFcfa,
+        /** Catégorie de reprise de l'apporteur, figée au reçu. */
+        UUID supplierCategoryId,
+        String supplierCategoryName,
         String deliveryRef,
         UUID collectorAdvanceId,
         String movementRef,
@@ -57,9 +62,10 @@ public record ProducerPurchaseResponseDto(
                 e.articleId, e.articleCode, e.articleName, e.articleUnit,
                 e.siteId, e.campaignId, e.campaignYear,
                 e.nbSacs, e.weightKg, e.guaranteedPricePerKgFcfa, e.amountFcfa,
-                paid(e), remainder(e),
+                paid(e), nz(e.creditImputedFcfa), remainder(e),
                 e.paymentMethod, e.paymentRef, e.payerMemberId, e.payerName,
                 e.delegateSupplierId, e.delegateName, e.delegateMarginFcfa,
+                e.supplierCategoryId, e.supplierCategoryName,
                 e.deliveryRef, e.collectorAdvanceId,
                 e.movementRef, e.pieceRef, e.createdAt, e.updatedAt
         );
@@ -70,8 +76,16 @@ public record ProducerPurchaseResponseDto(
         return e.amountPaidFcfa != null ? e.amountPaidFcfa : e.amountFcfa;
     }
 
+    /**
+     * Reliquat dû au producteur : ce qui reste après le versement et les
+     * retenues. Une retenue n'est pas un impayé, c'est un remboursement.
+     */
     private static BigDecimal remainder(ProducerPurchaseEntity e) {
         if (e.amountFcfa == null) return BigDecimal.ZERO;
-        return e.amountFcfa.subtract(paid(e));
+        return e.amountFcfa.subtract(paid(e)).subtract(nz(e.creditImputedFcfa));
+    }
+
+    private static BigDecimal nz(BigDecimal v) {
+        return v != null ? v : BigDecimal.ZERO;
     }
 }

@@ -53,6 +53,7 @@ public class ProducerPurchaseImportService {
     @Inject CollectorAdvanceRepository advances;
     @Inject TenantPreferencesLookup preferences;
     @Inject ProducerPurchaseService purchaseService;
+    @Inject com.ntech.cabosse.suppliercategory.service.SupplierMarginResolver marginResolver;
     @Inject DeliveryNoteRefService deliveryNoteRefService;
 
     public ProducerPurchaseImportPreviewDto preview(List<ProducerPurchaseImportRowDto> input) {
@@ -202,7 +203,7 @@ public class ProducerPurchaseImportService {
 
             // Cumul de l'apurement, sur les seules lignes applicables.
             if (status != Status.INVALID && delegate != null && displayAmount != null && weight != null) {
-                BigDecimal margin = ProducerPurchaseService.delegateMargin(prefs, delegate, weight, displayAmount);
+                BigDecimal margin = marginResolver.resolve(prefs, delegate).on(weight, displayAmount);
                 balanceBefore.computeIfAbsent(delegate.id, this::openBalance);
                 running.merge(delegate.id, displayAmount.add(margin), BigDecimal::add);
                 perDelegate.computeIfAbsent(delegate.id, k -> new DelegateAccumulator(delegate.name))
@@ -315,7 +316,10 @@ public class ProducerPurchaseImportService {
                         null,
                         n.delegateSupplierId() == null ? blankToNull(raw.delegateName()) : null,
                         n.delegateSupplierId(),
-                        deliveryRef));
+                        deliveryRef,
+                        // L'import ne décide aucune retenue : elle se
+                        // discute avec le producteur, pas dans un fichier.
+                        null));
                 createdRefs.add(created.ref());
             } catch (RuntimeException e) {
                 skipped.add(new Row(row.rowNumber(), Status.INVALID, n,

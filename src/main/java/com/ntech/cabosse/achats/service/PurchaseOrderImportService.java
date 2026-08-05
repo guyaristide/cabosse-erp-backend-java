@@ -170,7 +170,8 @@ public class PurchaseOrderImportService {
                 /* notes */ null,
                 /* collector */ null,
                 /* sectionId */ null,
-                /* collectorMarginRate */ null
+                /* collectorMarginRate */ null,
+                /* categoryId */ null
         );
         var created = supplierService.create(create);
         return new ResolvedSupplier(created.id(), created.name(), true);

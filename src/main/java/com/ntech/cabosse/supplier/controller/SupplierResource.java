@@ -52,9 +52,45 @@ public class SupplierResource {
         return Response.ok(ApiResponse.ok(service.page(q, PageRequest.of(page, perPage)))).build();
     }
 
+    /**
+     * Fournisseurs existants proches d'une identité (EF-03). Interrogé
+     * pendant la saisie, avant que le code ne soit attribué.
+     */
+    @GET
+    @Path("/duplicates")
+    public Response duplicates(@QueryParam("name") String name,
+                               @QueryParam("phone") String phone,
+                               @QueryParam("cityName") String cityName,
+                               @QueryParam("excludeId") UUID excludeId) {
+        return Response.ok(ApiResponse.ok(
+                service.findDuplicates(name, phone, cityName, excludeId))).build();
+    }
+
+    /**
+     * Création d'un fournisseur. Refusée en {@code 409} tant que des
+     * fournisseurs proches n'ont pas été écartés explicitement, la réponse
+     * portant la liste de ceux qu'il faut regarder. Le contrôle vit ici
+     * plutôt que dans l'écran, pour qu'un doublon ne puisse pas entrer par
+     * une autre porte.
+     */
     @POST
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
-    public Response create(@Valid SupplierUpsertDto p) {
+    public Response create(@Valid SupplierUpsertDto p,
+                           @QueryParam("confirmDuplicate") @DefaultValue("false")
+                           boolean confirmDuplicate) {
+        if (!confirmDuplicate) {
+            var candidates = service.findDuplicates(p.name(), p.phone(), p.cityName(), null);
+            if (!candidates.isEmpty()) {
+                return Response.status(409)
+                        .entity(new ApiResponse<>(409,
+                                candidates.size() == 1
+                                        ? "Un fournisseur proche existe déjà : « "
+                                                + candidates.get(0).name() + " »."
+                                        : candidates.size() + " fournisseurs proches existent déjà.",
+                                candidates))
+                        .build();
+            }
+        }
         return Response.status(Response.Status.CREATED)
                 .entity(ApiResponse.created(service.create(p))).build();
     }
