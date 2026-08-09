@@ -61,7 +61,10 @@ public class M051_DelegateCurrentAccount {
             }
             if (p.get("delegateMarginFcfa") == null) {
                 // Aucune rémunération n'était constatée avant ce paramétrage.
-                updates.add(Updates.set("delegateMarginFcfa", 0));
+                // Le zéro doit être un décimal : un montant entier est
+                // illisible par le modèle, qui attend un Decimal128.
+                updates.add(Updates.set("delegateMarginFcfa",
+                        new org.bson.types.Decimal128(java.math.BigDecimal.ZERO)));
             }
             if (updates.isEmpty()) continue;
             ops.add(new UpdateOneModel<>(

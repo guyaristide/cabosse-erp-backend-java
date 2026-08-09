@@ -17,6 +17,14 @@ import io.mongock.api.annotations.RollbackExecution;
 @ChangeUnit(id = "create_producer_payments", order = "056", author = "neiba")
 public class M056_CreateProducerPayments {
 
+    /**
+     * Zéro décimal. Un {@code 0} entier produirait un montant que le
+     * modèle ne sait pas relire : le repli d'un {@code $ifNull} doit
+     * porter le même type que la valeur qu'il remplace.
+     */
+    private static final org.bson.types.Decimal128 ZERO =
+            new org.bson.types.Decimal128(java.math.BigDecimal.ZERO);
+
     @Execution
     public void execute(MongoDatabase database) {
         var payments = database.getCollection("producer_payments");
@@ -41,9 +49,10 @@ public class M056_CreateProducerPayments {
                 com.mongodb.client.model.Filters.exists("amountPaidFcfa", false),
                 java.util.List.of(new org.bson.Document("$set", new org.bson.Document(
                         "amountPaidFcfa", new org.bson.Document("$subtract", java.util.List.of(
-                                new org.bson.Document("$ifNull", java.util.List.of("$amountFcfa", 0)),
                                 new org.bson.Document("$ifNull",
-                                        java.util.List.of("$creditImputedFcfa", 0))))))));
+                                        java.util.List.of("$amountFcfa", ZERO)),
+                                new org.bson.Document("$ifNull",
+                                        java.util.List.of("$creditImputedFcfa", ZERO))))))));
     }
 
     @RollbackExecution
