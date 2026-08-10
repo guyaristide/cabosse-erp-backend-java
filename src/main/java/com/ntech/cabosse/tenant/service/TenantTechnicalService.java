@@ -119,7 +119,8 @@ public class TenantTechnicalService {
             new MigrationDescriptor("create_producer_payments", "056", "neiba"),
             new MigrationDescriptor("separate_delegate_payable", "057", "neiba"),
             new MigrationDescriptor("create_supplier_categories", "058", "neiba"),
-            new MigrationDescriptor("normalize_decimal_amounts", "059", "neiba")
+            new MigrationDescriptor("normalize_decimal_amounts", "059", "neiba"),
+            new MigrationDescriptor("repair_producer_ref_keys_index", "060", "neiba")
     );
 
     /** Fréquence de backup par plan tarifaire (cf. plans.json catalogue). */

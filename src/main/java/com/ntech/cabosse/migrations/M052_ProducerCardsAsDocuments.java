@@ -92,11 +92,30 @@ public class M052_ProducerCardsAsDocuments {
         boolean hasDuplicates = byKey.values().stream().anyMatch(names -> names.size() > 1);
         members.createIndex(
                 Indexes.ascending("producerRefKeys"),
-                new IndexOptions()
-                        .name(hasDuplicates ? "idx_members_producerRefKeys" : "uniq_members_producerRefKeys")
-                        .unique(!hasDuplicates)
-                        .sparse(true)
-                        .background(true));
+                producerRefKeysIndexOptions(hasDuplicates));
+    }
+
+    /**
+     * Options de l'index des clés de rapprochement producteur.
+     *
+     * <p>L'unicité ne peut pas porter sur tous les membres : un producteur
+     * sans carte a une liste vide, que Mongo indexe sous une clé
+     * {@code undefined} commune. Deux producteurs sans carte suffisaient
+     * alors à faire échouer la création de l'index, et avec elle toute la
+     * chaîne de migrations du tenant. {@code sparse} n'y change rien, la
+     * liste existe : elle est seulement vide.</p>
+     *
+     * <p>L'index ne couvre donc que les membres qui portent au moins une
+     * clé. C'est exactement la population sur laquelle l'unicité a un
+     * sens.</p>
+     */
+    static IndexOptions producerRefKeysIndexOptions(boolean hasDuplicates) {
+        return new IndexOptions()
+                .name(hasDuplicates ? "idx_members_producerRefKeys" : "uniq_members_producerRefKeys")
+                .unique(!hasDuplicates)
+                .partialFilterExpression(new Document("producerRefKeys.0",
+                        new Document("$exists", true)))
+                .background(true);
     }
 
     /**
