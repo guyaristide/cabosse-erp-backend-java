@@ -26,6 +26,7 @@ import com.ntech.cabosse.shared.api.Pagination;
 import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
+import com.ntech.cabosse.shared.exception.ConflictException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.tenant.TenantContext;
@@ -90,6 +91,13 @@ public class ProducerPurchaseService {
                 new java.util.HashMap<>(), items);
     }
 
+
+    /** Toutes les lignes du filtre courant, pour l'export. */
+    public List<ProducerPurchaseResponseDto> listForExport(String q, UUID campaignId, UUID memberId) {
+        return repo.search(q, campaignId, memberId, 0, Integer.MAX_VALUE)
+                .stream().map(ProducerPurchaseResponseDto::from).toList();
+    }
+
     public ProducerPurchaseResponseDto getById(UUID id) {
         return ProducerPurchaseResponseDto.from(loadOrFail(id));
     }
@@ -111,6 +119,18 @@ public class ProducerPurchaseService {
                 () -> new NotFoundException("Article " + p.articleId() + " introuvable."));
         if (!article.purchasable) {
             throw new BusinessException("L'article « " + article.name + " » n'est pas marqué achetable.");
+        }
+
+        // Un reçu officiel ne couvre qu'une opération : un numéro réutilisé
+        // est le déguisement classique d'un détournement. Contrôlé ici,
+        // avant tout effet de bord ; l'index unique posé par M062 ferme la
+        // course résiduelle entre deux saisies simultanées.
+        String officialReceipt = blankToNull(p.officialReceiptRef());
+        if (officialReceipt != null) {
+            repo.findByOfficialReceipt(officialReceipt).ifPresent(existing -> {
+                throw new ConflictException("Le reçu officiel « " + officialReceipt
+                        + " » est déjà enregistré sur la livraison " + existing.ref + ".");
+            });
         }
 
         CampaignEntity campaign = p.campaignId() != null ? campaigns.get(p.campaignId()) : campaigns.current();
@@ -193,7 +213,7 @@ public class ProducerPurchaseService {
         e.weightKg = weight;
         e.guaranteedPricePerKgFcfa = price;
         e.amountFcfa = amount;
-        e.officialReceiptRef = blankToNull(p.officialReceiptRef());
+        e.officialReceiptRef = officialReceipt;
         e.amountPaidFcfa = paid;
         e.creditImputedFcfa = creditImputed;
         e.paymentMethod = p.paymentMethod();
@@ -311,7 +331,25 @@ public class ProducerPurchaseService {
                 false, lotRef, replaceCmup));
         e.movementRef = e.ref;
 
-        repo.insert(e);
+        try {
+            repo.insert(e);
+        } catch (com.mongodb.MongoWriteException dup) {
+            if (com.mongodb.ErrorCategory.fromErrorCode(dup.getError().getCode())
+                    != com.mongodb.ErrorCategory.DUPLICATE_KEY) {
+                throw dup;
+            }
+            // Deux saisies simultanées du même reçu : celle-ci perd. On
+            // rend ce qui se rend (avance, retenues) ; l'écriture et le
+            // mouvement de stock de ce reçu restent à contre-passer, mais
+            // c'est déjà moins que le doublon complet qu'aurait produit
+            // l'absence d'index.
+            if (advance != null) advances.creditBack(advance.id, imputed);
+            for (int i = 0; i < imputedCredits.size(); i++) {
+                memberCredits.creditBack(imputedCredits.get(i).id, imputations.get(i).amountFcfa());
+            }
+            throw new ConflictException("Le reçu officiel « " + officialReceipt
+                    + " » vient d'être enregistré par une autre saisie.");
+        }
 
         // Journal des retenues, une fois la livraison acquise : elle est la
         // pièce que le producteur peut venir contester.

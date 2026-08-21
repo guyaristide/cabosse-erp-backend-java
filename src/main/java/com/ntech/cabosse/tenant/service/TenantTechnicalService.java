@@ -120,7 +120,9 @@ public class TenantTechnicalService {
             new MigrationDescriptor("separate_delegate_payable", "057", "neiba"),
             new MigrationDescriptor("create_supplier_categories", "058", "neiba"),
             new MigrationDescriptor("normalize_decimal_amounts", "059", "neiba"),
-            new MigrationDescriptor("repair_producer_ref_keys_index", "060", "neiba")
+            new MigrationDescriptor("repair_producer_ref_keys_index", "060", "neiba"),
+            new MigrationDescriptor("tenant_roles_and_default_profile", "061", "neiba"),
+            new MigrationDescriptor("unique_official_receipt", "062", "neiba")
     );
 
     /** Fréquence de backup par plan tarifaire (cf. plans.json catalogue). */
@@ -133,6 +135,7 @@ public class TenantTechnicalService {
 
     @Inject MongoClient mongoClient;
     @Inject TenantRepository tenants;
+    @Inject com.ntech.cabosse.plan.service.PlanLimitService planLimits;
 
     public TenantTechnicalStatusDto getStatus(UUID tenantId) {
         TenantEntity tenant = tenants.findById(tenantId);
@@ -162,6 +165,11 @@ public class TenantTechnicalService {
         String mongockVersion = computeMongockVersion(migrations);
         String migrationsHealth = computeMigrationsHealth(migrations);
 
+        // ─── Consommation face au plan ───
+        com.ntech.cabosse.plan.service.PlanLimitService.Usage usage = planLimits.usageOf(tenant);
+        long membersCount = mongoClient.getDatabase(tenant.databaseName)
+                .getCollection("members").countDocuments();
+
         // ─── Backups ───
         List<BackupSnapshotDto> recentBackups = collectRecentBackups(tenantId);
         String backupFrequency = BACKUP_FREQUENCY_BY_PLAN.getOrDefault(tenant.planCode, "weekly");
@@ -177,7 +185,11 @@ public class TenantTechnicalService {
                 collections,
                 migrations,
                 backupFrequency,
-                recentBackups
+                recentBackups,
+                usage.activeUsers(),
+                usage.maxUsers(),
+                membersCount,
+                usage.maxMembers()
         );
     }
 

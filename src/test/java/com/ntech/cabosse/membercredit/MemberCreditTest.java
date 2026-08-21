@@ -39,25 +39,46 @@ class MemberCreditTest extends AbstractIntegrationTest {
     @Inject PasswordHasher passwordHasher;
     @Inject IdGenerator idGenerator;
 
+    private TenantEntity tenant;
+
     private UserEntity tenantAdmin() {
-        TenantEntity tenant = fixtures.createActiveTenant(
+        tenant = fixtures.createActiveTenant(
                 "coop-credit-" + TestFixtures.randomSlugSuffix(), "Coopérative Crédit");
         tenant.organizationModel = TenantOrganizationModel.COOPERATIVE;
         tenants.update(tenant);
+        return user(Roles.TENANT_ADMIN, "admin");
+    }
 
+    private UserEntity user(String role, String prefix) {
         UserEntity u = new UserEntity();
         u.id = idGenerator.newId();
-        u.email = "admin@" + tenant.slug + ".ci";
-        u.firstName = "Admin";
-        u.lastName = "Tenant";
+        u.email = prefix + "-" + TestFixtures.randomSlugSuffix() + "@" + tenant.slug + ".ci";
+        u.firstName = prefix;
+        u.lastName = "Test";
         u.passwordHash = passwordHasher.hash(TestFixtures.DEFAULT_PASSWORD);
         u.tenantId = tenant.id;
         u.roles = new HashSet<>();
-        u.roles.add(Roles.TENANT_ADMIN);
+        u.roles.add(role);
         u.status = UserStatus.ACTIVE;
         u.createdAt = Instant.now();
         u.updatedAt = u.createdAt;
         users.persist(u);
+        return u;
+    }
+
+    /** Compte USER doté d'un profil composé des droits donnés. */
+    private UserEntity operator(UserEntity admin, String prefix, String... permissions) {
+        UserEntity u = user(Roles.USER, prefix);
+        String perms = String.join(", ",
+                java.util.Arrays.stream(permissions).map(p -> "\"" + p + "\"").toList());
+        String roleId = givenAs(admin).contentType("application/json")
+                .body("{ \"name\": \"Profil %s\", \"permissions\": [%s] }".formatted(prefix, perms))
+                .when().post("/api/v1/tenant-roles").then().statusCode(201)
+                .extract().path("data.id");
+        givenAs(admin).contentType("application/json")
+                .body("{ \"roleIds\": [\"%s\"] }".formatted(roleId))
+                .when().put("/api/v1/tenant-roles/users/" + u.id)
+                .then().statusCode(204);
         return u;
     }
 
@@ -248,5 +269,96 @@ class MemberCreditTest extends AbstractIntegrationTest {
         givenAs(admin).when().get("/api/v1/member-credits/members/" + memberId + "/debt")
                 .then().statusCode(200)
                 .body("data.totalRemainingFcfa", equalTo(0));
+    }
+
+    // ─── Séparation des tâches et seuil contraignant (CE-26, CE-27) ─
+
+    private static final String[] CREDIT_RIGHTS = {
+            "MEMBER_READ", "MEMBER_CREDIT_REQUEST", "MEMBER_CREDIT_APPROVE", "MEMBER_CREDIT_DISBURSE"};
+
+    private String createCreditAs(UserEntity who, String memberId, int amount) {
+        return givenAs(who).contentType("application/json")
+                .body("""
+                        { "memberId": "%s", "kind": "CREDIT", "amountFcfa": %d, "purpose": "Intrants" }
+                        """.formatted(memberId, amount))
+                .when().post("/api/v1/member-credits").then().statusCode(201)
+                .extract().path("data.id");
+    }
+
+    @Test
+    void the_requester_cannot_approve_their_own_request() {
+        UserEntity admin = tenantAdmin();
+        String memberId = createProducer(admin, "Traore");
+        UserEntity demandeur = operator(admin, "demandeur", CREDIT_RIGHTS);
+        UserEntity collegue = operator(admin, "collegue", CREDIT_RIGHTS);
+
+        String creditId = createCreditAs(demandeur, memberId, 100000);
+
+        // Le demandeur ne tranche pas son propre dossier.
+        givenAs(demandeur).contentType("application/json").body("{\"note\":\"OK\"}")
+                .when().post("/api/v1/member-credits/" + creditId + "/approve")
+                .then().statusCode(422)
+                .body("statusMessage", containsString("autre personne"));
+
+        // Un collègue doté du droit, si.
+        givenAs(collegue).contentType("application/json").body("{\"note\":\"Vu\"}")
+                .when().post("/api/v1/member-credits/" + creditId + "/approve")
+                .then().statusCode(200).body("data.status", equalTo("APPROVED"));
+
+        // L'approbateur ne remet pas lui-même les fonds.
+        givenAs(collegue).contentType("application/json").body("{\"paymentMethod\":\"CASH\"}")
+                .when().post("/api/v1/member-credits/" + creditId + "/disburse")
+                .then().statusCode(422)
+                .body("statusMessage", containsString("autre personne"));
+
+        // Le demandeur peut décaisser : deux paires d'yeux ont vu le dossier.
+        givenAs(demandeur).contentType("application/json").body("{\"paymentMethod\":\"CASH\"}")
+                .when().post("/api/v1/member-credits/" + creditId + "/disburse")
+                .then().statusCode(200).body("data.status", equalTo("DISBURSED"));
+    }
+
+    @Test
+    void the_governance_threshold_is_binding_not_decorative() {
+        UserEntity admin = tenantAdmin();
+        givenAs(admin).contentType("application/json")
+                .body("{\"memberCreditApprovalThresholdFcfa\":500000}")
+                .when().put("/api/v1/me/tenant/preferences").then().statusCode(200);
+        String memberId = createProducer(admin, "Kone");
+
+        UserEntity demandeur = operator(admin, "gestionnaire", CREDIT_RIGHTS);
+        UserEntity direction = operator(admin, "direction", CREDIT_RIGHTS);
+        UserEntity conseil = operator(admin, "conseil",
+                "MEMBER_READ", "MEMBER_CREDIT_APPROVE", "MEMBER_CREDIT_APPROVE_GOVERNANCE");
+
+        String large = createCreditAs(demandeur, memberId, 750000);
+
+        // Le droit ordinaire ne suffit plus au-dessus du seuil.
+        givenAs(direction).contentType("application/json").body("{\"note\":\"OK\"}")
+                .when().post("/api/v1/member-credits/" + large + "/approve")
+                .then().statusCode(403)
+                .body("statusMessage", containsString("conseil"));
+
+        // Le porteur du droit de gouvernance approuve.
+        givenAs(conseil).contentType("application/json").body("{\"note\":\"Accord du conseil\"}")
+                .when().post("/api/v1/member-credits/" + large + "/approve")
+                .then().statusCode(200).body("data.status", equalTo("APPROVED"));
+
+        // Sous le seuil, le droit ordinaire continue de suffire.
+        String small = createCreditAs(demandeur, memberId, 100000);
+        givenAs(direction).contentType("application/json").body("{\"note\":\"OK\"}")
+                .when().post("/api/v1/member-credits/" + small + "/approve")
+                .then().statusCode(200);
+    }
+
+    @Test
+    void the_tenant_admin_remains_exempt_from_separation_of_duties() {
+        // Une structure à compte unique doit rester opérable : l'admin
+        // demande, approuve et décaisse, sous sa seule responsabilité.
+        UserEntity admin = tenantAdmin();
+        String memberId = createProducer(admin, "Ouattara");
+        String creditId = createCredit(admin, memberId, "ADVANCE", 40000, "Carburant");
+        approveAndDisburse(admin, creditId);
+        givenAs(admin).when().get("/api/v1/member-credits/" + creditId)
+                .then().statusCode(200).body("data.status", equalTo("DISBURSED"));
     }
 }

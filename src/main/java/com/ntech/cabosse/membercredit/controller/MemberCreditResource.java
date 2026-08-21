@@ -14,6 +14,12 @@ import com.ntech.cabosse.shared.storage.AttachmentEndpoints;
 import jakarta.ws.rs.DELETE;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 import org.jboss.resteasy.reactive.RestForm;
+import com.ntech.cabosse.permission.entity.Permission;
+import com.ntech.cabosse.permission.service.RequiresPermission;
+import com.ntech.cabosse.shared.export.ExportAudit;
+import com.ntech.cabosse.shared.export.ExportDataset;
+import com.ntech.cabosse.shared.export.ExportFormat;
+import com.ntech.cabosse.shared.export.ExportResponses;
 import io.quarkus.security.Authenticated;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
@@ -48,6 +54,7 @@ import java.util.UUID;
 @Authenticated
 public class MemberCreditResource {
 
+    @Inject ExportAudit exportAudit;
     @Inject MemberCreditService service;
     @Inject TenantCapabilityService capabilities;
     @Inject TenantContext tenantContext;
@@ -70,6 +77,23 @@ public class MemberCreditResource {
                 service.page(memberId, status, campaignId, PageRequest.of(page, perPage)))).build();
     }
 
+    /** Export de la liste, mêmes filtres qu'à l'écran. */
+    @GET
+    @Path("/export")
+    @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/pdf" })
+    public Response export(@QueryParam("memberId") UUID memberId,
+                           @QueryParam("status") String status,
+                           @QueryParam("campaignId") UUID campaignId,
+                           @QueryParam("format") String formatRaw) {
+        ensureCapability();
+        ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
+        java.util.List<com.ntech.cabosse.membercredit.dto.MemberCreditResponseDto> rows = service.listForExport(memberId, status, campaignId);
+        ExportDataset<com.ntech.cabosse.membercredit.dto.MemberCreditResponseDto> dataset =
+                new ExportDataset<>("Crédits et avances producteurs", MemberCreditExportColumns.all(), rows);
+        exportAudit.record("credits-producteurs", "Crédits et avances producteurs", format, rows.size());
+        return ExportResponses.build("credits-producteurs", format, dataset);
+    }
+
     @GET
     @Path("/{id}")
     public Response getById(@PathParam("id") UUID id) {
@@ -87,6 +111,7 @@ public class MemberCreditResource {
 
     @POST
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    @RequiresPermission(Permission.MEMBER_CREDIT_REQUEST)
     public Response create(@Valid CreateMemberCreditDto payload) {
         ensureCapability();
         return Response.status(Response.Status.CREATED)
@@ -95,7 +120,8 @@ public class MemberCreditResource {
 
     @POST
     @Path("/{id}/approve")
-    @RolesAllowed({ Roles.TENANT_ADMIN })
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    @RequiresPermission(Permission.MEMBER_CREDIT_APPROVE)
     public Response approve(@PathParam("id") UUID id, DecisionPayload payload) {
         ensureCapability();
         return Response.ok(ApiResponse.ok(
@@ -104,7 +130,8 @@ public class MemberCreditResource {
 
     @POST
     @Path("/{id}/reject")
-    @RolesAllowed({ Roles.TENANT_ADMIN })
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    @RequiresPermission(Permission.MEMBER_CREDIT_APPROVE)
     public Response reject(@PathParam("id") UUID id, DecisionPayload payload) {
         ensureCapability();
         return Response.ok(ApiResponse.ok(
@@ -113,7 +140,8 @@ public class MemberCreditResource {
 
     @POST
     @Path("/{id}/disburse")
-    @RolesAllowed({ Roles.TENANT_ADMIN })
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    @RequiresPermission(Permission.MEMBER_CREDIT_DISBURSE)
     public Response disburse(@PathParam("id") UUID id, @Valid DisburseMemberCreditDto payload) {
         ensureCapability();
         return Response.ok(ApiResponse.ok(service.disburse(id, payload))).build();
@@ -121,7 +149,8 @@ public class MemberCreditResource {
 
     @POST
     @Path("/{id}/cancel")
-    @RolesAllowed({ Roles.TENANT_ADMIN })
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    @RequiresPermission(Permission.MEMBER_CREDIT_APPROVE)
     public Response cancel(@PathParam("id") UUID id, DecisionPayload payload) {
         ensureCapability();
         return Response.ok(ApiResponse.ok(

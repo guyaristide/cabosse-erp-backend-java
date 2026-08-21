@@ -19,7 +19,10 @@ import com.ntech.cabosse.shared.api.PageRequest;
 import com.ntech.cabosse.shared.api.Pagination;
 import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
+import com.ntech.cabosse.permission.entity.Permission;
+import com.ntech.cabosse.permission.service.PermissionResolver;
 import com.ntech.cabosse.shared.exception.BusinessException;
+import com.ntech.cabosse.shared.exception.ForbiddenException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.tenant.TenantContext;
@@ -61,6 +64,7 @@ public class MemberCreditService {
     @Inject AccountingService accounting;
     @Inject TenantPreferencesLookup preferences;
     @Inject TenantContext tenantContext;
+    @Inject PermissionResolver permissions;
     @Inject AuditService audit;
     @Inject IdGenerator idGenerator;
     @Inject JsonWebToken jwt;
@@ -87,6 +91,13 @@ public class MemberCreditService {
         if (status != null && !status.isBlank()) filters.put("status", status);
         if (campaignId != null) filters.put("campaignId", campaignId.toString());
         return Pagination.of(total, pr, new String[]{"requestedAt"}, "desc", filters, items);
+    }
+
+
+    /** Toutes les lignes du filtre courant, pour l'export. */
+    public List<MemberCreditResponseDto> listForExport(UUID memberId, String status, UUID campaignId) {
+        return repo.search(memberId, status, campaignId, 0, Integer.MAX_VALUE)
+                .stream().map(MemberCreditResponseDto::from).toList();
     }
 
     public MemberCreditResponseDto getById(UUID id) {
@@ -169,6 +180,20 @@ public class MemberCreditService {
             throw new BusinessException(
                     "Seule une demande en attente peut être approuvée (statut actuel : " + e.status + ").");
         }
+        // Séparation des tâches : celui qui a déposé le dossier ne peut
+        // pas le trancher. L'administrateur du tenant en est exempt, pour
+        // qu'une structure à compte unique reste opérable.
+        if (isSameActor(e.createdBy, e.requestedByEmail) && !permissions.currentIsTenantAdmin()) {
+            throw new BusinessException(
+                    "La demande " + e.ref + " a été déposée par vous : son approbation revient à une autre personne.");
+        }
+        if (e.governanceApprovalRequired
+                && !permissions.currentIsTenantAdmin()
+                && !permissions.can(Permission.MEMBER_CREDIT_APPROVE_GOVERNANCE)) {
+            throw new ForbiddenException(
+                    "Le montant de " + e.ref + " impose l'approbation du conseil : "
+                            + "le droit « Approuver un crédit soumis au conseil » est requis.");
+        }
         e.status = MemberCreditStatus.APPROVED;
         e.approvedAt = Instant.now();
         e.approvedBy = safeUserId();
@@ -212,6 +237,12 @@ public class MemberCreditService {
         if (e.status != MemberCreditStatus.APPROVED) {
             throw new BusinessException(
                     "Seul un engagement approuvé peut être décaissé (statut actuel : " + e.status + ").");
+        }
+        // Deux paires d'yeux par transition : l'approbateur ne remet pas
+        // lui-même les fonds. Même exemption que ci-dessus pour l'admin.
+        if (isSameActor(e.approvedBy, e.approvedByEmail) && !permissions.currentIsTenantAdmin()) {
+            throw new BusinessException(
+                    "Vous avez approuvé " + e.ref + " : la remise des fonds revient à une autre personne.");
         }
         LocalDate date = p.disbursedAt() != null ? p.disbursedAt() : LocalDate.now();
         e.status = MemberCreditStatus.DISBURSED;
@@ -355,6 +386,18 @@ public class MemberCreditService {
     public com.ntech.cabosse.shared.storage.AttachmentService.AttachmentStream openAttachment(
             java.util.UUID id, java.util.UUID fileId) {
         return attachments.open(loadOrFail(id).attachments, fileId);
+    }
+
+    /**
+     * L'utilisateur courant est-il celui qui a agi sur le dossier ?
+     * L'identifiant tranche quand les deux sont connus ; l'adresse ne sert
+     * que de secours pour les dossiers antérieurs sans identifiant.
+     */
+    private boolean isSameActor(UUID otherId, String otherEmail) {
+        UUID me = safeUserId();
+        if (me != null && otherId != null) return me.equals(otherId);
+        String email = actor();
+        return email != null && otherEmail != null && email.equalsIgnoreCase(otherEmail);
     }
 
     private MemberCreditEntity loadOrFail(UUID id) {

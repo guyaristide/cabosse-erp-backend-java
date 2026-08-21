@@ -148,6 +148,12 @@ public class ProducerPurchaseRepository {
         return Optional.ofNullable(coll().find(Filters.eq("_id", id)).first());
     }
 
+    /** Livraison portant déjà ce numéro de reçu officiel, s'il y en a une. */
+    public Optional<ProducerPurchaseEntity> findByOfficialReceipt(String officialReceiptRef) {
+        return Optional.ofNullable(
+                coll().find(Filters.eq("officialReceiptRef", officialReceiptRef)).first());
+    }
+
     public boolean refExists(String ref) {
         return coll().countDocuments(Filters.eq("ref", ref)) > 0;
     }
