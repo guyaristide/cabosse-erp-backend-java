@@ -10,16 +10,18 @@ import java.util.UUID;
  * Une ligne du journal des mouvements de stock. Tenant-scopée (collection
  * {@code stock_movements}).
  *
- * <p>Chaque mouvement est <strong>immuable</strong> : on n'édite jamais
- * un mvt enregistré. Les corrections passent par un nouveau mouvement
- * compensatoire (ex. contre-passation d'une RD → OUT négatifs miroir des
- * IN d'origine).</p>
+ * <p>Les champs métier d'un mouvement sont <strong>immuables</strong> :
+ * on n'édite jamais un mvt enregistré. Les corrections passent par un
+ * nouveau mouvement compensatoire (ex. contre-passation d'une RD → OUT
+ * négatifs miroir des IN d'origine).</p>
  *
- * <p>Les champs {@code quantityAfter} et {@code cmupAfterFcfa} sont
- * <em>figés</em> au moment où le mouvement a été appliqué — ils donnent
- * l'état du {@link StockItemEntity} immédiatement après le mouvement.
- * Ne pas confondre avec l'état courant du stock, qui évolue au fil des
- * mouvements ultérieurs.</p>
+ * <p>Les champs {@code quantityAfter} et {@code cmupAfterFcfa} donnent
+ * l'état du {@link StockItemEntity} immédiatement après le mouvement
+ * <em>dans l'ordre chronologique</em> ({@code occurredAt}). Une saisie
+ * rétroactive déclenche le rejeu du couple (article, site) et la
+ * réécriture de ces instantanés — ainsi que du PU des sorties, défini
+ * comme photo du CMUP — sur tous les mouvements du couple. Ce sont les
+ * seuls champs réécrits après insertion.</p>
  *
  * <p>{@link #sourceEntityId} permet de remonter à l'entité métier qui a
  * généré le mouvement (RD, BC, OF, vente). Ce lien est inverse au lien
@@ -67,6 +69,15 @@ public class StockMovementEntity {
 
     /** {@code |quantitySigned| * unitPriceFcfa}. Null si unitPriceFcfa null. */
     public BigDecimal totalFcfa;
+
+    /**
+     * Sur une entrée : {@code true} si le CMUP a pris le PU de l'entrée
+     * au lieu de se pondérer (livraison délégué en mode « par lot »).
+     * Persisté pour que le rejeu chronologique d'une saisie rétroactive
+     * reproduise la valorisation d'origine. {@code null} = pondération
+     * standard (et valeur des mouvements antérieurs à ce champ).
+     */
+    public Boolean replacesCmup;
 
     /** Quantité du {@link StockItemEntity} APRÈS application du mouvement. */
     public BigDecimal quantityAfter;

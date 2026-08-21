@@ -256,10 +256,134 @@ public class StockService {
         mvt.actorEmail = actor();
         mvt.occurredAt = input.occurredAt() != null ? input.occurredAt() : Instant.now();
         mvt.createdAt = Instant.now();
+        // Persisté pour que le rejeu chronologique reproduise la
+        // valorisation « par lot » à sa date, pas à son ordre d'arrivée.
+        mvt.replacesCmup = (isEntry && input.replaceCmupWithUnitPrice()) ? Boolean.TRUE : null;
         movements.insert(mvt);
 
         recordMovementAudit(mvt, updated);
+
+        // ── Saisie rétroactive : la valorisation vient d'être calculée à
+        // l'ordre d'arrivée alors que des mouvements postérieurs existent.
+        // Rejeu chronologique du couple pour que CMUP et instantanés ne
+        // dépendent que des dates d'effet, jamais de l'ordre de saisie.
+        if (movements.existsLaterThan(article.id, site.id, mvt.occurredAt)) {
+            StockItemEntity recomputed = recomputeChronologically(article.id, site.id);
+            if (recomputed != null) return StockItemResponseDto.from(recomputed);
+        }
         return StockItemResponseDto.from(updated);
+    }
+
+    // ─── Rejeu chronologique d'un couple (article, site) ────────────
+
+    /**
+     * Recalcule quantité et CMUP d'un couple en rejouant tout son journal
+     * dans l'ordre {@code (occurredAt, _id)}, avec la formule exacte du
+     * pipeline d'entrée, puis réécrit les instantanés de chaque mouvement
+     * et la position {@code stock_items}.
+     *
+     * <p>Concurrence : l'écriture finale est un updateOne conditionné par
+     * la {@code version} lue au départ. Un mouvement concurrent la fait
+     * échouer et le rejeu repart sur l'état frais — le résultat est
+     * déterministe quel que soit l'entrelacement. Le rejeu est complet
+     * (pas de reprise depuis un point) : il se répare lui-même si un
+     * instantané historique était faux.</p>
+     *
+     * @return la position recalculée, ou {@code null} si elle n'a pas pu
+     *         être écrite après plusieurs tentatives (le journal, lui,
+     *         reste correct : un rejeu ultérieur du couple répare tout)
+     */
+    private StockItemEntity recomputeChronologically(UUID articleId, UUID siteId) {
+        for (int attempt = 0; attempt < 8; attempt++) {
+            StockItemEntity item = stockItems.findByArticleAndSite(articleId, siteId)
+                    .orElse(null);
+            if (item == null) return null;
+            long observedVersion = item.version;
+
+            List<StockMovementEntity> journal =
+                    movements.listAllChronological(articleId, siteId);
+
+            BigDecimal qty = BigDecimal.ZERO;
+            BigDecimal cmup = BigDecimal.ZERO;
+            List<StockMovementRepository.ReplayPatch> patches = new ArrayList<>();
+            for (StockMovementEntity m : journal) {
+                BigDecimal signed = m.quantitySigned != null ? m.quantitySigned : BigDecimal.ZERO;
+                BigDecimal newQty = qty.add(signed);
+                boolean isOut = m.kind == MovementKind.OUT || m.kind == MovementKind.TRANSFER_OUT;
+                if (isEntryKind(m.kind)) {
+                    BigDecimal pu = m.unitPriceFcfa != null ? m.unitPriceFcfa : BigDecimal.ZERO;
+                    if (Boolean.TRUE.equals(m.replacesCmup)) {
+                        cmup = bounded(pu, CMUP_SCALE);
+                    } else if (newQty.signum() <= 0) {
+                        cmup = BigDecimal.ZERO;
+                    } else {
+                        // Miroir du pipeline Mongo — $round arrondit au
+                        // pair le plus proche, donc HALF_EVEN, pas HALF_UP.
+                        cmup = qty.multiply(cmup).add(signed.multiply(pu))
+                                .divide(newQty, CMUP_SCALE, RoundingMode.HALF_EVEN);
+                    }
+                }
+                qty = newQty;
+
+                BigDecimal qtyAfter = bounded(qty, QTY_SCALE);
+                BigDecimal cmupAfter = bounded(cmup, CMUP_SCALE);
+                BigDecimal outPu = isOut ? cmupAfter : m.unitPriceFcfa;
+                BigDecimal outTotal = isOut
+                        ? bounded(signed.abs().multiply(outPu), MONEY_SCALE)
+                        : m.totalFcfa;
+                boolean changed = !equalValues(m.quantityAfter, qtyAfter)
+                        || !equalValues(m.cmupAfterFcfa, cmupAfter)
+                        || (isOut && (!equalValues(m.unitPriceFcfa, outPu)
+                                || !equalValues(m.totalFcfa, outTotal)));
+                if (changed) {
+                    patches.add(new StockMovementRepository.ReplayPatch(
+                            m.id, qtyAfter, cmupAfter, isOut, outPu, outTotal));
+                }
+            }
+
+            // Garde-fou d'entrelacement : un mouvement concurrent peut être
+            // appliqué au stock mais pas encore journalisé (l'application
+            // atomique précède l'insertion du journal). Le rejeu le verrait
+            // dans la quantité agrégée mais pas dans le journal, et
+            // écrirait une position qui l'efface. Si la somme du journal ne
+            // retombe pas sur la quantité observée, on attend et on rejoue.
+            if (qty.compareTo(item.quantity != null ? item.quantity : BigDecimal.ZERO) != 0) {
+                try {
+                    Thread.sleep(10L + (long) (Math.random() * 40));
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    return null;
+                }
+                continue;
+            }
+            movements.patchReplaySnapshots(patches);
+
+            var written = stockItems.applyRecomputedValuation(
+                    articleId, siteId, observedVersion,
+                    bounded(qty, QTY_SCALE), bounded(cmup, CMUP_SCALE));
+            if (written.isPresent()) return written.get();
+
+            // Version bougée : un mouvement concurrent est passé — on
+            // rejoue sur l'état frais après une courte pause.
+            try {
+                Thread.sleep(10L + (long) (Math.random() * 40));
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                return null;
+            }
+        }
+        // Improbable (contention soutenue sur un même couple) : le journal
+        // est juste, seule la position agrégée n'a pas été réécrite. Le
+        // prochain rejeu du couple la réparera. Trace pour investigation.
+        org.jboss.logging.Logger.getLogger(StockService.class)
+                .warnf("Rejeu CMUP non écrit après 8 tentatives (article=%s, site=%s)",
+                        articleId, siteId);
+        return null;
+    }
+
+    private static boolean equalValues(BigDecimal a, BigDecimal b) {
+        if (a == null || b == null) return a == b;
+        return a.compareTo(b) == 0;
     }
 
     private void recordMovementAudit(StockMovementEntity mvt, StockItemEntity item) {
@@ -540,6 +664,12 @@ public class StockService {
 
         UUID transferId = UuidCreator.getTimeOrderedEpoch();
         Instant when = occurredAt != null ? occurredAt : Instant.now();
+        // Transfert rétroactif : la valeur qui voyage est le CMUP du site
+        // source À LA DATE D'EFFET, pas celui d'aujourd'hui — sinon le
+        // coût transporté dépendrait du moment de la saisie.
+        if (occurredAt != null && movements.existsLaterThan(articleId, fromSiteId, occurredAt)) {
+            sourceCmup = snapshotAt(articleId, fromSiteId, occurredAt).cmupFcfa();
+        }
 
         // 1) Sortie du site source — au CMUP source (snapshot porté par mvt.unitPriceFcfa)
         StockItemResponseDto outItem = applyMovement(new MovementInput(
@@ -663,6 +793,11 @@ public class StockService {
 
         UUID reclassificationId = UuidCreator.getTimeOrderedEpoch();
         Instant when = occurredAt != null ? occurredAt : Instant.now();
+        // Comme le transfert : en rétroactif, le coût qui suit la matière
+        // est le CMUP de l'article source à la date d'effet.
+        if (occurredAt != null && movements.existsLaterThan(fromArticleId, siteId, occurredAt)) {
+            cmup = snapshotAt(fromArticleId, siteId, occurredAt).cmupFcfa();
+        }
         String motive = reason != null && !reason.isBlank()
                 ? reason : "Requalification " + from.name + " vers " + to.name;
 

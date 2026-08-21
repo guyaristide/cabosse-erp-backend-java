@@ -39,6 +39,33 @@ public class StockItemRepository {
         return coll();
     }
 
+    /**
+     * Écrit la valorisation issue d'un rejeu chronologique, gardée par
+     * la {@code version} observée au début du rejeu : si un mouvement
+     * concurrent a modifié le document entre-temps, l'écriture est
+     * refusée (vide) et l'appelant relance le rejeu sur l'état frais.
+     * Jamais de read-modify-replace ici — c'est un updateOne conditionnel.
+     */
+    public Optional<StockItemEntity> applyRecomputedValuation(
+            UUID articleId, UUID siteId, long expectedVersion,
+            java.math.BigDecimal quantity, java.math.BigDecimal cmupFcfa) {
+        return Optional.ofNullable(coll().findOneAndUpdate(
+                Filters.and(
+                        Filters.eq("articleId", articleId),
+                        Filters.eq("siteId", siteId),
+                        Filters.eq("version", expectedVersion)
+                ),
+                com.mongodb.client.model.Updates.combine(
+                        com.mongodb.client.model.Updates.set("quantity", quantity),
+                        com.mongodb.client.model.Updates.set("cmupFcfa", cmupFcfa),
+                        com.mongodb.client.model.Updates.set("updatedAt", java.time.Instant.now()),
+                        com.mongodb.client.model.Updates.inc("version", 1L)
+                ),
+                new com.mongodb.client.model.FindOneAndUpdateOptions()
+                        .returnDocument(com.mongodb.client.model.ReturnDocument.AFTER)
+        ));
+    }
+
     public Optional<StockItemEntity> findByArticleAndSite(UUID articleId, UUID siteId) {
         return Optional.ofNullable(coll().find(
                 Filters.and(

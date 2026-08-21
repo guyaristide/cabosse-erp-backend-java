@@ -48,14 +48,81 @@ public class StockMovementRepository {
      */
     public List<StockMovementEntity> listByArticleAndSite(UUID articleId, UUID siteId,
                                                           int limit, int skip) {
+        // Tri secondaire sur _id (UUID v7, ordonné dans le temps) : deux
+        // mouvements à la même date d'effet gardent un ordre stable.
         return coll().find(Filters.and(
                         Filters.eq("articleId", articleId),
                         Filters.eq("siteId", siteId)
                 ))
-                .sort(new Document("occurredAt", -1))
+                .sort(new Document("occurredAt", -1).append("_id", -1))
                 .skip(Math.max(0, skip))
                 .limit(Math.max(1, Math.min(limit, 500)))
                 .into(new ArrayList<>());
+    }
+
+    /**
+     * Y a-t-il au moins un mouvement du couple dont la date d'effet est
+     * strictement postérieure à {@code occurredAt} ? Un {@code true}
+     * signifie qu'une insertion à cette date est rétroactive et que la
+     * valorisation du couple doit être rejouée chronologiquement.
+     */
+    public boolean existsLaterThan(UUID articleId, UUID siteId, Instant occurredAt) {
+        return coll().find(Filters.and(
+                        Filters.eq("articleId", articleId),
+                        Filters.eq("siteId", siteId),
+                        Filters.gt("occurredAt", occurredAt)
+                ))
+                .projection(new Document("_id", 1))
+                .limit(1)
+                .first() != null;
+    }
+
+    /**
+     * Journal complet d'un couple dans l'ordre chronologique de rejeu :
+     * {@code occurredAt} croissant, départagé par {@code _id} (UUID v7,
+     * ordonné dans le temps — deux saisies à la même date d'effet se
+     * rejouent dans leur ordre d'arrivée). Réservé au recalcul de
+     * valorisation : pas de pagination, le volume est celui d'un couple.
+     */
+    public List<StockMovementEntity> listAllChronological(UUID articleId, UUID siteId) {
+        return coll().find(Filters.and(
+                        Filters.eq("articleId", articleId),
+                        Filters.eq("siteId", siteId)
+                ))
+                .sort(new Document("occurredAt", 1).append("_id", 1))
+                .into(new ArrayList<>());
+    }
+
+    /**
+     * Instantané de valorisation recalculé pour un mouvement lors d'un
+     * rejeu chronologique. {@code unitPriceFcfa}/{@code totalFcfa} ne
+     * sont réécrits que sur les sorties (le PU d'une sortie est une
+     * photo du CMUP) — {@code patchUnitPrice} les protège ailleurs.
+     */
+    public record ReplayPatch(UUID id, java.math.BigDecimal quantityAfter,
+                               java.math.BigDecimal cmupAfterFcfa,
+                               boolean patchUnitPrice,
+                               java.math.BigDecimal unitPriceFcfa,
+                               java.math.BigDecimal totalFcfa) {}
+
+    /** Applique en masse les instantanés recalculés par un rejeu. */
+    public void patchReplaySnapshots(List<ReplayPatch> patches) {
+        if (patches == null || patches.isEmpty()) return;
+        List<com.mongodb.client.model.WriteModel<StockMovementEntity>> writes =
+                new ArrayList<>(patches.size());
+        for (ReplayPatch p : patches) {
+            List<Bson> sets = new ArrayList<>(4);
+            sets.add(com.mongodb.client.model.Updates.set("quantityAfter", p.quantityAfter()));
+            sets.add(com.mongodb.client.model.Updates.set("cmupAfterFcfa", p.cmupAfterFcfa()));
+            if (p.patchUnitPrice()) {
+                sets.add(com.mongodb.client.model.Updates.set("unitPriceFcfa", p.unitPriceFcfa()));
+                sets.add(com.mongodb.client.model.Updates.set("totalFcfa", p.totalFcfa()));
+            }
+            writes.add(new com.mongodb.client.model.UpdateOneModel<>(
+                    Filters.eq("_id", p.id()),
+                    com.mongodb.client.model.Updates.combine(sets)));
+        }
+        coll().bulkWrite(writes, new com.mongodb.client.model.BulkWriteOptions().ordered(false));
     }
 
     /** Journal complet d'un site (toutes catégories d'articles confondues). */

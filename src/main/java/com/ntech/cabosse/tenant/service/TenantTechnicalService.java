@@ -122,7 +122,8 @@ public class TenantTechnicalService {
             new MigrationDescriptor("normalize_decimal_amounts", "059", "neiba"),
             new MigrationDescriptor("repair_producer_ref_keys_index", "060", "neiba"),
             new MigrationDescriptor("tenant_roles_and_default_profile", "061", "neiba"),
-            new MigrationDescriptor("unique_official_receipt", "062", "neiba")
+            new MigrationDescriptor("unique_official_receipt", "062", "neiba"),
+            new MigrationDescriptor("backfill_replaces_cmup_flag", "063", "neiba")
     );
 
     /** Fréquence de backup par plan tarifaire (cf. plans.json catalogue). */
