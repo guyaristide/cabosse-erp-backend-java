@@ -67,6 +67,13 @@ public class ParcelService {
         return Pagination.of(total, pr, new String[]{"name"}, "asc", filters, items);
     }
 
+
+    /** Toutes les lignes du filtre courant, pour l'export. */
+    public List<ParcelResponseDto> listForExport(String q, ParcelStatus statusFilter, UUID memberId) {
+        return parcels.search(q, statusFilter, memberId, 0, Integer.MAX_VALUE)
+                .stream().map(ParcelResponseDto::from).toList();
+    }
+
     public ParcelResponseDto getById(UUID id) {
         return ParcelResponseDto.from(loadOrFail(id));
     }

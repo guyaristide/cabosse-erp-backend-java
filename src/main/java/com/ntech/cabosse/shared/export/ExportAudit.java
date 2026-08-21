@@ -42,6 +42,9 @@ public class ExportAudit {
      * @param rowCount   nombre de lignes exportées
      */
     public void record(String targetType, String title, ExportFormat format, int rowCount) {
+        // La découverte des colonnes n'exporte aucune donnée : la
+        // journaliser noierait le journal sous de faux exports.
+        if (format == ExportFormat.META) return;
         String email;
         try { email = jwt.getName(); } catch (Exception e) { email = null; }
         audit.event(AuditEventType.DATA_EXPORTED)

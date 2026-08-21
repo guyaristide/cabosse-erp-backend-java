@@ -13,6 +13,10 @@ import com.ntech.cabosse.shared.security.Roles;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.tenant.capability.TenantCapability;
 import com.ntech.cabosse.tenant.capability.TenantCapabilityService;
+import com.ntech.cabosse.permission.entity.Permission;
+import com.ntech.cabosse.permission.service.RequiresPermission;
+import com.ntech.cabosse.shared.export.ExportAudit;
+import com.ntech.cabosse.shared.export.ExportDataset;
 import io.quarkus.security.Authenticated;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
@@ -42,6 +46,7 @@ import java.util.UUID;
 @Authenticated
 public class ProducerPurchaseResource {
 
+    @Inject ExportAudit exportAudit;
     @Inject ProducerPurchaseService service;
     @Inject ProducerPurchaseImportService importService;
     @Inject ProducerPurchaseImportTemplate importTemplate;
@@ -66,6 +71,23 @@ public class ProducerPurchaseResource {
                 service.page(q, campaignId, memberId, PageRequest.of(page, perPage)))).build();
     }
 
+    /** Export de la liste, mêmes filtres qu'à l'écran. */
+    @GET
+    @Path("/export")
+    @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/pdf" })
+    public Response export(@QueryParam("q") String q,
+                           @QueryParam("campaignId") UUID campaignId,
+                           @QueryParam("memberId") UUID memberId,
+                           @QueryParam("format") String formatRaw) {
+        ensureCapability();
+        ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
+        java.util.List<com.ntech.cabosse.producerpurchase.dto.ProducerPurchaseResponseDto> rows = service.listForExport(q, campaignId, memberId);
+        ExportDataset<com.ntech.cabosse.producerpurchase.dto.ProducerPurchaseResponseDto> dataset =
+                new ExportDataset<>("Reçus d'achat producteur", ProducerPurchaseExportColumns.all(), rows);
+        exportAudit.record("recus-achat-producteur", "Reçus d'achat producteur", format, rows.size());
+        return ExportResponses.build("recus-achat-producteur", format, dataset);
+    }
+
     @GET
     @Path("/{id}")
     public Response getById(@PathParam("id") UUID id) {
@@ -75,6 +97,7 @@ public class ProducerPurchaseResource {
 
     @POST
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    @RequiresPermission(Permission.COLLECTION_RECEIPT_WRITE)
     public Response create(@Valid ProducerPurchaseUpsertDto payload) {
         ensureCapability();
         return Response.status(Response.Status.CREATED)
@@ -104,6 +127,7 @@ public class ProducerPurchaseResource {
     @POST
     @Path("/import/commit")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    @RequiresPermission(Permission.COLLECTION_RECEIPT_WRITE)
     public Response importCommit(java.util.List<ProducerPurchaseImportRowDto> rows,
                                  @QueryParam("includeWarnings") @DefaultValue("false")
                                  boolean includeWarnings) {

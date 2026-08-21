@@ -68,6 +68,14 @@ public class ProducerPaymentService {
         return Pagination.of(total, pr, new String[]{"date"}, "desc", new java.util.HashMap<>(), items);
     }
 
+
+    /** Toutes les lignes du filtre courant, pour l'export. */
+    public List<ProducerPaymentDtos.PaymentResponseDto> listForExport(
+            LocalDate from, LocalDate to, UUID memberId, UUID delegateId) {
+        return repo.search(from, to, memberId, delegateId, 0, Integer.MAX_VALUE)
+                .stream().map(ProducerPaymentDtos.PaymentResponseDto::from).toList();
+    }
+
     public ProducerPaymentDtos.PaymentResponseDto getById(UUID id) {
         return ProducerPaymentDtos.PaymentResponseDto.from(loadOrFail(id));
     }

@@ -12,6 +12,12 @@ import com.ntech.cabosse.shared.storage.AttachmentEndpoints;
 import jakarta.ws.rs.DELETE;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 import org.jboss.resteasy.reactive.RestForm;
+import com.ntech.cabosse.permission.entity.Permission;
+import com.ntech.cabosse.permission.service.RequiresPermission;
+import com.ntech.cabosse.shared.export.ExportAudit;
+import com.ntech.cabosse.shared.export.ExportDataset;
+import com.ntech.cabosse.shared.export.ExportFormat;
+import com.ntech.cabosse.shared.export.ExportResponses;
 import io.quarkus.security.Authenticated;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
@@ -40,6 +46,7 @@ import java.util.UUID;
 @Authenticated
 public class CollectorAdvanceResource {
 
+    @Inject ExportAudit exportAudit;
     @Inject CollectorAdvanceService service;
     @Inject DelegateAccountService accountService;
 
@@ -56,6 +63,20 @@ public class CollectorAdvanceResource {
                 total, pr, new String[]{"createdAt"}, "desc", filters, items))).build();
     }
 
+    /** Export de la liste, mêmes filtres qu'à l'écran. */
+    @GET
+    @Path("/export")
+    @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/pdf" })
+    public Response export(@QueryParam("status") String status,
+                           @QueryParam("format") String formatRaw) {
+        ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
+        java.util.List<com.ntech.cabosse.collector.dto.CollectorAdvanceResponseDto> rows = service.search(status, 0, Integer.MAX_VALUE);
+        ExportDataset<com.ntech.cabosse.collector.dto.CollectorAdvanceResponseDto> dataset =
+                new ExportDataset<>("Avances aux délégués", CollectorAdvanceExportColumns.all(), rows);
+        exportAudit.record("avances-delegues", "Avances aux délégués", format, rows.size());
+        return ExportResponses.build("avances-delegues", format, dataset);
+    }
+
     @GET
     @Path("/{id}")
     public Response getById(@PathParam("id") UUID id) {
@@ -64,6 +85,7 @@ public class CollectorAdvanceResource {
 
     @POST
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    @RequiresPermission(Permission.COLLECTION_ADVANCE_WRITE)
     public Response create(@Valid CreateAdvanceDto payload, @QueryParam("siteId") UUID siteId) {
         return Response.status(Response.Status.CREATED)
                 .entity(ApiResponse.created(service.create(payload, siteId))).build();

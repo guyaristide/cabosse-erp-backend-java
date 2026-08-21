@@ -1,5 +1,7 @@
 package com.ntech.cabosse.agriculture.harvest.controller;
 
+import com.ntech.cabosse.permission.entity.Permission;
+import com.ntech.cabosse.permission.service.RequiresPermission;
 import com.ntech.cabosse.agriculture.harvest.dto.HarvestImportRowDto;
 import com.ntech.cabosse.agriculture.harvest.dto.HarvestResponseDto;
 import com.ntech.cabosse.agriculture.harvest.dto.HarvestUpsertDto;
@@ -14,6 +16,8 @@ import com.ntech.cabosse.shared.security.Roles;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.tenant.capability.TenantCapability;
 import com.ntech.cabosse.tenant.capability.TenantCapabilityService;
+import com.ntech.cabosse.shared.export.ExportAudit;
+import com.ntech.cabosse.shared.export.ExportDataset;
 import io.quarkus.security.Authenticated;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
@@ -39,8 +43,10 @@ import java.util.UUID;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Authenticated
+@RequiresPermission(Permission.PARCEL_READ)
 public class HarvestResource {
 
+    @Inject ExportAudit exportAudit;
     @Inject HarvestService service;
     @Inject HarvestImportService importService;
     @Inject TenantCapabilityService capabilities;
@@ -56,6 +62,24 @@ public class HarvestResource {
 
     // ─── Import de masse ────────────────────────────────────────────
 
+    /** Export de la liste, mêmes filtres qu'à l'écran. */
+    @GET
+    @Path("/export")
+    @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/pdf" })
+    public Response export(@QueryParam("parcelId") UUID parcelId,
+                           @QueryParam("memberId") UUID memberId,
+                           @QueryParam("campaignId") UUID campaignId,
+                           @QueryParam("q") String q,
+                           @QueryParam("format") String formatRaw) {
+        ensureCapability();
+        ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
+        java.util.List<com.ntech.cabosse.agriculture.harvest.dto.HarvestResponseDto> rows = service.listForExport(parcelId, memberId, campaignId, q);
+        ExportDataset<com.ntech.cabosse.agriculture.harvest.dto.HarvestResponseDto> dataset =
+                new ExportDataset<>("Récoltes", HarvestExportColumns.all(), rows);
+        exportAudit.record("recoltes", "Récoltes", format, rows.size());
+        return ExportResponses.build("recoltes", format, dataset);
+    }
+
     @GET
     @Path("/import/template")
     @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })
@@ -67,6 +91,7 @@ public class HarvestResource {
     }
 
     @POST
+    @RequiresPermission(Permission.HARVEST_WRITE)
     @Path("/import/preview")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response importPreview(java.util.List<HarvestImportRowDto> rows,
@@ -80,6 +105,7 @@ public class HarvestResource {
      * @param includeWarnings applique aussi les récoltes datées hors période
      */
     @POST
+    @RequiresPermission(Permission.HARVEST_WRITE)
     @Path("/import/commit")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response importCommit(java.util.List<HarvestImportRowDto> rows,
@@ -114,6 +140,7 @@ public class HarvestResource {
     }
 
     @POST
+    @RequiresPermission(Permission.HARVEST_WRITE)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response create(@Valid HarvestUpsertDto payload) {
         ensureCapability();
@@ -123,6 +150,7 @@ public class HarvestResource {
     }
 
     @PUT
+    @RequiresPermission(Permission.HARVEST_WRITE)
     @Path("/{id}")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response update(@PathParam("id") UUID id, @Valid HarvestUpsertDto payload) {

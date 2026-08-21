@@ -1,6 +1,7 @@
 package com.ntech.cabosse.stock.dto;
 
 import com.ntech.cabosse.stock.entity.MovementKind;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
@@ -22,7 +23,7 @@ public record MovementUpsertDto(
         @NotNull(message = "Type de mouvement requis") MovementKind kind,
         @NotNull(message = "Quantité requise") BigDecimal quantity,
         /** Requis pour IN, ignoré pour OUT et ADJUSTMENT. */
-        BigDecimal unitPriceFcfa,
+        @DecimalMin(value = "0", message = "Valeur négative interdite") BigDecimal unitPriceFcfa,
         /** Obligatoire pour ADJUSTMENT. */
         @Size(max = 500) String reason,
         @Size(max = 1000) String notes,

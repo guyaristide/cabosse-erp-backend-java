@@ -87,6 +87,12 @@ public class CacaoSaleEntity {
     public Instant updatedAt;
     public UUID createdBy;
     public String createdByEmail;
+    /**
+     * Compteur d'écritures. <strong>Ce n'est pas un verrou</strong> : aucune
+     * mise à jour ne le vérifie. La concurrence est traitée autrement sur
+     * cette entité (la vente n'est pas modifiée après création). Ne pas s'y fier pour détecter une écriture
+     * concurrente.
+     */
     public long version = 0L;
 
     public CacaoSaleEntity() {}

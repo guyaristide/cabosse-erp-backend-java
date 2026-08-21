@@ -2,6 +2,8 @@ package com.ntech.cabosse.sale.dto;
 
 import com.ntech.cabosse.sale.entity.SaleChannel;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -33,9 +35,9 @@ public record SaleUpsertDto(
         List<@Valid SaleLineDto> lines,
 
         /** Remise globale 0..100. */
-        BigDecimal discountPct,
+        @DecimalMin(value = "0", message = "Pourcentage négatif interdit") @DecimalMax(value = "100", message = "Pourcentage supérieur à 100") BigDecimal discountPct,
         /** Taux TVA 0..100. */
-        BigDecimal vatRatePct,
+        @DecimalMin(value = "0", message = "Pourcentage négatif interdit") @DecimalMax(value = "100", message = "Pourcentage supérieur à 100") BigDecimal vatRatePct,
 
         @Size(max = 80) String invoiceNumber,
         @Size(max = 2000) String notes

@@ -1,5 +1,7 @@
 package com.ntech.cabosse.agriculture.parcel.controller;
 
+import com.ntech.cabosse.permission.entity.Permission;
+import com.ntech.cabosse.permission.service.RequiresPermission;
 import com.ntech.cabosse.agriculture.parcel.dto.ParcelImportRowDto;
 import com.ntech.cabosse.agriculture.parcel.dto.ParcelResponseDto;
 import com.ntech.cabosse.agriculture.parcel.dto.ParcelUpsertDto;
@@ -15,6 +17,8 @@ import com.ntech.cabosse.shared.security.Roles;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.tenant.capability.TenantCapability;
 import com.ntech.cabosse.tenant.capability.TenantCapabilityService;
+import com.ntech.cabosse.shared.export.ExportAudit;
+import com.ntech.cabosse.shared.export.ExportDataset;
 import io.quarkus.security.Authenticated;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
@@ -40,8 +44,10 @@ import java.util.UUID;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Authenticated
+@RequiresPermission(Permission.PARCEL_READ)
 public class ParcelResource {
 
+    @Inject ExportAudit exportAudit;
     @Inject ParcelService service;
     @Inject ParcelImportService importService;
     @Inject TenantCapabilityService capabilities;
@@ -68,6 +74,23 @@ public class ParcelResource {
                 service.page(q, statusFilter, memberId, PageRequest.of(page, perPage)))).build();
     }
 
+    /** Export de la liste, mêmes filtres qu'à l'écran. */
+    @GET
+    @Path("/export")
+    @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/pdf" })
+    public Response export(@QueryParam("q") String q,
+                           @QueryParam("status") String statusRaw,
+                           @QueryParam("memberId") String memberIdRaw,
+                           @QueryParam("format") String formatRaw) {
+        ensureCapability();
+        ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
+        java.util.List<com.ntech.cabosse.agriculture.parcel.dto.ParcelResponseDto> rows = service.listForExport(q, parseStatus(statusRaw), parseUuid(memberIdRaw));
+        ExportDataset<com.ntech.cabosse.agriculture.parcel.dto.ParcelResponseDto> dataset =
+                new ExportDataset<>("Parcellaire", ParcelExportColumns.all(), rows);
+        exportAudit.record("parcelles", "Parcellaire", format, rows.size());
+        return ExportResponses.build("parcelles", format, dataset);
+    }
+
     @GET
     @Path("/{id}")
     public Response get(@PathParam("id") UUID id) {
@@ -89,6 +112,7 @@ public class ParcelResource {
     }
 
     @POST
+    @RequiresPermission(Permission.PARCEL_WRITE)
     @Path("/import/preview")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response importPreview(java.util.List<ParcelImportRowDto> rows) {
@@ -102,6 +126,7 @@ public class ParcelResource {
      *                        n'a pas été retrouvé, sans rattachement
      */
     @POST
+    @RequiresPermission(Permission.PARCEL_WRITE)
     @Path("/import/commit")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response importCommit(java.util.List<ParcelImportRowDto> rows,
@@ -113,6 +138,7 @@ public class ParcelResource {
     }
 
     @POST
+    @RequiresPermission(Permission.PARCEL_WRITE)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response create(@Valid ParcelUpsertDto payload) {
         ensureCapability();
@@ -122,6 +148,7 @@ public class ParcelResource {
     }
 
     @PUT
+    @RequiresPermission(Permission.PARCEL_WRITE)
     @Path("/{id}")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response update(@PathParam("id") UUID id, @Valid ParcelUpsertDto payload) {

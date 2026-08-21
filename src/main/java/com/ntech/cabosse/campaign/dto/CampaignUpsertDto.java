@@ -2,6 +2,8 @@ package com.ntech.cabosse.campaign.dto;
 
 import com.ntech.cabosse.agriculture.qc.entity.BeanGrade;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -36,11 +38,11 @@ public record CampaignUpsertDto(
         LocalDate endDate,
 
         @NotNull(message = "Prix de base requis")
-        BigDecimal basePricePerKgFcfa,
+        @DecimalMin(value = "0", message = "Valeur négative interdite") BigDecimal basePricePerKgFcfa,
 
         List<@Valid QualityPremiumPayload> qualityPremiums,
 
-        BigDecimal ristournePct,
+        @DecimalMin(value = "0", message = "Pourcentage négatif interdit") @DecimalMax(value = "100", message = "Pourcentage supérieur à 100") BigDecimal ristournePct,
 
         @Size(max = 80, message = "Mode de paiement trop long")
         String defaultPaymentMethod,
@@ -53,6 +55,6 @@ public record CampaignUpsertDto(
     @Schema(description = "Prime qualité par grade de fèves")
     public record QualityPremiumPayload(
             @NotNull BeanGrade grade,
-            @NotNull BigDecimal premiumPerKg
+            @NotNull @DecimalMin(value = "0", message = "Valeur négative interdite") BigDecimal premiumPerKg
     ) {}
 }

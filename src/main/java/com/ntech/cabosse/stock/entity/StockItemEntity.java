@@ -80,7 +80,12 @@ public class StockItemEntity {
     public Instant createdAt;
     public Instant updatedAt;
 
-    /** Lock optimiste — incrémenté à chaque write. */
+    /**
+     * Compteur d'écritures. <strong>Ce n'est pas un verrou</strong> : aucune
+     * mise à jour ne le vérifie. La concurrence est traitée autrement sur
+     * cette entité (le CMUP passe par un findOneAndUpdate atomique). Ne pas s'y fier pour détecter une écriture
+     * concurrente.
+     */
     public long version = 0L;
 
     public StockItemEntity() {}

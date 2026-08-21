@@ -65,6 +65,13 @@ public class HarvestService {
                 filters, items);
     }
 
+
+    /** Toutes les lignes du filtre courant, pour l'export. */
+    public List<HarvestResponseDto> listForExport(UUID parcelId, UUID memberId, UUID campaignId, String q) {
+        return harvests.search(parcelId, memberId, campaignId, q, 0, Integer.MAX_VALUE)
+                .stream().map(HarvestResponseDto::from).toList();
+    }
+
     public HarvestResponseDto getById(UUID id) {
         return HarvestResponseDto.from(loadOrFail(id));
     }

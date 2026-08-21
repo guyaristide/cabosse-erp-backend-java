@@ -1,5 +1,7 @@
 package com.ntech.cabosse.expense.controller;
 
+import com.ntech.cabosse.permission.entity.Permission;
+import com.ntech.cabosse.permission.service.RequiresPermission;
 import com.ntech.cabosse.expense.dto.CreateDirectExpenseDto;
 import com.ntech.cabosse.expense.dto.DirectExpenseResponseDto;
 import com.ntech.cabosse.expense.service.DirectExpenseService;
@@ -7,6 +9,10 @@ import com.ntech.cabosse.shared.api.ApiResponse;
 import com.ntech.cabosse.shared.api.PageRequest;
 import com.ntech.cabosse.shared.api.Pagination;
 import com.ntech.cabosse.shared.security.Roles;
+import com.ntech.cabosse.shared.export.ExportAudit;
+import com.ntech.cabosse.shared.export.ExportDataset;
+import com.ntech.cabosse.shared.export.ExportFormat;
+import com.ntech.cabosse.shared.export.ExportResponses;
 import io.quarkus.security.Authenticated;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
@@ -33,8 +39,10 @@ import java.util.UUID;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Authenticated
+@RequiresPermission(Permission.PURCHASE_READ)
 public class DirectExpenseResource {
 
+    @Inject ExportAudit exportAudit;
     @Inject DirectExpenseService service;
 
     @GET
@@ -50,6 +58,20 @@ public class DirectExpenseResource {
                 total, pr, new String[]{"createdAt"}, "desc", filters, items))).build();
     }
 
+    /** Export de la liste, mêmes filtres qu'à l'écran. */
+    @GET
+    @Path("/export")
+    @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/pdf" })
+    public Response export(@QueryParam("kind") String kind,
+                           @QueryParam("format") String formatRaw) {
+        ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
+        java.util.List<com.ntech.cabosse.expense.dto.DirectExpenseResponseDto> rows = service.search(kind, 0, Integer.MAX_VALUE);
+        ExportDataset<com.ntech.cabosse.expense.dto.DirectExpenseResponseDto> dataset =
+                new ExportDataset<>("Dépenses directes", DirectExpenseExportColumns.all(), rows);
+        exportAudit.record("depenses-directes", "Dépenses directes", format, rows.size());
+        return ExportResponses.build("depenses-directes", format, dataset);
+    }
+
     @GET
     @Path("/{id}")
     public Response getById(@PathParam("id") UUID id) {
@@ -57,6 +79,7 @@ public class DirectExpenseResource {
     }
 
     @POST
+    @RequiresPermission(Permission.EXPENSE_WRITE)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response create(@Valid CreateDirectExpenseDto payload) {
         return Response.status(Response.Status.CREATED)

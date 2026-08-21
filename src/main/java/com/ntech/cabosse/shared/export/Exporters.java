@@ -60,6 +60,19 @@ public final class Exporters {
             case CSV -> writeCsv(dataset, out);
             case XLSX -> writeXlsx(dataset, out);
             case PDF -> writePdf(dataset, out);
+            case META -> writeMeta(dataset, out);
+        }
+    }
+
+    // ─── Méta : les colonnes proposées, sans les données ───────────
+
+    private static <T> void writeMeta(ExportDataset<T> dataset, OutputStream out) {
+        try {
+            var columns = dataset.columns().stream().map(ExportColumn::header).toList();
+            new com.fasterxml.jackson.databind.ObjectMapper()
+                    .writeValue(out, java.util.Map.of("columns", columns));
+        } catch (IOException e) {
+            throw new BusinessException("Erreur d'écriture des métadonnées : " + e.getMessage(), e);
         }
     }
 
@@ -500,7 +513,7 @@ public final class Exporters {
     public static <T> void writePdf(ExportDataset<T> dataset, OutputStream out) {
         Document doc = new Document(PageSize.A4.rotate(), 28, 28, 36, 36);
         try {
-            PdfWriter.getInstance(doc, out);
+            PdfWriter.getInstance(doc, out).setPageEvent(new PdfBranding());
             doc.open();
 
             Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 14, java.awt.Color.BLACK);

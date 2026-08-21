@@ -29,6 +29,10 @@ public enum AuditEventType {
     PASSWORD_CHANGED,
     USER_DISABLED,
     USER_REACTIVATED,
+    /** Profils du tenant composés ou modifiés (backlog ADM-01). */
+    TENANT_ROLE_CHANGED,
+    /** Profils attribués à un utilisateur. */
+    USER_ROLES_CHANGED,
     ROLE_GRANTED,
     ROLE_REVOKED,
 
@@ -150,7 +154,8 @@ public enum AuditEventType {
                  TENANT_MIGRATIONS_RUN, TENANT_BACKUP_REQUESTED -> AuditCategory.TENANT;
             case TENANT_PLAN_CHANGED -> AuditCategory.BILLING;
             case INVITATION_SENT, PASSWORD_RESET_REQUESTED, PASSWORD_CHANGED,
-                 USER_DISABLED, USER_REACTIVATED, ROLE_GRANTED, ROLE_REVOKED -> AuditCategory.USER;
+                 USER_DISABLED, USER_REACTIVATED, ROLE_GRANTED, ROLE_REVOKED,
+                 TENANT_ROLE_CHANGED, USER_ROLES_CHANGED -> AuditCategory.USER;
             case LOGIN_SUCCEEDED, AUTHENTICATION_FAILED, PERMISSION_DENIED,
                  CROSS_TENANT_ACCESS -> AuditCategory.SECURITY;
             case IMPERSONATION_STARTED, IMPERSONATION_ENDED -> AuditCategory.IMPERSONATION;

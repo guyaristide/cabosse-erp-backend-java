@@ -9,7 +9,13 @@ public enum ExportFormat {
 
     CSV("csv", "text/csv; charset=utf-8"),
     XLSX("xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
-    PDF("pdf", "application/pdf");
+    PDF("pdf", "application/pdf"),
+    /**
+     * Pseudo-format de découverte : renvoie en JSON la liste des colonnes
+     * que l'export propose, dans leur ordre. Sert au sélecteur de colonnes
+     * du front avant un export PDF ; aucune donnée métier n'est émise.
+     */
+    META("json", "application/json; charset=utf-8");
 
     private final String extension;
     private final String mimeType;

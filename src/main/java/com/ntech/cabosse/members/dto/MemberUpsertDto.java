@@ -6,6 +6,7 @@ import com.ntech.cabosse.members.entity.MemberMaritalStatus;
 import com.ntech.cabosse.members.entity.MemberPersonType;
 import com.ntech.cabosse.members.entity.MemberStatus;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -74,7 +75,7 @@ public record MemberUpsertDto(
         @Size(max = 30) String phone,
         @Email @Size(max = 120) String email,
         LocalDate joinedAt,
-        BigDecimal partsSocialesAmount,
+        @DecimalMin(value = "0", message = "Valeur négative interdite") BigDecimal partsSocialesAmount,
         @NotNull MemberStatus status,
         @Size(max = 60) String preferredPaymentMethod,
         @Size(max = 30) String mobileMoneyNumber,
