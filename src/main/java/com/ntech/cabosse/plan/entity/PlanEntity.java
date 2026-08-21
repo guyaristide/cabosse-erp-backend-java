@@ -39,6 +39,8 @@ public class PlanEntity extends PanacheMongoEntityBase {
 
     public int maxUsers;
     public int maxSites;
+    /** Plafond de producteurs membres. Nul ou absent : non contraint. */
+    public int maxMembers;
 
     /** Codes des modules inclus ({@code "achats"}, {@code "production"}, …). */
     public List<String> includedModules = new ArrayList<>();

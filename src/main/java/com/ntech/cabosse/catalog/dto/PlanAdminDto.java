@@ -13,6 +13,7 @@ public record PlanAdminDto(
         BigDecimal monthlyPriceFcfa,
         BigDecimal yearlyPriceFcfa,
         int maxUsers,
+        int maxMembers,
         int maxSites,
         List<String> includedModules,
         List<String> features,

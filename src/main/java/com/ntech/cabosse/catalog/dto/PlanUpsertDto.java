@@ -38,6 +38,8 @@ public record PlanUpsertDto(
 
         @Min(value = 1, message = "Au moins 1 user")
         int maxUsers,
+        /** Plafond de producteurs membres. Nul : non contraint. */
+        int maxMembers,
 
         @Min(value = 1, message = "Au moins 1 site")
         int maxSites,

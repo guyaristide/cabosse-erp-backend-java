@@ -40,6 +40,20 @@ public record TenantTechnicalStatusDto(
         @Schema(enumeration = { "hourly", "daily", "weekly" })
         String backupFrequency,
 
-        List<BackupSnapshotDto> recentBackups
+        List<BackupSnapshotDto> recentBackups,
+
+        /**
+         * Consommation face aux plafonds du plan (backlog SAAS-02) : sans
+         * cette lecture, un agent ne peut ni anticiper l'approche d'un
+         * plafond ni proposer le palier supérieur avant le refus.
+         */
+        @Schema(description = "Comptes actifs ou invités consommant un siège du plan")
+        long activeUsers,
+        @Schema(description = "Plafond de comptes du plan. Nul : non contraint")
+        int maxUsers,
+        @Schema(description = "Producteurs membres enregistrés")
+        long membersCount,
+        @Schema(description = "Plafond de producteurs du plan. Nul : non contraint")
+        int maxMembers
 
 ) {}

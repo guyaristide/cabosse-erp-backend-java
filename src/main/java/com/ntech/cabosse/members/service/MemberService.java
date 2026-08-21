@@ -56,6 +56,7 @@ import java.util.stream.Collectors;
 public class MemberService {
 
     @Inject MemberRepository members;
+    @Inject com.ntech.cabosse.plan.service.PlanLimitService planLimits;
     @Inject MemberRefService refService;
     @Inject SupplierRepository suppliers;
     @Inject IdGenerator idGenerator;
@@ -99,6 +100,7 @@ public class MemberService {
     // ─── Création ───────────────────────────────────────────────────
 
     public MemberResponseDto create(MemberUpsertDto payload) {
+        planLimits.enforceMemberCapacity(1);
         MemberEntity e = new MemberEntity();
         e.id = idGenerator.newId();
         e.code = resolveCode(payload.code());

@@ -7,9 +7,19 @@
     "yearlyPriceFcfa": 240000,
     "maxUsers": 3,
     "maxSites": 1,
-    "includedModules": ["referentiels", "achats", "production", "ventes", "stocks"],
-    "features": ["Sauvegardes quotidiennes", "Support par e-mail"],
-    "active": true
+    "includedModules": [
+      "referentiels",
+      "achats",
+      "production",
+      "ventes",
+      "stocks"
+    ],
+    "features": [
+      "Sauvegardes quotidiennes",
+      "Support par e-mail"
+    ],
+    "active": true,
+    "maxMembers": 100
   },
   {
     "code": "pro",
@@ -19,9 +29,23 @@
     "yearlyPriceFcfa": 720000,
     "maxUsers": 15,
     "maxSites": 5,
-    "includedModules": ["referentiels", "achats", "production", "ventes", "stocks", "reporting", "tracabilite", "comptabilite"],
-    "features": ["Sauvegardes horaires", "Support e-mail + téléphone", "Exports SYSCOHADA"],
-    "active": true
+    "includedModules": [
+      "referentiels",
+      "achats",
+      "production",
+      "ventes",
+      "stocks",
+      "reporting",
+      "tracabilite",
+      "comptabilite"
+    ],
+    "features": [
+      "Sauvegardes horaires",
+      "Support e-mail + téléphone",
+      "Exports SYSCOHADA"
+    ],
+    "active": true,
+    "maxMembers": 500
   },
   {
     "code": "scale",
@@ -31,9 +55,25 @@
     "yearlyPriceFcfa": 1920000,
     "maxUsers": 50,
     "maxSites": 9999,
-    "includedModules": ["referentiels", "achats", "production", "ventes", "stocks", "reporting", "tracabilite", "comptabilite", "dashboard-executif"],
-    "features": ["Sauvegardes en continu", "Support dédié business hours", "Exports avancés", "SLA 99,5%"],
-    "active": true
+    "includedModules": [
+      "referentiels",
+      "achats",
+      "production",
+      "ventes",
+      "stocks",
+      "reporting",
+      "tracabilite",
+      "comptabilite",
+      "dashboard-executif"
+    ],
+    "features": [
+      "Sauvegardes en continu",
+      "Support dédié business hours",
+      "Exports avancés",
+      "SLA 99,5%"
+    ],
+    "active": true,
+    "maxMembers": 2000
   },
   {
     "code": "enterprise",
@@ -43,8 +83,25 @@
     "yearlyPriceFcfa": 0,
     "maxUsers": 9999,
     "maxSites": 9999,
-    "includedModules": ["referentiels", "achats", "production", "ventes", "stocks", "reporting", "tracabilite", "comptabilite", "dashboard-executif", "admin-tenant"],
-    "features": ["Support dédié 24/7", "SLA 99,9%", "Audit dédié", "Personnalisation sur mesure"],
-    "active": true
+    "includedModules": [
+      "referentiels",
+      "achats",
+      "production",
+      "ventes",
+      "stocks",
+      "reporting",
+      "tracabilite",
+      "comptabilite",
+      "dashboard-executif",
+      "admin-tenant"
+    ],
+    "features": [
+      "Support dédié 24/7",
+      "SLA 99,9%",
+      "Audit dédié",
+      "Personnalisation sur mesure"
+    ],
+    "active": true,
+    "maxMembers": 9999
   }
 ]

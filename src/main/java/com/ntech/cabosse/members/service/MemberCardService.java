@@ -58,14 +58,15 @@ public class MemberCardService {
         try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             // A6 paysage : 148 × 105 mm.
             Document doc = new Document(new Rectangle(420, 298), 24, 24, 20, 20);
-            PdfWriter.getInstance(doc, out);
+            PdfWriter.getInstance(doc, out)
+                    .setPageEvent(new com.ntech.cabosse.shared.export.PdfBranding());
             doc.open();
 
             Font orgFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 13, Color.BLACK);
             Font titleFont = FontFactory.getFont(FontFactory.HELVETICA, 9, new Color(0x66, 0x66, 0x66));
             Font nameFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 16, Color.BLACK);
             Font labelFont = FontFactory.getFont(FontFactory.HELVETICA, 8, new Color(0x66, 0x66, 0x66));
-            Font valueFont = FontFactory.getFont(FontFactory.COURIER, 10, Color.BLACK);
+            Font valueFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10, Color.BLACK);
 
             Paragraph org = new Paragraph(organization, orgFont);
             doc.add(org);

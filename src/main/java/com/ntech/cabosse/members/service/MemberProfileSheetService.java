@@ -115,7 +115,8 @@ public class MemberProfileSheetService {
 
         try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             Document doc = new Document(PageSize.A4, 30, 30, 26, 26);
-            PdfWriter.getInstance(doc, out);
+            PdfWriter.getInstance(doc, out)
+                    .setPageEvent(new com.ntech.cabosse.shared.export.PdfBranding());
             doc.open();
 
             doc.add(titleBand(organization));

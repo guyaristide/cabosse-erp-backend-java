@@ -73,6 +73,7 @@ public class MemberImportService {
     );
 
     @Inject MemberRepository members;
+    @Inject com.ntech.cabosse.plan.service.PlanLimitService planLimits;
     @Inject MemberService memberService;
     @Inject SectionRepository sections;
     @Inject IdDocumentTypeRepository idDocumentTypes;
@@ -199,6 +200,17 @@ public class MemberImportService {
      */
     public MemberImportCommitResponseDto commit(List<MemberImportRowDto> input, boolean includeWarnings) {
         MemberImportPreviewDto preview = preview(input);
+        // Le plafond du plan se vérifie sur le lot entier, avant la première
+        // écriture : un import qui s'arrêterait au producteur n° 412 sur 500
+        // laisserait un état que personne ne saurait décrire. Seules les
+        // créations comptent, une mise à jour ne consomme rien.
+        int creations = (int) preview.rows().stream()
+                .filter(r -> r.status() == Status.READY
+                        || (r.status() == Status.WARNING && includeWarnings))
+                .count();
+        if (creations > 0) {
+            planLimits.enforceMemberCapacity(creations);
+        }
         List<UUID> created = new ArrayList<>();
         List<UUID> updated = new ArrayList<>();
         List<Row> skipped = new ArrayList<>();

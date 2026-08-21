@@ -62,6 +62,7 @@ public class TenantUserService {
             "$2a$12$pending-invitation-redemption-placeholder-not-usable";
 
     @Inject UserRepository users;
+    @Inject com.ntech.cabosse.plan.service.PlanLimitService planLimits;
     @Inject TenantRepository tenants;
     @Inject InvitationTokenService invitationTokens;
     @Inject IdGenerator idGenerator;
@@ -110,6 +111,9 @@ public class TenantUserService {
         if (!Roles.HUMAN_ASSIGNABLE.contains(payload.role())) {
             throw new BusinessException("Rôle non assignable : " + payload.role());
         }
+        // Le plafond de comptes du plan se consomme ici, quelle que soit la
+        // porte d'entrée (back-office ou administrateur du tenant).
+        planLimits.enforceUserSeat(tenant);
 
         InvitationTokenService.InvitationToken token = invitationTokens.generate();
         UserEntity user = new UserEntity();
@@ -234,7 +238,8 @@ public class TenantUserService {
                 u.status,
                 u.createdAt,
                 u.lastLoginAt,
-                u.invitationExpiresAt
+                u.invitationExpiresAt,
+                u.tenantRoleIds != null ? java.util.List.copyOf(u.tenantRoleIds) : java.util.List.of()
         );
     }
 }
