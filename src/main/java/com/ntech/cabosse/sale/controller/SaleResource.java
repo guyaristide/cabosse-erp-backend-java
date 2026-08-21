@@ -1,5 +1,7 @@
 package com.ntech.cabosse.sale.controller;
 
+import com.ntech.cabosse.permission.entity.Permission;
+import com.ntech.cabosse.permission.service.RequiresPermission;
 import com.ntech.cabosse.sale.dto.CancelSaleDto;
 import com.ntech.cabosse.sale.dto.SaleImportDto;
 import com.ntech.cabosse.sale.dto.SaleImportResultDto;
@@ -43,6 +45,7 @@ import java.util.UUID;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Authenticated
+@RequiresPermission(Permission.SALE_READ)
 public class SaleResource {
 
     @Inject SaleService service;
@@ -77,6 +80,7 @@ public class SaleResource {
     }
 
     @POST
+    @RequiresPermission(Permission.SALE_WRITE)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response create(@Valid SaleUpsertDto payload,
                            @QueryParam("asQuote") @DefaultValue("false") boolean asQuote) {
@@ -87,6 +91,7 @@ public class SaleResource {
     }
 
     @PUT
+    @RequiresPermission(Permission.SALE_WRITE)
     @Path("/{id}")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response update(@PathParam("id") UUID id, @Valid SaleUpsertDto payload) {
@@ -94,6 +99,7 @@ public class SaleResource {
     }
 
     @POST
+    @RequiresPermission(Permission.SALE_WRITE)
     @Path("/import")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response importOne(@Valid SaleImportDto payload) {
@@ -107,6 +113,7 @@ public class SaleResource {
     }
 
     @POST
+    @RequiresPermission(Permission.SALE_WRITE)
     @Path("/{id}/validate-quote")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response validateQuote(@PathParam("id") UUID id) {
@@ -114,6 +121,7 @@ public class SaleResource {
     }
 
     @POST
+    @RequiresPermission(Permission.SALE_WRITE)
     @Path("/{id}/mark-delivered")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response markDelivered(@PathParam("id") UUID id) {
@@ -121,6 +129,7 @@ public class SaleResource {
     }
 
     @POST
+    @RequiresPermission(Permission.SALE_WRITE)
     @Path("/{id}/payments")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response recordPayment(@PathParam("id") UUID id, @Valid SalePaymentDto payload) {
@@ -128,6 +137,7 @@ public class SaleResource {
     }
 
     @DELETE
+    @RequiresPermission(Permission.SALE_WRITE)
     @Path("/{id}/payments/{paymentId}")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response removePayment(@PathParam("id") UUID id,
@@ -136,6 +146,7 @@ public class SaleResource {
     }
 
     @POST
+    @RequiresPermission(Permission.SALE_WRITE)
     @Path("/{id}/cancel")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response cancel(@PathParam("id") UUID id, @Valid CancelSaleDto payload) {

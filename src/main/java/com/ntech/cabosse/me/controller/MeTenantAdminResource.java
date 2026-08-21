@@ -1,5 +1,7 @@
 package com.ntech.cabosse.me.controller;
 
+import com.ntech.cabosse.permission.entity.Permission;
+import com.ntech.cabosse.permission.service.RequiresPermission;
 import com.ntech.cabosse.me.service.MeTenantAdminService;
 import com.ntech.cabosse.shared.api.ApiResponse;
 import com.ntech.cabosse.shared.api.Pagination;
@@ -74,6 +76,7 @@ public class MeTenantAdminResource {
     }
 
     @POST
+    @RequiresPermission(Permission.USER_MANAGE)
     @Path("/users")
     @Consumes(MediaType.APPLICATION_JSON)
     @Operation(summary = "Inviter un utilisateur dans le tenant courant",
@@ -89,6 +92,7 @@ public class MeTenantAdminResource {
     }
 
     @POST
+    @RequiresPermission(Permission.USER_MANAGE)
     @Path("/users/{userId}/reset-password")
     @Operation(summary = "Réinitialiser le mot de passe d'un utilisateur",
             description = "Nouveau lien d'activation envoyé par mail. Le compte repasse en INVITED.")
@@ -99,6 +103,7 @@ public class MeTenantAdminResource {
     }
 
     @PATCH
+    @RequiresPermission(Permission.USER_MANAGE)
     @Path("/users/{userId}/active")
     @Operation(summary = "Active / désactive un utilisateur",
             description = "value=true ré-active un compte DISABLED. value=false suspend un compte ACTIVE. "

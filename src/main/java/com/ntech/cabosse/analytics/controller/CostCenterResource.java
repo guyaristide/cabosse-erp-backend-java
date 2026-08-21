@@ -1,5 +1,7 @@
 package com.ntech.cabosse.analytics.controller;
 
+import com.ntech.cabosse.permission.entity.Permission;
+import com.ntech.cabosse.permission.service.RequiresPermission;
 import com.ntech.cabosse.analytics.dto.CostCenterUpsertDto;
 import com.ntech.cabosse.analytics.service.CostCenterService;
 import com.ntech.cabosse.shared.api.ApiResponse;
@@ -28,6 +30,7 @@ import java.util.UUID;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Authenticated
+@RequiresPermission(Permission.ACCOUNTING_READ)
 public class CostCenterResource {
 
     @Inject CostCenterService service;
@@ -36,6 +39,7 @@ public class CostCenterResource {
     public Response list() { return Response.ok(ApiResponse.ok(service.list())).build(); }
 
     @POST
+    @RequiresPermission(Permission.ACCOUNTING_WRITE)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
     public Response create(@Valid CostCenterUpsertDto p) {
         return Response.status(Response.Status.CREATED)
@@ -43,6 +47,7 @@ public class CostCenterResource {
     }
 
     @PUT
+    @RequiresPermission(Permission.ACCOUNTING_WRITE)
     @Path("/{id}")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
     public Response update(@PathParam("id") UUID id, @Valid CostCenterUpsertDto p) {
@@ -50,6 +55,7 @@ public class CostCenterResource {
     }
 
     @PATCH
+    @RequiresPermission(Permission.ACCOUNTING_WRITE)
     @Path("/{id}/active")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
     public Response setActive(@PathParam("id") UUID id, @QueryParam("value") boolean value) {

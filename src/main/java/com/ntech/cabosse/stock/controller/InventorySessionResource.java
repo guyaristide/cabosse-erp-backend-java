@@ -1,5 +1,7 @@
 package com.ntech.cabosse.stock.controller;
 
+import com.ntech.cabosse.permission.entity.Permission;
+import com.ntech.cabosse.permission.service.RequiresPermission;
 import com.ntech.cabosse.shared.api.ApiResponse;
 import com.ntech.cabosse.shared.api.PageRequest;
 import com.ntech.cabosse.shared.api.Pagination;
@@ -44,6 +46,7 @@ import java.util.stream.Collectors;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Authenticated
+@RequiresPermission(Permission.STOCK_READ)
 public class InventorySessionResource {
 
     @Inject InventorySessionService service;
@@ -82,6 +85,7 @@ public class InventorySessionResource {
     }
 
     @POST
+    @RequiresPermission(Permission.STOCK_INVENTORY)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response open(@Valid OpenPayload payload) {
         var created = service.open(payload.siteId(), payload.reason());
@@ -91,6 +95,7 @@ public class InventorySessionResource {
     }
 
     @PUT
+    @RequiresPermission(Permission.STOCK_INVENTORY)
     @Path("/{id}/counts")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response updateCounts(@PathParam("id") UUID id, @Valid CountPayload payload) {
@@ -104,6 +109,7 @@ public class InventorySessionResource {
     }
 
     @POST
+    @RequiresPermission(Permission.STOCK_INVENTORY)
     @Path("/{id}/submit")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response submit(@PathParam("id") UUID id) {
@@ -113,6 +119,7 @@ public class InventorySessionResource {
 
     /** La validation applique les ajustements : réservée à l'administrateur du tenant. */
     @POST
+    @RequiresPermission(Permission.STOCK_INVENTORY)
     @Path("/{id}/validate")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
     public Response validate(@PathParam("id") UUID id) {
@@ -121,6 +128,7 @@ public class InventorySessionResource {
     }
 
     @POST
+    @RequiresPermission(Permission.STOCK_INVENTORY)
     @Path("/{id}/cancel")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response cancel(@PathParam("id") UUID id) {

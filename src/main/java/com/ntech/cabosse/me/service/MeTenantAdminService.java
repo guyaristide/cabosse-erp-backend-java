@@ -110,7 +110,8 @@ public class MeTenantAdminService {
         return new TenantUserSummaryDto(
                 u.id, u.email, u.firstName, u.lastName, u.phone,
                 u.roles != null ? Set.copyOf(u.roles) : Set.of(),
-                u.status, u.createdAt, u.lastLoginAt, u.invitationExpiresAt
+                u.status, u.createdAt, u.lastLoginAt, u.invitationExpiresAt,
+                u.tenantRoleIds != null ? java.util.List.copyOf(u.tenantRoleIds) : java.util.List.of()
         );
     }
 }

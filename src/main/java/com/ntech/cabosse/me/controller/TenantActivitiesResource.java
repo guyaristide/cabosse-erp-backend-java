@@ -1,5 +1,7 @@
 package com.ntech.cabosse.me.controller;
 
+import com.ntech.cabosse.permission.entity.Permission;
+import com.ntech.cabosse.permission.service.RequiresPermission;
 import com.ntech.cabosse.me.dto.UpdateTenantActivitiesDto;
 import com.ntech.cabosse.me.service.TenantActivitiesService;
 import com.ntech.cabosse.shared.api.ApiResponse;
@@ -38,6 +40,7 @@ public class TenantActivitiesResource {
     }
 
     @PUT
+    @RequiresPermission(Permission.SETTINGS_WRITE)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
     public Response replace(@Valid UpdateTenantActivitiesDto payload) {
         return Response.ok(ApiResponse.ok(service.replace(payload))).build();

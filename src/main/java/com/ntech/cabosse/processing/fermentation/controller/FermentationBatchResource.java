@@ -1,5 +1,7 @@
 package com.ntech.cabosse.processing.fermentation.controller;
 
+import com.ntech.cabosse.permission.entity.Permission;
+import com.ntech.cabosse.permission.service.RequiresPermission;
 import com.ntech.cabosse.processing.fermentation.dto.FermentationBatchResponseDto;
 import com.ntech.cabosse.processing.fermentation.dto.FermentationBatchUpsertDto;
 import com.ntech.cabosse.processing.fermentation.entity.FermentationBatchStatus;
@@ -36,6 +38,7 @@ import java.util.UUID;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Authenticated
+@RequiresPermission(Permission.PROCESSING_READ)
 public class FermentationBatchResource {
 
     @Inject FermentationBatchService service;
@@ -69,6 +72,7 @@ public class FermentationBatchResource {
     }
 
     @POST
+    @RequiresPermission(Permission.FERMENTATION_WRITE)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response create(@Valid FermentationBatchUpsertDto payload) {
         ensureCapability();
@@ -78,6 +82,7 @@ public class FermentationBatchResource {
     }
 
     @POST
+    @RequiresPermission(Permission.FERMENTATION_WRITE)
     @Path("/{id}/start")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response start(@PathParam("id") UUID id) {
@@ -88,6 +93,7 @@ public class FermentationBatchResource {
     public record TemperaturePayload(BigDecimal celsius, String observation) {}
 
     @POST
+    @RequiresPermission(Permission.FERMENTATION_WRITE)
     @Path("/{id}/temperatures")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response recordTemperature(@PathParam("id") UUID id, TemperaturePayload payload) {
@@ -101,6 +107,7 @@ public class FermentationBatchResource {
     public record TurningPayload(String operator, String notes) {}
 
     @POST
+    @RequiresPermission(Permission.FERMENTATION_WRITE)
     @Path("/{id}/turnings")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response recordTurning(@PathParam("id") UUID id, TurningPayload payload) {
@@ -113,6 +120,7 @@ public class FermentationBatchResource {
     public record CompletePayload(BigDecimal weightOutKg, String finalGradeEstimate) {}
 
     @POST
+    @RequiresPermission(Permission.FERMENTATION_WRITE)
     @Path("/{id}/complete")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response complete(@PathParam("id") UUID id, CompletePayload payload) {
@@ -125,6 +133,7 @@ public class FermentationBatchResource {
     public record CancelPayload(String reason) {}
 
     @POST
+    @RequiresPermission(Permission.FERMENTATION_WRITE)
     @Path("/{id}/cancel")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response cancel(@PathParam("id") UUID id, CancelPayload payload) {

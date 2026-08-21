@@ -1,5 +1,7 @@
 package com.ntech.cabosse.article.controller;
 
+import com.ntech.cabosse.permission.entity.Permission;
+import com.ntech.cabosse.permission.service.RequiresPermission;
 import com.ntech.cabosse.article.dto.ArticleImportCommitResponseDto;
 import com.ntech.cabosse.article.dto.ArticleImportPreviewDto;
 import com.ntech.cabosse.article.dto.ArticleImportRowDto;
@@ -50,6 +52,7 @@ import java.util.UUID;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Authenticated
+@RequiresPermission(Permission.REFERENTIAL_READ)
 public class ArticleResource {
 
     @Inject ArticleService service;
@@ -68,6 +71,7 @@ public class ArticleResource {
     }
 
     @POST
+    @RequiresPermission(Permission.REFERENTIAL_WRITE)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
     public Response create(@Valid ArticleUpsertDto p) {
         return Response.status(Response.Status.CREATED)
@@ -75,6 +79,7 @@ public class ArticleResource {
     }
 
     @PUT
+    @RequiresPermission(Permission.REFERENTIAL_WRITE)
     @Path("/{id}")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
     public Response update(@PathParam("id") UUID id, @Valid ArticleUpsertDto p) {
@@ -82,6 +87,7 @@ public class ArticleResource {
     }
 
     @PATCH
+    @RequiresPermission(Permission.REFERENTIAL_WRITE)
     @Path("/{id}/active")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
     public Response setActive(@PathParam("id") UUID id, @QueryParam("value") boolean value) {
@@ -91,6 +97,7 @@ public class ArticleResource {
     // ─── Image ───────────────────────────────────────────────────────
 
     @PUT
+    @RequiresPermission(Permission.REFERENTIAL_WRITE)
     @Path("/{id}/image")
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
@@ -104,6 +111,7 @@ public class ArticleResource {
     }
 
     @DELETE
+    @RequiresPermission(Permission.REFERENTIAL_WRITE)
     @Path("/{id}/image")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
     public Response deleteImage(@PathParam("id") UUID id) {
@@ -183,6 +191,7 @@ public class ArticleResource {
     }
 
     @POST
+    @RequiresPermission(Permission.REFERENTIAL_WRITE)
     @Path("/import/preview")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response importPreview(java.util.List<ArticleImportRowDto> rows) {
@@ -191,6 +200,7 @@ public class ArticleResource {
     }
 
     @POST
+    @RequiresPermission(Permission.REFERENTIAL_WRITE)
     @Path("/import/commit")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response importCommit(java.util.List<ArticleImportRowDto> rows) {

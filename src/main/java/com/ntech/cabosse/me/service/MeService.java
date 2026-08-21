@@ -37,6 +37,7 @@ public class MeService {
     @Inject PasswordHasher passwordHasher;
     @Inject com.ntech.cabosse.shared.audit.AuditService audit;
     @Inject com.ntech.cabosse.tenant.capability.TenantCapabilityService capabilityService;
+    @Inject com.ntech.cabosse.permission.service.PermissionResolver permissions;
 
     /** Devise par défaut si le tenant n'a pas explicitement choisi. */
     private static final String DEFAULT_CURRENCY = "XOF";
@@ -58,6 +59,8 @@ public class MeService {
                 ? "/api/v1/admin/tenants/" + tenant.id + "/logo"
                 : null;
         var capsDto = caps.stream().map(Enum::name).sorted().toList();
+        var permsDto = permissions.of(user, user.tenantId).stream()
+                .map(Enum::name).sorted().toList();
         return new MeResponseDto(
                 user.id,
                 user.email,
@@ -72,6 +75,7 @@ public class MeService {
                 brandColor,
                 logoUrl,
                 capsDto,
+                permsDto,
                 user.lastLoginAt
         );
     }

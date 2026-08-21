@@ -1,5 +1,7 @@
 package com.ntech.cabosse.crop.controller;
 
+import com.ntech.cabosse.permission.entity.Permission;
+import com.ntech.cabosse.permission.service.RequiresPermission;
 import com.ntech.cabosse.crop.dto.CropUpsertDto;
 import com.ntech.cabosse.crop.service.CropService;
 import com.ntech.cabosse.shared.api.ApiResponse;
@@ -29,6 +31,7 @@ import java.util.UUID;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Authenticated
+@RequiresPermission(Permission.REFERENTIAL_READ)
 public class CropResource {
 
     @Inject CropService service;
@@ -40,6 +43,7 @@ public class CropResource {
     }
 
     @POST
+    @RequiresPermission(Permission.REFERENTIAL_WRITE)
     @Operation(summary = "Ajoute une culture au référentiel")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER, Roles.PLATFORM_ADMIN })
     public Response create(@Valid CropUpsertDto p) {
@@ -48,6 +52,7 @@ public class CropResource {
     }
 
     @PUT
+    @RequiresPermission(Permission.REFERENTIAL_WRITE)
     @Path("/{id}")
     @Operation(summary = "Renomme une culture")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
@@ -56,6 +61,7 @@ public class CropResource {
     }
 
     @PATCH
+    @RequiresPermission(Permission.REFERENTIAL_WRITE)
     @Path("/{id}/active")
     @Operation(summary = "Active ou désactive une culture")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })

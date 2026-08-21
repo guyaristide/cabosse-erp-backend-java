@@ -1,5 +1,7 @@
 package com.ntech.cabosse.tracabilite.controller;
 
+import com.ntech.cabosse.permission.entity.Permission;
+import com.ntech.cabosse.permission.service.RequiresPermission;
 import com.ntech.cabosse.shared.api.ApiResponse;
 import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.tracabilite.dto.LotIndexEntryDto;
@@ -29,6 +31,7 @@ import java.util.List;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Authenticated
+@RequiresPermission(Permission.TRACEABILITY_READ)
 public class TracabiliteResource {
 
     @Inject LotTraceService service;

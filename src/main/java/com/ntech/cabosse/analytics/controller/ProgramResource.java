@@ -1,5 +1,7 @@
 package com.ntech.cabosse.analytics.controller;
 
+import com.ntech.cabosse.permission.entity.Permission;
+import com.ntech.cabosse.permission.service.RequiresPermission;
 import com.ntech.cabosse.analytics.dto.ProgramUpsertDto;
 import com.ntech.cabosse.analytics.service.ProgramService;
 import com.ntech.cabosse.shared.api.ApiResponse;
@@ -28,6 +30,7 @@ import java.util.UUID;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Authenticated
+@RequiresPermission(Permission.ACCOUNTING_READ)
 public class ProgramResource {
 
     @Inject ProgramService service;
@@ -36,6 +39,7 @@ public class ProgramResource {
     public Response list() { return Response.ok(ApiResponse.ok(service.list())).build(); }
 
     @POST
+    @RequiresPermission(Permission.ACCOUNTING_WRITE)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
     public Response create(@Valid ProgramUpsertDto p) {
         return Response.status(Response.Status.CREATED)
@@ -43,6 +47,7 @@ public class ProgramResource {
     }
 
     @PUT
+    @RequiresPermission(Permission.ACCOUNTING_WRITE)
     @Path("/{id}")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
     public Response update(@PathParam("id") UUID id, @Valid ProgramUpsertDto p) {
@@ -50,6 +55,7 @@ public class ProgramResource {
     }
 
     @PATCH
+    @RequiresPermission(Permission.ACCOUNTING_WRITE)
     @Path("/{id}/active")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
     public Response setActive(@PathParam("id") UUID id, @QueryParam("value") boolean value) {

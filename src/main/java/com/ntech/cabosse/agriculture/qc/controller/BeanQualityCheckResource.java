@@ -1,5 +1,7 @@
 package com.ntech.cabosse.agriculture.qc.controller;
 
+import com.ntech.cabosse.permission.entity.Permission;
+import com.ntech.cabosse.permission.service.RequiresPermission;
 import com.ntech.cabosse.agriculture.qc.dto.BeanQualityCheckResponseDto;
 import com.ntech.cabosse.agriculture.qc.dto.BeanQualityCheckUpsertDto;
 import com.ntech.cabosse.agriculture.qc.service.BeanQualityCheckService;
@@ -35,6 +37,7 @@ import java.util.UUID;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Authenticated
+@RequiresPermission(Permission.PROCESSING_READ)
 public class BeanQualityCheckResource {
 
     @Inject BeanQualityCheckService service;
@@ -66,6 +69,7 @@ public class BeanQualityCheckResource {
     }
 
     @POST
+    @RequiresPermission(Permission.DRYING_WRITE)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response create(@Valid BeanQualityCheckUpsertDto payload) {
         ensureCapability();
@@ -75,6 +79,7 @@ public class BeanQualityCheckResource {
     }
 
     @PUT
+    @RequiresPermission(Permission.DRYING_WRITE)
     @Path("/{id}")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response update(@PathParam("id") UUID id, @Valid BeanQualityCheckUpsertDto payload) {
@@ -83,6 +88,7 @@ public class BeanQualityCheckResource {
     }
 
     @POST
+    @RequiresPermission(Permission.DRYING_WRITE)
     @Path("/{id}/validate")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response validate(@PathParam("id") UUID id) {

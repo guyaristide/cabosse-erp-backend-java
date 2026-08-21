@@ -1,5 +1,7 @@
 package com.ntech.cabosse.me.controller;
 
+import com.ntech.cabosse.permission.entity.Permission;
+import com.ntech.cabosse.permission.service.RequiresPermission;
 import com.ntech.cabosse.me.dto.TenantProfileDto;
 import com.ntech.cabosse.me.dto.UpdateTenantProfilePayloadDto;
 import com.ntech.cabosse.me.service.TenantProfileService;
@@ -45,6 +47,7 @@ public class TenantProfileResource {
     }
 
     @PUT
+    @RequiresPermission(Permission.SETTINGS_WRITE)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
     @Operation(summary = "Mettre à jour le profil de la coopérative",
             description = "Remplace les sections identité, adresse, contacts et produits vendus.")

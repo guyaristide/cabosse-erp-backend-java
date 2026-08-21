@@ -1,5 +1,7 @@
 package com.ntech.cabosse.cacao.controller;
 
+import com.ntech.cabosse.permission.entity.Permission;
+import com.ntech.cabosse.permission.service.RequiresPermission;
 import com.ntech.cabosse.cacao.dto.SalesContractUpsertDto;
 import com.ntech.cabosse.cacao.service.SalesContractService;
 import com.ntech.cabosse.shared.api.ApiResponse;
@@ -28,6 +30,7 @@ import java.util.UUID;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Authenticated
+@RequiresPermission(Permission.SALE_READ)
 public class SalesContractResource {
 
     @Inject SalesContractService service;
@@ -45,6 +48,7 @@ public class SalesContractResource {
     }
 
     @POST
+    @RequiresPermission(Permission.SALE_WRITE)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response create(@Valid SalesContractUpsertDto p) {
         return Response.status(Response.Status.CREATED)
@@ -52,6 +56,7 @@ public class SalesContractResource {
     }
 
     @PUT
+    @RequiresPermission(Permission.SALE_WRITE)
     @Path("/{id}")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response update(@PathParam("id") UUID id, @Valid SalesContractUpsertDto p) {
@@ -59,6 +64,7 @@ public class SalesContractResource {
     }
 
     @PATCH
+    @RequiresPermission(Permission.SALE_WRITE)
     @Path("/{id}/active")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
     public Response setActive(@PathParam("id") UUID id, @QueryParam("value") boolean value) {

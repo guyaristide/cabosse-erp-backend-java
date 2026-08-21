@@ -1,5 +1,7 @@
 package com.ntech.cabosse.achats.controller;
 
+import com.ntech.cabosse.permission.entity.Permission;
+import com.ntech.cabosse.permission.service.RequiresPermission;
 import com.ntech.cabosse.achats.dto.CancelPurchaseOrderDto;
 import com.ntech.cabosse.achats.dto.PurchaseOrderImportDto;
 import com.ntech.cabosse.achats.dto.PurchaseOrderImportResultDto;
@@ -56,6 +58,7 @@ import java.util.UUID;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Authenticated
+@RequiresPermission(Permission.PURCHASE_READ)
 public class PurchaseOrderResource {
 
     @Inject PurchaseOrderService service;
@@ -81,6 +84,7 @@ public class PurchaseOrderResource {
     }
 
     @POST
+    @RequiresPermission(Permission.PURCHASE_WRITE)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response create(@Valid PurchaseOrderUpsertDto payload,
                            @QueryParam("siteId") UUID siteId) {
@@ -91,6 +95,7 @@ public class PurchaseOrderResource {
     }
 
     @PUT
+    @RequiresPermission(Permission.PURCHASE_WRITE)
     @Path("/{id}")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response update(@PathParam("id") UUID id,
@@ -99,6 +104,7 @@ public class PurchaseOrderResource {
     }
 
     @POST
+    @RequiresPermission(Permission.PURCHASE_WRITE)
     @Path("/{id}/confirm")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response confirm(@PathParam("id") UUID id) {
@@ -106,6 +112,7 @@ public class PurchaseOrderResource {
     }
 
     @POST
+    @RequiresPermission(Permission.PURCHASE_WRITE)
     @Path("/{id}/transit")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response transit(@PathParam("id") UUID id) {
@@ -113,6 +120,7 @@ public class PurchaseOrderResource {
     }
 
     @POST
+    @RequiresPermission(Permission.PURCHASE_WRITE)
     @Path("/{id}/deliver")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response deliver(@PathParam("id") UUID id) {
@@ -120,6 +128,7 @@ public class PurchaseOrderResource {
     }
 
     @POST
+    @RequiresPermission(Permission.PURCHASE_WRITE)
     @Path("/{id}/cancel")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response cancel(@PathParam("id") UUID id,
@@ -149,6 +158,7 @@ public class PurchaseOrderResource {
     // ─── Import depuis fichier (CSV / Excel parsé côté client) ───
 
     @POST
+    @RequiresPermission(Permission.PURCHASE_WRITE)
     @Path("/import")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response importOne(@Valid PurchaseOrderImportDto payload,
@@ -162,6 +172,7 @@ public class PurchaseOrderResource {
     // ─── Attachment (facture scannée) ───
 
     @PUT
+    @RequiresPermission(Permission.PURCHASE_WRITE)
     @Path("/{id}/attachment")
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
@@ -176,6 +187,7 @@ public class PurchaseOrderResource {
     }
 
     @DELETE
+    @RequiresPermission(Permission.PURCHASE_WRITE)
     @Path("/{id}/attachment")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response deleteAttachment(@PathParam("id") UUID id) {

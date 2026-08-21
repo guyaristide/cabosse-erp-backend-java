@@ -1,5 +1,7 @@
 package com.ntech.cabosse.supplier.controller;
 
+import com.ntech.cabosse.permission.entity.Permission;
+import com.ntech.cabosse.permission.service.RequiresPermission;
 import com.ntech.cabosse.shared.api.ApiResponse;
 import com.ntech.cabosse.shared.api.PageRequest;
 import com.ntech.cabosse.shared.export.ExportAudit;
@@ -39,6 +41,7 @@ import java.util.UUID;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Authenticated
+@RequiresPermission(Permission.REFERENTIAL_READ)
 public class SupplierResource {
 
     @Inject SupplierService service;
@@ -74,6 +77,7 @@ public class SupplierResource {
      * une autre porte.
      */
     @POST
+    @RequiresPermission(Permission.REFERENTIAL_WRITE)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
     public Response create(@Valid SupplierUpsertDto p,
                            @QueryParam("confirmDuplicate") @DefaultValue("false")
@@ -96,6 +100,7 @@ public class SupplierResource {
     }
 
     @PUT
+    @RequiresPermission(Permission.REFERENTIAL_WRITE)
     @Path("/{id}")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
     public Response update(@PathParam("id") UUID id, @Valid SupplierUpsertDto p) {
@@ -103,6 +108,7 @@ public class SupplierResource {
     }
 
     @PATCH
+    @RequiresPermission(Permission.REFERENTIAL_WRITE)
     @Path("/{id}/active")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
     public Response setActive(@PathParam("id") UUID id, @QueryParam("value") boolean value) {
@@ -133,6 +139,7 @@ public class SupplierResource {
     }
 
     @POST
+    @RequiresPermission(Permission.REFERENTIAL_WRITE)
     @Path("/import/preview")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response importPreview(java.util.List<SupplierImportRowDto> rows) {
@@ -141,6 +148,7 @@ public class SupplierResource {
     }
 
     @POST
+    @RequiresPermission(Permission.REFERENTIAL_WRITE)
     @Path("/import/commit")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response importCommit(java.util.List<SupplierImportRowDto> rows) {

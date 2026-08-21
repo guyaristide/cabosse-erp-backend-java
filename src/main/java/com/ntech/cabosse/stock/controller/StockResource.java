@@ -1,5 +1,7 @@
 package com.ntech.cabosse.stock.controller;
 
+import com.ntech.cabosse.permission.entity.Permission;
+import com.ntech.cabosse.permission.service.RequiresPermission;
 import com.ntech.cabosse.article.entity.ArticleType;
 import com.ntech.cabosse.shared.api.ApiResponse;
 import com.ntech.cabosse.shared.api.PageRequest;
@@ -49,6 +51,7 @@ import java.util.UUID;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Authenticated
+@RequiresPermission(Permission.STOCK_READ)
 public class StockResource {
 
     @Inject StockService service;
@@ -118,6 +121,7 @@ public class StockResource {
     // ─── Écriture ──────────────────────────────────────────────────
 
     @POST
+    @RequiresPermission(Permission.STOCK_MOVE)
     @Path("/movements")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response createMovement(@Valid MovementUpsertDto payload) {
@@ -138,6 +142,7 @@ public class StockResource {
      * stock de marchandises vers celui des matières premières ou l'inverse.
      */
     @POST
+    @RequiresPermission(Permission.STOCK_MOVE)
     @Path("/reclassify")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response reclassify(@Valid com.ntech.cabosse.stock.dto.ReclassifyDto payload) {
@@ -150,6 +155,7 @@ public class StockResource {
     }
 
     @POST
+    @RequiresPermission(Permission.STOCK_MOVE)
     @Path("/transfer")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response transfer(@Valid TransferDto payload) {
@@ -166,6 +172,7 @@ public class StockResource {
     }
 
     @POST
+    @RequiresPermission(Permission.STOCK_MOVE)
     @Path("/opening")
     @RolesAllowed({ Roles.TENANT_ADMIN })
     public Response opening(@Valid OpeningBatchDto payload) {
@@ -190,6 +197,7 @@ public class StockResource {
     }
 
     @POST
+    @RequiresPermission(Permission.STOCK_MOVE)
     @Path("/inventory")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response inventory(@Valid InventoryBatchDto payload) {

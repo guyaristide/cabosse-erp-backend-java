@@ -1,5 +1,7 @@
 package com.ntech.cabosse.reception.controller;
 
+import com.ntech.cabosse.permission.entity.Permission;
+import com.ntech.cabosse.permission.service.RequiresPermission;
 import com.ntech.cabosse.reception.dto.CancelDirectReceiptDto;
 import com.ntech.cabosse.reception.dto.DirectReceiptImportCommitResponseDto;
 import com.ntech.cabosse.reception.dto.DirectReceiptImportPreviewDto;
@@ -50,6 +52,7 @@ import java.util.UUID;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Authenticated
+@RequiresPermission(Permission.PURCHASE_READ)
 public class DirectReceiptResource {
 
     @Inject DirectReceiptService service;
@@ -73,6 +76,7 @@ public class DirectReceiptResource {
     }
 
     @POST
+    @RequiresPermission(Permission.PURCHASE_WRITE)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response create(@Valid DirectReceiptUpsertDto payload,
                            @QueryParam("siteId") UUID siteId) {
@@ -83,6 +87,7 @@ public class DirectReceiptResource {
     }
 
     @PUT
+    @RequiresPermission(Permission.PURCHASE_WRITE)
     @Path("/{id}")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response update(@PathParam("id") UUID id,
@@ -91,6 +96,7 @@ public class DirectReceiptResource {
     }
 
     @POST
+    @RequiresPermission(Permission.PURCHASE_WRITE)
     @Path("/{id}/lines/{lineId}/payment")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response recordPayment(@PathParam("id") UUID id,
@@ -100,6 +106,7 @@ public class DirectReceiptResource {
     }
 
     @DELETE
+    @RequiresPermission(Permission.PURCHASE_WRITE)
     @Path("/{id}/lines/{lineId}/payment")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response removePayment(@PathParam("id") UUID id,
@@ -108,6 +115,7 @@ public class DirectReceiptResource {
     }
 
     @POST
+    @RequiresPermission(Permission.PURCHASE_WRITE)
     @Path("/{id}/cancel")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response cancel(@PathParam("id") UUID id,
@@ -148,6 +156,7 @@ public class DirectReceiptResource {
     }
 
     @POST
+    @RequiresPermission(Permission.PURCHASE_WRITE)
     @Path("/import/preview")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response importPreview(@Valid DirectReceiptImportRequestDto request) {
@@ -156,6 +165,7 @@ public class DirectReceiptResource {
     }
 
     @POST
+    @RequiresPermission(Permission.PURCHASE_WRITE)
     @Path("/import/commit")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response importCommit(@Valid DirectReceiptImportRequestDto request,

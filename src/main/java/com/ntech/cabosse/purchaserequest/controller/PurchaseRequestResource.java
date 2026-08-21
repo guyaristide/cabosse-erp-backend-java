@@ -1,5 +1,7 @@
 package com.ntech.cabosse.purchaserequest.controller;
 
+import com.ntech.cabosse.permission.entity.Permission;
+import com.ntech.cabosse.permission.service.RequiresPermission;
 import com.ntech.cabosse.purchaserequest.dto.PurchaseRequestResponseDto;
 import com.ntech.cabosse.purchaserequest.dto.PurchaseRequestUpsertDto;
 import com.ntech.cabosse.purchaserequest.service.PurchaseRequestService;
@@ -36,6 +38,7 @@ import java.util.UUID;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Authenticated
+@RequiresPermission(Permission.PURCHASE_READ)
 public class PurchaseRequestResource {
 
     @Inject PurchaseRequestService service;
@@ -60,6 +63,7 @@ public class PurchaseRequestResource {
     }
 
     @POST
+    @RequiresPermission(Permission.PURCHASE_WRITE)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response create(@Valid PurchaseRequestUpsertDto payload,
                            @QueryParam("siteId") UUID siteId) {
@@ -68,6 +72,7 @@ public class PurchaseRequestResource {
     }
 
     @PUT
+    @RequiresPermission(Permission.PURCHASE_WRITE)
     @Path("/{id}")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response update(@PathParam("id") UUID id, @Valid PurchaseRequestUpsertDto payload) {
@@ -75,6 +80,7 @@ public class PurchaseRequestResource {
     }
 
     @DELETE
+    @RequiresPermission(Permission.PURCHASE_WRITE)
     @Path("/{id}")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response delete(@PathParam("id") UUID id) {
@@ -83,6 +89,7 @@ public class PurchaseRequestResource {
     }
 
     @POST
+    @RequiresPermission(Permission.PURCHASE_WRITE)
     @Path("/{id}/submit")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response submit(@PathParam("id") UUID id) {
@@ -91,6 +98,7 @@ public class PurchaseRequestResource {
 
     /** L'approbation engage le circuit de contrôle : réservée à l'administrateur. */
     @POST
+    @RequiresPermission(Permission.PURCHASE_WRITE)
     @Path("/{id}/approve")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
     public Response approve(@PathParam("id") UUID id) {
@@ -100,6 +108,7 @@ public class PurchaseRequestResource {
     public record RejectPayload(String reason) {}
 
     @POST
+    @RequiresPermission(Permission.PURCHASE_WRITE)
     @Path("/{id}/reject")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
     public Response reject(@PathParam("id") UUID id, RejectPayload payload) {
@@ -110,6 +119,7 @@ public class PurchaseRequestResource {
     public record ConvertPayload(UUID supplierId, BigDecimal vatRatePct) {}
 
     @POST
+    @RequiresPermission(Permission.PURCHASE_WRITE)
     @Path("/{id}/convert")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response convert(@PathParam("id") UUID id, ConvertPayload payload) {

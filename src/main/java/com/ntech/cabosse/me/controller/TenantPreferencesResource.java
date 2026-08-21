@@ -1,5 +1,7 @@
 package com.ntech.cabosse.me.controller;
 
+import com.ntech.cabosse.permission.entity.Permission;
+import com.ntech.cabosse.permission.service.RequiresPermission;
 import com.ntech.cabosse.me.dto.UpdateTenantPreferencesPayloadDto;
 import com.ntech.cabosse.me.service.TenantPreferencesService;
 import com.ntech.cabosse.shared.api.ApiResponse;
@@ -44,6 +46,7 @@ public class TenantPreferencesResource {
     }
 
     @PUT
+    @RequiresPermission(Permission.SETTINGS_WRITE)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
     @Operation(summary = "Mettre à jour les préférences du tenant courant",
             description = "Sémantique patch : un champ null = ne pas modifier. Au MVP, seul "

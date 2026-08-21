@@ -26,5 +26,12 @@ public record TenantUserSummaryDto(
         Instant createdAt,
         Instant lastLoginAt,
         @Schema(description = "Date d'expiration de l'invitation si status = INVITED")
-        Instant invitationExpiresAt
+        Instant invitationExpiresAt,
+
+        /**
+         * Profils du tenant attribués (backlog ADM-01). Vide pour un
+         * administrateur, qui détient tout d'office.
+         */
+        @Schema(description = "Identifiants des profils attribués")
+        java.util.List<UUID> tenantRoleIds
 ) {}

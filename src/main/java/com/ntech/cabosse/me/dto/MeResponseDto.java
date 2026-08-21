@@ -43,6 +43,19 @@ public record MeResponseDto(
         @Schema(description = "Codes des capacités fonctionnelles activées pour le tenant",
                 example = "[\"HAS_MEMBERS\", \"HAS_SUSTAINABILITY\"]")
         List<String> capabilities,
+
+        /**
+         * Droits effectifs de l'utilisateur dans ce tenant (backlog ADM-01),
+         * sous forme de codes de {@code Permission}.
+         *
+         * <p>Déjà réduits aux capacités actives : le front n'a pas à croiser
+         * les deux listes, ce qui éviterait qu'un écran affiche un bouton
+         * que le serveur refuserait.</p>
+         */
+        @Schema(description = "Codes des droits effectifs de l'utilisateur",
+                example = "[\"COLLECTION_RECEIPT_WRITE\", \"STOCK_READ\"]")
+        List<String> permissions,
+
         Instant lastLoginAt
 ) {
 }

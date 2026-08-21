@@ -17,6 +17,8 @@ import com.ntech.cabosse.shared.export.ExportDataset;
 import com.ntech.cabosse.shared.export.ExportFormat;
 import com.ntech.cabosse.shared.export.ExportResponses;
 import com.ntech.cabosse.shared.security.Roles;
+import com.ntech.cabosse.permission.entity.Permission;
+import com.ntech.cabosse.permission.service.RequiresPermission;
 import io.quarkus.security.Authenticated;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
@@ -43,6 +45,7 @@ import java.util.UUID;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Authenticated
+@RequiresPermission(Permission.PROCESSING_READ)
 public class ManufacturingOrderResource {
 
     @Inject ManufacturingOrderService service;
@@ -67,6 +70,7 @@ public class ManufacturingOrderResource {
     }
 
     @POST
+    @RequiresPermission(Permission.PRODUCTION_WRITE)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response create(@Valid ProductionOrderUpsertDto payload) {
         ProductionOrderResponseDto created = service.create(payload);
@@ -82,6 +86,7 @@ public class ManufacturingOrderResource {
      * l'OF en DRAFT.
      */
     @POST
+    @RequiresPermission(Permission.PRODUCTION_WRITE)
     @Path("/import")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response importOne(@Valid ManufacturingOrderImportDto payload) {
@@ -92,6 +97,7 @@ public class ManufacturingOrderResource {
     }
 
     @PUT
+    @RequiresPermission(Permission.PRODUCTION_WRITE)
     @Path("/{id}")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response update(@PathParam("id") UUID id, @Valid ProductionOrderUpsertDto payload) {
@@ -100,12 +106,14 @@ public class ManufacturingOrderResource {
 
     @POST
     @Path("/{id}/start")
+    @RequiresPermission(Permission.PRODUCTION_WRITE)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response start(@PathParam("id") UUID id) {
         return Response.ok(ApiResponse.ok(service.start(id))).build();
     }
 
     @POST
+    @RequiresPermission(Permission.PRODUCTION_WRITE)
     @Path("/{id}/advance-step")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response advanceStep(@PathParam("id") UUID id,
@@ -116,12 +124,14 @@ public class ManufacturingOrderResource {
 
     @POST
     @Path("/{id}/complete")
+    @RequiresPermission(Permission.PRODUCTION_WRITE)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response complete(@PathParam("id") UUID id, @Valid CompleteOrderDto payload) {
         return Response.ok(ApiResponse.ok(service.complete(id, payload))).build();
     }
 
     @POST
+    @RequiresPermission(Permission.PRODUCTION_WRITE)
     @Path("/{id}/cancel")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response cancel(@PathParam("id") UUID id, @Valid CancelOrderDto payload) {

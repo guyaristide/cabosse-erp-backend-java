@@ -41,7 +41,7 @@ public record UpdateTenantPreferencesPayloadDto(
         @jakarta.validation.constraints.DecimalMax(value = "100",
                 message = "Seuil en pourcentage supérieur à 100 interdit")
         @Schema(description = "Seuil d'écart d'inventaire significatif, en % du théorique.")
-        java.math.BigDecimal inventoryAlertThresholdPct,
+        @jakarta.validation.constraints.DecimalMin(value = "0", message = "Pourcentage négatif interdit") @jakarta.validation.constraints.DecimalMax(value = "100", message = "Pourcentage supérieur à 100") java.math.BigDecimal inventoryAlertThresholdPct,
 
         @jakarta.validation.constraints.DecimalMin(value = "0",
                 message = "Seuil en FCFA négatif interdit")

@@ -1,5 +1,7 @@
 package com.ntech.cabosse.processing.drying.controller;
 
+import com.ntech.cabosse.permission.entity.Permission;
+import com.ntech.cabosse.permission.service.RequiresPermission;
 import com.ntech.cabosse.processing.drying.dto.DryingBatchResponseDto;
 import com.ntech.cabosse.processing.drying.dto.DryingBatchUpsertDto;
 import com.ntech.cabosse.processing.drying.entity.DryingBatchStatus;
@@ -36,6 +38,7 @@ import java.util.UUID;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Authenticated
+@RequiresPermission(Permission.PROCESSING_READ)
 public class DryingBatchResource {
 
     @Inject DryingBatchService service;
@@ -68,6 +71,7 @@ public class DryingBatchResource {
     }
 
     @POST
+    @RequiresPermission(Permission.DRYING_WRITE)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response create(@Valid DryingBatchUpsertDto payload) {
         ensureCapability();
@@ -79,6 +83,7 @@ public class DryingBatchResource {
     public record CompletePayload(BigDecimal weightOutKg, BigDecimal finalHumidityPct) {}
 
     @POST
+    @RequiresPermission(Permission.DRYING_WRITE)
     @Path("/{id}/complete")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response complete(@PathParam("id") UUID id, CompletePayload payload) {
@@ -91,6 +96,7 @@ public class DryingBatchResource {
     public record CancelPayload(String reason) {}
 
     @POST
+    @RequiresPermission(Permission.DRYING_WRITE)
     @Path("/{id}/cancel")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response cancel(@PathParam("id") UUID id, CancelPayload payload) {

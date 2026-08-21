@@ -1,5 +1,7 @@
 package com.ntech.cabosse.direction.controller;
 
+import com.ntech.cabosse.permission.entity.Permission;
+import com.ntech.cabosse.permission.service.RequiresPermission;
 import com.ntech.cabosse.direction.dto.ExecutiveDashboardDto;
 import com.ntech.cabosse.direction.service.ExecutiveDashboardService;
 import com.ntech.cabosse.shared.api.ApiResponse;
@@ -21,6 +23,7 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Authenticated
+@RequiresPermission(Permission.EXECUTIVE_READ)
 public class ExecutiveDashboardResource {
 
     @Inject ExecutiveDashboardService service;

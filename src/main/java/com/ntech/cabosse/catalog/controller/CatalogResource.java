@@ -100,7 +100,7 @@ public class CatalogResource {
                 .map(e -> new PlanResponseDto(
                         e.code, e.name, e.description,
                         e.monthlyPriceFcfa, e.yearlyPriceFcfa,
-                        e.maxUsers, e.maxSites,
+                        e.maxUsers, e.maxMembers, e.maxSites,
                         e.includedModules, e.features
                 ))
                 .toList();

@@ -5,6 +5,8 @@ import com.ntech.cabosse.shared.api.PageRequest;
 import com.ntech.cabosse.shared.security.Roles;
 import com.ntech.cabosse.treasury.dto.TreasuryDtos;
 import com.ntech.cabosse.treasury.service.TreasuryService;
+import com.ntech.cabosse.permission.entity.Permission;
+import com.ntech.cabosse.permission.service.RequiresPermission;
 import io.quarkus.security.Authenticated;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
@@ -62,6 +64,7 @@ public class TreasuryResource {
     @POST
     @Path("/transfers")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    @RequiresPermission(Permission.TREASURY_WRITE)
     public Response send(@Valid TreasuryDtos.CreateTransferDto payload) {
         return Response.status(Response.Status.CREATED)
                 .entity(ApiResponse.created(service.send(payload))).build();
@@ -70,6 +73,7 @@ public class TreasuryResource {
     @POST
     @Path("/transfers/{id}/receive")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    @RequiresPermission(Permission.TREASURY_WRITE)
     public Response receive(@PathParam("id") UUID id,
                             @Valid TreasuryDtos.ReceiveTransferDto payload) {
         return Response.ok(ApiResponse.ok(service.receive(id, payload))).build();
@@ -98,6 +102,7 @@ public class TreasuryResource {
     @POST
     @Path("/cash-counts")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    @RequiresPermission(Permission.TREASURY_WRITE)
     public Response count(@Valid TreasuryDtos.CreateCashCountDto payload) {
         return Response.status(Response.Status.CREATED)
                 .entity(ApiResponse.created(service.count(payload))).build();

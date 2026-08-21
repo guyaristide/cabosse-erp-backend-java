@@ -1,5 +1,7 @@
 package com.ntech.cabosse.region.controller;
 
+import com.ntech.cabosse.permission.entity.Permission;
+import com.ntech.cabosse.permission.service.RequiresPermission;
 import com.ntech.cabosse.region.dto.RegionUpsertDto;
 import com.ntech.cabosse.region.service.RegionService;
 import com.ntech.cabosse.shared.api.ApiResponse;
@@ -28,6 +30,7 @@ import java.util.UUID;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Authenticated
+@RequiresPermission(Permission.REFERENTIAL_READ)
 public class RegionResource {
 
     @Inject RegionService service;
@@ -38,6 +41,7 @@ public class RegionResource {
     }
 
     @POST
+    @RequiresPermission(Permission.REFERENTIAL_WRITE)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER, Roles.PLATFORM_ADMIN })
     public Response create(@Valid RegionUpsertDto p) {
         return Response.status(Response.Status.CREATED)
@@ -45,6 +49,7 @@ public class RegionResource {
     }
 
     @PUT
+    @RequiresPermission(Permission.REFERENTIAL_WRITE)
     @Path("/{id}")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
     public Response update(@PathParam("id") UUID id, @Valid RegionUpsertDto p) {
@@ -52,6 +57,7 @@ public class RegionResource {
     }
 
     @PATCH
+    @RequiresPermission(Permission.REFERENTIAL_WRITE)
     @Path("/{id}/active")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
     public Response setActive(@PathParam("id") UUID id, @QueryParam("value") boolean value) {

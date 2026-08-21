@@ -1,5 +1,7 @@
 package com.ntech.cabosse.accounting.controller;
 
+import com.ntech.cabosse.permission.entity.Permission;
+import com.ntech.cabosse.permission.service.RequiresPermission;
 import com.ntech.cabosse.accounting.dto.FiscalYearDto;
 import com.ntech.cabosse.accounting.service.FiscalYearDocumentService;
 import com.ntech.cabosse.accounting.service.FiscalYearService;
@@ -35,6 +37,7 @@ import java.util.UUID;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Authenticated
+@RequiresPermission(Permission.ACCOUNTING_READ)
 public class FiscalYearResource {
 
     @Inject FiscalYearService service;
@@ -64,6 +67,7 @@ public class FiscalYearResource {
     }
 
     @POST
+    @RequiresPermission(Permission.ACCOUNTING_CLOSE)
     @Path("/close")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
     public Response close(ClosePayload payload) {
@@ -79,6 +83,7 @@ public class FiscalYearResource {
     }
 
     @POST
+    @RequiresPermission(Permission.ACCOUNTING_CLOSE)
     @Path("/{id}/allocate")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
     public Response allocate(@PathParam("id") UUID id, AllocatePayload payload) {
@@ -91,6 +96,7 @@ public class FiscalYearResource {
     }
 
     @POST
+    @RequiresPermission(Permission.ACCOUNTING_CLOSE)
     @Path("/{id}/documents")
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
@@ -132,6 +138,7 @@ public class FiscalYearResource {
     }
 
     @DELETE
+    @RequiresPermission(Permission.ACCOUNTING_CLOSE)
     @Path("/{id}/documents/{documentId}")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
     public Response deleteDocument(@PathParam("id") UUID id,

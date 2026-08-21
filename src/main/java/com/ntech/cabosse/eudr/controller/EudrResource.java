@@ -1,5 +1,7 @@
 package com.ntech.cabosse.eudr.controller;
 
+import com.ntech.cabosse.permission.entity.Permission;
+import com.ntech.cabosse.permission.service.RequiresPermission;
 import com.ntech.cabosse.eudr.dto.DeforestationAlertResponseDto;
 import com.ntech.cabosse.eudr.dto.DueDiligenceResponseDto;
 import com.ntech.cabosse.eudr.dto.EudrDocumentDto;
@@ -51,6 +53,7 @@ import java.util.UUID;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Authenticated
+@RequiresPermission(Permission.EUDR_READ)
 public class EudrResource {
 
     @Inject EudrDossierService dossierService;
@@ -97,6 +100,7 @@ public class EudrResource {
     }
 
     @POST
+    @RequiresPermission(Permission.EUDR_WRITE)
     @Path("/dossiers/{parcelId}/documents")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response addDocument(@PathParam("parcelId") UUID parcelId,
@@ -107,6 +111,7 @@ public class EudrResource {
     }
 
     @POST
+    @RequiresPermission(Permission.EUDR_WRITE)
     @Path("/dossiers/{parcelId}/documents/{docId}/delete")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response removeDocument(@PathParam("parcelId") UUID parcelId,
@@ -119,6 +124,7 @@ public class EudrResource {
     public record MarkCompliantPayload(EudrRiskLevel riskLevel, String notes) {}
 
     @POST
+    @RequiresPermission(Permission.EUDR_WRITE)
     @Path("/dossiers/{parcelId}/mark-compliant")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response markCompliant(@PathParam("parcelId") UUID parcelId, MarkCompliantPayload payload) {
@@ -132,6 +138,7 @@ public class EudrResource {
     public record MarkNonCompliantPayload(String exclusionReason) {}
 
     @POST
+    @RequiresPermission(Permission.EUDR_WRITE)
     @Path("/dossiers/{parcelId}/mark-non-compliant")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response markNonCompliant(@PathParam("parcelId") UUID parcelId, MarkNonCompliantPayload payload) {
@@ -169,6 +176,7 @@ public class EudrResource {
             BigDecimal areaHaImpacted, String sourceReference, String notes) {}
 
     @POST
+    @RequiresPermission(Permission.EUDR_WRITE)
     @Path("/alerts")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response recordAlert(@Valid ManualAlertPayload payload) {
@@ -185,6 +193,7 @@ public class EudrResource {
     public record TransitionAlertPayload(DeforestationAlertStatus targetStatus, String remediationAction) {}
 
     @POST
+    @RequiresPermission(Permission.EUDR_WRITE)
     @Path("/alerts/{id}/transition")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response transitionAlert(@PathParam("id") UUID alertId, TransitionAlertPayload payload) {
@@ -195,6 +204,7 @@ public class EudrResource {
     }
 
     @POST
+    @RequiresPermission(Permission.EUDR_WRITE)
     @Path("/parcels/{id}/check-deforestation")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response checkParcel(@PathParam("id") UUID parcelId) {
@@ -217,6 +227,7 @@ public class EudrResource {
     }
 
     @POST
+    @RequiresPermission(Permission.EUDR_WRITE)
     @Path("/ddr/generate")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response generateDdr(@QueryParam("saleId") UUID saleId) {
@@ -231,6 +242,7 @@ public class EudrResource {
     public record MarkReadyPayload(String exportCountryCode) {}
 
     @POST
+    @RequiresPermission(Permission.EUDR_WRITE)
     @Path("/ddr/{id}/mark-ready")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response markReady(@PathParam("id") UUID id, MarkReadyPayload payload) {
@@ -242,6 +254,7 @@ public class EudrResource {
     public record MarkSubmittedPayload(String eudrReferenceNumber) {}
 
     @POST
+    @RequiresPermission(Permission.EUDR_WRITE)
     @Path("/ddr/{id}/mark-submitted")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response markSubmitted(@PathParam("id") UUID id, MarkSubmittedPayload payload) {
@@ -251,6 +264,7 @@ public class EudrResource {
     }
 
     @PUT
+    @RequiresPermission(Permission.EUDR_WRITE)
     @Path("/ddr/{id}/mark-accepted")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response markAccepted(@PathParam("id") UUID id) {
@@ -261,6 +275,7 @@ public class EudrResource {
     public record RejectPayload(String reason) {}
 
     @PUT
+    @RequiresPermission(Permission.EUDR_WRITE)
     @Path("/ddr/{id}/mark-rejected")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response markRejected(@PathParam("id") UUID id, RejectPayload payload) {

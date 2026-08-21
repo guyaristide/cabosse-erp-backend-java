@@ -1,5 +1,7 @@
 package com.ntech.cabosse.accounting.controller;
 
+import com.ntech.cabosse.permission.entity.Permission;
+import com.ntech.cabosse.permission.service.RequiresPermission;
 import com.ntech.cabosse.accounting.dto.AccountingDashboardDto;
 import com.ntech.cabosse.accounting.dto.AccountingPeriodDto;
 import com.ntech.cabosse.accounting.dto.OdDraftDto;
@@ -62,6 +64,7 @@ import java.util.UUID;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Authenticated
+@RequiresPermission(Permission.ACCOUNTING_READ)
 public class AccountingResource {
 
     @Inject AccountingQueryService query;
@@ -134,6 +137,7 @@ public class AccountingResource {
     }
 
     @POST
+    @RequiresPermission(Permission.ACCOUNTING_WRITE)
     @Path("/bank-accounts")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
     public Response createBankAccount(@Valid BankAccountUpsertDto payload) {
@@ -143,6 +147,7 @@ public class AccountingResource {
     }
 
     @PUT
+    @RequiresPermission(Permission.ACCOUNTING_WRITE)
     @Path("/bank-accounts/{id}")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
     public Response updateBankAccount(@PathParam("id") UUID id,
@@ -151,6 +156,7 @@ public class AccountingResource {
     }
 
     @DELETE
+    @RequiresPermission(Permission.ACCOUNTING_WRITE)
     @Path("/bank-accounts/{id}")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
     public Response deleteBankAccount(@PathParam("id") UUID id) {
@@ -161,6 +167,7 @@ public class AccountingResource {
     // ─── Rapprochement bancaire ─────────────────────────────────────
 
     @POST
+    @RequiresPermission(Permission.ACCOUNTING_WRITE)
     @Path("/bank-statements/import")
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
@@ -231,6 +238,7 @@ public class AccountingResource {
     public record MatchPayload(UUID pieceId) {}
 
     @POST
+    @RequiresPermission(Permission.ACCOUNTING_WRITE)
     @Path("/bank-statements/lines/{lineId}/match")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
     public Response matchLine(@PathParam("lineId") UUID lineId, MatchPayload payload) {
@@ -242,6 +250,7 @@ public class AccountingResource {
     }
 
     @POST
+    @RequiresPermission(Permission.ACCOUNTING_WRITE)
     @Path("/bank-statements/lines/{lineId}/unmatch")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
     public Response unmatchLine(@PathParam("lineId") UUID lineId) {
@@ -249,6 +258,7 @@ public class AccountingResource {
     }
 
     @POST
+    @RequiresPermission(Permission.ACCOUNTING_WRITE)
     @Path("/bank-statements/lines/{lineId}/ignore")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
     public Response ignoreLine(@PathParam("lineId") UUID lineId) {
@@ -256,6 +266,7 @@ public class AccountingResource {
     }
 
     @POST
+    @RequiresPermission(Permission.ACCOUNTING_WRITE)
     @Path("/bank-statements/lines/{lineId}/dispute")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
     public Response disputeLine(@PathParam("lineId") UUID lineId) {
@@ -266,6 +277,7 @@ public class AccountingResource {
 
     /** Régularisation d'un écart justifié (frais bancaires par défaut) — génère la pièce. */
     @POST
+    @RequiresPermission(Permission.ACCOUNTING_WRITE)
     @Path("/bank-statements/lines/{lineId}/regularize")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
     public Response regularizeLine(@PathParam("lineId") UUID lineId, RegularizePayload payload) {
@@ -277,6 +289,7 @@ public class AccountingResource {
 
     /** Mise en attente d'un écart inexpliqué — écriture sur 471. */
     @POST
+    @RequiresPermission(Permission.ACCOUNTING_WRITE)
     @Path("/bank-statements/lines/{lineId}/suspend")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
     public Response suspendLine(@PathParam("lineId") UUID lineId) {
@@ -358,6 +371,7 @@ public class AccountingResource {
     }
 
     @POST
+    @RequiresPermission(Permission.ACCOUNTING_WRITE)
     @Path("/od")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response createOd(OdPayload payload) {
@@ -371,6 +385,7 @@ public class AccountingResource {
     }
 
     @PUT
+    @RequiresPermission(Permission.ACCOUNTING_WRITE)
     @Path("/od/{id}")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response updateOd(@PathParam("id") UUID id, OdPayload payload) {
@@ -392,6 +407,7 @@ public class AccountingResource {
 
     /** La validation fige l'OD au journal : réservée à l'administrateur. */
     @POST
+    @RequiresPermission(Permission.ACCOUNTING_WRITE)
     @Path("/od/{id}/validate")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
     public Response validateOd(@PathParam("id") UUID id) {
@@ -399,6 +415,7 @@ public class AccountingResource {
     }
 
     @POST
+    @RequiresPermission(Permission.ACCOUNTING_WRITE)
     @Path("/od/{id}/documents")
     @jakarta.ws.rs.Consumes(MediaType.MULTIPART_FORM_DATA)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
@@ -463,6 +480,7 @@ public class AccountingResource {
     }
 
     @POST
+    @RequiresPermission(Permission.ACCOUNTING_WRITE)
     @Path("/periods/{period}/lock")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
     public Response lockPeriod(@PathParam("period") String period) {
@@ -473,6 +491,7 @@ public class AccountingResource {
     public record ReopenPeriodPayload(String reason) {}
 
     @POST
+    @RequiresPermission(Permission.ACCOUNTING_WRITE)
     @Path("/periods/{period}/reopen")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
     public Response reopenPeriod(@PathParam("period") String period, ReopenPeriodPayload payload) {
@@ -490,6 +509,7 @@ public class AccountingResource {
     }
 
     @POST
+    @RequiresPermission(Permission.ACCOUNTING_WRITE)
     @Path("/tva/{yearMonth}/mark-ready")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
     public Response tvaMarkReady(@PathParam("yearMonth") String yearMonth) {
@@ -508,6 +528,7 @@ public class AccountingResource {
     public record MarkDeposedPayload(String depositedNumber, java.time.LocalDate depositedAt, String notes) {}
 
     @POST
+    @RequiresPermission(Permission.ACCOUNTING_WRITE)
     @Path("/tva/{yearMonth}/mark-deposed")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
     public Response tvaMarkDeposed(@PathParam("yearMonth") String yearMonth,

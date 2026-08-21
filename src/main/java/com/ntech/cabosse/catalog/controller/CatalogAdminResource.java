@@ -479,7 +479,7 @@ public class CatalogAdminResource {
                 .map(p -> new PlanAdminDto(
                         p.code, p.name, p.description,
                         p.monthlyPriceFcfa, p.yearlyPriceFcfa,
-                        p.maxUsers, p.maxSites,
+                        p.maxUsers, p.maxMembers, p.maxSites,
                         p.includedModules, p.features,
                         p.active
                 ))
@@ -538,6 +538,7 @@ public class CatalogAdminResource {
         entity.monthlyPriceFcfa = p.monthlyPriceFcfa();
         entity.yearlyPriceFcfa = p.yearlyPriceFcfa();
         entity.maxUsers = p.maxUsers();
+        entity.maxMembers = p.maxMembers();
         entity.maxSites = p.maxSites();
         entity.includedModules = p.includedModules();
         entity.features = p.features();
@@ -548,7 +549,7 @@ public class CatalogAdminResource {
         return new PlanAdminDto(
                 p.code, p.name, p.description,
                 p.monthlyPriceFcfa, p.yearlyPriceFcfa,
-                p.maxUsers, p.maxSites,
+                p.maxUsers, p.maxMembers, p.maxSites,
                 p.includedModules, p.features,
                 p.active
         );

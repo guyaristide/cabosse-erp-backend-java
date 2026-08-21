@@ -55,6 +55,14 @@ public class UserEntity extends PanacheMongoEntityBase {
      */
     public Set<String> roles = new HashSet<>();
 
+    /**
+     * Profils du tenant rattachés à cet utilisateur (backlog ADM-01).
+     * Vide pour un administrateur, qui détient tout d'office ; vide aussi
+     * pour un utilisateur à qui rien n'a encore été confié, qui n'a alors
+     * accès à rien.
+     */
+    public java.util.List<UUID> tenantRoleIds = new java.util.ArrayList<>();
+
     public UserStatus status;
 
     /**

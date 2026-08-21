@@ -1,5 +1,7 @@
 package com.ntech.cabosse.expensetype.controller;
 
+import com.ntech.cabosse.permission.entity.Permission;
+import com.ntech.cabosse.permission.service.RequiresPermission;
 import com.ntech.cabosse.expensetype.dto.ExpenseTypeImportCommitResponseDto;
 import com.ntech.cabosse.expensetype.dto.ExpenseTypeImportPreviewDto;
 import com.ntech.cabosse.expensetype.dto.ExpenseTypeImportRowDto;
@@ -37,6 +39,7 @@ import java.util.UUID;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Authenticated
+@RequiresPermission(Permission.REFERENTIAL_READ)
 public class ExpenseTypeResource {
 
     @Inject ExpenseTypeService service;
@@ -47,6 +50,7 @@ public class ExpenseTypeResource {
     public Response list() { return Response.ok(ApiResponse.ok(service.list())).build(); }
 
     @POST
+    @RequiresPermission(Permission.REFERENTIAL_WRITE)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
     public Response create(@Valid ExpenseTypeUpsertDto p) {
         return Response.status(Response.Status.CREATED)
@@ -54,6 +58,7 @@ public class ExpenseTypeResource {
     }
 
     @PUT
+    @RequiresPermission(Permission.REFERENTIAL_WRITE)
     @Path("/{id}")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
     public Response update(@PathParam("id") UUID id, @Valid ExpenseTypeUpsertDto p) {
@@ -61,6 +66,7 @@ public class ExpenseTypeResource {
     }
 
     @PATCH
+    @RequiresPermission(Permission.REFERENTIAL_WRITE)
     @Path("/{id}/active")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
     public Response setActive(@PathParam("id") UUID id, @QueryParam("value") boolean value) {
@@ -92,6 +98,7 @@ public class ExpenseTypeResource {
     }
 
     @POST
+    @RequiresPermission(Permission.REFERENTIAL_WRITE)
     @Path("/import/preview")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response importPreview(java.util.List<ExpenseTypeImportRowDto> rows) {
@@ -100,6 +107,7 @@ public class ExpenseTypeResource {
     }
 
     @POST
+    @RequiresPermission(Permission.REFERENTIAL_WRITE)
     @Path("/import/commit")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response importCommit(java.util.List<ExpenseTypeImportRowDto> rows) {

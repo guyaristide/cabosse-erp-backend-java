@@ -42,6 +42,16 @@ public class UserRepository implements PanacheMongoRepositoryBase<UserEntity, UU
     }
 
     /**
+     * Comptes consommant un siège du plan : actifs et invités. Un compte
+     * désactivé libère sa place, sinon désactiver un ancien collaborateur
+     * ne servirait à rien face au plafond.
+     */
+    public long countActiveByTenant(UUID tenantId) {
+        return count("tenantId = ?1 and status != ?2", tenantId,
+                com.ntech.cabosse.user.entity.UserStatus.DISABLED);
+    }
+
+    /**
      * Pose {@code lastLoginAt} en update atomique — jamais de
      * read-modify-replace sous transaction (deux logins parallèles du
      * même compte provoquaient un WriteConflict, cf. incident refresh).

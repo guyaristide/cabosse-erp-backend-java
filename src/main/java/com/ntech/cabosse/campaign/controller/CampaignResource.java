@@ -1,5 +1,7 @@
 package com.ntech.cabosse.campaign.controller;
 
+import com.ntech.cabosse.permission.entity.Permission;
+import com.ntech.cabosse.permission.service.RequiresPermission;
 import com.ntech.cabosse.campaign.dto.CampaignResponseDto;
 import com.ntech.cabosse.campaign.dto.CampaignUpsertDto;
 import com.ntech.cabosse.campaign.service.CampaignService;
@@ -32,6 +34,7 @@ import java.util.UUID;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Authenticated
+@RequiresPermission(Permission.REFERENTIAL_READ)
 public class CampaignResource {
 
     @Inject CampaignService service;
@@ -61,6 +64,7 @@ public class CampaignResource {
     }
 
     @POST
+    @RequiresPermission(Permission.REFERENTIAL_WRITE)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response create(@Valid CampaignUpsertDto payload) {
         var created = service.create(payload);
@@ -70,6 +74,7 @@ public class CampaignResource {
     }
 
     @PUT
+    @RequiresPermission(Permission.REFERENTIAL_WRITE)
     @Path("/{id}")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response update(@PathParam("id") UUID id, @Valid CampaignUpsertDto payload) {
@@ -78,6 +83,7 @@ public class CampaignResource {
     }
 
     @POST
+    @RequiresPermission(Permission.REFERENTIAL_WRITE)
     @Path("/{id}/close")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response close(@PathParam("id") UUID id) {

@@ -1,5 +1,7 @@
 package com.ntech.cabosse.cacao.controller;
 
+import com.ntech.cabosse.permission.entity.Permission;
+import com.ntech.cabosse.permission.service.RequiresPermission;
 import com.ntech.cabosse.cacao.dto.CacaoSaleImportRowDto;
 import com.ntech.cabosse.cacao.dto.CacaoSaleUpsertDto;
 import com.ntech.cabosse.cacao.service.CacaoSaleImportService;
@@ -32,6 +34,7 @@ import java.util.UUID;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Authenticated
+@RequiresPermission(Permission.SALE_READ)
 public class CacaoSaleResource {
 
     @Inject CacaoSaleService service;
@@ -66,6 +69,7 @@ public class CacaoSaleResource {
     }
 
     @POST
+    @RequiresPermission(Permission.SALE_WRITE)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response create(@Valid CacaoSaleUpsertDto payload) {
         return Response.status(Response.Status.CREATED)
@@ -82,6 +86,7 @@ public class CacaoSaleResource {
     }
 
     @POST
+    @RequiresPermission(Permission.SALE_WRITE)
     @Path("/import/preview")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response importPreview(java.util.List<CacaoSaleImportRowDto> rows) {
@@ -89,6 +94,7 @@ public class CacaoSaleResource {
     }
 
     @POST
+    @RequiresPermission(Permission.SALE_WRITE)
     @Path("/import/commit")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response importCommit(java.util.List<CacaoSaleImportRowDto> rows) {
