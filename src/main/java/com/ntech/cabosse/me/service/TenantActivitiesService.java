@@ -39,11 +39,15 @@ import java.util.stream.Collectors;
 @ApplicationScoped
 public class TenantActivitiesService {
 
+    private static final org.jboss.logging.Logger LOG =
+            org.jboss.logging.Logger.getLogger(TenantActivitiesService.class);
+
     @Inject TenantContext tenantContext;
     @Inject TenantRepository tenants;
     @Inject IndustryRepository industries;
     @Inject AuditService audit;
     @Inject JsonWebToken jwt;
+    @Inject com.ntech.cabosse.shared.migration.TenantMigrationRunner migrationRunner;
 
     private String actor() {
         try { return jwt.getName(); } catch (Exception e) { return null; }
@@ -104,6 +108,19 @@ public class TenantActivitiesService {
         }
         t.updatedAt = Instant.now();
         tenants.update(t);
+
+        // Les activités dérivent les capacités, et les capacités
+        // conditionnent des structures (collections, index, semis). Un
+        // module activé maintenant doit fonctionner maintenant : on rejoue
+        // les migrations du tenant, dont les conditionnelles sont
+        // rejouables. En cas d'échec (verrou Mongock tenu par un autre
+        // nœud, par exemple), on ne défait pas la mise à jour : le
+        // démarrage suivant rattrape, c'est son rôle.
+        try {
+            migrationRunner.runMigrationsFor(t.databaseName);
+        } catch (RuntimeException e) {
+            LOG.errorf(e, "Structures non rejouées après changement d'activités du tenant %s", t.id);
+        }
 
         audit.event(AuditEventType.TENANT_UPDATED)
                 .actorEmail(actor())

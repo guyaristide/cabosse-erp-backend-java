@@ -36,7 +36,13 @@ import java.util.UUID;
 @ApplicationScoped
 public class TenantUpdateService {
 
+    private static final org.jboss.logging.Logger LOG =
+            org.jboss.logging.Logger.getLogger(TenantUpdateService.class);
+
     @Inject TenantRepository tenants;
+
+    @Inject
+    com.ntech.cabosse.shared.migration.TenantMigrationRunner migrationRunner;
     @Inject TenantContext tenantContext;
 
     @Transactional
@@ -150,6 +156,16 @@ public class TenantUpdateService {
         tenant.updatedAt = Instant.now();
         tenant.updatedBy = tenantContext.userId();
         tenants.update(tenant);
+
+        // Un changement de structure organisationnelle peut activer des
+        // capacités, et donc des structures conditionnelles jamais créées
+        // pour ce tenant. On rejoue ses migrations tout de suite ; en cas
+        // d'échec, le démarrage suivant rattrape.
+        try {
+            migrationRunner.runMigrationsFor(tenant.databaseName);
+        } catch (RuntimeException e) {
+            LOG.errorf(e, "Structures non rejouées après mise à jour du tenant %s", tenant.id);
+        }
 
         return tenant;
     }

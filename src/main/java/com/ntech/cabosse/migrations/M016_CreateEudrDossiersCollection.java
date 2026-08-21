@@ -14,7 +14,14 @@ import io.mongock.api.annotations.RollbackExecution;
 import java.util.List;
 
 /** Migration 016 — collection {@code eudr_dossiers}. Capacité HAS_EUDR_COMPLIANCE. */
-@ChangeUnit(id = "create_eudr_dossiers_collection", order = "016", author = "neiba")
+/*
+ * runAlways : cette migration est conditionnée par une capacité. Un tenant
+ * qui active la capacité APRÈS son provisioning doit obtenir les mêmes
+ * structures ; sans rejeu, Mongock l'aurait marquée exécutée alors qu'elle
+ * n'a rien fait, et le module resterait cassé pour ce seul tenant. Le corps
+ * est idempotent et son coût à vide est négligeable.
+ */
+@ChangeUnit(id = "create_eudr_dossiers_collection", order = "016", author = "neiba", runAlways = true)
 public class M016_CreateEudrDossiersCollection {
 
     @Execution

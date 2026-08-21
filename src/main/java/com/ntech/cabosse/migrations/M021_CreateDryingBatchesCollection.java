@@ -14,7 +14,14 @@ import io.mongock.api.annotations.RollbackExecution;
 import java.util.List;
 
 /** Migration 021 — collection {@code drying_batches}. Capacité HAS_DRYING. */
-@ChangeUnit(id = "create_drying_batches_collection", order = "021", author = "neiba")
+/*
+ * runAlways : cette migration est conditionnée par une capacité. Un tenant
+ * qui active la capacité APRÈS son provisioning doit obtenir les mêmes
+ * structures ; sans rejeu, Mongock l'aurait marquée exécutée alors qu'elle
+ * n'a rien fait, et le module resterait cassé pour ce seul tenant. Le corps
+ * est idempotent et son coût à vide est négligeable.
+ */
+@ChangeUnit(id = "create_drying_batches_collection", order = "021", author = "neiba", runAlways = true)
 public class M021_CreateDryingBatchesCollection {
 
     @Execution

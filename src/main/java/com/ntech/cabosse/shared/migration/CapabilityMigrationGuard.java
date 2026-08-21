@@ -83,9 +83,28 @@ public final class CapabilityMigrationGuard {
         } catch (IllegalArgumentException e) {
             org = TenantOrganizationModel.PRIVATE_COMPANY;
         }
-        if (org == TenantOrganizationModel.COOPERATIVE || org == TenantOrganizationModel.INFORMAL_GROUP) {
-            caps.add(TenantCapability.HAS_MEMBERS);
-            caps.add(TenantCapability.HAS_SUSTAINABILITY);
+        // Comme le service : les capacités du modèle d'organisation viennent
+        // du catalogue (éditables au back-office), pas d'une règle en dur.
+        // La règle en dur avait déjà divergé une fois : le catalogue active
+        // aussi le négoce et l'enrôlement pour une coopérative, le garde
+        // l'ignorait, et toute migration conditionnée par ces capacités ne
+        // se serait jamais exécutée.
+        Document orgModel = control.getCollection(ControlPlane.Collections.ORGANIZATION_MODELS)
+                .find(Filters.eq("_id", org.name()))
+                .projection(Projections.include("activates"))
+                .first();
+        if (orgModel != null) {
+            @SuppressWarnings("unchecked")
+            List<String> activates = orgModel.get("activates", List.class);
+            if (activates != null) {
+                for (String capName : activates) {
+                    try {
+                        caps.add(TenantCapability.valueOf(capName));
+                    } catch (IllegalArgumentException ignored) {
+                        // Code inconnu dans le catalogue : ignoré, comme au service.
+                    }
+                }
+            }
         }
         @SuppressWarnings("unchecked")
         List<String> certifications = tenant.get("certifications", List.class);

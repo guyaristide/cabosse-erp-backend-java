@@ -18,7 +18,14 @@ import java.util.List;
  * capacité {@link TenantCapability#HAS_MEMBERS}. No-op silencieux pour
  * les autres tenants (entreprises privées sans rémunération de membres).
  */
-@ChangeUnit(id = "create_campaigns_collection", order = "023", author = "neiba")
+/*
+ * runAlways : cette migration est conditionnée par une capacité. Un tenant
+ * qui active la capacité APRÈS son provisioning doit obtenir les mêmes
+ * structures ; sans rejeu, Mongock l'aurait marquée exécutée alors qu'elle
+ * n'a rien fait, et le module resterait cassé pour ce seul tenant. Le corps
+ * est idempotent et son coût à vide est négligeable.
+ */
+@ChangeUnit(id = "create_campaigns_collection", order = "023", author = "neiba", runAlways = true)
 public class M023_CreateCampaignsCollection {
 
     @Execution

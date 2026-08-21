@@ -21,7 +21,14 @@ import io.mongock.api.annotations.RollbackExecution;
  * <p>Deux index : le reste dû d'un producteur, consulté à chaque fois qu'on
  * s'apprête à le payer, et la référence affichable.</p>
  */
-@ChangeUnit(id = "create_member_credits_collection", order = "054", author = "neiba")
+/*
+ * runAlways : cette migration est conditionnée par une capacité. Un tenant
+ * qui active la capacité APRÈS son provisioning doit obtenir les mêmes
+ * structures ; sans rejeu, Mongock l'aurait marquée exécutée alors qu'elle
+ * n'a rien fait, et le module resterait cassé pour ce seul tenant. Le corps
+ * est idempotent et son coût à vide est négligeable.
+ */
+@ChangeUnit(id = "create_member_credits_collection", order = "054", author = "neiba", runAlways = true)
 public class M054_CreateMemberCreditsCollection {
 
     @Execution

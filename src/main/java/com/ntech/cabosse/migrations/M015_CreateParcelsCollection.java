@@ -20,7 +20,14 @@ import java.util.List;
  * permettre les recherches spatiales (intersection, contains,
  * proximity) — base de la conformité EUDR.
  */
-@ChangeUnit(id = "create_parcels_collection", order = "015", author = "neiba")
+/*
+ * runAlways : cette migration est conditionnée par une capacité. Un tenant
+ * qui active la capacité APRÈS son provisioning doit obtenir les mêmes
+ * structures ; sans rejeu, Mongock l'aurait marquée exécutée alors qu'elle
+ * n'a rien fait, et le module resterait cassé pour ce seul tenant. Le corps
+ * est idempotent et son coût à vide est négligeable.
+ */
+@ChangeUnit(id = "create_parcels_collection", order = "015", author = "neiba", runAlways = true)
 public class M015_CreateParcelsCollection {
 
     @Execution

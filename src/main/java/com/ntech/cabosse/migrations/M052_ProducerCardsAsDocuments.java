@@ -47,7 +47,14 @@ import java.util.Set;
  * bloquerait la montée de version pour une faute de saisie : le contrôle
  * applicatif prend alors le relais, et les doublons restent visibles.</p>
  */
-@ChangeUnit(id = "producer_cards_as_documents", order = "052", author = "neiba")
+/*
+ * runAlways : cette migration est conditionnée par une capacité. Un tenant
+ * qui active la capacité APRÈS son provisioning doit obtenir les mêmes
+ * structures ; sans rejeu, Mongock l'aurait marquée exécutée alors qu'elle
+ * n'a rien fait, et le module resterait cassé pour ce seul tenant. Le corps
+ * est idempotent et son coût à vide est négligeable.
+ */
+@ChangeUnit(id = "producer_cards_as_documents", order = "052", author = "neiba", runAlways = true)
 public class M052_ProducerCardsAsDocuments {
 
     private static final String FALLBACK_TYPE = "Carte producteur";
@@ -59,6 +66,17 @@ public class M052_ProducerCardsAsDocuments {
         }
         MongoCollection<Document> members = database.getCollection("members");
         MongoCollection<Document> types = database.getCollection("id_document_types");
+
+        // Rejeu (runAlways) : quand plus aucun membre ne porte l'ancien
+        // format, le balayage complet n'a rien à faire. On s'assure
+        // seulement que l'index existe, ce qui couvre le tenant qui vient
+        // d'activer la capacité avec une collection vide.
+        boolean hasLegacy = members.countDocuments(Filters.exists("externalCodes")) > 0;
+        boolean hasUnmigrated = members.countDocuments(Filters.exists("producerRefKeys", false)) > 0;
+        if (!hasLegacy && !hasUnmigrated) {
+            ensureRefKeysIndex(members);
+            return;
+        }
 
         Set<String> identifierTypes = mergeExternalCodes(members, types);
         List<WriteModel<Document>> ops = new ArrayList<>();
@@ -109,6 +127,32 @@ public class M052_ProducerCardsAsDocuments {
      * clé. C'est exactement la population sur laquelle l'unicité a un
      * sens.</p>
      */
+    /**
+     * Pose l'index des clés producteur s'il manque, sans rescanner la
+     * collection. Sur une collection vierge ou déjà migrée sans doublon,
+     * l'unicité s'applique ; s'il existe des clés partagées, on retombe
+     * sur l'index simple, comme le calcul complet l'aurait fait.
+     */
+    private static void ensureRefKeysIndex(MongoCollection<Document> members) {
+        for (Document index : members.listIndexes()) {
+            String name = index.getString("name");
+            if ("uniq_members_producerRefKeys".equals(name)
+                    || "idx_members_producerRefKeys".equals(name)) {
+                return;
+            }
+        }
+        boolean hasDuplicates = members.aggregate(List.of(
+                new Document("$match", new Document("producerRefKeys.0",
+                        new Document("$exists", true))),
+                new Document("$unwind", "$producerRefKeys"),
+                new Document("$group", new Document("_id", "$producerRefKeys")
+                        .append("n", new Document("$sum", 1))),
+                new Document("$match", new Document("n", new Document("$gt", 1))),
+                new Document("$limit", 1))).first() != null;
+        members.createIndex(Indexes.ascending("producerRefKeys"),
+                producerRefKeysIndexOptions(hasDuplicates));
+    }
+
     static IndexOptions producerRefKeysIndexOptions(boolean hasDuplicates) {
         return new IndexOptions()
                 .name(hasDuplicates ? "idx_members_producerRefKeys" : "uniq_members_producerRefKeys")
