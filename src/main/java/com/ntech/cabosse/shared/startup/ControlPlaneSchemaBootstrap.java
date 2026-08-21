@@ -130,6 +130,18 @@ public class ControlPlaneSchemaBootstrap {
                         new IndexOptions().name("idx_cities_countryCode")
                 );
 
+        // ─── passerelles de notification ───
+        // Le relais interroge « les fournisseurs actifs de ce canal » à
+        // chaque passage : c'est la seule lecture chaude de la collection.
+        controlPlane.collection(ControlPlane.Collections.NOTIFICATION_PROVIDERS, Document.class)
+                .createIndex(
+                        Indexes.compoundIndex(
+                                Indexes.ascending("channel"),
+                                Indexes.ascending("active")
+                        ),
+                        new IndexOptions().name("idx_notification_providers_channel_active")
+                );
+
         // industries : _id = code (slug stable), pas d'index supplémentaire
         controlPlane.collection(ControlPlane.Collections.INDUSTRIES, Document.class)
                 .createIndex(

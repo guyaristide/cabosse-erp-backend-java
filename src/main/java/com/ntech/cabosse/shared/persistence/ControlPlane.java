@@ -38,5 +38,8 @@ public final class ControlPlane {
 
         // ─── Paramètres plateforme (email, storage, payment, notifications) ───
         public static final String PLATFORM_SETTINGS = "platform_settings";
+
+        /** Passerelles d'envoi configurées (moteur + valeurs + usages). */
+        public static final String NOTIFICATION_PROVIDERS = "notification_providers";
     }
 }

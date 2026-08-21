@@ -36,6 +36,14 @@ public class SecretCipher {
     private static final int IV_LENGTH = 12;        // recommandé pour GCM
     private static final int TAG_LENGTH_BITS = 128; // tag d'authentification
 
+    /**
+     * Version de clé écrite en préfixe de chaque valeur chiffrée. Prévue
+     * dès maintenant même s'il n'existe qu'une clé : sans marqueur de
+     * version dans les données, une rotation obligerait à deviner avec
+     * quelle clé chaque valeur a été chiffrée, donc à ne jamais tourner.
+     */
+    static final String CURRENT_KEY_VERSION = "v1";
+
     @jakarta.inject.Inject ApplicationConfig appConfig;
     @jakarta.inject.Inject Logger log;
 
@@ -64,6 +72,15 @@ public class SecretCipher {
                     "obtenu : " + raw.length + " bytes."
             );
         }
+        if (isPlaceholder(raw)) {
+            throw new IllegalStateException(
+                    "PLATFORM_SETTINGS_ENCRYPTION_KEY est une clé d'exemple (octets tous " +
+                    "identiques) : refus de démarrer. Une plateforme voisine tourne en " +
+                    "préproduction avec la clé de son fichier d'exemple ; ici, les secrets " +
+                    "seraient déchiffrables par quiconque lit le dépôt. Générer une vraie " +
+                    "clé avec : openssl rand -base64 32"
+            );
+        }
         this.key = new SecretKeySpec(raw, ALG);
         log.info("SecretCipher initialisé (AES-256-GCM).");
     }
@@ -79,7 +96,7 @@ public class SecretCipher {
             byte[] ct = cipher.doFinal(clear.getBytes(java.nio.charset.StandardCharsets.UTF_8));
             ByteBuffer buf = ByteBuffer.allocate(iv.length + ct.length);
             buf.put(iv).put(ct);
-            return Base64.getEncoder().encodeToString(buf.array());
+            return CURRENT_KEY_VERSION + ":" + Base64.getEncoder().encodeToString(buf.array());
         } catch (Exception e) {
             throw new IllegalStateException("Échec du chiffrement.", e);
         }
@@ -89,7 +106,7 @@ public class SecretCipher {
     public String decrypt(String encoded) {
         if (encoded == null) return null;
         try {
-            byte[] all = Base64.getDecoder().decode(encoded);
+            byte[] all = Base64.getDecoder().decode(stripKeyVersion(encoded));
             if (all.length < IV_LENGTH + 16) {
                 throw new IllegalStateException("Ciphertext trop court.");
             }
@@ -104,6 +121,34 @@ public class SecretCipher {
         } catch (Exception e) {
             throw new IllegalStateException("Échec du déchiffrement (clé incorrecte ou données altérées).", e);
         }
+    }
+
+    /**
+     * Une clé dont tous les octets sont identiques (typiquement des zéros)
+     * ne vient jamais d'un générateur : c'est une valeur d'exemple recopiée.
+     */
+    private static boolean isPlaceholder(byte[] raw) {
+        for (byte b : raw) {
+            if (b != raw[0]) return false;
+        }
+        return true;
+    }
+
+    /**
+     * Retire le préfixe de version de clé s'il est présent.
+     *
+     * <p>Les valeurs écrites avant l'introduction du préfixe n'en ont pas :
+     * elles restent lisibles, et se réécrivent versionnées au premier
+     * enregistrement. Sans cette tolérance, la migration du format aurait
+     * rendu illisibles tous les secrets déjà stockés.</p>
+     */
+    private static String stripKeyVersion(String encoded) {
+        int separator = encoded.indexOf(':');
+        if (separator <= 0) return encoded;
+        String version = encoded.substring(0, separator);
+        // Un préfixe est une version (« v1 »), pas le début d'un base64.
+        if (!version.startsWith("v")) return encoded;
+        return encoded.substring(separator + 1);
     }
 
     /**

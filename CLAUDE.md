@@ -295,6 +295,18 @@ Toute opération asynchrone — envoi d'e-mail, SMS, notification, webhook sorta
 
 Pas de `CompletableFuture` posé ad hoc, pas d'appel synchrone bloquant pour ces usages.
 
+### Notifications : la file est le seul chemin
+
+Depuis le socle du package `notification/`, un envoi (courriel, SMS, plus tard push) ne part **jamais** d'un service métier ni d'un consommateur d'événement. La règle tient en trois points :
+
+- **Un seul chemin d'écriture** vers `notification_deliveries` : `NotificationQueue.enqueue(...)`. Rien d'autre n'insère dans cette collection. C'est cet invariant qui protège la file ; un second chemin ouvert plus tard est exactement ce qui a fait dérailler l'outbox d'un projet voisin.
+- **Rien n'est envoyé dans le flux métier** : l'enfilage est court, sans appel réseau, avec le message déjà rendu. L'envoi appartient au relais planifié (`NotificationRelay`), un par canal. Un service métier n'attend donc jamais une passerelle, et un échec d'envoi ne peut pas faire échouer l'opération qui l'a déclenché.
+- **La prise d'une ligne est atomique** (`findOneAndUpdate` conditionnel dans `NotificationDeliveryRepository.claimNext`), jamais une lecture suivie d'une réécriture. C'est la transposition Mongo du marquage transactionnel séparé qu'imposerait une base relationnelle : ici, elle rend l'envoi unique même avec plusieurs instances, et respecte la règle « pas de transaction pour du mono-document ».
+
+Deux réglages n'existent qu'à un seul endroit et doivent y rester : le plafond de tentatives et le retrait progressif, dans `DeliveryPolicy`.
+
+Un moteur d'envoi se déclare lui-même (`ProviderEnginePort`) : code stable, canal, paramètres attendus. Le back-office dessine son formulaire à partir de cette déclaration, donc **ajouter un moteur n'impose aucune modification du front**. Le code d'un moteur ne change jamais une fois en production : c'est le lien avec les passerelles déjà enregistrées. Enfin, un moteur ne devine pas les règles du contrat opérateur (pas de garde « l'émetteur doit être un numéro ») et rend le motif de refus tel quel, pour qu'il remonte jusqu'à l'écran d'administration.
+
 ---
 
 ## 10. Contrat d'API
