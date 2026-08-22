@@ -21,6 +21,8 @@ import com.ntech.cabosse.accounting.service.AccountingPeriodService;
 import com.ntech.cabosse.accounting.service.AccountingQueryService;
 import com.ntech.cabosse.accounting.service.BankAccountService;
 import com.ntech.cabosse.shared.api.ApiResponse;
+import com.ntech.cabosse.shared.api.PageRequest;
+import com.ntech.cabosse.shared.api.Pagination;
 import com.ntech.cabosse.shared.export.ExportAudit;
 import com.ntech.cabosse.shared.export.ExportFormat;
 import com.ntech.cabosse.shared.export.ExportResponses;
@@ -114,17 +116,19 @@ public class AccountingResource {
                                 @QueryParam("perPage") @DefaultValue("50") int perPage) {
         LocalDate from = parseDate(fromRaw);
         LocalDate to = parseDate(toRaw);
-        List<JournalPieceResponseDto> pieces = query.listJournal(from, to, account, page, perPage);
+        PageRequest pr = PageRequest.of(page, perPage);
+        List<JournalPieceResponseDto> pieces =
+                query.listJournal(from, to, account, pr.page(), pr.perPage());
         long total = query.countJournal(from, to, account);
-        // Pagination "simple" sans utiliser la classe Pagination<T> du projet
-        // pour éviter un wrapper lourd ici — la page comptabilité affiche
-        // une liste continue, pas une vraie pagination paginée.
-        return Response.ok(ApiResponse.ok(Map.of(
-                "items", pieces,
-                "total", total,
-                "page", page,
-                "perPage", perPage
-        ))).build();
+        Map<String, String> filters = new java.util.HashMap<>();
+        if (fromRaw != null && !fromRaw.isBlank()) filters.put("from", fromRaw);
+        if (toRaw != null && !toRaw.isBlank()) filters.put("to", toRaw);
+        if (account != null && !account.isBlank()) filters.put("account", account);
+        // Enveloppe standard comme toutes les autres listes : le journal
+        // rendait auparavant une carte maison sans totalOfPages ni bornes de
+        // navigation, ce qui interdisait d'y brancher les contrôles communs.
+        return Response.ok(ApiResponse.ok(Pagination.of(
+                total, pr, new String[]{"date"}, "desc", filters, pieces))).build();
     }
 
     // ─── Comptes bancaires CRUD ─────────────────────────────────────
