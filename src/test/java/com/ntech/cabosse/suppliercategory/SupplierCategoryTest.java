@@ -123,6 +123,7 @@ class SupplierCategoryTest extends AbstractIntegrationTest {
                           "paymentMethod": "CASH"%s }
                         """.formatted(LocalDate.now(), memberId, articleId, siteId,
                         weightKg, delegatePart))
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                 .when().post("/api/v1/producer-purchases").then().statusCode(201)
                 .extract().path("data.id");
     }

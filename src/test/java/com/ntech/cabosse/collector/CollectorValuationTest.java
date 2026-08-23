@@ -113,6 +113,7 @@ class CollectorValuationTest extends AbstractIntegrationTest {
                           "paymentMethod": "CASH", "delegateSupplierId": "%s" }
                         """.formatted(LocalDate.now(), memberId, articleId, siteId,
                                 qty, unitPrice, delegateId))
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                 .when().post("/api/v1/producer-purchases")
                 .then().statusCode(201);
     }

@@ -33,6 +33,18 @@ public final class MemberFileCompleteness {
      */
     public static MemberFileStatusDto evaluate(MemberEntity m, int validityMonths,
                                                java.util.Set<String> identityProofTypes) {
+        return evaluate(m, validityMonths, identityProofTypes, LocalDate.now());
+    }
+
+    /**
+     * Variante datée : la péremption se juge à {@code asOf}, pas à
+     * aujourd'hui. Indispensable au rejeu d'une saisie de terrain : un
+     * dossier valable le jour de l'achat ne doit pas bloquer le reçu
+     * parce que la synchronisation est arrivée après son échéance.
+     */
+    public static MemberFileStatusDto evaluate(MemberEntity m, int validityMonths,
+                                               java.util.Set<String> identityProofTypes,
+                                               LocalDate asOf) {
         List<String> missing = new ArrayList<>();
         int total = 0;
         int filled = 0;
@@ -100,7 +112,7 @@ public final class MemberFileCompleteness {
         LocalDate expiresAt = collectedAt != null && validityMonths > 0
                 ? collectedAt.plusMonths(validityMonths)
                 : null;
-        boolean expired = expiresAt != null && expiresAt.isBefore(LocalDate.now());
+        boolean expired = expiresAt != null && expiresAt.isBefore(asOf != null ? asOf : LocalDate.now());
 
         return new MemberFileStatusDto(pct, List.copyOf(missing), expiresAt, expired);
     }

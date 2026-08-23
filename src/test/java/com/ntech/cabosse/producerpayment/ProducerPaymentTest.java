@@ -106,6 +106,7 @@ class ProducerPaymentTest extends AbstractIntegrationTest {
                           "paymentMethod": "BANK_TRANSFER", "amountPaidFcfa": 0%s }
                         """.formatted(LocalDate.now(), memberId, articleId, siteId,
                         weightKg, pricePerKg, delegatePart))
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                 .when().post("/api/v1/producer-purchases").then().statusCode(201)
                 .extract().path("data.id");
     }
@@ -117,6 +118,7 @@ class ProducerPaymentTest extends AbstractIntegrationTest {
                           "date": "%s", "paymentRef": "%s",
                           "allocations": [ { "purchaseId": "%s", "amountFcfa": %d } ] }
                         """.formatted(delegateId, LocalDate.now(), ref, purchaseId, amount))
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                 .when().post("/api/v1/producer-payments").then().statusCode(201);
     }
 
@@ -185,6 +187,7 @@ class ProducerPaymentTest extends AbstractIntegrationTest {
                         { "delegateSupplierId": "%s", "paymentMethod": "CASH", "date": "%s",
                           "allocations": [ { "purchaseId": "%s", "amountFcfa": 200000 } ] }
                         """.formatted(delegateId, LocalDate.now(), purchaseId))
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                 .when().post("/api/v1/producer-payments")
                 .then().statusCode(422)
                 .body("statusMessage", containsString("il ne reste que"));
@@ -211,6 +214,7 @@ class ProducerPaymentTest extends AbstractIntegrationTest {
                         { "memberId": "%s", "paymentMethod": "CASH", "date": "%s",
                           "allocations": [ { "purchaseId": "%s", "amountFcfa": 500000 } ] }
                         """.formatted(memberId, LocalDate.now(), purchaseId))
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                 .when().post("/api/v1/producer-payments")
                 .then().statusCode(422)
                 .body("statusMessage", containsString("se règle au délégué"));
@@ -233,6 +237,7 @@ class ProducerPaymentTest extends AbstractIntegrationTest {
                           "allocations": [ { "purchaseId": "%s", "amountFcfa": 300000 },
                                            { "purchaseId": "%s", "amountFcfa": 150000 } ] }
                         """.formatted(memberId, LocalDate.now(), first, second))
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                 .when().post("/api/v1/producer-payments")
                 .then().statusCode(201)
                 .body("data.totalAmountFcfa", equalTo(450000))
@@ -304,4 +309,78 @@ class ProducerPaymentTest extends AbstractIntegrationTest {
                 .body("data.payments[0].paymentRef", equalTo("VIR-500"))
                 .body("data.balanceFcfa", equalTo(0));
     }
+
+    @Test
+    void a_replayed_payment_pays_once() {
+        UserEntity admin = tenantAdmin();
+        String memberId = createProducer(admin, "Traoré");
+        String siteId = createSite(admin);
+        String articleId = createArticle(admin);
+        String delegateId = createDelegate(admin, "Délégué Duékoué");
+        String purchaseId = unpaidReceipt(admin, memberId, articleId, siteId, 5000, 1000, delegateId);
+
+        // Le scénario qui coûtait de l'argent : le terminal envoie un
+        // versement partiel, le réseau coupe avant la réponse, l'agent
+        // renvoie. La garde « reste dû suffisant » laissait passer le
+        // second versement, absorbé par le reliquat : producteur payé
+        // deux fois. Avec la même clé, le renvoi retrouve le règlement
+        // d'origine.
+        String key = java.util.UUID.randomUUID().toString();
+        String body = """
+                { "delegateSupplierId": "%s", "paymentMethod": "BANK_TRANSFER",
+                  "date": "%s", "paymentRef": "VIR-700",
+                  "allocations": [ { "purchaseId": "%s", "amountFcfa": 2000000 } ] }
+                """.formatted(delegateId, LocalDate.now(), purchaseId);
+
+        String firstRef = givenAs(admin).contentType("application/json")
+                .header("Idempotency-Key", key)
+                .body(body)
+                .when().post("/api/v1/producer-payments").then().statusCode(201)
+                .extract().path("data.ref");
+
+        String replayedRef = givenAs(admin).contentType("application/json")
+                .header("Idempotency-Key", key)
+                .body(body)
+                .when().post("/api/v1/producer-payments").then().statusCode(201)
+                .extract().path("data.ref");
+
+        org.junit.jupiter.api.Assertions.assertEquals(firstRef, replayedRef,
+                "Le renvoi doit retrouver le règlement d'origine");
+
+        // Un seul versement imputé : le reste dû prouve l'unicité.
+        givenAs(admin).when().get("/api/v1/producer-purchases/" + purchaseId)
+                .then().statusCode(200)
+                .body("data.amountPaidFcfa", equalTo(2000000))
+                .body("data.remainderFcfa", equalTo(3000000));
+        givenAs(admin).when().get("/api/v1/producer-payments/by-purchase/" + purchaseId)
+                .then().statusCode(200)
+                .body("data", hasSize(1));
+    }
+
+    @Test
+    void a_payment_without_an_idempotency_key_is_refused() {
+        UserEntity admin = tenantAdmin();
+        String memberId = createProducer(admin, "Ouattara");
+        String siteId = createSite(admin);
+        String articleId = createArticle(admin);
+        String delegateId = createDelegate(admin, "Délégué Bloléquin");
+        String purchaseId = unpaidReceipt(admin, memberId, articleId, siteId, 1000, 1000, delegateId);
+
+        // Optionnelle, la clé ne protégerait que les clients disciplinés :
+        // sur ce flux, le serveur l'exige.
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "delegateSupplierId": "%s", "paymentMethod": "BANK_TRANSFER",
+                          "date": "%s",
+                          "allocations": [ { "purchaseId": "%s", "amountFcfa": 500000 } ] }
+                        """.formatted(delegateId, LocalDate.now(), purchaseId))
+                .when().post("/api/v1/producer-payments")
+                .then().statusCode(400)
+                .body("errorCode", equalTo("VALIDATION"));
+
+        givenAs(admin).when().get("/api/v1/producer-purchases/" + purchaseId)
+                .then().statusCode(200)
+                .body("data.amountPaidFcfa", equalTo(0));
+    }
 }
+

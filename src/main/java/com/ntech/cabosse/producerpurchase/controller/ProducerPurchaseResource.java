@@ -98,6 +98,9 @@ public class ProducerPurchaseResource {
     @POST
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     @RequiresPermission(Permission.COLLECTION_RECEIPT_WRITE)
+    // Sans numéro de reçu officiel, rien ne dédoublonne un renvoi : la clé
+    // d'idempotence est obligatoire sur ce flux.
+    @com.ntech.cabosse.shared.idempotency.RequiresIdempotencyKey
     public Response create(@Valid ProducerPurchaseUpsertDto payload) {
         ensureCapability();
         return Response.status(Response.Status.CREATED)

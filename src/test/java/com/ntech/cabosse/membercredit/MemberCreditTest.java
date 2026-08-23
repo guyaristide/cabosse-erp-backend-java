@@ -191,6 +191,7 @@ class MemberCreditTest extends AbstractIntegrationTest {
                           "paymentMethod": "CASH",
                           "creditImputations": [ { "creditId": "%s", "amountFcfa": 30000 } ] }
                         """.formatted(LocalDate.now(), memberId, articleId, siteId, creditId))
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                 .when().post("/api/v1/producer-purchases")
                 .then().statusCode(201)
                 .body("data.creditImputedFcfa", equalTo(30000))
@@ -231,6 +232,7 @@ class MemberCreditTest extends AbstractIntegrationTest {
                           "paymentMethod": "CASH",
                           "creditImputations": [ { "creditId": "%s", "amountFcfa": 50000 } ] }
                         """.formatted(LocalDate.now(), memberId, articleId, siteId, creditId))
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                 .when().post("/api/v1/producer-purchases")
                 .then().statusCode(422)
                 .body("statusMessage", containsString("reste dû"));
@@ -258,6 +260,7 @@ class MemberCreditTest extends AbstractIntegrationTest {
                           "paymentMethod": "CASH",
                           "creditImputations": [ { "creditId": "%s", "amountFcfa": 25000 } ] }
                         """.formatted(LocalDate.now(), memberId, articleId, siteId, creditId))
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                 .when().post("/api/v1/producer-purchases").then().statusCode(201);
 
         givenAs(admin).when().get("/api/v1/member-credits/" + creditId)

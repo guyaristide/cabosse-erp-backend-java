@@ -87,21 +87,25 @@ class OfficialReceiptUniquenessTest extends AbstractIntegrationTest {
 
         givenAs(admin).contentType("application/json")
                 .body(purchaseBody(memberId, articleId, siteId, "RC-2026-0451"))
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                 .when().post("/api/v1/producer-purchases").then().statusCode(201);
 
         // Le même numéro sur une seconde livraison est refusé, en nommant
         // la livraison qui le détient.
         givenAs(admin).contentType("application/json")
                 .body(purchaseBody(memberId, articleId, siteId, "RC-2026-0451"))
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                 .when().post("/api/v1/producer-purchases").then().statusCode(409)
                 .body("statusMessage", containsString("RC-2026-0451"));
 
         // Sans numéro, aucune contrainte : deux livraisons libres passent.
         givenAs(admin).contentType("application/json")
                 .body(purchaseBody(memberId, articleId, siteId, null))
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                 .when().post("/api/v1/producer-purchases").then().statusCode(201);
         givenAs(admin).contentType("application/json")
                 .body(purchaseBody(memberId, articleId, siteId, null))
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                 .when().post("/api/v1/producer-purchases").then().statusCode(201);
     }
 }

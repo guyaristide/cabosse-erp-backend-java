@@ -89,6 +89,7 @@ class LegacyAmountTypeTest extends AbstractIntegrationTest {
                           "weightKg": 100, "guaranteedPricePerKgFcfa": 1000,
                           "paymentMethod": "CASH" }
                         """.formatted(LocalDate.now(), memberId, articleId, siteId))
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                 .when().post("/api/v1/producer-purchases").then().statusCode(201)
                 .extract().path("data.id");
 

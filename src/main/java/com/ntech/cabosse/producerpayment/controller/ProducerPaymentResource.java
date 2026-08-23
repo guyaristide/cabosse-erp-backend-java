@@ -93,6 +93,9 @@ public class ProducerPaymentResource {
     @POST
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     @RequiresPermission(Permission.COLLECTION_PAYMENT_WRITE)
+    // Un règlement rejoué paie deux fois tant que le reste dû l'absorbe :
+    // la clé d'idempotence est obligatoire sur ce flux.
+    @com.ntech.cabosse.shared.idempotency.RequiresIdempotencyKey
     public Response create(@Valid ProducerPaymentDtos.CreatePaymentDto payload) {
         return Response.status(Response.Status.CREATED)
                 .entity(ApiResponse.created(service.create(payload))).build();

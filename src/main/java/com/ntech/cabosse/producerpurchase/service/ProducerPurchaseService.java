@@ -110,7 +110,7 @@ public class ProducerPurchaseService {
 
         MemberEntity m = members.findById(p.memberId()).orElseThrow(
                 () -> new NotFoundException("Producteur " + p.memberId() + " introuvable."));
-        ensureProducerFileUsable(prefs, m);
+        ensureProducerFileUsable(prefs, m, p.date());
         if (prefs.requireProducerPaymentVigilance()) {
             MemberPaymentVigilance.check(m, p.paymentMethod() != null ? p.paymentMethod().name() : null,
                     producerRefKeys.identityProofTypeNames());
@@ -434,17 +434,25 @@ public class ProducerPurchaseService {
      * producteur dont l'identité n'est pas établie ou dont l'enquête est
      * périmée, et dit précisément ce qui manque.
      */
-    private void ensureProducerFileUsable(TenantPreferences prefs, MemberEntity m) {
+    private void ensureProducerFileUsable(TenantPreferences prefs, MemberEntity m,
+                                          java.time.LocalDate operationDate) {
         if (!prefs.blockProducerPurchaseOnIncompleteFile()) return;
         int validityMonths = prefs.producerFileValidityMonths();
+        // La péremption se juge à la date de l'achat, pas à celle du
+        // traitement : une saisie de terrain synchronisée après l'échéance
+        // du dossier reste valable si le dossier l'était au moment des
+        // faits.
         MemberFileStatusDto status = MemberFileCompleteness.evaluate(m, validityMonths,
-                producerRefKeys.identityProofTypeNames());
+                producerRefKeys.identityProofTypeNames(),
+                operationDate != null ? operationDate : java.time.LocalDate.now());
         if (status.expired()) {
-            throw new BusinessException("Dossier du producteur « " + m.name + " » périmé depuis le "
+            throw new BusinessException(ErrorCode.PRODUCER_FILE_INCOMPLETE,
+                    "Dossier du producteur « " + m.name + " » périmé depuis le "
                     + status.expiresAt() + " : mettre à jour l'enquête avant d'enregistrer un achat.");
         }
         if (!status.missingFields().isEmpty()) {
-            throw new BusinessException("Dossier du producteur « " + m.name + " » incomplet ("
+            throw new BusinessException(ErrorCode.PRODUCER_FILE_INCOMPLETE,
+                    "Dossier du producteur « " + m.name + " » incomplet ("
                     + String.join(", ", status.missingFields()) + ").");
         }
     }

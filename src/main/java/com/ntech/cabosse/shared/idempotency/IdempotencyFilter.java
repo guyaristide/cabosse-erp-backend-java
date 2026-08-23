@@ -78,9 +78,20 @@ public class IdempotencyFilter {
 
     /** Rend une réponse non nulle pour court-circuiter la ressource. */
     @ServerRequestFilter(readBody = true)
-    public Response onRequest(ContainerRequestContext ctx) throws IOException {
+    public Response onRequest(ContainerRequestContext ctx,
+                              jakarta.ws.rs.container.ResourceInfo resourceInfo) throws IOException {
         String key = ctx.getHeaderString(HEADER);
-        if (key == null || key.isBlank()) return null;
+        if (key == null || key.isBlank()) {
+            // Certains flux coûtent de l'argent réel à chaque doublon : sur
+            // eux, la clé n'est pas une option que le client peut oublier.
+            if (requiresKey(resourceInfo)) {
+                return jsonError(400,
+                        "Cette opération exige l'en-tête Idempotency-Key : sans lui, un "
+                                + "renvoi après coupure réseau pourrait l'exécuter deux fois.",
+                        ErrorCode.VALIDATION);
+            }
+            return null;
+        }
         if (!WRITE_METHODS.contains(ctx.getMethod())) return null;
         // Sans authentification, pas de base tenant où écrire la trace.
         String auth = ctx.getHeaderString(HttpHeaders.AUTHORIZATION);
@@ -165,6 +176,12 @@ public class IdempotencyFilter {
     }
 
     // ─── Interne ────────────────────────────────────────────────────
+
+    private static boolean requiresKey(jakarta.ws.rs.container.ResourceInfo resourceInfo) {
+        return resourceInfo != null
+                && resourceInfo.getResourceMethod() != null
+                && resourceInfo.getResourceMethod().isAnnotationPresent(RequiresIdempotencyKey.class);
+    }
 
     private static Response jsonError(int status, String message, ErrorCode code) {
         return Response.status(status)
