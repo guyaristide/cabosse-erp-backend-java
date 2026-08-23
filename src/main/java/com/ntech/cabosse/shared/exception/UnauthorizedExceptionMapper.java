@@ -13,7 +13,7 @@ public class UnauthorizedExceptionMapper implements ExceptionMapper<Unauthorized
     public Response toResponse(UnauthorizedException ex) {
         return Response
                 .status(401)
-                .entity(new ApiResponse<>(401, ex.getMessage(), null))
+                .entity(ApiResponse.error(401, ex.getMessage(), ErrorCode.UNAUTHORIZED))
                 .build();
     }
 }

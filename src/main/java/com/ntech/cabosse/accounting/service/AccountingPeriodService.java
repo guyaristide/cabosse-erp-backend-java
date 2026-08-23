@@ -6,6 +6,7 @@ import com.ntech.cabosse.accounting.repository.OdDraftRepository;
 import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
+import com.ntech.cabosse.shared.exception.ErrorCode;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.security.Roles;
 import com.ntech.cabosse.shared.tenant.TenantContext;
@@ -53,7 +54,7 @@ public class AccountingPeriodService {
         if (date == null) return;
         String period = YearMonth.from(date).toString();
         if (periods.isLocked(period)) {
-            throw new BusinessException(
+            throw new BusinessException(ErrorCode.PERIOD_LOCKED,
                     "Période " + period + " clôturée : aucune écriture ne peut plus y être passée. "
                             + "Rouvrez la période pour corriger.");
         }

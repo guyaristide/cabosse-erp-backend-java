@@ -13,7 +13,7 @@ public class ConflictExceptionMapper implements ExceptionMapper<ConflictExceptio
     public Response toResponse(ConflictException ex) {
         return Response
                 .status(409)
-                .entity(new ApiResponse<>(409, ex.getMessage(), null))
+                .entity(ApiResponse.error(409, ex.getMessage(), ErrorCode.CONFLICT))
                 .build();
     }
 }

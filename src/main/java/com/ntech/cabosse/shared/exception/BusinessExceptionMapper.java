@@ -22,7 +22,7 @@ public class BusinessExceptionMapper implements ExceptionMapper<BusinessExceptio
     public Response toResponse(BusinessException ex) {
         return Response
                 .status(422)
-                .entity(new ApiResponse<>(422, ex.getMessage(), null))
+                .entity(ApiResponse.error(422, ex.getMessage(), ex.errorCode()))
                 .build();
     }
 }

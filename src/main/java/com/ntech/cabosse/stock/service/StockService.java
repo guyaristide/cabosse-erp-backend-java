@@ -12,6 +12,7 @@ import com.ntech.cabosse.shared.api.Pagination;
 import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
+import com.ntech.cabosse.shared.exception.ErrorCode;
 import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.site.entity.SiteEntity;
@@ -196,7 +197,7 @@ public class StockService {
                     .orElse(BigDecimal.ZERO);
             BigDecimal needed = signedQty.abs();
             if (current.compareTo(needed) < 0) {
-                throw new BusinessException(
+                throw new BusinessException(ErrorCode.STOCK_INSUFFICIENT,
                         "Stock insuffisant : "
                                 + current + " " + article.unit + " disponible, "
                                 + needed + " demandé(s).");
@@ -625,7 +626,7 @@ public class StockService {
                 BigDecimal current = stockItems.findByArticleAndSite(article.id, site.id)
                         .map(it -> it.quantity)
                         .orElse(BigDecimal.ZERO);
-                throw new BusinessException(
+                throw new BusinessException(ErrorCode.STOCK_INSUFFICIENT,
                         "Stock insuffisant : " + current + " " + article.unit
                                 + " disponible, " + signedQty.abs() + " demandé(s).");
             }

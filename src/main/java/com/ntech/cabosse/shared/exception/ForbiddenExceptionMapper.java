@@ -13,7 +13,7 @@ public class ForbiddenExceptionMapper implements ExceptionMapper<ForbiddenExcept
     public Response toResponse(ForbiddenException ex) {
         return Response
                 .status(403)
-                .entity(new ApiResponse<>(403, ex.getMessage(), null))
+                .entity(ApiResponse.error(403, ex.getMessage(), ErrorCode.FORBIDDEN))
                 .build();
     }
 }

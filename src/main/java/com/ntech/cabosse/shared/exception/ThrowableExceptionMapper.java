@@ -34,13 +34,17 @@ public class ThrowableExceptionMapper implements ExceptionMapper<Throwable> {
                     : Response.Status.fromStatusCode(status) != null
                         ? Response.Status.fromStatusCode(status).getReasonPhrase()
                         : "Erreur";
+            // Une erreur portée par le framework (405, 415, 404 de route…)
+            // n'est pas rejouable : la requête elle-même est mal formée.
             return Response.status(status)
-                    .entity(new ApiResponse<>(status, message, null))
+                    .entity(ApiResponse.error(status, message, ErrorCode.BUSINESS_RULE))
                     .build();
         }
         LOG.error("Erreur interne non gérée", ex);
+        // Seule catégorie réellement rejouable : l'incident inattendu peut
+        // avoir disparu à la tentative suivante.
         return Response.status(500)
-                .entity(new ApiResponse<>(500, "Une erreur interne est survenue.", null))
+                .entity(ApiResponse.error(500, "Une erreur interne est survenue.", ErrorCode.INTERNAL))
                 .build();
     }
 }

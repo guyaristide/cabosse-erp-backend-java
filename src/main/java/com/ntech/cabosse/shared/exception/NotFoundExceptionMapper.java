@@ -21,7 +21,7 @@ public class NotFoundExceptionMapper implements ExceptionMapper<NotFoundExceptio
     public Response toResponse(NotFoundException ex) {
         return Response
                 .status(404)
-                .entity(new ApiResponse<>(404, ex.getMessage(), null))
+                .entity(ApiResponse.error(404, ex.getMessage(), ErrorCode.NOT_FOUND))
                 .build();
     }
 }
