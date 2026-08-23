@@ -217,6 +217,34 @@ public class TenantPreferences {
         return !COLLECTOR_VALUATION_WEIGHTED.equals(collectorDeliveryValuation());
     }
 
+    /** Valeurs autorisées de {@link #closedPeriodPolicy}. */
+    public static final String CLOSED_PERIOD_QUARANTINE = "QUARANTINE";
+    public static final String CLOSED_PERIOD_POST_TO_OPEN = "POST_TO_OPEN_PERIOD";
+    public static final String CLOSED_PERIOD_REFUSE = "REFUSE";
+
+    /**
+     * Que faire d'une écriture dont la période comptable s'est fermée
+     * avant qu'elle n'arrive. Le cas type vient du terrain : un achat du
+     * 30 septembre saisi hors ligne, synchronisé le 5 octobre alors que
+     * septembre est clôturé.
+     *
+     * <p>{@code QUARANTINE} (défaut) : le document métier et son mouvement
+     * de stock existent, l'écriture est retenue et attend le comptable, qui
+     * rouvre la période ou passe une régularisation. {@code POST_TO_OPEN_PERIOD} :
+     * l'écriture part dans la première période ouverte en portant la mention
+     * de sa date d'origine. {@code REFUSE} : l'écriture est refusée, à charge
+     * pour l'appelant de conserver l'opération et de la relancer.</p>
+     *
+     * <p>Dans les trois cas, une saisie n'est <strong>jamais perdue</strong> :
+     * c'est le défaut que ce réglage corrige.</p>
+     */
+    public String closedPeriodPolicy;
+
+    public String closedPeriodPolicy() {
+        return closedPeriodPolicy == null || closedPeriodPolicy.isBlank()
+                ? CLOSED_PERIOD_QUARANTINE : closedPeriodPolicy;
+    }
+
     /**
      * Bloque le démarrage d'un ordre de fabrication si une matière dépasse
      * le stock disponible (défaut {@code true}). Désactivé, la production

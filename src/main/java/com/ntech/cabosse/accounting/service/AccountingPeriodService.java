@@ -43,6 +43,7 @@ public class AccountingPeriodService {
 
     @Inject AccountingPeriodRepository periods;
     @Inject OdDraftRepository odDrafts;
+    @Inject com.ntech.cabosse.accounting.repository.QuarantinedPostingRepository quarantined;
     @Inject IdGenerator idGenerator;
     @Inject TenantContext tenantContext;
     @Inject AuditService audit;
@@ -77,6 +78,17 @@ public class AccountingPeriodService {
                     pendingOd + " opération(s) diverse(s) en brouillard sur " + period
                             + " : validez-les ou supprimez-les avant de clôturer.");
         }
+        // Même logique pour les écritures déjà retenues sur ce mois : les
+        // enfermer derrière une clôture reviendrait à les abandonner, alors
+        // qu'elles attendent précisément une décision.
+        long pendingQuarantine = quarantined.countPendingInPeriod(
+                period.atDay(1), period.atEndOfMonth());
+        if (pendingQuarantine > 0) {
+            throw new BusinessException(
+                    pendingQuarantine + " écriture(s) en attente de régularisation sur " + period
+                            + " : traitez-les avant de clôturer.");
+        }
+
         AccountingPeriodEntity existing = periods.findByPeriod(period.toString()).orElse(null);
         if (existing != null && AccountingPeriodEntity.STATUS_LOCKED.equals(existing.status)) {
             return existing; // idempotent

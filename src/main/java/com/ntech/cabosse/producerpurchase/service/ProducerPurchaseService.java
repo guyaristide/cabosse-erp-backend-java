@@ -27,6 +27,7 @@ import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.ConflictException;
+import com.ntech.cabosse.shared.exception.ErrorCode;
 import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.tenant.TenantContext;
@@ -128,7 +129,8 @@ public class ProducerPurchaseService {
         String officialReceipt = blankToNull(p.officialReceiptRef());
         if (officialReceipt != null) {
             repo.findByOfficialReceipt(officialReceipt).ifPresent(existing -> {
-                throw new ConflictException("Le reçu officiel « " + officialReceipt
+                throw new ConflictException(ErrorCode.DUPLICATE_RECEIPT,
+                        "Le reçu officiel « " + officialReceipt
                         + " » est déjà enregistré sur la livraison " + existing.ref + ".");
             });
         }
@@ -182,7 +184,8 @@ public class ProducerPurchaseService {
                 .map(ProducerPurchaseUpsertDto.CreditImputationDto::amountFcfa)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         if (creditImputed.compareTo(amount) > 0) {
-            throw new BusinessException("Les retenues (" + creditImputed
+            throw new BusinessException(ErrorCode.CREDIT_INSUFFICIENT,
+                    "Les retenues (" + creditImputed
                     + ") dépassent le montant dû au producteur (" + amount + ").");
         }
         BigDecimal payable = amount.subtract(creditImputed);
@@ -347,7 +350,8 @@ public class ProducerPurchaseService {
             for (int i = 0; i < imputedCredits.size(); i++) {
                 memberCredits.creditBack(imputedCredits.get(i).id, imputations.get(i).amountFcfa());
             }
-            throw new ConflictException("Le reçu officiel « " + officialReceipt
+            throw new ConflictException(ErrorCode.DUPLICATE_RECEIPT,
+                        "Le reçu officiel « " + officialReceipt
                     + " » vient d'être enregistré par une autre saisie.");
         }
 

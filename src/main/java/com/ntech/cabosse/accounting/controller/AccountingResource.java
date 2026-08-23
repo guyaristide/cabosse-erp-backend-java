@@ -11,6 +11,8 @@ import com.ntech.cabosse.accounting.dto.BankStatementLineResponseDto;
 import com.ntech.cabosse.accounting.dto.BankStatementResponseDto;
 import com.ntech.cabosse.accounting.dto.ChartOfAccountsResponseDto;
 import com.ntech.cabosse.accounting.dto.JournalPieceResponseDto;
+import com.ntech.cabosse.accounting.dto.QuarantinedPostingDto;
+import com.ntech.cabosse.accounting.entity.QuarantineStatus;
 import com.ntech.cabosse.accounting.entity.AccountFamily;
 import com.ntech.cabosse.accounting.entity.BankStatementLineStatus;
 import com.ntech.cabosse.accounting.entity.BankStatementStatus;
@@ -70,6 +72,7 @@ import java.util.UUID;
 public class AccountingResource {
 
     @Inject AccountingQueryService query;
+    @Inject com.ntech.cabosse.accounting.service.QuarantineService quarantine;
     @Inject AccountingPeriodService periodService;
     @Inject com.ntech.cabosse.accounting.service.OdEntryService odService;
     @Inject com.ntech.cabosse.accounting.service.OdDocumentService odDocuments;
@@ -473,6 +476,62 @@ public class AccountingResource {
     }
 
     // ─── Périodes comptables (clôture / réouverture) ────────────────
+
+    // ─── Écritures en attente de régularisation ─────────────────────
+
+    /**
+     * Liste des écritures retenues parce que leur période était close.
+     * Sans ce guichet, une saisie synchronisée en retard disparaîtrait
+     * sans que personne ne sache qu'elle a existé.
+     */
+    @GET
+    @Path("/quarantine")
+    public Response listQuarantine(@QueryParam("status") String statusRaw,
+                                   @QueryParam("limit") @DefaultValue("50") int limit,
+                                   @QueryParam("skip") @DefaultValue("0") int skip) {
+        QuarantineStatus status = parseQuarantineStatus(statusRaw);
+        List<QuarantinedPostingDto> rows = quarantine.list(status, limit, skip).stream()
+                .map(QuarantinedPostingDto::from)
+                .toList();
+        return Response.ok(ApiResponse.ok(rows)).build();
+    }
+
+    public record PostQuarantinePayload(String postingDate) {}
+
+    /**
+     * Passe l'écriture au journal. Sans date, la date d'origine est
+     * conservée, ce qui suppose la période rouverte ; avec une date, le
+     * comptable la reporte sur une période ouverte en connaissance de cause.
+     */
+    @POST
+    @RequiresPermission(Permission.ACCOUNTING_WRITE)
+    @Path("/quarantine/{id}/post")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    public Response postQuarantined(@PathParam("id") UUID id, PostQuarantinePayload payload) {
+        LocalDate date = payload != null ? parseDate(payload.postingDate()) : null;
+        return Response.ok(ApiResponse.ok(
+                JournalPieceResponseDto.from(quarantine.post(id, date)))).build();
+    }
+
+    public record DiscardQuarantinePayload(String reason) {}
+
+    /** Écarte l'écriture, avec motif obligatoire. La trace reste consultable. */
+    @POST
+    @RequiresPermission(Permission.ACCOUNTING_WRITE)
+    @Path("/quarantine/{id}/discard")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    public Response discardQuarantined(@PathParam("id") UUID id,
+                                       DiscardQuarantinePayload payload) {
+        String reason = payload != null ? payload.reason() : null;
+        return Response.ok(ApiResponse.ok(
+                QuarantinedPostingDto.from(quarantine.discard(id, reason)))).build();
+    }
+
+    private static QuarantineStatus parseQuarantineStatus(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        try { return QuarantineStatus.valueOf(raw.trim().toUpperCase()); }
+        catch (IllegalArgumentException e) { return null; }
+    }
 
     @GET
     @Path("/periods")

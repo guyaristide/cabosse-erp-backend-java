@@ -14,6 +14,9 @@ import com.ntech.cabosse.reception.entity.PaymentMethod;
 import com.ntech.cabosse.sale.entity.SaleEntity;
 import com.ntech.cabosse.sale.entity.SaleLine;
 import com.ntech.cabosse.sale.entity.SalePayment;
+import com.ntech.cabosse.accounting.entity.QuarantineStatus;
+import com.ntech.cabosse.accounting.entity.QuarantinedPostingEntity;
+import com.ntech.cabosse.tenant.entity.TenantPreferences;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.tenant.TenantContext;
@@ -63,6 +66,8 @@ public class AccountingService {
     private static final int VAT_RATIO_SCALE = 6;
 
     @Inject JournalPieceRepository pieces;
+    @Inject com.ntech.cabosse.accounting.repository.AccountingPeriodRepository periods;
+    @Inject com.ntech.cabosse.accounting.repository.QuarantinedPostingRepository quarantined;
     @Inject JournalPieceRefService refService;
     @Inject AccountingPeriodService periodService;
     @Inject IdGenerator idGenerator;
@@ -83,6 +88,99 @@ public class AccountingService {
      * <p>No-op silencieux si une pièce existe déjà pour ce couple — c'est
      * la sécurité contre un événement métier rejoué.</p>
      */
+    /**
+     * Applique le réglage du tenant quand la période d'effet est close.
+     *
+     * <p>Rend la demande à passer, éventuellement redatée, ou {@code null}
+     * pour signifier « mise en quarantaine, ne rien écrire ». La période
+     * ouverte reste le cas courant : la méthode ne fait rien si la date
+     * d'effet est passable.</p>
+     *
+     * <p>Les trois issues partagent un invariant : la saisie n'est jamais
+     * perdue. C'est exactement ce que le comportement précédent, un refus
+     * sec, ne garantissait pas.</p>
+     */
+    private PostingRequest applyClosedPeriodPolicy(PostingRequest request, LocalDate effective) {
+        if (!periods.isLocked(java.time.YearMonth.from(effective).toString())) {
+            return request;
+        }
+        String policy = preferencesLookup.current().closedPeriodPolicy();
+
+        if (TenantPreferences.CLOSED_PERIOD_REFUSE.equals(policy)) {
+            periodService.assertOpen(effective);
+            return request;
+        }
+
+        if (TenantPreferences.CLOSED_PERIOD_POST_TO_OPEN.equals(policy)) {
+            LocalDate target = firstOpenDateOnOrAfter(effective);
+            if (target == null) {
+                // Aucune période ouverte trouvée : mieux vaut retenir que
+                // deviner une date, la quarantaine reste le filet.
+                quarantine(request, effective);
+                return null;
+            }
+            // La date comptable s'écarte volontairement de la date
+            // d'opération : la mention doit rester lisible sur la pièce.
+            String note = request.libelle() + " (opération du "
+                    + effective.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")) + ")";
+            return new PostingRequest(target, request.sourceType(), request.sourceId(),
+                    request.sourceRef(), note, request.entries());
+        }
+
+        quarantine(request, effective);
+        return null;
+    }
+
+    /** Première date passable à partir de {@code from}, dans les 24 mois. */
+    private LocalDate firstOpenDateOnOrAfter(LocalDate from) {
+        java.time.YearMonth month = java.time.YearMonth.from(from);
+        for (int i = 0; i < 24; i++) {
+            if (!periods.isLocked(month.toString())) {
+                // Premier jour du mois ouvert, sauf si la date d'origine y
+                // tombe déjà (cas d'un mois partiellement rouvert).
+                LocalDate candidate = month.atDay(1);
+                return candidate.isBefore(from) ? from : candidate;
+            }
+            month = month.plusMonths(1);
+        }
+        return null;
+    }
+
+    /** Retient l'écriture pour régularisation, sans rien écrire au journal. */
+    private void quarantine(PostingRequest request, LocalDate effective) {
+        String period = java.time.YearMonth.from(effective).toString();
+        // Un rejeu de la même opération ne doit pas empiler les demandes.
+        if (quarantined.findPendingBySource(request.sourceType().name(), request.sourceId()).isPresent()) {
+            LOG.debugf("Écriture déjà en quarantaine pour %s/%s : no-op",
+                    request.sourceType(), request.sourceId());
+            return;
+        }
+        QuarantinedPostingEntity q = new QuarantinedPostingEntity();
+        q.id = com.github.f4b6a3.uuid.UuidCreator.getTimeOrderedEpoch();
+        q.sourceType = request.sourceType();
+        q.sourceId = request.sourceId();
+        q.sourceRef = request.sourceRef();
+        q.date = effective;
+        q.libelle = request.libelle();
+        q.entries = new java.util.ArrayList<>(request.entries());
+        q.totalDebitFcfa = sumSide(request.entries(), true);
+        q.totalCreditFcfa = sumSide(request.entries(), false);
+        q.lockedPeriod = period;
+        q.status = QuarantineStatus.PENDING;
+        q.createdAt = java.time.Instant.now();
+        quarantined.insert(q);
+        LOG.infof("Écriture %s retenue : période %s close", request.sourceRef(), period);
+    }
+
+    private static BigDecimal sumSide(List<JournalEntry> entries, boolean debit) {
+        BigDecimal total = BigDecimal.ZERO;
+        for (JournalEntry e : entries) {
+            BigDecimal v = debit ? e.debitFcfa : e.creditFcfa;
+            if (v != null) total = total.add(v);
+        }
+        return total;
+    }
+
     public Optional<JournalPieceEntity> postPiece(PostingRequest request) {
         if (request.entries() == null || request.entries().isEmpty()) {
             throw new BusinessException("Pièce comptable vide : au moins une écriture requise.");
@@ -102,7 +200,14 @@ public class AccountingService {
         // jour d'un exercice dont tous les mois sont verrouillés — c'est le
         // seul flux autorisé à écrire dans une période close (CPT-12).
         if (!request.sourceType().name().startsWith("EXERCISE_")) {
-            periodService.assertOpen(request.date() != null ? request.date() : LocalDate.now());
+            LocalDate effective = request.date() != null ? request.date() : LocalDate.now();
+            PostingRequest rerouted = applyClosedPeriodPolicy(request, effective);
+            if (rerouted == null) {
+                // Mise en quarantaine : rien n'entre au journal, la saisie
+                // est conservée et attend le comptable.
+                return Optional.empty();
+            }
+            request = rerouted;
         }
 
         // 3. Équilibre
