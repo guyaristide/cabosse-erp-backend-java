@@ -242,6 +242,26 @@ public class ProducerPurchaseService {
         e.createdBy = safeUserId();
         e.createdByEmail = actor();
 
+        // 0) Le reçu est posé AVANT tout effet de bord. C'est lui qui porte
+        //    l'unicité du numéro officiel : en le posant en premier, une
+        //    saisie concurrente perd la course ici, alors qu'aucune avance
+        //    n'a été imputée, aucune écriture passée, aucun stock bougé.
+        //    Auparavant l'insertion venait en dernier, et la perdante
+        //    laissait derrière elle une pièce comptable et un mouvement de
+        //    stock orphelins, que le code assumait sans pouvoir les
+        //    reprendre.
+        try {
+            repo.insert(e);
+        } catch (com.mongodb.MongoWriteException dup) {
+            if (com.mongodb.ErrorCategory.fromErrorCode(dup.getError().getCode())
+                    != com.mongodb.ErrorCategory.DUPLICATE_KEY) {
+                throw dup;
+            }
+            throw new ConflictException(ErrorCode.DUPLICATE_RECEIPT,
+                    "Le reçu officiel « " + officialReceipt
+                            + " » vient d'être enregistré par une autre saisie.");
+        }
+
         // 1) Imputation du compte courant du délégué. Le reçu et sa
         //    rémunération réduisent tous deux ce qu'il doit. L'avance la
         //    plus ancienne encore ouverte porte l'écriture ; son solde
@@ -268,6 +288,7 @@ public class ProducerPurchaseService {
                 memberCredits.creditBack(imputedCredits.get(i).id, imputations.get(i).amountFcfa());
             }
             if (advance != null) advances.creditBack(advance.id, imputed);
+            repo.deleteById(e.id);
             throw ex;
         }
 
@@ -317,6 +338,7 @@ public class ProducerPurchaseService {
             for (int i = 0; i < imputedCredits.size(); i++) {
                 memberCredits.creditBack(imputedCredits.get(i).id, imputations.get(i).amountFcfa());
             }
+            repo.deleteById(e.id);
             throw ex;
         }
 
@@ -334,26 +356,9 @@ public class ProducerPurchaseService {
                 false, lotRef, replaceCmup));
         e.movementRef = e.ref;
 
-        try {
-            repo.insert(e);
-        } catch (com.mongodb.MongoWriteException dup) {
-            if (com.mongodb.ErrorCategory.fromErrorCode(dup.getError().getCode())
-                    != com.mongodb.ErrorCategory.DUPLICATE_KEY) {
-                throw dup;
-            }
-            // Deux saisies simultanées du même reçu : celle-ci perd. On
-            // rend ce qui se rend (avance, retenues) ; l'écriture et le
-            // mouvement de stock de ce reçu restent à contre-passer, mais
-            // c'est déjà moins que le doublon complet qu'aurait produit
-            // l'absence d'index.
-            if (advance != null) advances.creditBack(advance.id, imputed);
-            for (int i = 0; i < imputedCredits.size(); i++) {
-                memberCredits.creditBack(imputedCredits.get(i).id, imputations.get(i).amountFcfa());
-            }
-            throw new ConflictException(ErrorCode.DUPLICATE_RECEIPT,
-                        "Le reçu officiel « " + officialReceipt
-                    + " » vient d'être enregistré par une autre saisie.");
-        }
+        // Le reçu existe déjà : on n'y ajoute que les références produites
+        // en chemin (pièce comptable, mouvement de stock).
+        repo.replace(e);
 
         // Journal des retenues, une fois la livraison acquise : elle est la
         // pièce que le producteur peut venir contester.

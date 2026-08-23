@@ -161,4 +161,11 @@ public class ProducerPurchaseRepository {
     public void insert(ProducerPurchaseEntity e) { coll().insertOne(e); }
 
     public void replace(ProducerPurchaseEntity e) { coll().replaceOne(Filters.eq("_id", e.id), e); }
+
+    /**
+     * Retire un reçu dont la création n'a pas abouti. Réservé à la
+     * compensation : un reçu acquis ne se supprime pas, il se
+     * contre-passe.
+     */
+    public void deleteById(UUID id) { coll().deleteOne(Filters.eq("_id", id)); }
 }
