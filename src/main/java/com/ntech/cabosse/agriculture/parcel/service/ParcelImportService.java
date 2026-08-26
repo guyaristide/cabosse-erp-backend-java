@@ -34,10 +34,12 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -214,6 +216,8 @@ public class ParcelImportService {
     public ParcelImportCommitResponseDto commit(List<ParcelImportRowDto> input,
                                                 UUID campaignId, boolean includeWarnings) {
         ParcelImportPreviewDto preview = preview(input);
+        Map<Integer, ParcelImportRowDto> rawByRow = new HashMap<>();
+        for (ParcelImportRowDto r : input) rawByRow.put(r.rowNumber(), r);
         List<UUID> created = new ArrayList<>();
         List<UUID> updated = new ArrayList<>();
         List<Row> skipped = new ArrayList<>();
@@ -244,31 +248,32 @@ public class ParcelImportService {
                 String departmentCode = resolveDepartment(n.departmentName(), createdDepartments);
                 if (row.status() == Status.WARNING) orphans++;
 
-                List<ParcelCampaignYieldDto> yields = new ArrayList<>();
-                if (n.estimateKg() != null && campaign != null) {
-                    yields.add(new ParcelCampaignYieldDto(
-                            campaign.id, n.yieldPerHa(), n.estimateKg()));
-                }
-
-                ParcelUpsertDto payload = new ParcelUpsertDto(
-                        n.code(), n.name(), n.surfaceHa(),
-                        // Contour non importable : seul le point central entre.
-                        null,
-                        n.latitude() != null && n.longitude() != null
-                                ? List.of(n.longitude(), n.latitude())
-                                : null,
-                        n.variety(), cropCode, n.mainCrop(),
-                        n.plantingDate() != null ? LocalDate.parse(n.plantingDate()) : null,
-                        n.plantingYear(),
-                        regionCode, departmentCode,
-                        List.of(), n.memberId(), yields,
-                        ParcelStatus.valueOf(n.status() != null ? n.status() : "ACTIVE"),
-                        n.notes());
-
                 if (row.matchedParcelId() != null) {
+                    ParcelUpsertDto payload = mergedPayload(row.matchedParcelId(), n,
+                            rawByRow.get(row.rowNumber()), cropCode, regionCode,
+                            departmentCode, campaign);
                     ParcelResponseDto dto = parcelService.update(row.matchedParcelId(), payload);
                     updated.add(dto.id());
                 } else {
+                    List<ParcelCampaignYieldDto> yields = new ArrayList<>();
+                    if (n.estimateKg() != null && campaign != null) {
+                        yields.add(new ParcelCampaignYieldDto(
+                                campaign.id, n.yieldPerHa(), n.estimateKg()));
+                    }
+                    ParcelUpsertDto payload = new ParcelUpsertDto(
+                            n.code(), n.name(), n.surfaceHa(),
+                            // Contour non importable : seul le point central entre.
+                            null,
+                            n.latitude() != null && n.longitude() != null
+                                    ? List.of(n.longitude(), n.latitude())
+                                    : null,
+                            n.variety(), cropCode, n.mainCrop(),
+                            n.plantingDate() != null ? LocalDate.parse(n.plantingDate()) : null,
+                            n.plantingYear(),
+                            regionCode, departmentCode,
+                            List.of(), n.memberId(), yields,
+                            ParcelStatus.valueOf(n.status() != null ? n.status() : "ACTIVE"),
+                            n.notes());
                     ParcelResponseDto dto = parcelService.create(payload);
                     created.add(dto.id());
                 }
@@ -285,6 +290,53 @@ public class ParcelImportService {
                 created, updated,
                 List.copyOf(createdCrops), List.copyOf(createdRegions), List.copyOf(createdDepartments),
                 orphans, skipped);
+    }
+
+    /**
+     * Ligne UPDATE : fusion, pas remplacement (décision du 26/08/2026).
+     * L'import ne touche qu'aux champs présents dans le fichier ; le contour
+     * tracé sur la carte, les certifications et les estimations des autres
+     * campagnes sont préservés. Corollaire : un import ne peut pas vider un
+     * champ, cela se fait à l'écran.
+     */
+    private ParcelUpsertDto mergedPayload(UUID parcelId, Normalized n, ParcelImportRowDto raw,
+                                          String cropCode, String regionCode,
+                                          String departmentCode, CampaignEntity campaign) {
+        ParcelResponseDto cur = parcelService.getById(parcelId);
+
+        List<ParcelCampaignYieldDto> yields = new ArrayList<>(cur.campaignYields());
+        if (n.estimateKg() != null && campaign != null) {
+            UUID cid = campaign.id;
+            yields.removeIf(y -> cid.equals(y.campaignId()));
+            yields.add(new ParcelCampaignYieldDto(cid, n.yieldPerHa(), n.estimateKg()));
+        }
+
+        // Normalized ne distingue pas « absent » de la valeur par défaut :
+        // la présence se lit sur la ligne brute.
+        boolean statusProvided = raw != null && trim(raw.status()) != null;
+        boolean mainCropProvided = raw != null && trim(raw.mainCrop()) != null;
+
+        return new ParcelUpsertDto(
+                cur.code() != null ? cur.code() : n.code(),
+                n.name(),
+                n.surfaceHa() != null ? n.surfaceHa() : cur.surfaceHa(),
+                cur.gpsPolygonCoordinates(),
+                n.latitude() != null && n.longitude() != null
+                        ? List.of(n.longitude(), n.latitude())
+                        : cur.gpsCenter(),
+                n.variety() != null ? n.variety() : cur.variety(),
+                cropCode != null ? cropCode : cur.cropCode(),
+                mainCropProvided ? n.mainCrop() : cur.mainCrop(),
+                n.plantingDate() != null ? LocalDate.parse(n.plantingDate()) : cur.plantingDate(),
+                n.plantingYear() != null ? n.plantingYear() : cur.plantingYear(),
+                regionCode != null ? regionCode : cur.regionCode(),
+                departmentCode != null ? departmentCode : cur.departmentCode(),
+                cur.certifications(),
+                n.memberId() != null ? n.memberId() : cur.memberId(),
+                yields,
+                statusProvided && n.status() != null
+                        ? ParcelStatus.valueOf(n.status()) : cur.status(),
+                n.notes() != null ? n.notes() : cur.notes());
     }
 
     // ─── Rapprochements ─────────────────────────────────────────────

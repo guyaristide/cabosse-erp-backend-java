@@ -169,11 +169,22 @@ public class HarvestImportService {
             }
             Normalized n = row.normalized();
             try {
+                // Fusion sur les lignes UPDATE (décision du 26/08/2026) : une
+                // colonne absente du fichier ne vide pas la valeur existante.
+                HarvestEntity cur = row.matchedHarvestId() != null
+                        ? harvests.findById(row.matchedHarvestId()).orElse(null)
+                        : null;
                 HarvestUpsertDto payload = new HarvestUpsertDto(
                         n.parcelId(), n.memberId(), campaign.id,
                         LocalDate.parse(n.harvestDate()),
-                        n.cabossesKg(), n.freshBeansKg(),
-                        n.qualityNotes(), n.notes());
+                        n.cabossesKg() != null ? n.cabossesKg()
+                                : (cur != null ? cur.cabossesKg : null),
+                        n.freshBeansKg() != null ? n.freshBeansKg()
+                                : (cur != null ? cur.freshBeansKg : null),
+                        n.qualityNotes() != null ? n.qualityNotes()
+                                : (cur != null ? cur.qualityNotes : null),
+                        n.notes() != null ? n.notes()
+                                : (cur != null ? cur.notes : null));
 
                 if (row.matchedHarvestId() != null) {
                     HarvestResponseDto dto = harvestService.update(row.matchedHarvestId(), payload);

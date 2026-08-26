@@ -201,6 +201,40 @@ class HarvestImportTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void an_import_update_keeps_quantities_absent_from_the_file() {
+        UserEntity admin = tenantAdmin();
+        String campaignId = createCampaign(admin);
+        createParcel(admin);
+
+        givenAs(admin).contentType("application/json")
+                .queryParam("campaignId", campaignId)
+                .body("""
+                        [ { "rowNumber": 1, "parcelCode": "PR-REC-1",
+                            "harvestDate": "12/11/2025",
+                            "cabossesKg": "1000", "freshBeansKg": "400" } ]
+                        """)
+                .when().post("/api/v1/harvests/import/commit")
+                .then().statusCode(200)
+                .body("data.createdCount", equalTo(1));
+
+        // Correction des seules cabosses : les fèves fraîches restent.
+        givenAs(admin).contentType("application/json")
+                .queryParam("campaignId", campaignId)
+                .body("""
+                        [ { "rowNumber": 1, "parcelCode": "PR-REC-1",
+                            "harvestDate": "12/11/2025", "cabossesKg": "1100" } ]
+                        """)
+                .when().post("/api/v1/harvests/import/commit")
+                .then().statusCode(200)
+                .body("data.updatedCount", equalTo(1));
+
+        givenAs(admin).when().get("/api/v1/harvests")
+                .then().statusCode(200)
+                .body("data.items[0].cabossesKg", equalTo(1100))
+                .body("data.items[0].freshBeansKg", equalTo(400));
+    }
+
+    @Test
     void a_row_without_any_quantity_is_refused() {
         UserEntity admin = tenantAdmin();
         String campaignId = createCampaign(admin);

@@ -169,6 +169,60 @@ class ParcelImportTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void an_import_update_merges_instead_of_replacing() {
+        UserEntity admin = tenantAdmin();
+
+        String campaignA = givenAs(admin).contentType("application/json")
+                .body("""
+                        { "label": "Principale 2025-2026",
+                          "startDate": "2025-09-01", "endDate": "2026-02-28",
+                          "basePricePerKgFcfa": 1500 }
+                        """)
+                .when().post("/api/v1/campaigns")
+                .then().statusCode(201).extract().path("data.id");
+        String campaignB = givenAs(admin).contentType("application/json")
+                .body("""
+                        { "label": "Intermédiaire 2026",
+                          "startDate": "2026-03-01", "endDate": "2026-08-31",
+                          "basePricePerKgFcfa": 1200 }
+                        """)
+                .when().post("/api/v1/campaigns")
+                .then().statusCode(201).extract().path("data.id");
+
+        // Parcelle riche : contour tracé, certification, estimation
+        // campagne A, en jachère.
+        givenAs(admin).contentType("application/json").body("""
+                { "code": "PR-MERGE-1", "name": "Parcelle fusion", "surfaceHa": 2,
+                  "gpsCenter": [-4.02, 5.23],
+                  "gpsPolygonCoordinates": [[[-4.02,5.23],[-4.01,5.23],[-4.01,5.24],[-4.02,5.23]]],
+                  "certifications": ["Rainforest Alliance"],
+                  "campaignYields": [ { "campaignId": "%s", "estimateKg": 800 } ],
+                  "status": "FALLOW" }
+                """.formatted(campaignA))
+                .when().post("/api/v1/parcels")
+                .then().statusCode(201);
+
+        // Réimport minimal : seulement une estimation pour la campagne B.
+        givenAs(admin).contentType("application/json")
+                .queryParam("campaignId", campaignB)
+                .body("""
+                        [ { "rowNumber": 1, "code": "PR-MERGE-1",
+                            "name": "Parcelle fusion", "estimateKg": "950" } ]
+                        """)
+                .when().post("/api/v1/parcels/import/commit")
+                .then().statusCode(200)
+                .body("data.updatedCount", equalTo(1));
+
+        // Rien de ce que le fichier ne portait pas n'a bougé.
+        givenAs(admin).when().get("/api/v1/parcels")
+                .then().statusCode(200)
+                .body("data.items[0].status", equalTo("FALLOW"))
+                .body("data.items[0].certifications", hasSize(1))
+                .body("data.items[0].gpsPolygonCoordinates", org.hamcrest.Matchers.notNullValue())
+                .body("data.items[0].campaignYields", hasSize(2));
+    }
+
+    @Test
     void an_exported_file_reimports_and_rematches_without_duplicating() {
         UserEntity admin = tenantAdmin();
         String memberCode = createMember(admin, "Koné", "Awa");
