@@ -1,6 +1,7 @@
 package com.ntech.cabosse.agriculture.harvest.controller;
 
 import com.ntech.cabosse.agriculture.harvest.dto.HarvestResponseDto;
+import com.ntech.cabosse.shared.export.ColumnKind;
 import com.ntech.cabosse.shared.export.ExportColumn;
 
 import java.time.format.DateTimeFormatter;
@@ -30,8 +31,8 @@ final class HarvestExportColumns {
                 ExportColumn.of("Nom de la parcelle", HarvestResponseDto::parcelName),
                 ExportColumn.of("Nom du producteur",  HarvestResponseDto::memberName),
                 ExportColumn.of("Campagne",           HarvestResponseDto::campaignLabel),
-                ExportColumn.of("Cabosses (kg)",      HarvestResponseDto::cabossesKg),
-                ExportColumn.of("Fèves fraîches (kg)", HarvestResponseDto::freshBeansKg),
+                ExportColumn.of("cabosses-kg", "Cabosses (kg)", ColumnKind.NUMBER_QTY,      HarvestResponseDto::cabossesKg),
+                ExportColumn.of("feves-fraiches-kg", "Fèves fraîches (kg)", ColumnKind.NUMBER_QTY, HarvestResponseDto::freshBeansKg),
                 ExportColumn.of("Qualité",            HarvestResponseDto::qualityNotes),
                 ExportColumn.of("Notes",              HarvestResponseDto::notes));
     }

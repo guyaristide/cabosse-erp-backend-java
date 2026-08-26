@@ -1,6 +1,7 @@
 package com.ntech.cabosse.producerpurchase.controller;
 
 import com.ntech.cabosse.producerpurchase.dto.ProducerPurchaseResponseDto;
+import com.ntech.cabosse.shared.export.ColumnKind;
 import com.ntech.cabosse.shared.export.ExportColumn;
 
 import java.util.List;
@@ -21,7 +22,7 @@ final class ProducerPurchaseExportColumns {
                 ExportColumn.of("Village",              ProducerPurchaseResponseDto::village),
                 ExportColumn.of("Article",              ProducerPurchaseResponseDto::articleName),
                 ExportColumn.of("Nb sacs",              ProducerPurchaseResponseDto::nbSacs),
-                ExportColumn.of("Poids (kg)",           ProducerPurchaseResponseDto::weightKg),
+                ExportColumn.of("poids-kg", "Poids (kg)", ColumnKind.NUMBER_QTY,           ProducerPurchaseResponseDto::weightKg),
                 ExportColumn.of("Prix/kg (FCFA)",       ProducerPurchaseResponseDto::guaranteedPricePerKgFcfa),
                 ExportColumn.of("Montant (FCFA)",       ProducerPurchaseResponseDto::amountFcfa),
                 ExportColumn.of("Payé (FCFA)",          ProducerPurchaseResponseDto::amountPaidFcfa),

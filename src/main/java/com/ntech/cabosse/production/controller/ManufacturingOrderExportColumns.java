@@ -2,6 +2,7 @@ package com.ntech.cabosse.production.controller;
 
 import com.ntech.cabosse.production.dto.ProductionOrderResponseDto;
 import com.ntech.cabosse.production.entity.OfStatus;
+import com.ntech.cabosse.shared.export.ColumnKind;
 import com.ntech.cabosse.shared.export.ExportColumn;
 
 import java.util.List;
@@ -28,7 +29,7 @@ final class ManufacturingOrderExportColumns {
                 ExportColumn.of("CMUP PF",          ProductionOrderResponseDto::cmupAtCompletionFcfa),
                 ExportColumn.of("Poids total (kg)", ProductionOrderResponseDto::totalWeightKg),
                 ExportColumn.of("Rendement (%)",    ProductionOrderResponseDto::completionRatePct),
-                ExportColumn.of("Durée (h)",        ProductionOrderResponseDto::actualDurationHours),
+                ExportColumn.of("duree-h", "Durée (h)", ColumnKind.NUMBER_QTY,        ProductionOrderResponseDto::actualDurationHours),
                 ExportColumn.of("Nb opérateurs",    ProductionOrderResponseDto::operatorsCount),
                 ExportColumn.of("Acteur",           ProductionOrderResponseDto::createdByEmail),
                 ExportColumn.of("Créé le",          ProductionOrderResponseDto::createdAt)

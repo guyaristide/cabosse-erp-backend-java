@@ -1,5 +1,6 @@
 package com.ntech.cabosse.members.register;
 
+import com.ntech.cabosse.shared.export.ColumnKind;
 import com.ntech.cabosse.shared.export.ExportColumn;
 
 import java.util.List;
@@ -28,11 +29,11 @@ final class RegisterExportColumns {
                 ExportColumn.of("Code interne Plantation", RegisterRow::plantationCode),
                 ExportColumn.of("Année de création de la plantation", RegisterRow::plantingYear),
                 ExportColumn.of("Age Plantation", RegisterRow::age),
-                ExportColumn.of("Superficie Plantation (ha)", RegisterRow::surfaceHa),
-                ExportColumn.of("Rendement de la parcelle", RegisterRow::yieldPerHa),
+                ExportColumn.of("surface-ha", "Superficie Plantation (ha)", ColumnKind.NUMBER_QTY, RegisterRow::surfaceHa),
+                ExportColumn.of("rendement", "Rendement de la parcelle", ColumnKind.NUMBER_QTY, RegisterRow::yieldPerHa),
                 ExportColumn.of("Estimation production parcelle pour la campagne", RegisterRow::estimateKg),
-                ExportColumn.of("Latitude", RegisterRow::latitude),
-                ExportColumn.of("longitude", RegisterRow::longitude),
+                ExportColumn.of("latitude", "Latitude", ColumnKind.NUMBER_PRECISE, RegisterRow::latitude),
+                ExportColumn.of("longitude", "longitude", ColumnKind.NUMBER_PRECISE, RegisterRow::longitude),
                 ExportColumn.of("Département", RegisterRow::department),
                 ExportColumn.of("Régions", RegisterRow::region),
                 ExportColumn.of("Noms & Prénoms Agent chargé du suivi du producteur en section (PR)",

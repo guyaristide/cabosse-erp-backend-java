@@ -67,11 +67,23 @@ public final class Exporters {
 
     // ─── Méta : les colonnes proposées, sans les données ───────────
 
+    /**
+     * Colonnes proposables au sélecteur.
+     *
+     * <p>{@code columns} garde les libellés seuls : c'est ce qu'un front
+     * plus ancien attend, et le retirer casserait son affichage. La liste
+     * {@code columnDefs} porte le couple clé et libellé, que le front
+     * renvoie ensuite par clé. Les deux disparaîtront en une, une fois les
+     * deux côtés alignés.</p>
+     */
     private static <T> void writeMeta(ExportDataset<T> dataset, OutputStream out) {
         try {
             var columns = dataset.columns().stream().map(ExportColumn::header).toList();
+            var defs = dataset.columns().stream()
+                    .map(c -> java.util.Map.of("key", c.key(), "header", c.header()))
+                    .toList();
             new com.fasterxml.jackson.databind.ObjectMapper()
-                    .writeValue(out, java.util.Map.of("columns", columns));
+                    .writeValue(out, java.util.Map.of("columns", columns, "columnDefs", defs));
         } catch (IOException e) {
             throw new BusinessException("Erreur d'écriture des métadonnées : " + e.getMessage(), e);
         }
@@ -91,13 +103,16 @@ public final class Exporters {
             }
             line.append("\r\n");
             out.write(line.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            // Natures des colonnes : en CSV le texte écrit EST la donnée,
+            // le nombre de décimales n'y est pas qu'une question d'affichage.
+            ColumnKind[] kinds = detectColumnKinds(dataset);
             // Lignes
             for (T row : dataset.rows()) {
                 line.setLength(0);
                 for (int i = 0; i < dataset.columns().size(); i++) {
                     if (i > 0) line.append(',');
                     Object v = csvSerialize(dataset.columns().get(i).extractor().apply(row));
-                    line.append(csvCell(formatForText(v)));
+                    line.append(csvCell(formatForText(v, kinds[i])));
                 }
                 line.append("\r\n");
                 out.write(line.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
@@ -168,6 +183,7 @@ public final class Exporters {
             CellStyle textStyle  = buildBodyStyle(wb, fmt, ColumnKind.TEXT);
             CellStyle moneyStyle = buildBodyStyle(wb, fmt, ColumnKind.NUMBER_MONEY);
             CellStyle qtyStyle   = buildBodyStyle(wb, fmt, ColumnKind.NUMBER_QTY);
+            CellStyle preciseStyle = buildBodyStyle(wb, fmt, ColumnKind.NUMBER_PRECISE);
             CellStyle pctStyle   = buildBodyStyle(wb, fmt, ColumnKind.NUMBER_PCT);
             CellStyle dateStyle  = buildBodyStyle(wb, fmt, ColumnKind.DATE);
 
@@ -205,11 +221,12 @@ public final class Exporters {
                     } else {
                         Object printable = v instanceof ExportImage ? null : v;
                         CellStyle cs = switch (kinds[i]) {
-                            case NUMBER_MONEY -> moneyStyle;
-                            case NUMBER_QTY   -> qtyStyle;
-                            case NUMBER_PCT   -> pctStyle;
-                            case DATE         -> dateStyle;
-                            case TEXT         -> textStyle;
+                            case NUMBER_MONEY   -> moneyStyle;
+                            case NUMBER_QTY     -> qtyStyle;
+                            case NUMBER_PRECISE -> preciseStyle;
+                            case NUMBER_PCT     -> pctStyle;
+                            case DATE           -> dateStyle;
+                            case TEXT           -> textStyle;
                         };
                         applyXlsxValue(c, printable, cs);
                         int len = printableLength(printable);
@@ -241,7 +258,8 @@ public final class Exporters {
     }
 
     /** Catégorie de format appliquée au niveau colonne. */
-    private enum ColumnKind { TEXT, NUMBER_MONEY, NUMBER_QTY, NUMBER_PCT, DATE }
+    // ColumnKind est désormais un type partagé du module : une colonne
+    // peut déclarer sa nature, le writer applique la même.
 
     /**
      * Détermine la nature de chaque colonne. Approche prudente :
@@ -261,6 +279,14 @@ public final class Exporters {
     private static <T> ColumnKind[] detectColumnKinds(ExportDataset<T> dataset) {
         int n = dataset.columns().size();
         ColumnKind[] kinds = new ColumnKind[n];
+        // Une colonne qui déclare sa nature n'est pas devinée : le code
+        // sait ce qu'il produit, la déduction n'est qu'un repli pour les
+        // colonnes qui ne le disent pas encore.
+        boolean[] declared = new boolean[n];
+        for (int i = 0; i < n; i++) {
+            ColumnKind k = dataset.columns().get(i).kind();
+            if (k != null) { kinds[i] = k; declared[i] = true; }
+        }
         boolean[] sawNumber = new boolean[n];
         boolean[] sawDate   = new boolean[n];
         boolean[] sawText   = new boolean[n];
@@ -283,6 +309,7 @@ public final class Exporters {
         }
 
         for (int i = 0; i < n; i++) {
+            if (declared[i]) continue;   // la colonne a dit ce qu'elle est
             String header = dataset.columns().get(i).header();
             if (sawText[i]) {
                 kinds[i] = ColumnKind.TEXT;            // texte gagne en cas de conflit
@@ -393,6 +420,12 @@ public final class Exporters {
             }
             case NUMBER_QTY -> {
                 s.setDataFormat(fmt.getFormat("#,##0.##"));
+                s.setAlignment(HorizontalAlignment.RIGHT);
+            }
+            case NUMBER_PRECISE -> {
+                // Assez de décimales pour une coordonnée : trois seulement
+                // situent une parcelle à une centaine de mètres près.
+                s.setDataFormat(fmt.getFormat("0.######"));
                 s.setAlignment(HorizontalAlignment.RIGHT);
             }
             case NUMBER_PCT -> {
@@ -548,9 +581,13 @@ public final class Exporters {
                 table.addCell(header);
             }
 
+            // Comme en CSV : le texte imprimé est la donnée que le lecteur
+            // recopiera, sa précision doit suivre la nature de la colonne.
+            ColumnKind[] pdfKinds = detectColumnKinds(dataset);
             boolean stripe = false;
             for (T row : dataset.rows()) {
-                for (ExportColumn<T> col : dataset.columns()) {
+                for (int ci = 0; ci < dataset.columns().size(); ci++) {
+                    ExportColumn<T> col = dataset.columns().get(ci);
                     Object v = col.extractor().apply(row);
                     PdfPCell cell;
                     if (v instanceof ExportImage img
@@ -558,7 +595,8 @@ public final class Exporters {
                         cell = buildPdfImageCell(img);
                     } else {
                         Object printable = v instanceof ExportImage ? null : v;
-                        cell = new PdfPCell(new Paragraph(formatForText(printable), cellFont));
+                        cell = new PdfPCell(new Paragraph(
+                                formatForText(printable, pdfKinds[ci]), cellFont));
                     }
                     cell.setPadding(5f);
                     cell.setBorderColor(java.awt.Color.LIGHT_GRAY);
@@ -601,13 +639,36 @@ public final class Exporters {
 
     // ─── Formatage texte commun (CSV + PDF) ──────────────────────
 
-    private static String formatForText(Object v) {
-        if (v == null) return "";
-        if (v instanceof BigDecimal bd) {
-            return NumberFormat.getNumberInstance(FR).format(bd);
+    /** Formateur numérique correspondant à la nature de la colonne. */
+    private static NumberFormat numberFormatFor(ColumnKind kind) {
+        NumberFormat nf = NumberFormat.getNumberInstance(FR);
+        if (kind == ColumnKind.NUMBER_MONEY) {
+            nf.setMaximumFractionDigits(0);
+        } else if (kind == ColumnKind.NUMBER_PRECISE) {
+            nf.setMaximumFractionDigits(6);
+        } else if (kind == ColumnKind.NUMBER_QTY || kind == ColumnKind.NUMBER_PCT) {
+            nf.setMaximumFractionDigits(3);
         }
-        if (v instanceof Number n) {
-            return NumberFormat.getNumberInstance(FR).format(n);
+        return nf;
+    }
+
+    private static String formatForText(Object v) {
+        return formatForText(v, null);
+    }
+
+    /**
+     * Rendu texte pour le CSV et le PDF.
+     *
+     * <p>La nature de la colonne compte ici autant qu'en Excel : le format
+     * d'un classeur n'est qu'un affichage, la valeur exacte y reste, alors
+     * qu'en CSV et en PDF <em>c'est ce texte qui est la donnée</em>. Sans
+     * cette distinction, le formateur par défaut coupait à trois décimales
+     * et une coordonnée perdait une centaine de mètres à chaque export.</p>
+     */
+    private static String formatForText(Object v, ColumnKind kind) {
+        if (v == null) return "";
+        if (v instanceof BigDecimal || v instanceof Number) {
+            return numberFormatFor(kind).format(v);
         }
         if (v instanceof LocalDate d) {
             return DATE_FR.format(d);

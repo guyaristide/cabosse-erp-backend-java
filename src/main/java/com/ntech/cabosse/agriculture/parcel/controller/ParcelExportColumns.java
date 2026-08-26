@@ -2,6 +2,7 @@ package com.ntech.cabosse.agriculture.parcel.controller;
 
 import com.ntech.cabosse.agriculture.parcel.dto.ParcelResponseDto;
 import com.ntech.cabosse.agriculture.parcel.entity.ParcelStatus;
+import com.ntech.cabosse.shared.export.ColumnKind;
 import com.ntech.cabosse.shared.export.ExportColumn;
 
 import java.time.format.DateTimeFormatter;
@@ -33,10 +34,10 @@ final class ParcelExportColumns {
                 ExportColumn.of("Code producteur", p ->
                         p.memberId() == null ? null : memberCodeById.get(p.memberId())),
                 ExportColumn.of("Nom du producteur",  ParcelResponseDto::memberName),
-                ExportColumn.of("Superficie (ha)",    ParcelResponseDto::surfaceHa),
-                ExportColumn.of("Latitude", p ->
+                ExportColumn.of("surface-ha", "Superficie (ha)", ColumnKind.NUMBER_QTY,    ParcelResponseDto::surfaceHa),
+                ExportColumn.of("latitude", "Latitude", ColumnKind.NUMBER_PRECISE, p ->
                         p.gpsCenter() == null || p.gpsCenter().size() < 2 ? null : p.gpsCenter().get(1)),
-                ExportColumn.of("Longitude", p ->
+                ExportColumn.of("longitude", "Longitude", ColumnKind.NUMBER_PRECISE, p ->
                         p.gpsCenter() == null || p.gpsCenter().size() < 2 ? null : p.gpsCenter().get(0)),
                 ExportColumn.of("Culture",            ParcelResponseDto::cropCode),
                 ExportColumn.of("Culture principale", p -> p.mainCrop() ? "Oui" : "Non"),

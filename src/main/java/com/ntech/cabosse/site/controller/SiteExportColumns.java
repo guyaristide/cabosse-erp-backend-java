@@ -1,5 +1,6 @@
 package com.ntech.cabosse.site.controller;
 
+import com.ntech.cabosse.shared.export.ColumnKind;
 import com.ntech.cabosse.shared.export.ExportColumn;
 import com.ntech.cabosse.site.dto.SiteResponseDto;
 
@@ -18,8 +19,8 @@ final class SiteExportColumns {
                 ExportColumn.of("Ville",       SiteResponseDto::cityName),
                 ExportColumn.of("Région",      SiteResponseDto::regionCode),
                 ExportColumn.of("Pays",        SiteResponseDto::countryCode),
-                ExportColumn.of("Latitude",    SiteResponseDto::latitude),
-                ExportColumn.of("Longitude",   SiteResponseDto::longitude),
+                ExportColumn.of("latitude", "Latitude", ColumnKind.NUMBER_PRECISE,    SiteResponseDto::latitude),
+                ExportColumn.of("longitude", "Longitude", ColumnKind.NUMBER_PRECISE,   SiteResponseDto::longitude),
                 ExportColumn.of("Téléphone",   SiteResponseDto::phone),
                 ExportColumn.of("E-mail",      SiteResponseDto::email),
                 ExportColumn.of("Responsable", SiteResponseDto::managerName),

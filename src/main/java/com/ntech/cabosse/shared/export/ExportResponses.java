@@ -55,12 +55,21 @@ public final class ExportResponses {
                 .build();
     }
 
-    /** Dataset restreint aux colonnes demandées par la requête courante. */
+    /**
+     * Dataset restreint aux colonnes demandées par la requête courante.
+     *
+     * <p>La sélection voyage par clé. Le libellé reste accepté en repli :
+     * il l'était seul jusqu'ici, et un front plus ancien que le serveur
+     * continue donc de fonctionner le temps que les deux se rejoignent.
+     * Sans ce repli, la sélection serait silencieusement ignorée et
+     * l'utilisateur recevrait toutes les colonnes sans comprendre
+     * pourquoi.</p>
+     */
     private static <T> ExportDataset<T> restrictToRequestedColumns(ExportDataset<T> dataset) {
         Set<String> wanted = requestedColumns();
         if (wanted.isEmpty()) return dataset;
         List<ExportColumn<T>> kept = dataset.columns().stream()
-                .filter(c -> wanted.contains(c.header()))
+                .filter(c -> wanted.contains(c.key()) || wanted.contains(c.header()))
                 .toList();
         if (kept.isEmpty() || kept.size() == dataset.columns().size()) return dataset;
         return new ExportDataset<>(dataset.title(), kept, dataset.rows());
