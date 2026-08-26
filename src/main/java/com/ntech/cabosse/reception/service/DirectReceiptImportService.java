@@ -126,12 +126,12 @@ public class DirectReceiptImportService {
             LocalDate date = parseDate(raw.date(), request.defaultDate(), issues);
             BigDecimal qty = parseDecimal(raw.quantity(), (f, m) -> issues.add(new FieldIssue(f, m)), "quantity");
             if (qty != null && qty.signum() <= 0) {
-                issues.add(new FieldIssue("quantity", "Quantité > 0 requise."));
+                issues.add(new FieldIssue("quantity", Messages.msg("m.imp-quantity-positive-required")));
                 qty = null;
             }
             BigDecimal pu = parseDecimal(raw.unitPriceFcfa(), (f, m) -> issues.add(new FieldIssue(f, m)), "unitPriceFcfa");
             if (pu != null && pu.signum() < 0) {
-                issues.add(new FieldIssue("unitPriceFcfa", "Prix unitaire négatif interdit."));
+                issues.add(new FieldIssue("unitPriceFcfa", Messages.msg("m.imp-unit-price-negative")));
                 pu = null;
             }
 
@@ -148,8 +148,7 @@ public class DirectReceiptImportService {
             String supplierKey = null;
 
             if (producerCode == null && producerName == null) {
-                issues.add(new FieldIssue("producer",
-                        "Producteur requis (code ou nom)."));
+                issues.add(new FieldIssue("producer", Messages.msg("m.imp-producer-required")));
             } else {
                 // 1) Match exact par code
                 if (producerCode != null) {
@@ -176,8 +175,7 @@ public class DirectReceiptImportService {
                     String targetCode = producerCode != null ? producerCode
                             : slugify(targetName);
                     if (targetCode == null || targetCode.isBlank()) {
-                        issues.add(new FieldIssue("producer",
-                                "Impossible de générer un code producteur."));
+                        issues.add(new FieldIssue("producer", Messages.msg("m.imp-producer-code-ungeneratable")));
                     } else {
                         // Valide le code par rapport au pattern du DTO
                         // (minuscules/chiffres/tirets, 2-40)
@@ -187,7 +185,7 @@ public class DirectReceiptImportService {
                                 .replaceAll("^-+|-+$", "");
                         if (safe.length() < 2) {
                             issues.add(new FieldIssue("producer",
-                                    "Code producteur trop court (" + targetCode + ")."));
+                                    Messages.msg("m.imp-producer-code-too-short", targetCode)));
                         } else {
                             if (safe.length() > 40) safe = safe.substring(0, 40);
                             // Re-vérifie qu'aucun fournisseur existant n'a déjà
@@ -233,13 +231,12 @@ public class DirectReceiptImportService {
 
                 if (existingFingerprints.contains(
                         fingerprint(date, resolvedId, qty, pu))) {
-                    issues.add(new FieldIssue("duplicate",
-                            "Une réception identique existe déjà en base (même article, date, producteur, qté, PU)."));
+                    issues.add(new FieldIssue("duplicate", Messages.msg("m.imp-receipt-duplicate-in-db")));
                     status = Status.DUPLICATE_IN_DB;
                     duplicate++;
                 } else if (firstOccurrence.containsKey(fp)) {
-                    issues.add(new FieldIssue("duplicate",
-                            "Ligne identique déjà présente ligne " + firstOccurrence.get(fp) + " du fichier."));
+                    issues.add(new FieldIssue("duplicate", Messages.msg("m.imp-row-duplicate-at-line",
+                            String.valueOf(firstOccurrence.get(fp)))));
                     status = Status.DUPLICATE_IN_FILE;
                     duplicate++;
                 } else {
@@ -327,7 +324,7 @@ public class DirectReceiptImportService {
             if (supplierId == null) {
                 List<FieldIssue> issues = new ArrayList<>(row.issues());
                 issues.add(new FieldIssue("producer",
-                        "Création du producteur « " + n.resolvedSupplierCode() + " » impossible : ligne ignorée."));
+                        Messages.msg("m.imp-producer-creation-failed", n.resolvedSupplierCode())));
                 skipped.add(new Row(row.rowNumber(), Status.INVALID, n, issues));
                 continue;
             }
@@ -407,16 +404,14 @@ public class DirectReceiptImportService {
         String s = trimOrNull(raw);
         if (s == null) {
             if (fallback != null) return fallback;
-            issues.add(new FieldIssue("date",
-                    "Date requise (ou « Date par défaut » à l'upload)."));
+            issues.add(new FieldIssue("date", Messages.msg("m.imp-date-required-or-default")));
             return null;
         }
         for (DateTimeFormatter f : DATE_FORMATS) {
             try { return LocalDate.parse(s, f); }
             catch (Exception ignored) {}
         }
-        issues.add(new FieldIssue("date",
-                "Date « " + raw + " » non reconnue (attendu : JJ/MM/AAAA ou AAAA-MM-JJ)."));
+        issues.add(new FieldIssue("date", Messages.msg("m.imp-date-unrecognised", raw)));
         return null;
     }
 

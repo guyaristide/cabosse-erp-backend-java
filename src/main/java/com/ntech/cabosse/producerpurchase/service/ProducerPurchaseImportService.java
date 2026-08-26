@@ -18,6 +18,7 @@ import com.ntech.cabosse.campaign.repository.CampaignRepository;
 import com.ntech.cabosse.collector.entity.CollectorAdvanceEntity;
 import com.ntech.cabosse.collector.repository.CollectorAdvanceRepository;
 import com.ntech.cabosse.reception.entity.PaymentMethod;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.imports.FuzzyLabels;
 import com.ntech.cabosse.supplier.entity.SupplierEntity;
 import com.ntech.cabosse.supplier.repository.SupplierRepository;
@@ -103,31 +104,31 @@ public class ProducerPurchaseImportService {
                 blocking = true;
             } else if (nameDiverges(raw.producerName(), member.name)) {
                 issues.add(new FieldIssue("producerName",
-                        "Le nom du fichier ne correspond pas à « " + member.name + " ». Le numéro fait foi."));
+                        Messages.msg("m.imp-name-mismatch-number-wins", member.name)));
             }
 
             ArticleEntity article = raw.productCode() == null || raw.productCode().isBlank()
                     ? null : articlesByKey.get(raw.productCode().trim().toUpperCase(Locale.ROOT));
             if (article == null) {
-                issues.add(new FieldIssue("productCode", "Article achetable inconnu (code ou nom)."));
+                issues.add(new FieldIssue("productCode", Messages.msg("m.imp-purchasable-article-unknown")));
                 blocking = true;
             }
 
             LocalDate date = parseDate(raw.date());
             if (date == null) {
-                issues.add(new FieldIssue("date", "Date invalide ou manquante."));
+                issues.add(new FieldIssue("date", Messages.msg("m.imp-date-invalid-or-missing")));
                 blocking = true;
             }
 
             if (parseUuid(raw.siteId()) == null) {
-                issues.add(new FieldIssue("siteId", "Site d'entrée requis."));
+                issues.add(new FieldIssue("siteId", Messages.msg("m.imp-entry-site-required")));
                 blocking = true;
             }
 
             CampaignEntity campaign = resolveCampaign(raw, allCampaigns);
             if (campaign == null && raw.campaignLabel() != null && !raw.campaignLabel().isBlank()) {
                 issues.add(new FieldIssue("campaignLabel",
-                        "Campagne « " + raw.campaignLabel().trim() + " » inconnue. La campagne choisie à l'écran s'applique."));
+                        Messages.msg("m.imp-campaign-unknown", raw.campaignLabel().trim())));
             }
 
             BigDecimal weight = parseDecimal(raw.weightKg());
@@ -135,28 +136,28 @@ public class ProducerPurchaseImportService {
             // Validation alignée sur les préférences tenant (comme le commit).
             if (fromBags) {
                 if (sacs == null || sacs <= 0) {
-                    issues.add(new FieldIssue("nbSacs", "Mode « poids dérivé des sacs » : nombre de sacs requis."));
+                    issues.add(new FieldIssue("nbSacs", Messages.msg("m.imp-bags-count-required")));
                     blocking = true;
                 }
                 if (prefs.producerStandardBagKg == null) {
-                    issues.add(new FieldIssue("nbSacs", "Poids standard du sac non configuré (admin)."));
+                    issues.add(new FieldIssue("nbSacs", Messages.msg("m.imp-standard-bag-weight-missing")));
                     blocking = true;
                 } else if (sacs != null && sacs > 0) {
                     weight = prefs.producerStandardBagKg.multiply(BigDecimal.valueOf(sacs));
                 }
             } else if (weight == null || weight.signum() <= 0) {
-                issues.add(new FieldIssue("weightKg", "Poids (kg) requis."));
+                issues.add(new FieldIssue("weightKg", Messages.msg("m.imp-weight-kg-required")));
                 blocking = true;
             }
 
             BigDecimal price = parseDecimal(raw.price());
             BigDecimal amount = parseDecimal(raw.amount());
             if (priceManual && (price == null || price.signum() < 0)) {
-                issues.add(new FieldIssue("price", "Prix garanti requis (paramétrage : saisie manuelle)."));
+                issues.add(new FieldIssue("price", Messages.msg("m.imp-guaranteed-price-required")));
                 blocking = true;
             }
             if (amountManual && (amount == null || amount.signum() <= 0)) {
-                issues.add(new FieldIssue("amount", "Montant requis (paramétrage : montant saisi)."));
+                issues.add(new FieldIssue("amount", Messages.msg("m.imp-amount-required")));
                 blocking = true;
             }
             if (price == null && campaign != null) price = campaign.basePricePerKgFcfa;
@@ -165,28 +166,28 @@ public class ProducerPurchaseImportService {
 
             BigDecimal paid = parseDecimal(raw.amountPaid());
             if (paid != null && displayAmount != null && paid.compareTo(displayAmount) > 0) {
-                issues.add(new FieldIssue("amountPaid", "Montant payé supérieur au montant dû."));
+                issues.add(new FieldIssue("amountPaid", Messages.msg("m.imp-paid-over-due")));
                 blocking = true;
             }
             if (paid != null && displayAmount != null && paid.compareTo(displayAmount) < 0
                     && !prefs.producerPartialPaymentEnabled()) {
                 issues.add(new FieldIssue("amountPaid",
-                        "Paiement partiel non autorisé : le montant dû sera enregistré comme payé."));
+                        Messages.msg("m.imp-partial-payment-not-allowed")));
             }
 
             if (parsePayment(raw.paymentMethod()) == null) {
-                issues.add(new FieldIssue("paymentMethod", "Mode de paiement invalide."));
+                issues.add(new FieldIssue("paymentMethod", Messages.msg("m.imp-payment-method-invalid")));
                 blocking = true;
             }
 
             SupplierEntity delegate = matchDelegate(raw.delegateCode(), raw.delegateName(), delegates);
             if (delegate == null && (notBlank(raw.delegateCode()) || notBlank(raw.delegateName()))) {
                 issues.add(new FieldIssue("delegateCode",
-                        "Délégué introuvable : le reçu sera enregistré sans apurement d'avance."));
+                        Messages.msg("m.imp-delegate-not-found")));
             } else if (delegate != null && notBlank(raw.delegateName())
                     && nameDiverges(raw.delegateName(), delegate.name)) {
                 issues.add(new FieldIssue("delegateName",
-                        "Le nom du fichier ne correspond pas à « " + delegate.name + " ». Le code fait foi."));
+                        Messages.msg("m.imp-name-mismatch-code-wins", delegate.name)));
             }
 
             Status status;

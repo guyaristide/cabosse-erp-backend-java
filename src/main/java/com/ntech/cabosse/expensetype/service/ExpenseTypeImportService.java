@@ -11,6 +11,7 @@ import com.ntech.cabosse.expensetype.dto.ExpenseTypeResponseDto;
 import com.ntech.cabosse.expensetype.dto.ExpenseTypeUpsertDto;
 import com.ntech.cabosse.expensetype.entity.ExpenseTypeEntity;
 import com.ntech.cabosse.expensetype.repository.ExpenseTypeRepository;
+import com.ntech.cabosse.shared.i18n.Messages;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
@@ -50,11 +51,11 @@ public class ExpenseTypeImportService {
             List<FieldIssue> issues = new ArrayList<>();
 
             String name = trimOrNull(raw.name());
-            if (name == null) issues.add(new FieldIssue("name", "Nom requis."));
+            if (name == null) issues.add(new FieldIssue("name", Messages.msg("m.imp-name-required")));
 
             String code = trimOrNull(raw.code());
             if (code != null && !code.matches("[a-z0-9-]{2,40}")) {
-                issues.add(new FieldIssue("code", "Code invalide : minuscules/chiffres/tirets, 2-40."));
+                issues.add(new FieldIssue("code", Messages.msg("m.imp-code-invalid-lowercase")));
             }
             String resolvedCode = (code != null) ? code : (name != null ? slugify(name) : null);
 
@@ -62,18 +63,18 @@ public class ExpenseTypeImportService {
 
             String syscohada = trimOrNull(raw.syscohadaAccount());
             if (syscohada != null && !syscohada.matches("\\d{2,8}")) {
-                issues.add(new FieldIssue("syscohadaAccount", "Compte SYSCOHADA : 2 à 8 chiffres."));
+                issues.add(new FieldIssue("syscohadaAccount", Messages.msg("m.imp-syscohada-account-digits")));
             }
             String description = trimOrNull(raw.description());
 
             Status status;
             if (!issues.isEmpty()) { status = Status.INVALID; invalid++; }
             else if (resolvedCode != null && existingCodes.contains(resolvedCode.toLowerCase(Locale.ROOT))) {
-                issues.add(new FieldIssue("code", "Code « " + resolvedCode + " » déjà utilisé."));
+                issues.add(new FieldIssue("code", Messages.msg("m.imp-code-already-used", resolvedCode)));
                 status = Status.DUPLICATE_IN_DB; duplicate++;
             } else if (resolvedCode != null && firstByCode.containsKey(resolvedCode.toLowerCase(Locale.ROOT))) {
-                issues.add(new FieldIssue("code", "Code « " + resolvedCode
-                        + " » déjà ligne " + firstByCode.get(resolvedCode.toLowerCase(Locale.ROOT)) + "."));
+                issues.add(new FieldIssue("code", Messages.msg("m.imp-code-already-at-line", resolvedCode,
+                        String.valueOf(firstByCode.get(resolvedCode.toLowerCase(Locale.ROOT))))));
                 status = Status.DUPLICATE_IN_FILE; duplicate++;
             } else {
                 if (resolvedCode != null) firstByCode.put(resolvedCode.toLowerCase(Locale.ROOT), raw.rowNumber());
@@ -127,9 +128,7 @@ public class ExpenseTypeImportService {
             case "financial", "financier" -> "FINANCIAL";
             case "other", "autre" -> "OTHER";
             default -> {
-                issues.add(new FieldIssue("category",
-                        "Catégorie « " + raw + " » non reconnue (Logistique, Services, "
-                                + "Administratif, Marketing, Personnel, Financier, Autre)."));
+                issues.add(new FieldIssue("category", Messages.msg("m.imp-expense-category-unknown", raw)));
                 yield null;
             }
         };

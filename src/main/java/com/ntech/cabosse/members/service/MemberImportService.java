@@ -23,6 +23,7 @@ import com.ntech.cabosse.members.entity.MemberEntity;
 import com.ntech.cabosse.members.entity.MemberExternalCode;
 import com.ntech.cabosse.members.entity.MemberStatus;
 import com.ntech.cabosse.members.repository.MemberRepository;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.imports.FuzzyLabels;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -101,7 +102,7 @@ public class MemberImportService {
             String lastName = trim(raw.lastName());
             String firstName = trim(raw.firstName());
             if (lastName == null && firstName == null) {
-                issues.add(new FieldIssue("lastName", "Nom requis."));
+                issues.add(new FieldIssue("lastName", Messages.msg("m.imp-name-required")));
             }
 
             String gender = parseGender(raw.gender(), issues);
@@ -169,7 +170,7 @@ public class MemberImportService {
                 status = Status.DUPLICATE_IN_FILE;
                 duplicate++;
             } else if (key != null && keysSeen.containsValue(key)) {
-                issues.add(new FieldIssue("code", "Producteur déjà présent plus haut dans le fichier."));
+                issues.add(new FieldIssue("code", Messages.msg("m.imp-producer-duplicate-in-file")));
                 status = Status.DUPLICATE_IN_FILE;
                 duplicate++;
             } else if (!householdIssues.isEmpty()) {
@@ -550,20 +551,17 @@ public class MemberImportService {
                                                     Integer schooled, Integer notSchooled) {
         List<FieldIssue> issues = new ArrayList<>();
         if (children != null && girls != null && boys != null && girls + boys != children) {
-            issues.add(new FieldIssue("girlsCount",
-                    "Filles et garçons (" + (girls + boys) + ") ne totalisent pas les "
-                            + children + " enfants."));
+            issues.add(new FieldIssue("girlsCount", Messages.msg("m.imp-girls-boys-mismatch",
+                    String.valueOf(girls + boys), String.valueOf(children))));
         }
         if (children != null && c0to4 != null && c5to17 != null && cOver17 != null
                 && c0to4 + c5to17 + cOver17 != children) {
-            issues.add(new FieldIssue("children0to4",
-                    "Les tranches d'âge (" + (c0to4 + c5to17 + cOver17) + ") ne totalisent pas les "
-                            + children + " enfants."));
+            issues.add(new FieldIssue("children0to4", Messages.msg("m.imp-age-brackets-mismatch",
+                    String.valueOf(c0to4 + c5to17 + cOver17), String.valueOf(children))));
         }
         if (children != null && schooled != null && notSchooled != null
                 && schooled + notSchooled > children) {
-            issues.add(new FieldIssue("childrenSchooled",
-                    "Enfants scolarisés et non scolarisés dépassent le nombre d'enfants."));
+            issues.add(new FieldIssue("childrenSchooled", Messages.msg("m.imp-schooled-exceeds-children")));
         }
         return issues;
     }
@@ -573,7 +571,7 @@ public class MemberImportService {
         String c = FuzzyLabels.canonical(raw);
         if (c.startsWith("h") || c.startsWith("m")) return "MALE";
         if (c.startsWith("f")) return "FEMALE";
-        issues.add(new FieldIssue("gender", "Genre « " + raw + " » non reconnu (Homme ou Femme)."));
+        issues.add(new FieldIssue("gender", Messages.msg("m.imp-gender-unknown", raw)));
         return null;
     }
 
@@ -616,7 +614,7 @@ public class MemberImportService {
                 // format suivant
             }
         }
-        issues.add(new FieldIssue(field, "Date « " + raw + " » illisible (attendu JJ/MM/AAAA)."));
+        issues.add(new FieldIssue(field, Messages.msg("m.imp-date-unreadable", raw)));
         return null;
     }
 
@@ -625,7 +623,7 @@ public class MemberImportService {
         try {
             return Integer.valueOf(raw.trim().replaceAll("[\\s ]", ""));
         } catch (NumberFormatException e) {
-            issues.add(new FieldIssue(field, "Nombre « " + raw + " » illisible."));
+            issues.add(new FieldIssue(field, Messages.msg("m.imp-number-unreadable", raw)));
             return null;
         }
     }
@@ -635,7 +633,7 @@ public class MemberImportService {
         try {
             return new BigDecimal(raw.trim().replaceAll("[\\s ]", "").replace(',', '.'));
         } catch (NumberFormatException e) {
-            issues.add(new FieldIssue(field, "Montant « " + raw + " » illisible."));
+            issues.add(new FieldIssue(field, Messages.msg("m.imp-amount-unreadable", raw)));
             return null;
         }
     }

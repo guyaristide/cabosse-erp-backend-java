@@ -1,5 +1,6 @@
 package com.ntech.cabosse.supplier.service;
 
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.imports.ImportParsers;
 import com.ntech.cabosse.supplier.dto.SupplierImportCommitResponseDto;
 import com.ntech.cabosse.supplier.dto.SupplierImportPreviewDto;
@@ -53,29 +54,27 @@ public class SupplierImportService {
             ImportParsers.IssueSink sink = listSink(issues, FieldIssue::new);
 
             String name = trimOrNull(raw.name());
-            if (name == null) issues.add(new FieldIssue("name", "Nom requis."));
-            else if (name.length() < 2) issues.add(new FieldIssue("name", "Nom trop court (2 caractères min)."));
-            else if (name.length() > 120) issues.add(new FieldIssue("name", "Nom trop long (120 caractères max)."));
+            if (name == null) issues.add(new FieldIssue("name", Messages.msg("m.imp-name-required")));
+            else if (name.length() < 2) issues.add(new FieldIssue("name", Messages.msg("m.imp-name-too-short")));
+            else if (name.length() > 120) issues.add(new FieldIssue("name", Messages.msg("m.imp-name-too-long")));
 
             String code = trimOrNull(raw.code());
             if (code != null && !code.matches("[a-z0-9-]{2,40}")) {
-                issues.add(new FieldIssue("code",
-                        "Code invalide : 2 à 40 caractères, minuscules/chiffres/tirets."));
+                issues.add(new FieldIssue("code", Messages.msg("m.imp-supplier-code-invalid")));
             }
             String resolvedCode = (code != null) ? code : (name != null ? slugify(name) : null);
 
             String email = trimOrNull(raw.email());
             if (email != null && !email.matches("^.+@.+\\..+$")) {
-                issues.add(new FieldIssue("email", "Adresse e-mail invalide."));
+                issues.add(new FieldIssue("email", Messages.msg("m.imp-email-invalid")));
             }
             String phone = trimOrNull(raw.phone());
             if (phone != null && !phone.matches("\\+?[\\d\\s()-]{6,25}")) {
-                issues.add(new FieldIssue("phone", "Téléphone invalide."));
+                issues.add(new FieldIssue("phone", Messages.msg("m.imp-phone-invalid")));
             }
             String countryCode = trimOrNull(raw.countryCode());
             if (countryCode != null && countryCode.length() > 2) {
-                issues.add(new FieldIssue("countryCode",
-                        "Code pays trop long (ISO 2 lettres : CI, FR…)."));
+                issues.add(new FieldIssue("countryCode", Messages.msg("m.imp-country-code-too-long")));
             }
 
             String legalName = trimOrNull(raw.legalName());
@@ -94,13 +93,12 @@ public class SupplierImportService {
                 status = Status.INVALID;
                 invalid++;
             } else if (resolvedCode != null && existingCodes.contains(resolvedCode.toLowerCase(Locale.ROOT))) {
-                issues.add(new FieldIssue("code", "Code « " + resolvedCode + " » déjà utilisé."));
+                issues.add(new FieldIssue("code", Messages.msg("m.imp-code-already-used", resolvedCode)));
                 status = Status.DUPLICATE_IN_DB;
                 duplicate++;
             } else if (resolvedCode != null && firstByCode.containsKey(resolvedCode.toLowerCase(Locale.ROOT))) {
-                issues.add(new FieldIssue("code", "Code « " + resolvedCode
-                        + " » déjà présent ligne " + firstByCode.get(resolvedCode.toLowerCase(Locale.ROOT))
-                        + " du fichier."));
+                issues.add(new FieldIssue("code", Messages.msg("m.imp-code-duplicate-at-line", resolvedCode,
+                        String.valueOf(firstByCode.get(resolvedCode.toLowerCase(Locale.ROOT))))));
                 status = Status.DUPLICATE_IN_FILE;
                 duplicate++;
             } else {

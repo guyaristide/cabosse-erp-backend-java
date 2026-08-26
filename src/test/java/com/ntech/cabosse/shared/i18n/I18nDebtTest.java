@@ -52,7 +52,7 @@ class I18nDebtTest {
      * de prévisualisation. Budget séparé : c'est une autre famille de travail,
      * et les mélanger empêcherait de voir laquelle avance.
      */
-    private static final int FIELD_ISSUE_BUDGET = 95;
+    private static final int FIELD_ISSUE_BUDGET = 0;
 
     /** Types dont le message remonte au client via un ExceptionMapper dédié. */
     private static final Pattern INLINE_MESSAGE = Pattern.compile(
@@ -93,9 +93,14 @@ class I18nDebtTest {
                                 .limit(5).toList())
                 .isLessThanOrEqualTo(budget);
 
-        assertThat(total)
-                .as("dette retombée à %d : abaissez le budget à cette valeur", total)
-                .isGreaterThan(budget - 40);
+        // Le plancher force à répercuter les gains dans le budget, sinon il
+        // cesse d'exercer une pression. Sans objet une fois la dette éteinte :
+        // il n'y a plus rien à abaisser, seulement une régression à empêcher.
+        if (budget > 0) {
+            assertThat(total)
+                    .as("dette retombée à %d : abaissez le budget à cette valeur", total)
+                    .isGreaterThan(budget - 40);
+        }
     }
 
     private Map<String, Integer> countMatches(Pattern pattern) throws IOException {

@@ -1,5 +1,7 @@
 package com.ntech.cabosse.shared.imports;
 
+import com.ntech.cabosse.shared.i18n.Messages;
+
 import java.math.BigDecimal;
 import java.text.Normalizer;
 import java.util.List;
@@ -37,7 +39,7 @@ public final class ImportParsers {
             case "oui", "yes", "y", "true", "vrai", "1" -> Boolean.TRUE;
             case "non", "no", "n", "false", "faux", "0" -> Boolean.FALSE;
             default -> {
-                issues.add(field, "Valeur « " + raw + " » invalide (attendu : Oui ou Non).");
+                issues.add(field, Messages.msg("m.imp-boolean-invalid", raw));
                 yield null;
             }
         };
@@ -58,7 +60,7 @@ public final class ImportParsers {
         try {
             return new BigDecimal(cleaned);
         } catch (NumberFormatException e) {
-            issues.add(field, "Nombre invalide : « " + raw + " ».");
+            issues.add(field, Messages.msg("m.imp-number-invalid", raw));
             return null;
         }
     }

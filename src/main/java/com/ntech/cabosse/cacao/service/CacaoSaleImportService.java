@@ -12,6 +12,7 @@ import com.ntech.cabosse.article.entity.ArticleEntity;
 import com.ntech.cabosse.article.repository.ArticleRepository;
 import com.ntech.cabosse.customer.entity.CustomerEntity;
 import com.ntech.cabosse.customer.repository.CustomerRepository;
+import com.ntech.cabosse.shared.i18n.Messages;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
@@ -62,22 +63,22 @@ public class CacaoSaleImportService {
 
             CustomerEntity customer = raw.customerName() == null || raw.customerName().isBlank()
                     ? null : byName.get(raw.customerName().trim().toUpperCase(Locale.ROOT));
-            if (customer == null) issues.add(new FieldIssue("customerName", "Client introuvable (nom)."));
+            if (customer == null) issues.add(new FieldIssue("customerName", Messages.msg("m.imp-customer-not-found")));
 
             ArticleEntity article = raw.productCode() == null || raw.productCode().isBlank()
                     ? null : articlesByKey.get(raw.productCode().trim().toUpperCase(Locale.ROOT));
-            if (article == null) issues.add(new FieldIssue("productCode", "Article vendable inconnu (code ou nom)."));
+            if (article == null) issues.add(new FieldIssue("productCode", Messages.msg("m.imp-sellable-article-unknown")));
 
             LocalDate date = parseDate(raw.date());
-            if (date == null) issues.add(new FieldIssue("date", "Date invalide ou manquante."));
-            if (parseUuid(raw.siteId()) == null) issues.add(new FieldIssue("siteId", "Site (départ) requis."));
+            if (date == null) issues.add(new FieldIssue("date", Messages.msg("m.imp-date-invalid-or-missing")));
+            if (parseUuid(raw.siteId()) == null) issues.add(new FieldIssue("siteId", Messages.msg("m.imp-departure-site-required")));
 
             BigDecimal declared = parseDecimal(raw.declaredKg());
             BigDecimal accepted = parseDecimal(raw.acceptedKg());
             if (declared == null || declared.signum() <= 0)
-                issues.add(new FieldIssue("declaredKg", "Poids déclaré requis."));
+                issues.add(new FieldIssue("declaredKg", Messages.msg("m.imp-declared-weight-required")));
             if (accepted == null || accepted.signum() <= 0)
-                issues.add(new FieldIssue("acceptedKg", "Poids accepté requis."));
+                issues.add(new FieldIssue("acceptedKg", Messages.msg("m.imp-accepted-weight-required")));
 
             BigDecimal montant = parseDecimal(raw.montantFacture());
 

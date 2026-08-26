@@ -11,6 +11,7 @@ import com.ntech.cabosse.customer.dto.CustomerResponseDto;
 import com.ntech.cabosse.customer.dto.CustomerUpsertDto;
 import com.ntech.cabosse.customer.entity.CustomerEntity;
 import com.ntech.cabosse.customer.repository.CustomerRepository;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.imports.ImportParsers;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -56,33 +57,32 @@ public class CustomerImportService {
             ImportParsers.IssueSink sink = listSink(issues, FieldIssue::new);
 
             String name = trimOrNull(raw.name());
-            if (name == null) issues.add(new FieldIssue("name", "Nom requis."));
-            else if (name.length() < 2) issues.add(new FieldIssue("name", "Nom trop court."));
+            if (name == null) issues.add(new FieldIssue("name", Messages.msg("m.imp-name-required")));
+            else if (name.length() < 2) issues.add(new FieldIssue("name", Messages.msg("m.imp-name-short")));
 
             String type = parseCustomerType(raw.type(), issues);
 
             String code = trimOrNull(raw.code());
             if (code != null && !code.matches("[a-z0-9-]{2,40}")) {
-                issues.add(new FieldIssue("code",
-                        "Code invalide : 2 à 40 caractères minuscules/chiffres/tirets."));
+                issues.add(new FieldIssue("code", Messages.msg("m.imp-customer-code-invalid")));
             }
             String resolvedCode = (code != null) ? code : (name != null ? slugify(name) : null);
 
             String email = trimOrNull(raw.email());
             if (email != null && !email.matches("^.+@.+\\..+$")) {
-                issues.add(new FieldIssue("email", "Adresse e-mail invalide."));
+                issues.add(new FieldIssue("email", Messages.msg("m.imp-email-invalid")));
             }
             String phone = trimOrNull(raw.phone());
             if (phone != null && !phone.matches("\\+?[\\d\\s()-]{6,25}")) {
-                issues.add(new FieldIssue("phone", "Téléphone invalide."));
+                issues.add(new FieldIssue("phone", Messages.msg("m.imp-phone-invalid")));
             }
             String countryCode = trimOrNull(raw.countryCode());
             if (countryCode != null && countryCode.length() > 2) {
-                issues.add(new FieldIssue("countryCode", "Code pays ISO 2 lettres."));
+                issues.add(new FieldIssue("countryCode", Messages.msg("m.imp-country-code-iso2")));
             }
             BigDecimal creditLimit = parseDecimal(raw.creditLimit(), sink, "creditLimit");
             if (creditLimit != null && creditLimit.signum() < 0) {
-                issues.add(new FieldIssue("creditLimit", "Plafond négatif interdit."));
+                issues.add(new FieldIssue("creditLimit", Messages.msg("m.imp-credit-limit-negative")));
             }
 
             String legalName = trimOrNull(raw.legalName());
@@ -96,11 +96,11 @@ public class CustomerImportService {
             if (!issues.isEmpty()) {
                 status = Status.INVALID; invalid++;
             } else if (resolvedCode != null && existingCodes.contains(resolvedCode.toLowerCase(Locale.ROOT))) {
-                issues.add(new FieldIssue("code", "Code « " + resolvedCode + " » déjà utilisé."));
+                issues.add(new FieldIssue("code", Messages.msg("m.imp-code-already-used", resolvedCode)));
                 status = Status.DUPLICATE_IN_DB; duplicate++;
             } else if (resolvedCode != null && firstByCode.containsKey(resolvedCode.toLowerCase(Locale.ROOT))) {
-                issues.add(new FieldIssue("code", "Code « " + resolvedCode
-                        + " » déjà ligne " + firstByCode.get(resolvedCode.toLowerCase(Locale.ROOT)) + "."));
+                issues.add(new FieldIssue("code", Messages.msg("m.imp-code-already-at-line", resolvedCode,
+                        String.valueOf(firstByCode.get(resolvedCode.toLowerCase(Locale.ROOT))))));
                 status = Status.DUPLICATE_IN_FILE; duplicate++;
             } else {
                 if (resolvedCode != null) firstByCode.put(resolvedCode.toLowerCase(Locale.ROOT), raw.rowNumber());
@@ -152,7 +152,7 @@ public class CustomerImportService {
 
     private static String parseCustomerType(String raw, List<FieldIssue> issues) {
         if (raw == null || raw.isBlank()) {
-            issues.add(new FieldIssue("type", "Type requis (Particulier ou Entreprise)."));
+            issues.add(new FieldIssue("type", Messages.msg("m.imp-customer-type-required")));
             return null;
         }
         String n = normalize(raw);
@@ -160,8 +160,7 @@ public class CustomerImportService {
             case "individual", "particulier", "person" -> "INDIVIDUAL";
             case "company", "entreprise", "societe", "société" -> "COMPANY";
             default -> {
-                issues.add(new FieldIssue("type",
-                        "Type « " + raw + " » non reconnu (attendu : Particulier ou Entreprise)."));
+                issues.add(new FieldIssue("type", Messages.msg("m.imp-customer-type-unknown", raw)));
                 yield null;
             }
         };

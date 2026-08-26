@@ -12,6 +12,7 @@ import com.ntech.cabosse.article.dto.ArticleUpsertDto;
 import com.ntech.cabosse.article.entity.ArticleEntity;
 import com.ntech.cabosse.article.entity.ArticleType;
 import com.ntech.cabosse.article.repository.ArticleRepository;
+import com.ntech.cabosse.shared.i18n.Messages;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
@@ -78,23 +79,21 @@ public class ArticleImportService {
 
             ArticleType type = parseType(raw.type(), issues);
             String name = trimOrNull(raw.name());
-            if (name == null) issues.add(new FieldIssue("name", "Nom requis."));
-            else if (name.length() < 2) issues.add(new FieldIssue("name", "Nom trop court (2 caractères min)."));
-            else if (name.length() > 120) issues.add(new FieldIssue("name", "Nom trop long (120 caractères max)."));
+            if (name == null) issues.add(new FieldIssue("name", Messages.msg("m.imp-name-required")));
+            else if (name.length() < 2) issues.add(new FieldIssue("name", Messages.msg("m.imp-name-too-short")));
+            else if (name.length() > 120) issues.add(new FieldIssue("name", Messages.msg("m.imp-name-too-long")));
 
             String unit = trimOrNull(raw.unit());
             if (unit == null) {
-                issues.add(new FieldIssue("unit", "Unité requise."));
+                issues.add(new FieldIssue("unit", Messages.msg("m.imp-unit-required")));
             } else if (!ALLOWED_UNITS.contains(unit)) {
                 issues.add(new FieldIssue("unit",
-                        "Unité « " + unit + " » inconnue. Autorisées : "
-                                + String.join(", ", ALLOWED_UNITS)));
+                        Messages.msg("m.imp-unit-unknown", unit, String.join(", ", ALLOWED_UNITS))));
             }
 
             String code = trimOrNull(raw.code());
             if (code != null && !code.matches("[A-Za-z0-9-]{2,40}")) {
-                issues.add(new FieldIssue("code",
-                        "Code invalide : 2 à 40 caractères, lettres/chiffres/tirets."));
+                issues.add(new FieldIssue("code", Messages.msg("m.imp-code-invalid")));
             }
             // Si pas de code fourni, on va le dériver du nom (fait par ArticleService au commit).
             String resolvedCode = (code != null && !code.isBlank())
@@ -107,22 +106,21 @@ public class ArticleImportService {
             BigDecimal standardSalePrice = parseDecimal(raw.standardSalePrice(), issues, "standardSalePrice", false);
             BigDecimal vatRate = parseDecimal(raw.vatRate(), issues, "vatRate", false);
             if (vatRate != null && (vatRate.signum() < 0 || vatRate.compareTo(BigDecimal.valueOf(100)) > 0)) {
-                issues.add(new FieldIssue("vatRate", "TVA hors plage [0–100]."));
+                issues.add(new FieldIssue("vatRate", Messages.msg("m.imp-vat-rate-range")));
             }
             if (alertThreshold != null && alertThreshold.signum() < 0) {
-                issues.add(new FieldIssue("alertThreshold", "Seuil d'alerte négatif interdit."));
+                issues.add(new FieldIssue("alertThreshold", Messages.msg("m.imp-alert-threshold-negative")));
             }
             if (standardCost != null && standardCost.signum() < 0) {
-                issues.add(new FieldIssue("standardCost", "Coût standard négatif interdit."));
+                issues.add(new FieldIssue("standardCost", Messages.msg("m.imp-standard-cost-negative")));
             }
             if (standardSalePrice != null && standardSalePrice.signum() < 0) {
-                issues.add(new FieldIssue("standardSalePrice", "Prix de vente négatif interdit."));
+                issues.add(new FieldIssue("standardSalePrice", Messages.msg("m.imp-sale-price-negative")));
             }
 
             String barcode = trimOrNull(raw.barcode());
             if (barcode != null && !barcode.matches("[A-Za-z0-9._-]+")) {
-                issues.add(new FieldIssue("barcode",
-                        "Code-barres : lettres/chiffres/point/tiret/souligné uniquement."));
+                issues.add(new FieldIssue("barcode", Messages.msg("m.imp-barcode-charset")));
             }
             String activityCode = trimOrNull(raw.activityCode());
             String description = trimOrNull(raw.description());
@@ -135,14 +133,14 @@ public class ArticleImportService {
             } else if (resolvedCode != null
                     && existingCodes.contains(resolvedCode.toLowerCase(Locale.ROOT))) {
                 issues.add(new FieldIssue("code",
-                        "Code « " + resolvedCode + " » déjà utilisé dans le catalogue."));
+                        Messages.msg("m.imp-code-used-in-catalog", resolvedCode)));
                 status = Status.DUPLICATE_IN_DB;
                 duplicate++;
             } else if (resolvedCode != null
                     && firstOccurrenceByCode.containsKey(resolvedCode.toLowerCase(Locale.ROOT))) {
                 int firstRow = firstOccurrenceByCode.get(resolvedCode.toLowerCase(Locale.ROOT));
                 issues.add(new FieldIssue("code",
-                        "Code « " + resolvedCode + " » déjà présent ligne " + firstRow + " du fichier."));
+                        Messages.msg("m.imp-code-duplicate-at-line", resolvedCode, String.valueOf(firstRow))));
                 status = Status.DUPLICATE_IN_FILE;
                 duplicate++;
             } else {
@@ -242,8 +240,7 @@ public class ArticleImportService {
      */
     private static ArticleType parseType(String raw, List<FieldIssue> issues) {
         if (raw == null || raw.isBlank()) {
-            issues.add(new FieldIssue("type",
-                    "Type requis (Matière première, Consommable, Emballage, Produit fini)."));
+            issues.add(new FieldIssue("type", Messages.msg("m.imp-article-type-required")));
             return null;
         }
         String n = normalize(raw);
@@ -255,9 +252,7 @@ public class ArticleImportService {
             case "consumable", "consommable" -> ArticleType.CONSUMABLE;
             case "packaging", "emballage" -> ArticleType.PACKAGING;
             default -> {
-                issues.add(new FieldIssue("type",
-                        "Type « " + raw + " » non reconnu (attendu : Matière première, "
-                                + "Consommable, Emballage, Produit fini)."));
+                issues.add(new FieldIssue("type", Messages.msg("m.imp-article-type-unknown", raw)));
                 yield null;
             }
         };
@@ -274,8 +269,7 @@ public class ArticleImportService {
             case "oui", "yes", "y", "true", "vrai", "1" -> Boolean.TRUE;
             case "non", "no", "n", "false", "faux", "0" -> Boolean.FALSE;
             default -> {
-                issues.add(new FieldIssue(field,
-                        "Valeur « " + raw + " » invalide (attendu : Oui ou Non)."));
+                issues.add(new FieldIssue(field, Messages.msg("m.imp-boolean-invalid", raw)));
                 yield null;
             }
         };
@@ -288,7 +282,7 @@ public class ArticleImportService {
      */
     private static BigDecimal parseDecimal(String raw, List<FieldIssue> issues, String field, boolean required) {
         if (raw == null || raw.isBlank()) {
-            if (required) issues.add(new FieldIssue(field, "Valeur numérique requise."));
+            if (required) issues.add(new FieldIssue(field, Messages.msg("m.imp-numeric-value-required")));
             return null;
         }
         String cleaned = raw
@@ -299,7 +293,7 @@ public class ArticleImportService {
         try {
             return new BigDecimal(cleaned);
         } catch (NumberFormatException e) {
-            issues.add(new FieldIssue(field, "Nombre invalide : « " + raw + " »."));
+            issues.add(new FieldIssue(field, Messages.msg("m.imp-number-invalid", raw)));
             return null;
         }
     }

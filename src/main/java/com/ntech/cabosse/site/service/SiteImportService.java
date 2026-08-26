@@ -1,5 +1,6 @@
 package com.ntech.cabosse.site.service;
 
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.site.dto.SiteImportCommitResponseDto;
 import com.ntech.cabosse.site.dto.SiteImportPreviewDto;
 import com.ntech.cabosse.site.dto.SiteImportPreviewDto.FieldIssue;
@@ -56,11 +57,11 @@ public class SiteImportService {
             String type = parseSiteType(raw.type(), issues);
 
             String name = trimOrNull(raw.name());
-            if (name == null) issues.add(new FieldIssue("name", "Nom requis."));
+            if (name == null) issues.add(new FieldIssue("name", Messages.msg("m.imp-name-required")));
 
             String code = trimOrNull(raw.code());
             if (code != null && !code.matches("[a-z0-9-]{2,40}")) {
-                issues.add(new FieldIssue("code", "Code invalide : minuscules/chiffres/tirets, 2-40."));
+                issues.add(new FieldIssue("code", Messages.msg("m.imp-code-invalid-lowercase")));
             }
             String resolvedCode = (code != null) ? code : (name != null ? slugify(name) : null);
 
@@ -69,23 +70,23 @@ public class SiteImportService {
             Double latitude = lat != null ? lat.doubleValue() : null;
             Double longitude = lng != null ? lng.doubleValue() : null;
             if (latitude != null && (latitude < -90 || latitude > 90)) {
-                issues.add(new FieldIssue("latitude", "Latitude hors [-90, 90]."));
+                issues.add(new FieldIssue("latitude", Messages.msg("m.imp-latitude-range")));
             }
             if (longitude != null && (longitude < -180 || longitude > 180)) {
-                issues.add(new FieldIssue("longitude", "Longitude hors [-180, 180]."));
+                issues.add(new FieldIssue("longitude", Messages.msg("m.imp-longitude-range")));
             }
 
             String email = trimOrNull(raw.email());
             if (email != null && !email.matches("^.+@.+\\..+$")) {
-                issues.add(new FieldIssue("email", "Adresse e-mail invalide."));
+                issues.add(new FieldIssue("email", Messages.msg("m.imp-email-invalid")));
             }
             String phone = trimOrNull(raw.phone());
             if (phone != null && !phone.matches("\\+?[\\d\\s()-]{6,25}")) {
-                issues.add(new FieldIssue("phone", "Téléphone invalide."));
+                issues.add(new FieldIssue("phone", Messages.msg("m.imp-phone-invalid")));
             }
             String countryCode = trimOrNull(raw.countryCode());
             if (countryCode != null && countryCode.length() > 2) {
-                issues.add(new FieldIssue("countryCode", "Code pays ISO 2 lettres."));
+                issues.add(new FieldIssue("countryCode", Messages.msg("m.imp-country-code-iso2")));
             }
             String regionCode = trimOrNull(raw.regionCode());
             String addressLine = trimOrNull(raw.addressLine());
@@ -97,11 +98,11 @@ public class SiteImportService {
             Status status;
             if (!issues.isEmpty()) { status = Status.INVALID; invalid++; }
             else if (resolvedCode != null && existingCodes.contains(resolvedCode.toLowerCase(Locale.ROOT))) {
-                issues.add(new FieldIssue("code", "Code « " + resolvedCode + " » déjà utilisé."));
+                issues.add(new FieldIssue("code", Messages.msg("m.imp-code-already-used", resolvedCode)));
                 status = Status.DUPLICATE_IN_DB; duplicate++;
             } else if (resolvedCode != null && firstByCode.containsKey(resolvedCode.toLowerCase(Locale.ROOT))) {
-                issues.add(new FieldIssue("code", "Code « " + resolvedCode
-                        + " » déjà ligne " + firstByCode.get(resolvedCode.toLowerCase(Locale.ROOT)) + "."));
+                issues.add(new FieldIssue("code", Messages.msg("m.imp-code-already-at-line", resolvedCode,
+                        String.valueOf(firstByCode.get(resolvedCode.toLowerCase(Locale.ROOT))))));
                 status = Status.DUPLICATE_IN_FILE; duplicate++;
             } else {
                 if (resolvedCode != null) firstByCode.put(resolvedCode.toLowerCase(Locale.ROOT), raw.rowNumber());
@@ -147,8 +148,7 @@ public class SiteImportService {
 
     private static String parseSiteType(String raw, List<FieldIssue> issues) {
         if (raw == null || raw.isBlank()) {
-            issues.add(new FieldIssue("type",
-                    "Type requis (Transformation, Point de vente, Magasin de section ou Magasin central)."));
+            issues.add(new FieldIssue("type", Messages.msg("m.imp-site-type-required")));
             return null;
         }
         String n = normalize(raw);
@@ -160,9 +160,7 @@ public class SiteImportService {
             case "magasin central", "magasincentral", "central warehouse",
                  "magasin central de stockage" -> "CENTRAL_WAREHOUSE";
             default -> {
-                issues.add(new FieldIssue("type",
-                        "Type « " + raw + " » non reconnu (Transformation, Point de vente, "
-                                + "Magasin de section ou Magasin central)."));
+                issues.add(new FieldIssue("type", Messages.msg("m.imp-site-type-unknown", raw)));
                 yield null;
             }
         };
