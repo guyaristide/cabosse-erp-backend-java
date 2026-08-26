@@ -3,6 +3,8 @@ package com.ntech.cabosse.tenant.event;
 import com.ntech.cabosse.settings.mail.PlatformMailerService;
 import com.ntech.cabosse.shared.config.ApplicationConfig;
 import com.ntech.cabosse.shared.events.Events;
+import com.ntech.cabosse.shared.i18n.Locales;
+import com.ntech.cabosse.shared.i18n.Messages;
 import io.quarkus.qute.Location;
 import io.quarkus.qute.Template;
 import io.smallrye.common.annotation.Blocking;
@@ -59,9 +61,13 @@ public class TenantInvitationListener {
                     .data("activationUrl", activationUrl)
                     .render();
 
+            // Rendu dans la langue portée par l'événement : ce consommateur
+            // s'exécute hors requête, Messages.current() y répondrait
+            // français quelle que soit la préférence du destinataire.
             mailer.sendHtml(
                     event.adminEmail(),
-                    "Activez votre compte Cabosse ERP : " + event.tenantName(),
+                    Messages.msg(Locales.of(event.locale()),
+                            "m.mail-tenant-invitation-subject", event.tenantName()),
                     html
             );
 

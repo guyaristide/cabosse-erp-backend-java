@@ -7,12 +7,14 @@ import com.ntech.cabosse.notification.entity.NotificationDeliveryEntity;
 import com.ntech.cabosse.notification.entity.NotificationUsage;
 import com.ntech.cabosse.notification.repository.NotificationDeliveryRepository;
 import com.ntech.cabosse.shared.exception.BusinessException;
+import com.ntech.cabosse.shared.i18n.Locales;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Locale;
 import java.util.UUID;
 
 /**
@@ -49,16 +51,30 @@ public class NotificationQueue {
                           String locale,
                           Duration timeToLive) {
 
+        /**
+         * Courriel rendu dans la langue du destinataire.
+         *
+         * <p>La langue est un paramètre, pas une valeur devinée à l'envoi :
+         * le corps est déjà rendu quand il arrive ici, et le relais qui le
+         * postera plus tard n'a aucune requête sous la main pour retrouver
+         * la préférence de qui que ce soit. L'appelant la résout avec
+         * {@code Locales.firstOf(user.locale, preferences.language)} au
+         * moment où l'opération est demandée ; l'étiquette conservée dans
+         * la ligne dit ensuite dans quelle langue le message est parti.</p>
+         */
         public static Request email(String target, String subject, String body,
-                                     String eventType, NotificationUsage usage) {
+                                     String eventType, NotificationUsage usage,
+                                     Locale locale) {
             return new Request(NotificationChannel.EMAIL, usage, target, subject, body,
-                    eventType, null, null, null);
+                    eventType, null, Locales.tag(locale), null);
         }
 
+        /** SMS rendu dans la langue du destinataire. Voir {@link #email}. */
         public static Request sms(String target, String body,
-                                   String eventType, NotificationUsage usage) {
+                                   String eventType, NotificationUsage usage,
+                                   Locale locale) {
             return new Request(NotificationChannel.SMS, usage, target, null, body,
-                    eventType, null, null, null);
+                    eventType, null, Locales.tag(locale), null);
         }
     }
 
@@ -89,7 +105,10 @@ public class NotificationQueue {
         e.body = request.body();
         e.eventType = request.eventType();
         e.subjectRef = request.subjectRef();
-        e.locale = request.locale();
+        // Jamais vide : une ligne sans langue empêcherait de savoir a
+        // posteriori dans quelle langue le message est parti.
+        e.locale = request.locale() != null ? request.locale()
+                : Locales.tag(Locale.FRENCH);
         e.status = DeliveryStatus.PENDING;
         e.attempts = 0;
         e.nextAttemptAt = now;

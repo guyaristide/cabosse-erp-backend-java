@@ -21,13 +21,32 @@ import java.util.ResourceBundle;
  * paramétré, l'apostrophe s'écrit doublée ({@code ''}) dans le catalogue.
  * Un message sans paramètre est rendu tel quel, apostrophes simples
  * comprises.</p>
+ *
+ * <p><strong>Hors requête, la langue ne se devine pas.</strong> Une tâche
+ * planifiée, un consommateur d'événement ou une migration n'ont aucune
+ * requête sous la main : {@link #current()} y répond français, et c'est le
+ * bon défaut tant que personne ne prétend le contraire. Un message destiné
+ * à quelqu'un doit donc être rendu avec {@link #msg(Locale, String,
+ * Object...)} en passant la langue de son destinataire, décidée au moment
+ * où l'opération est demandée et transportée avec elle. Voir
+ * {@link Locales#of(String)} pour convertir une préférence stockée.</p>
  */
 public final class Messages {
 
     private Messages() {}
 
+    /** Rend dans la langue de la requête en cours. */
     public static String msg(String key, Object... args) {
-        ResourceBundle bundle = ResourceBundle.getBundle("messages", current());
+        return msg(current(), key, args);
+    }
+
+    /**
+     * Rend dans une langue donnée. À utiliser dès que le destinataire n'est
+     * pas l'auteur de la requête en cours : notification différée, courriel
+     * déclenché par un événement, document produit pour un tiers.
+     */
+    public static String msg(Locale locale, String key, Object... args) {
+        ResourceBundle bundle = ResourceBundle.getBundle("messages", locale);
         String template = bundle.containsKey(key) ? bundle.getString(key) : key;
         return args.length == 0 ? template : MessageFormat.format(template, args);
     }

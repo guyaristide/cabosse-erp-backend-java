@@ -10,6 +10,7 @@ import com.ntech.cabosse.catalog.repository.RegionRepository;
 import com.ntech.cabosse.plan.repository.PlanRepository;
 import com.ntech.cabosse.shared.config.ApplicationConfig;
 import com.ntech.cabosse.shared.events.Events;
+import com.ntech.cabosse.shared.i18n.Locales;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.ConflictException;
 import com.ntech.cabosse.shared.i18n.Messages;
@@ -148,7 +149,14 @@ public class TenantProvisioningService {
                     admin.id,
                     admin.email,
                     admin.firstName,
-                    token.clearValue()
+                    token.clearValue(),
+                    // La langue est décidée ici, pas chez le consommateur :
+                    // celui-ci s'exécute hors requête et n'a plus accès ni à
+                    // l'administrateur ni au tenant. Préférence de la personne
+                    // d'abord, à défaut celle de son organisation.
+                    Locales.tag(Locales.firstOf(
+                            admin.locale,
+                            tenant.preferences != null ? tenant.preferences.language : null))
             ));
 
             log.infof("Tenant %s provisionné (slug=%s, plan=%s, admin=%s)",

@@ -26,6 +26,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -91,7 +92,7 @@ class NotificationQueueTest extends AbstractIntegrationTest {
 
         UUID id = inTenant(() -> queue.enqueue(NotificationQueue.Request.sms(
                 "+2250700000001", "Votre code est 123456",
-                "OTP_REQUESTED", NotificationUsage.TRANSACTIONAL)));
+                "OTP_REQUESTED", NotificationUsage.TRANSACTIONAL, Locale.FRENCH)));
 
         // Enfilée : elle existe avant même qu'une passerelle ait été
         // sollicitée. C'est ce qui la rend increvable à un redémarrage.
@@ -116,7 +117,7 @@ class NotificationQueueTest extends AbstractIntegrationTest {
     void sans_passerelle_configuree_aucune_tentative_n_est_consommee() {
         UUID id = inTenant(() -> queue.enqueue(NotificationQueue.Request.sms(
                 "+2250700000002", "Message en attente de configuration",
-                "TEST", NotificationUsage.ALERT)));
+                "TEST", NotificationUsage.ALERT, Locale.FRENCH)));
 
         DeliveryDrainer.DrainReport report =
                 inTenant(() -> drainer.drain(NotificationChannel.SMS));
@@ -135,7 +136,7 @@ class NotificationQueueTest extends AbstractIntegrationTest {
         configureMockSms(NotificationUsage.TRANSACTIONAL);
 
         UUID id = inTenant(() -> queue.enqueue(NotificationQueue.Request.sms(
-                "+2250700000003", "Rappel de stock bas", "STOCK_LOW", NotificationUsage.ALERT)));
+                "+2250700000003", "Rappel de stock bas", "STOCK_LOW", NotificationUsage.ALERT, Locale.FRENCH)));
 
         inTenant(() -> drainer.drain(NotificationChannel.SMS));
 
@@ -175,7 +176,7 @@ class NotificationQueueTest extends AbstractIntegrationTest {
             int n = i;
             inTenant(() -> queue.enqueue(NotificationQueue.Request.sms(
                     "+22507000001" + String.format("%02d", n),
-                    "Message " + n, "TEST", NotificationUsage.ALERT)));
+                    "Message " + n, "TEST", NotificationUsage.ALERT, Locale.FRENCH)));
         }
 
         // Quatre relais en parallèle, comme quatre instances derrière un
@@ -222,6 +223,6 @@ class NotificationQueueTest extends AbstractIntegrationTest {
         org.junit.jupiter.api.Assertions.assertThrows(
                 com.ntech.cabosse.shared.exception.BusinessException.class,
                 () -> inTenant(() -> queue.enqueue(NotificationQueue.Request.sms(
-                        "  ", "Corps", "TEST", NotificationUsage.ALERT))));
+                        "  ", "Corps", "TEST", NotificationUsage.ALERT, Locale.FRENCH))));
     }
 }

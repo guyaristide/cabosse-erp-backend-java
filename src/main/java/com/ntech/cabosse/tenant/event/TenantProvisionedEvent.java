@@ -12,6 +12,11 @@ import java.util.UUID;
  * l'événement parce qu'il vit en mémoire JVM le temps du dispatch et
  * ne traverse pas la base. Le mail le transmet une fois ; ensuite seul
  * son hash est conservé côté user.</p>
+ *
+ * <p>La langue voyage avec l'événement pour la même raison que le token :
+ * le consommateur s'exécute hors requête, il n'a aucun moyen de la
+ * retrouver. Elle est décidée au provisionnement, à partir de la
+ * préférence de l'administrateur puis de celle du tenant.</p>
  */
 public record TenantProvisionedEvent(
         UUID tenantId,
@@ -19,5 +24,6 @@ public record TenantProvisionedEvent(
         UUID adminUserId,
         String adminEmail,
         String adminFirstName,
-        String invitationTokenClearValue
+        String invitationTokenClearValue,
+        String locale
 ) {}
