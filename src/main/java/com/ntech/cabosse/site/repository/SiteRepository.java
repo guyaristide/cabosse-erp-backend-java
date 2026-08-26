@@ -54,8 +54,10 @@ public class SiteRepository {
         return Optional.ofNullable(sites().find(Filters.eq("_id", id)).first());
     }
 
+    /** Sans casse : « CAC001 » et « cac001 » sont le même code. */
     public boolean codeExists(String code) {
-        return sites().countDocuments(Filters.eq("code", code)) > 0;
+        return sites().countDocuments(Filters.regex("code",
+                "^" + java.util.regex.Pattern.quote(code) + "$", "i")) > 0;
     }
 
     /**

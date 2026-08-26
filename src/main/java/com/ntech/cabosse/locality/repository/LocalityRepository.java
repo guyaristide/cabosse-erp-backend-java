@@ -33,8 +33,10 @@ public class LocalityRepository {
         return Optional.ofNullable(coll().find(Filters.eq("_id", id)).first());
     }
 
+    /** Sans casse : « CAC001 » et « cac001 » sont le même code. */
     public boolean codeExists(String code) {
-        return coll().countDocuments(Filters.eq("code", code)) > 0;
+        return coll().countDocuments(Filters.regex("code",
+                "^" + java.util.regex.Pattern.quote(code) + "$", "i")) > 0;
     }
 
     public void insert(LocalityEntity e) { coll().insertOne(e); }

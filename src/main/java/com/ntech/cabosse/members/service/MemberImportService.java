@@ -10,6 +10,7 @@ import com.ntech.cabosse.members.dto.MemberExternalCodeDto;
 import com.ntech.cabosse.members.dto.MemberHouseholdDto;
 import com.ntech.cabosse.members.dto.MemberIdentityDocumentDto;
 import com.ntech.cabosse.members.dto.MemberImportCommitResponseDto;
+import com.ntech.cabosse.members.dto.MemberLegalIdentityDto;
 import com.ntech.cabosse.members.dto.MemberImportPreviewDto;
 import com.ntech.cabosse.members.dto.MemberImportPreviewDto.FieldIssue;
 import com.ntech.cabosse.members.dto.MemberImportPreviewDto.Normalized;
@@ -239,12 +240,15 @@ public class MemberImportService {
                 ensureIdDocumentType(n.idDocType(), createdDocTypes);
                 ensureIdDocumentType(externalCodeType(n), createdDocTypes, false, true);
 
-                MemberUpsertDto payload = toUpsert(n, sectionId);
                 if (row.matchedMemberId() != null) {
+                    MemberEntity cur = members.findById(row.matchedMemberId()).orElse(null);
+                    MemberUpsertDto payload = cur != null
+                            ? mergedUpsert(cur, n, sectionId)
+                            : toUpsert(n, sectionId);
                     MemberResponseDto dto = memberService.update(row.matchedMemberId(), payload);
                     updated.add(dto.id());
                 } else {
-                    MemberResponseDto dto = memberService.create(payload);
+                    MemberResponseDto dto = memberService.create(toUpsert(n, sectionId));
                     created.add(dto.id());
                 }
             } catch (RuntimeException e) {
@@ -378,6 +382,107 @@ public class MemberImportService {
     private static String externalCodeType(Normalized n) {
         if (n.externalCode() == null) return null;
         return n.externalCodeType() != null ? n.externalCodeType() : "Carte producteur";
+    }
+
+    /**
+     * Ligne UPDATE : fusion, pas remplacement (DEC-12, 26/08/2026). Le
+     * fichier de recensement ne porte ni le mandat de délégué, ni le mobile
+     * money, ni l'agent de suivi, ni les scans de pièces : tout ce qu'il ne
+     * porte pas reste tel quel, et le statut ne se change jamais par import.
+     * Corollaire : un import ne peut pas vider un champ, cela se fait à
+     * l'écran.
+     */
+    private static MemberUpsertDto mergedUpsert(MemberEntity cur, Normalized n, UUID sectionId) {
+        // Pièces : celle du fichier remplace la pièce du même type quand le
+        // numéro change ; sinon l'existante (scan, échéance) est conservée,
+        // ainsi que toutes les pièces de types absents du fichier.
+        List<MemberIdentityDocumentDto> docs = new ArrayList<>();
+        if (cur.identityDocuments != null) {
+            cur.identityDocuments.forEach(d -> docs.add(MemberIdentityDocumentDto.from(d)));
+        }
+        if (n.idDocNumber() != null) {
+            upsertDoc(docs, new MemberIdentityDocumentDto(
+                    n.idDocType() != null ? n.idDocType() : "Pièce d'identité",
+                    n.idDocNumber(), null, null, null));
+        }
+        if (n.nationalIdNumber() != null) {
+            upsertDoc(docs, new MemberIdentityDocumentDto(
+                    "Identifiant national", n.nationalIdNumber(), null, null, null));
+        }
+        if (n.externalCode() != null) {
+            upsertDoc(docs, new MemberIdentityDocumentDto(
+                    externalCodeType(n), n.externalCode(), null, null, null));
+        }
+
+        // Le bloc ménage est une enquête : présent dans le fichier, il fait
+        // foi en bloc ; absent, l'enquête existante reste.
+        boolean householdProvided = n.spousesCount() != null || n.childrenCount() != null
+                || n.girlsCount() != null || n.boysCount() != null
+                || n.children0to4() != null || n.children5to17() != null
+                || n.childrenOver17() != null || n.childrenSchooled() != null
+                || n.childrenNotSchooled() != null || n.childrenActivity() != null;
+        MemberHouseholdDto household = householdProvided
+                ? new MemberHouseholdDto(
+                        n.spousesCount(), n.childrenCount(), n.girlsCount(), n.boysCount(),
+                        n.children0to4(), n.children5to17(), n.childrenOver17(),
+                        n.childrenSchooled(), n.childrenNotSchooled(), n.childrenActivity())
+                : MemberHouseholdDto.from(cur.household);
+
+        MemberEnrolmentDto curEnrolment = MemberEnrolmentDto.from(cur.enrolment);
+        MemberEnrolmentDto enrolment = new MemberEnrolmentDto(
+                n.censusRegistered() != null ? n.censusRegistered() : curEnrolment.censusRegistered(),
+                n.producerCardIssued() != null ? n.producerCardIssued() : curEnrolment.producerCardIssued(),
+                n.dataCollectedAt() != null
+                        ? LocalDate.parse(n.dataCollectedAt()) : curEnrolment.dataCollectedAt(),
+                curEnrolment.dataCollectedByMemberId());
+
+        return new MemberUpsertDto(
+                cur.code, null, n.lastName(), n.firstName(),
+                null,
+                n.gender() != null
+                        ? com.ntech.cabosse.members.entity.MemberGender.valueOf(n.gender())
+                        : cur.gender,
+                n.personType() != null
+                        ? com.ntech.cabosse.members.entity.MemberPersonType.valueOf(n.personType())
+                        : cur.personType,
+                n.maritalStatus() != null
+                        ? com.ntech.cabosse.members.entity.MemberMaritalStatus.valueOf(n.maritalStatus())
+                        : cur.maritalStatus,
+                n.birthPlace() != null ? n.birthPlace() : cur.birthPlace,
+                MemberLegalIdentityDto.from(cur.legalIdentity),
+                n.birthDate() != null ? LocalDate.parse(n.birthDate()) : cur.birthDate,
+                n.birthYear() != null ? n.birthYear() : cur.birthYear,
+                null, null, null, docs,
+                household, enrolment,
+                sectionId != null ? sectionId : cur.sectionId,
+                cur.followUpAgentMemberId,
+                cur.collector, cur.collectorMarginRate,
+                cur.deliveredArticleIds != null ? cur.deliveredArticleIds : List.of(),
+                List.of(),
+                n.village() != null ? n.village() : cur.village,
+                n.phone() != null ? n.phone() : cur.phone,
+                n.email() != null ? n.email() : cur.email,
+                n.joinedAt() != null ? LocalDate.parse(n.joinedAt()) : cur.joinedAt,
+                n.partsSocialesAmount() != null ? n.partsSocialesAmount() : cur.partsSocialesAmount,
+                cur.status,
+                n.paymentMethod() != null ? n.paymentMethod() : cur.preferredPaymentMethod,
+                n.mobileMoneyNumber() != null ? n.mobileMoneyNumber() : cur.mobileMoneyNumber,
+                cur.mobileMoneyHolderName, cur.mobileMoneyMandateOnFile,
+                n.notes() != null ? n.notes() : cur.notes);
+    }
+
+    /** Remplace la pièce du même type, sauf si le numéro est identique. */
+    private static void upsertDoc(List<MemberIdentityDocumentDto> docs,
+                                  MemberIdentityDocumentDto incoming) {
+        String type = incoming.type().trim().toLowerCase(java.util.Locale.ROOT);
+        for (int i = 0; i < docs.size(); i++) {
+            MemberIdentityDocumentDto d = docs.get(i);
+            if (d.type() != null && d.type().trim().toLowerCase(java.util.Locale.ROOT).equals(type)) {
+                if (!incoming.number().equals(d.number())) docs.set(i, incoming);
+                return;
+            }
+        }
+        docs.add(incoming);
     }
 
     private static MemberUpsertDto toUpsert(Normalized n, UUID sectionId) {

@@ -155,6 +155,46 @@ class MemberImportTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void an_import_update_keeps_what_the_census_file_does_not_carry() {
+        UserEntity admin = tenantAdmin();
+
+        // Délégué collecteur enrichi à l'écran : mandat, marge, mobile money.
+        String memberCode = givenAs(admin).contentType("application/json")
+                .body("""
+                        { "lastName": "Doumbia", "firstName": "Seydou",
+                          "gender": "MALE", "status": "ACTIVE",
+                          "collector": true, "collectorMarginRate": 25,
+                          "phone": "0102030405",
+                          "preferredPaymentMethod": "MOBILE_MONEY",
+                          "mobileMoneyNumber": "0708091011",
+                          "notes": "Relais de la section nord" }
+                        """)
+                .when().post("/api/v1/members")
+                .then().statusCode(201)
+                .extract().path("data.code");
+
+        // Recensement corrigé : seul le téléphone change, le fichier ne
+        // porte ni mandat ni mobile money.
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        [ { "rowNumber": 1, "code": "%s",
+                            "lastName": "Doumbia", "firstName": "Seydou",
+                            "phone": "0599887766" } ]
+                        """.formatted(memberCode))
+                .when().post("/api/v1/members/import/commit")
+                .then().statusCode(200)
+                .body("data.updatedCount", equalTo(1));
+
+        givenAs(admin).when().get("/api/v1/members")
+                .then().statusCode(200)
+                .body("data.items[0].phone", equalTo("0599887766"))
+                .body("data.items[0].collector", equalTo(true))
+                .body("data.items[0].collectorMarginRate", equalTo(25))
+                .body("data.items[0].mobileMoneyNumber", equalTo("0708091011"))
+                .body("data.items[0].notes", equalTo("Relais de la section nord"));
+    }
+
+    @Test
     void warning_rows_are_applied_only_when_explicitly_accepted() {
         UserEntity admin = tenantAdmin();
         String body = """
