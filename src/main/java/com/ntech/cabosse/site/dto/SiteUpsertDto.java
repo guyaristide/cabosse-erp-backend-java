@@ -22,8 +22,8 @@ public record SiteUpsertDto(
                         + "| SECTION_WAREHOUSE | CENTRAL_WAREHOUSE")
         String type,
 
-        @Pattern(regexp = "^$|^[a-z0-9-]{2,40}$",
-                message = "Code en minuscules / chiffres / tirets, 2 à 40 caractères")
+        @Pattern(regexp = "^$|^[A-Za-z0-9-]{2,40}$",
+                message = "Code en lettres / chiffres / tirets, 2 à 40 caractères")
         String code,
 
         @NotBlank(message = "Nom requis")
