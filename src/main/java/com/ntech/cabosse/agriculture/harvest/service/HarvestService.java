@@ -12,6 +12,7 @@ import com.ntech.cabosse.members.repository.MemberRepository;
 import com.ntech.cabosse.shared.api.PageRequest;
 import com.ntech.cabosse.shared.api.Pagination;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -78,7 +79,7 @@ public class HarvestService {
 
     public HarvestResponseDto create(HarvestUpsertDto payload) {
         ParcelEntity parcel = parcels.findById(payload.parcelId())
-                .orElseThrow(() -> new NotFoundException("Parcelle " + payload.parcelId() + " introuvable."));
+                .orElseThrow(() -> new NotFoundException(Messages.msg("m.agr-parcel-not-found", payload.parcelId())));
 
         HarvestEntity e = new HarvestEntity();
         e.id = idGenerator.newId();
@@ -95,7 +96,7 @@ public class HarvestService {
     public HarvestResponseDto update(UUID id, HarvestUpsertDto payload) {
         HarvestEntity e = loadOrFail(id);
         ParcelEntity parcel = parcels.findById(payload.parcelId())
-                .orElseThrow(() -> new NotFoundException("Parcelle " + payload.parcelId() + " introuvable."));
+                .orElseThrow(() -> new NotFoundException(Messages.msg("m.agr-parcel-not-found", payload.parcelId())));
         applyPayload(e, payload, parcel);
         e.updatedAt = Instant.now();
         harvests.replace(e);
@@ -104,7 +105,7 @@ public class HarvestService {
 
     private HarvestEntity loadOrFail(UUID id) {
         return harvests.findById(id)
-                .orElseThrow(() -> new NotFoundException("Récolte " + id + " introuvable."));
+                .orElseThrow(() -> new NotFoundException(Messages.msg("m.agr-harvest-not-found", id)));
     }
 
     private void applyPayload(HarvestEntity e, HarvestUpsertDto p, ParcelEntity parcel) {

@@ -17,6 +17,7 @@ import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.ConflictException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -48,13 +49,13 @@ public class RecipeService {
 
     public RecipeResponseDto getById(UUID id) {
         return RecipeResponseDto.from(repo.findById(id).orElseThrow(
-                () -> new NotFoundException("Recette " + id + " introuvable.")));
+                () -> new NotFoundException(Messages.msg("m.rcp-recipe-not-found", id))));
     }
 
     public RecipeResponseDto create(RecipeUpsertDto p) {
         String code = (p.code() != null && !p.code().isBlank()) ? p.code().trim() : slugify(p.name());
         if (repo.codeExists(code)) {
-            throw new ConflictException("Une recette avec le code « " + code + " » existe déjà.");
+            throw new ConflictException(Messages.msg("m.rcp-code-exists", code));
         }
         ArticleEntity fp = resolveFinishedProduct(p.finishedProductId());
         List<RecipeIngredient> lines = resolveIngredients(p.ingredients());
@@ -76,7 +77,7 @@ public class RecipeService {
 
     public RecipeResponseDto update(UUID id, RecipeUpsertDto p) {
         RecipeEntity e = repo.findById(id).orElseThrow(
-                () -> new NotFoundException("Recette " + id + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.rcp-recipe-not-found", id)));
         ArticleEntity fp = resolveFinishedProduct(p.finishedProductId());
         List<RecipeIngredient> lines = resolveIngredients(p.ingredients());
         List<RecipeStep> steps = resolveSteps(p.steps());
@@ -91,7 +92,7 @@ public class RecipeService {
 
     public RecipeResponseDto setActive(UUID id, boolean active) {
         RecipeEntity e = repo.findById(id).orElseThrow(
-                () -> new NotFoundException("Recette " + id + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.rcp-recipe-not-found", id)));
         if (e.active == active) return RecipeResponseDto.from(e);
         repo.updateActive(id, active);
         e.active = active;
@@ -103,12 +104,12 @@ public class RecipeService {
     /** Vérifie que l'article ciblé est un PRODUIT FINI actif. */
     private ArticleEntity resolveFinishedProduct(UUID id) {
         ArticleEntity a = articles.findById(id).orElseThrow(
-                () -> new BusinessException("Produit fini " + id + " introuvable."));
+                () -> new BusinessException(Messages.msg("m.rcp-finished-product-not-found", id)));
         if (!ArticleType.FINISHED_PRODUCT.name().equals(a.type)) {
-            throw new BusinessException("L'article cible doit être un produit fini.");
+            throw new BusinessException(Messages.msg("m.rcp-target-must-be-finished-product"));
         }
         if (!a.active) {
-            throw new BusinessException("Le produit fini est désactivé.");
+            throw new BusinessException(Messages.msg("m.rcp-finished-product-disabled"));
         }
         return a;
     }
@@ -119,18 +120,18 @@ public class RecipeService {
      */
     private List<RecipeIngredient> resolveIngredients(List<RecipeIngredientDto> lines) {
         if (lines == null || lines.isEmpty()) {
-            throw new BusinessException("Au moins un ingrédient requis.");
+            throw new BusinessException(Messages.msg("m.rcp-ingredient-required"));
         }
         Set<UUID> seen = new HashSet<>();
         List<RecipeIngredient> resolved = new ArrayList<>(lines.size());
         for (RecipeIngredientDto in : lines) {
             if (!seen.add(in.articleId())) {
-                throw new BusinessException("Article " + in.articleId() + " référencé plusieurs fois.");
+                throw new BusinessException(Messages.msg("m.rcp-article-duplicated", in.articleId()));
             }
             ArticleEntity a = articles.findById(in.articleId()).orElseThrow(
-                    () -> new BusinessException("Article " + in.articleId() + " introuvable."));
+                    () -> new BusinessException(Messages.msg("m.rcp-article-not-found", in.articleId())));
             if (!a.active) {
-                throw new BusinessException("Article « " + a.name + " » désactivé.");
+                throw new BusinessException(Messages.msg("m.rcp-article-disabled", a.name));
             }
             boolean usable = ArticleType.RAW_MATERIAL.name().equals(a.type)
                     || ArticleType.PACKAGING.name().equals(a.type)
@@ -140,14 +141,11 @@ public class RecipeService {
                 // la consommer en fabrication contredirait le compte d'achat
                 // qui l'a enregistrée. Le passage à la matière première se
                 // fait par une requalification de stock.
-                throw new BusinessException(
-                        "« " + a.name + " » est une marchandise : requalifiez la quantité en matière "
-                                + "première avant de l'utiliser dans une recette.");
+                throw new BusinessException(Messages.msg("m.rcp-merchandise-not-usable", a.name));
             }
             if (!usable) {
                 throw new BusinessException(
-                        "Article « " + a.name + " » n'est pas utilisable dans une recette (type " + a.type + ")."
-                );
+                        Messages.msg("m.rcp-article-type-not-usable", a.name, a.type));
             }
             RecipeIngredient line = new RecipeIngredient();
             line.articleId = a.id;

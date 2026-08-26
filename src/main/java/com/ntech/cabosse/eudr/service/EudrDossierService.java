@@ -10,6 +10,7 @@ import com.ntech.cabosse.eudr.entity.EudrStatus;
 import com.ntech.cabosse.eudr.repository.EudrDossierRepository;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -54,7 +55,7 @@ public class EudrDossierService {
      * capacité {@code HAS_EUDR_COMPLIANCE} est active.
      */
     public EudrDossierEntity bootstrapForParcel(ParcelEntity parcel) {
-        if (parcel == null) throw new BusinessException("Parcelle requise.");
+        if (parcel == null) throw new BusinessException(Messages.msg("m.eud-parcel-required"));
         return dossiers.findByParcel(parcel.id).orElseGet(() -> {
             EudrDossierEntity d = new EudrDossierEntity();
             d.id = idGenerator.newId();
@@ -83,7 +84,7 @@ public class EudrDossierService {
 
     public EudrDossierEntity getByParcel(UUID parcelId) {
         return dossiers.findByParcel(parcelId)
-                .orElseThrow(() -> new NotFoundException("Dossier EUDR introuvable pour parcelle " + parcelId));
+                .orElseThrow(() -> new NotFoundException(Messages.msg("m.eud-dossier-not-found", parcelId)));
     }
 
     // ─── Documents ──────────────────────────────────────────────────
@@ -128,7 +129,7 @@ public class EudrDossierService {
 
     public EudrDossierEntity markNonCompliant(UUID parcelId, String exclusionReason) {
         if (exclusionReason == null || exclusionReason.isBlank()) {
-            throw new BusinessException("Motif d'exclusion requis pour passer en NON_COMPLIANT.");
+            throw new BusinessException(Messages.msg("m.eud-exclusion-reason-required"));
         }
         EudrDossierEntity d = getByParcel(parcelId);
         d.status = EudrStatus.NON_COMPLIANT;
@@ -152,12 +153,10 @@ public class EudrDossierService {
         boolean hasGeo = d.documents.stream().anyMatch(doc ->
                 doc.type == EudrDocumentType.SATELLITE_ANALYSIS || doc.type == EudrDocumentType.GPS_REPORT);
         if (!hasLegal) {
-            throw new BusinessException(
-                    "Pièce légale manquante (titre foncier ou attestation mairie) avant de passer en COMPLIANT.");
+            throw new BusinessException(Messages.msg("m.eud-legal-doc-missing"));
         }
         if (!hasGeo) {
-            throw new BusinessException(
-                    "Pièce géographique manquante (analyse satellite ou rapport GPS) avant de passer en COMPLIANT.");
+            throw new BusinessException(Messages.msg("m.eud-geo-doc-missing"));
         }
     }
 }

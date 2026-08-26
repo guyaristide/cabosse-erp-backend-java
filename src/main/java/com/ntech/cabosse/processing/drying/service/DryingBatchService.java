@@ -11,6 +11,7 @@ import com.ntech.cabosse.shared.api.PageRequest;
 import com.ntech.cabosse.shared.api.Pagination;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -65,7 +66,7 @@ public class DryingBatchService {
     public DryingBatchResponseDto create(DryingBatchUpsertDto payload) {
         List<FermentationBatchEntity> ferms = fermentations.findByIds(payload.fermentationBatchIds());
         if (ferms.size() != payload.fermentationBatchIds().size()) {
-            throw new BusinessException("Certains bacs fermentation référencés sont introuvables.");
+            throw new BusinessException(Messages.msg("m.prc-fermentation-batches-not-found"));
         }
         DryingBatchEntity e = new DryingBatchEntity();
         e.id = idGenerator.newId();
@@ -88,7 +89,7 @@ public class DryingBatchService {
     public DryingBatchResponseDto complete(UUID id, BigDecimal weightOutKg, BigDecimal finalHumidityPct) {
         DryingBatchEntity e = loadOrFail(id);
         if (e.status != DryingBatchStatus.DRYING) {
-            throw new BusinessException("Séchage non actif : clôture impossible.");
+            throw new BusinessException(Messages.msg("m.prc-drying-not-active-complete"));
         }
         e.weightOutKg = weightOutKg;
         e.finalHumidityPct = finalHumidityPct;
@@ -110,7 +111,7 @@ public class DryingBatchService {
     public DryingBatchResponseDto cancel(UUID id, String reason) {
         DryingBatchEntity e = loadOrFail(id);
         if (e.status == DryingBatchStatus.COMPLETED) {
-            throw new BusinessException("Séchage clôturé : annulation impossible.");
+            throw new BusinessException(Messages.msg("m.prc-drying-completed-cancel"));
         }
         e.status = DryingBatchStatus.CANCELLED;
         e.notes = (e.notes != null ? e.notes + "\n" : "") + "Annulé : " + (reason != null ? reason : "");
@@ -121,7 +122,7 @@ public class DryingBatchService {
 
     private DryingBatchEntity loadOrFail(UUID id) {
         return batches.findById(id)
-                .orElseThrow(() -> new NotFoundException("Séchage " + id + " introuvable."));
+                .orElseThrow(() -> new NotFoundException(Messages.msg("m.prc-drying-not-found", id)));
     }
 
     private static String blankToNull(String s) {

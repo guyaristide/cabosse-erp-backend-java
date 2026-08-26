@@ -5,6 +5,7 @@ import com.mongodb.client.model.Filters;
 import com.ntech.cabosse.achats.entity.BcStatus;
 import com.ntech.cabosse.achats.entity.PurchaseOrderEntity;
 import com.ntech.cabosse.shared.exception.ConflictException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.ListCap;
 import com.ntech.cabosse.shared.persistence.TenantMongoDatabaseProvider;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -116,8 +117,7 @@ public class PurchaseOrderRepository {
                 .getMatchedCount();
         if (matched != 1L) {
             e.version = expected;
-            throw new ConflictException(
-                    "Le bon de commande a été modifié par une autre opération entre-temps. Réessayez.");
+            throw new ConflictException(Messages.msg("m.ach-bc-concurrent-update"));
         }
     }
 }

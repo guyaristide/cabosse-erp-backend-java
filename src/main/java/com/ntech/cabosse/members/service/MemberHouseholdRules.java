@@ -2,6 +2,7 @@ package com.ntech.cabosse.members.service;
 
 import com.ntech.cabosse.members.entity.MemberHousehold;
 import com.ntech.cabosse.shared.exception.BusinessException;
+import com.ntech.cabosse.shared.i18n.Messages;
 
 /**
  * Cohérence du bloc ménage (backlog MEM-08).
@@ -23,36 +24,29 @@ public final class MemberHouseholdRules {
 
         if (children != null && h.girlsCount != null && h.boysCount != null
                 && h.girlsCount + h.boysCount != children) {
-            throw new BusinessException(
-                    "Ménage : le nombre de filles et de garçons (" + (h.girlsCount + h.boysCount)
-                            + ") doit égaler le nombre d'enfants (" + children + ").");
+            throw new BusinessException(Messages.msg("m.mbr-household-girls-boys-mismatch",
+                    h.girlsCount + h.boysCount, children));
         }
 
         if (children != null && h.children0to4 != null && h.children5to17 != null
                 && h.childrenOver17 != null
                 && h.children0to4 + h.children5to17 + h.childrenOver17 != children) {
-            throw new BusinessException(
-                    "Ménage : la somme des tranches d'âge ("
-                            + (h.children0to4 + h.children5to17 + h.childrenOver17)
-                            + ") doit égaler le nombre d'enfants (" + children + ").");
+            throw new BusinessException(Messages.msg("m.mbr-household-age-bands-mismatch",
+                    h.children0to4 + h.children5to17 + h.childrenOver17, children));
         }
 
         if (children != null && h.childrenSchooled != null && h.childrenNotSchooled != null
                 && h.childrenSchooled + h.childrenNotSchooled > children) {
-            throw new BusinessException(
-                    "Ménage : enfants scolarisés et non scolarisés ("
-                            + (h.childrenSchooled + h.childrenNotSchooled)
-                            + ") dépassent le nombre d'enfants (" + children + ").");
+            throw new BusinessException(Messages.msg("m.mbr-household-schooling-exceeds",
+                    h.childrenSchooled + h.childrenNotSchooled, children));
         }
 
         if (children != null) {
             if (h.childrenSchooled != null && h.childrenSchooled > children) {
-                throw new BusinessException(
-                        "Ménage : plus d'enfants scolarisés que d'enfants déclarés.");
+                throw new BusinessException(Messages.msg("m.mbr-household-schooled-exceeds"));
             }
             if (h.childrenNotSchooled != null && h.childrenNotSchooled > children) {
-                throw new BusinessException(
-                        "Ménage : plus d'enfants non scolarisés que d'enfants déclarés.");
+                throw new BusinessException(Messages.msg("m.mbr-household-not-schooled-exceeds"));
             }
         }
     }

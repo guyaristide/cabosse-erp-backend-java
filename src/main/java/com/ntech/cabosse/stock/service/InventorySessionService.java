@@ -7,6 +7,7 @@ import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.site.entity.SiteEntity;
@@ -77,20 +78,18 @@ public class InventorySessionService {
 
     /** Ouvre une session : fige théorique + CMUP de tous les articles suivis du site. */
     public InventorySessionEntity open(UUID siteId, String reason) {
-        if (siteId == null) throw new BusinessException("Site requis.");
+        if (siteId == null) throw new BusinessException(Messages.msg("m.stk-site-required"));
         if (reason == null || reason.isBlank()) {
-            throw new BusinessException("Motif d'inventaire requis.");
+            throw new BusinessException(Messages.msg("m.stk-inventory-reason-required"));
         }
         SiteEntity site = sites.findById(siteId)
-                .orElseThrow(() -> new NotFoundException("Site " + siteId + " introuvable."));
+                .orElseThrow(() -> new NotFoundException(Messages.msg("m.stk-site-not-found", siteId)));
         if (sessions.hasOpenSession(siteId)) {
-            throw new BusinessException(
-                    "Une session d'inventaire est déjà en cours sur ce site. "
-                            + "Validez-la ou annulez-la avant d'en ouvrir une nouvelle.");
+            throw new BusinessException(Messages.msg("m.stk-inventory-session-already-open"));
         }
         List<StockItemEntity> items = stockItems.listAllBySite(siteId);
         if (items.isEmpty()) {
-            throw new BusinessException("Aucun article suivi en stock sur ce site.");
+            throw new BusinessException(Messages.msg("m.stk-no-tracked-articles-on-site"));
         }
 
         InventorySessionEntity e = new InventorySessionEntity();
@@ -130,13 +129,13 @@ public class InventorySessionService {
                                                Map<UUID, String> notesByArticle) {
         InventorySessionEntity e = loadOrFail(id);
         requireStatus(e, InventorySessionEntity.STATUS_OPEN,
-                "La saisie n'est possible que sur une session ouverte.");
+                "m.stk-counts-only-open-session");
         for (InventorySessionEntity.Line line : e.lines) {
             if (countedByArticle.containsKey(line.articleId)) {
                 BigDecimal counted = countedByArticle.get(line.articleId);
                 if (counted != null && counted.signum() < 0) {
                     throw new BusinessException(
-                            "Quantité comptée négative interdite (" + line.articleName + ").");
+                            Messages.msg("m.stk-negative-counted-qty", line.articleName));
                 }
                 line.countedQty = counted;
             }
@@ -152,10 +151,10 @@ public class InventorySessionService {
     public InventorySessionEntity submit(UUID id) {
         InventorySessionEntity e = loadOrFail(id);
         requireStatus(e, InventorySessionEntity.STATUS_OPEN,
-                "Seule une session ouverte peut être soumise.");
+                "m.stk-submit-only-open-session");
         boolean anyCounted = e.lines.stream().anyMatch(l -> l.countedQty != null);
         if (!anyCounted) {
-            throw new BusinessException("Aucune quantité comptée : rien à soumettre.");
+            throw new BusinessException(Messages.msg("m.stk-nothing-counted"));
         }
         e.status = InventorySessionEntity.STATUS_SUBMITTED;
         e.submittedAt = Instant.now();
@@ -214,11 +213,11 @@ public class InventorySessionService {
     public InventorySessionEntity validate(UUID id) {
         InventorySessionEntity e = loadOrFail(id);
         requireStatus(e, InventorySessionEntity.STATUS_SUBMITTED,
-                "Seule une session soumise peut être validée.");
+                "m.stk-validate-only-submitted-session");
         // Verrou atomique SUBMITTED vers VALIDATED : le perdant d'une double
         // validation s'arrête ici, avant tout ajustement de stock.
         if (!sessions.tryMarkValidated(e.id)) {
-            throw new BusinessException("Seule une session soumise peut être validée (déjà validée).");
+            throw new BusinessException(Messages.msg("m.stk-session-already-validated"));
         }
         e.status = InventorySessionEntity.STATUS_VALIDATED;
 
@@ -267,7 +266,7 @@ public class InventorySessionService {
     public InventorySessionEntity cancel(UUID id) {
         InventorySessionEntity e = loadOrFail(id);
         if (InventorySessionEntity.STATUS_VALIDATED.equals(e.status)) {
-            throw new BusinessException("Une session validée ne peut plus être annulée.");
+            throw new BusinessException(Messages.msg("m.stk-validated-session-not-cancellable"));
         }
         if (InventorySessionEntity.STATUS_CANCELLED.equals(e.status)) return e;
         e.status = InventorySessionEntity.STATUS_CANCELLED;
@@ -281,12 +280,12 @@ public class InventorySessionService {
 
     private InventorySessionEntity loadOrFail(UUID id) {
         return sessions.findById(id)
-                .orElseThrow(() -> new NotFoundException("Session d'inventaire " + id + " introuvable."));
+                .orElseThrow(() -> new NotFoundException(Messages.msg("m.stk-inventory-session-not-found", id)));
     }
 
-    private static void requireStatus(InventorySessionEntity e, String expected, String message) {
+    private static void requireStatus(InventorySessionEntity e, String expected, String messageKey) {
         if (!expected.equals(e.status)) {
-            throw new BusinessException(message + " (statut actuel : " + e.status + ").");
+            throw new BusinessException(Messages.msg(messageKey, e.status));
         }
     }
 

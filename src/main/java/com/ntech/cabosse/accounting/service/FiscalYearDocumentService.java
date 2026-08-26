@@ -4,6 +4,7 @@ import com.ntech.cabosse.accounting.entity.FiscalYearEntity;
 import com.ntech.cabosse.accounting.repository.FiscalYearRepository;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.storage.CloudFileEntity;
 import com.ntech.cabosse.shared.storage.CloudFileScope;
@@ -38,7 +39,7 @@ public class FiscalYearDocumentService {
     public FiscalYearEntity attach(UUID yearId, String label, byte[] bytes,
                                    String mimeType, String originalName) {
         if (label == null || label.isBlank()) {
-            throw new BusinessException("Libellé de la pièce requis (ex. « PV d'assemblée générale »).");
+            throw new BusinessException(Messages.msg("m.acc-fy-doc-label-required"));
         }
         FiscalYearEntity e = loadOrFail(yearId);
         CloudFileEntity file = uploads.upload(
@@ -72,8 +73,7 @@ public class FiscalYearDocumentService {
     public FiscalYearEntity detach(UUID yearId, UUID documentId) {
         FiscalYearEntity e = loadOrFail(yearId);
         if (FiscalYearEntity.STATUS_CLOTURE.equals(e.status)) {
-            throw new BusinessException(
-                    "Les pièces d'un exercice clôturé sont conservées, aucun retrait possible.");
+            throw new BusinessException(Messages.msg("m.acc-fy-doc-locked"));
         }
         FiscalYearEntity.Document doc = findDoc(e, documentId);
         uploads.archive(SCOPE, doc.cloudFileId);
@@ -87,15 +87,15 @@ public class FiscalYearDocumentService {
                                  long sizeBytes, String fileName) {}
 
     private static FiscalYearEntity.Document findDoc(FiscalYearEntity e, UUID documentId) {
-        if (e.documents == null) throw new NotFoundException("Pièce introuvable.");
+        if (e.documents == null) throw new NotFoundException(Messages.msg("m.acc-document-not-found"));
         return e.documents.stream()
                 .filter(d -> documentId.equals(d.id))
                 .findFirst()
-                .orElseThrow(() -> new NotFoundException("Pièce introuvable."));
+                .orElseThrow(() -> new NotFoundException(Messages.msg("m.acc-document-not-found")));
     }
 
     private FiscalYearEntity loadOrFail(UUID id) {
         return years.findById(id)
-                .orElseThrow(() -> new NotFoundException("Exercice " + id + " introuvable."));
+                .orElseThrow(() -> new NotFoundException(Messages.msg("m.acc-fiscal-year-not-found", id)));
     }
 }

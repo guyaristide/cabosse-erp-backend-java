@@ -13,6 +13,7 @@ import com.ntech.cabosse.shared.api.PageRequest;
 import com.ntech.cabosse.shared.api.Pagination;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -74,7 +75,7 @@ public class FermentationBatchService {
     public FermentationBatchResponseDto create(FermentationBatchUpsertDto payload) {
         List<HarvestEntity> hList = harvests.findByIds(payload.harvestIds());
         if (hList.size() != payload.harvestIds().size()) {
-            throw new BusinessException("Certaines récoltes référencées sont introuvables.");
+            throw new BusinessException(Messages.msg("m.prc-harvests-not-found"));
         }
         FermentationBatchEntity e = new FermentationBatchEntity();
         e.id = idGenerator.newId();
@@ -95,7 +96,7 @@ public class FermentationBatchService {
     public FermentationBatchResponseDto start(UUID id) {
         FermentationBatchEntity e = loadOrFail(id);
         if (e.status != FermentationBatchStatus.PREPARING) {
-            throw new BusinessException("Démarrage refusé : statut actuel " + e.status);
+            throw new BusinessException(Messages.msg("m.prc-start-refused", e.status));
         }
         e.status = FermentationBatchStatus.ACTIVE;
         e.startedAt = Instant.now();
@@ -107,7 +108,7 @@ public class FermentationBatchService {
     public FermentationBatchResponseDto recordTemperature(UUID id, BigDecimal celsius, String observation) {
         FermentationBatchEntity e = loadOrFail(id);
         if (e.status != FermentationBatchStatus.ACTIVE) {
-            throw new BusinessException("Bac non actif : saisie température impossible.");
+            throw new BusinessException(Messages.msg("m.prc-batch-not-active-temperature"));
         }
         TemperatureReading r = new TemperatureReading();
         r.at = Instant.now();
@@ -117,7 +118,7 @@ public class FermentationBatchService {
         // $push atomique conditionné ACTIVE : deux relevés simultanés de
         // deux opérateurs terrain ne s'écrasent plus.
         if (!batches.pushIfActive(e.id, "temperatureReadings", r, r.at)) {
-            throw new BusinessException("Bac non actif : saisie température impossible.");
+            throw new BusinessException(Messages.msg("m.prc-batch-not-active-temperature"));
         }
         return FermentationBatchResponseDto.from(loadOrFail(id));
     }
@@ -125,14 +126,14 @@ public class FermentationBatchService {
     public FermentationBatchResponseDto recordTurning(UUID id, String operator, String notes) {
         FermentationBatchEntity e = loadOrFail(id);
         if (e.status != FermentationBatchStatus.ACTIVE) {
-            throw new BusinessException("Bac non actif : brassage impossible.");
+            throw new BusinessException(Messages.msg("m.prc-batch-not-active-turning"));
         }
         Turning t = new Turning();
         t.at = Instant.now();
         t.operator = blankToNull(operator);
         t.notes = blankToNull(notes);
         if (!batches.pushIfActive(e.id, "turnings", t, t.at)) {
-            throw new BusinessException("Bac non actif : brassage impossible.");
+            throw new BusinessException(Messages.msg("m.prc-batch-not-active-turning"));
         }
         return FermentationBatchResponseDto.from(loadOrFail(id));
     }
@@ -140,7 +141,7 @@ public class FermentationBatchService {
     public FermentationBatchResponseDto complete(UUID id, BigDecimal weightOutKg, String finalGradeEstimate) {
         FermentationBatchEntity e = loadOrFail(id);
         if (e.status != FermentationBatchStatus.ACTIVE) {
-            throw new BusinessException("Bac non actif : clôture impossible.");
+            throw new BusinessException(Messages.msg("m.prc-batch-not-active-complete"));
         }
         e.weightOutKg = weightOutKg;
         e.finalGradeEstimate = blankToNull(finalGradeEstimate);
@@ -154,7 +155,7 @@ public class FermentationBatchService {
     public FermentationBatchResponseDto cancel(UUID id, String reason) {
         FermentationBatchEntity e = loadOrFail(id);
         if (e.status == FermentationBatchStatus.COMPLETED) {
-            throw new BusinessException("Bac déjà clôturé : annulation impossible.");
+            throw new BusinessException(Messages.msg("m.prc-batch-completed-cancel"));
         }
         e.status = FermentationBatchStatus.CANCELLED;
         e.notes = (e.notes != null ? e.notes + "\n" : "") + "Annulé : " + (reason != null ? reason : "");
@@ -165,7 +166,7 @@ public class FermentationBatchService {
 
     private FermentationBatchEntity loadOrFail(UUID id) {
         return batches.findById(id)
-                .orElseThrow(() -> new NotFoundException("Bac " + id + " introuvable."));
+                .orElseThrow(() -> new NotFoundException(Messages.msg("m.prc-batch-not-found", id)));
     }
 
     private static String blankToNull(String s) {

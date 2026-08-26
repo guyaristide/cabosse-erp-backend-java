@@ -23,6 +23,7 @@ import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.stock.dto.MovementInput;
 import com.ntech.cabosse.stock.entity.MovementKind;
@@ -239,12 +240,10 @@ public class DirectReceiptService {
     public DirectReceiptResponseDto update(UUID id, DirectReceiptUpsertDto payload) {
         DirectReceiptEntity e = loadOrFail(id);
         if (hasAnyPayment(e)) {
-            throw new BusinessException(
-                    "Édition refusée : la réception contient déjà des paiements. "
-                            + "Contre-passez-la et re-saisissez si nécessaire.");
+            throw new BusinessException(Messages.msg("m.rcv-edit-has-payments"));
         }
         if (e.status == DirectReceiptStatus.CANCELLED) {
-            throw new BusinessException("Réception annulée : édition impossible.");
+            throw new BusinessException(Messages.msg("m.rcv-cancelled-no-edit"));
         }
         ArticleEntity article = loadArticle(payload.articleId());
         e.articleId = article.id;
@@ -269,7 +268,7 @@ public class DirectReceiptService {
                                                   DirectReceiptPaymentDto payload) {
         DirectReceiptEntity e = loadOrFail(id);
         if (e.status == DirectReceiptStatus.CANCELLED) {
-            throw new BusinessException("Réception annulée : paiement impossible.");
+            throw new BusinessException(Messages.msg("m.rcv-cancelled-no-payment"));
         }
         DirectReceiptLine line = findLine(e, lineId);
         DirectReceiptPayment payment = new DirectReceiptPayment();
@@ -298,11 +297,11 @@ public class DirectReceiptService {
     public DirectReceiptResponseDto removePayment(UUID id, UUID lineId) {
         DirectReceiptEntity e = loadOrFail(id);
         if (e.status == DirectReceiptStatus.CANCELLED) {
-            throw new BusinessException("Réception annulée : retrait impossible.");
+            throw new BusinessException(Messages.msg("m.rcv-cancelled-no-removal"));
         }
         DirectReceiptLine line = findLine(e, lineId);
         if (line.payment == null) {
-            throw new BusinessException("Cette ligne n'a pas de paiement enregistré.");
+            throw new BusinessException(Messages.msg("m.rcv-line-no-payment"));
         }
         line.payment = null;
         recomputeStatus(e);
@@ -323,7 +322,7 @@ public class DirectReceiptService {
     public DirectReceiptResponseDto cancel(UUID id, String reason) {
         DirectReceiptEntity e = loadOrFail(id);
         if (e.status == DirectReceiptStatus.CANCELLED) {
-            throw new BusinessException("Réception déjà annulée.");
+            throw new BusinessException(Messages.msg("m.rcv-already-cancelled"));
         }
         DirectReceiptCancellation c = new DirectReceiptCancellation();
         c.reason = reason == null ? "" : reason.trim();
@@ -378,24 +377,24 @@ public class DirectReceiptService {
 
     private DirectReceiptEntity loadOrFail(UUID id) {
         return receipts.findById(id).orElseThrow(
-                () -> new NotFoundException("Réception " + id + " introuvable.")
+                () -> new NotFoundException(Messages.msg("m.rcv-receipt-not-found", id))
         );
     }
 
     private ArticleEntity loadArticle(UUID articleId) {
         ArticleEntity a = articles.findById(articleId).orElseThrow(
-                () -> new NotFoundException("Article " + articleId + " introuvable.")
+                () -> new NotFoundException(Messages.msg("m.rcv-article-not-found", articleId))
         );
-        if (!a.active) throw new BusinessException("Article « " + a.name + " » désactivé.");
-        if (!a.stockable) throw new BusinessException("Article « " + a.name + " » non stockable.");
+        if (!a.active) throw new BusinessException(Messages.msg("m.rcv-article-disabled", a.name));
+        if (!a.stockable) throw new BusinessException(Messages.msg("m.rcv-article-not-stockable", a.name));
         return a;
     }
 
     private SupplierEntity loadSupplier(UUID supplierId) {
         SupplierEntity s = suppliers.findById(supplierId).orElseThrow(
-                () -> new NotFoundException("Fournisseur " + supplierId + " introuvable.")
+                () -> new NotFoundException(Messages.msg("m.rcv-supplier-not-found", supplierId))
         );
-        if (!s.active) throw new BusinessException("Fournisseur « " + s.name + " » désactivé.");
+        if (!s.active) throw new BusinessException(Messages.msg("m.rcv-supplier-disabled", s.name));
         return s;
     }
 
@@ -436,7 +435,7 @@ public class DirectReceiptService {
             }
         }
         if (lines.isEmpty()) {
-            throw new BusinessException("Au moins une ligne de réception requise.");
+            throw new BusinessException(Messages.msg("m.rcv-line-required"));
         }
         e.lines = lines;
         e.subtotalHtFcfa = subtotal;
@@ -474,7 +473,7 @@ public class DirectReceiptService {
                 .filter(l -> lineId.equals(l.id))
                 .findFirst()
                 .orElseThrow(() -> new NotFoundException(
-                        "Ligne " + lineId + " introuvable dans la réception " + e.ref + "."));
+                        Messages.msg("m.rcv-line-not-found", lineId, e.ref)));
     }
 
     private void record(DirectReceiptEntity e, AuditEventType event, String label) {

@@ -20,6 +20,7 @@ import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.stock.dto.MovementInput;
 import com.ntech.cabosse.stock.entity.MovementKind;
@@ -169,7 +170,7 @@ public class PurchaseOrderService {
     public PurchaseOrderResponseDto update(UUID id, PurchaseOrderUpsertDto payload) {
         PurchaseOrderEntity e = loadOrFail(id);
         if (e.status != BcStatus.DRAFT) {
-            throw new BusinessException("Seul un BC en brouillon peut être édité.");
+            throw new BusinessException(Messages.msg("m.ach-bc-edit-draft-only"));
         }
         SupplierEntity supplier = loadSupplier(payload.supplierId());
         e.supplierId = supplier.id;
@@ -194,9 +195,7 @@ public class PurchaseOrderService {
                     ? e.totalTtcFcfa : java.math.BigDecimal.ZERO;
             if (total.compareTo(prefs.purchaseRequestThresholdFcfa()) >= 0
                     && e.purchaseRequestId == null) {
-                throw new BusinessException(
-                        "Ce bon de commande dépasse le seuil de contrôle interne : "
-                                + "il doit être issu d'une demande d'achat approuvée.");
+                throw new BusinessException(Messages.msg("m.ach-bc-over-threshold"));
             }
         }
         return transition(id, BcStatus.DRAFT, BcStatus.CONFIRMED,
@@ -221,7 +220,7 @@ public class PurchaseOrderService {
         PurchaseOrderEntity e = loadOrFail(id);
         if (e.status != BcStatus.CONFIRMED && e.status != BcStatus.IN_TRANSIT) {
             throw new BusinessException(
-                    "Livraison possible uniquement depuis CONFIRMED ou IN_TRANSIT (actuel : " + e.status + ").");
+                    Messages.msg("m.ach-bc-deliver-invalid-status", e.status));
         }
         e.status = BcStatus.DELIVERED;
         e.updatedAt = Instant.now();
@@ -319,11 +318,10 @@ public class PurchaseOrderService {
     public PurchaseOrderResponseDto cancel(UUID id, String reason) {
         PurchaseOrderEntity e = loadOrFail(id);
         if (e.status == BcStatus.DRAFT) {
-            throw new BusinessException(
-                    "Un brouillon n'est pas contre-passable : supprimez-le ou éditez-le.");
+            throw new BusinessException(Messages.msg("m.ach-bc-draft-not-reversible"));
         }
         if (e.status == BcStatus.CANCELLED) {
-            throw new BusinessException("BC déjà annulé.");
+            throw new BusinessException(Messages.msg("m.ach-bc-already-cancelled"));
         }
         BcStatus previous = e.status;
         PurchaseOrderCancellation c = new PurchaseOrderCancellation();
@@ -375,7 +373,7 @@ public class PurchaseOrderService {
         PurchaseOrderEntity e = loadOrFail(id);
         if (e.status != from) {
             throw new BusinessException(
-                    "Transition refusée : statut actuel " + e.status + ", attendu " + from + ".");
+                    Messages.msg("m.ach-bc-transition-refused", e.status, from));
         }
         e.status = to;
         e.updatedAt = Instant.now();
@@ -386,16 +384,16 @@ public class PurchaseOrderService {
 
     private PurchaseOrderEntity loadOrFail(UUID id) {
         return orders.findById(id).orElseThrow(
-                () -> new NotFoundException("BC " + id + " introuvable.")
+                () -> new NotFoundException(Messages.msg("m.ach-bc-not-found", id))
         );
     }
 
     private SupplierEntity loadSupplier(UUID supplierId) {
         SupplierEntity s = suppliers.findById(supplierId).orElseThrow(
-                () -> new NotFoundException("Fournisseur " + supplierId + " introuvable.")
+                () -> new NotFoundException(Messages.msg("m.sup-not-found", supplierId))
         );
         if (!s.active) {
-            throw new BusinessException("Fournisseur « " + s.name + " » désactivé.");
+            throw new BusinessException(Messages.msg("m.ach-supplier-disabled", s.name));
         }
         return s;
     }
@@ -429,7 +427,7 @@ public class PurchaseOrderService {
             for (PurchaseOrderLineDto in : p.lines()) {
                 if (in == null || in.articleId() == null) continue;
                 ArticleEntity art = articles.findById(in.articleId()).orElseThrow(
-                        () -> new NotFoundException("Article " + in.articleId() + " introuvable.")
+                        () -> new NotFoundException(Messages.msg("m.ach-article-not-found", in.articleId()))
                 );
                 PurchaseOrderLine line = new PurchaseOrderLine();
                 line.id = UuidCreator.getTimeOrderedEpoch();

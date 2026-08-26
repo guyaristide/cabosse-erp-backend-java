@@ -29,6 +29,7 @@ import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.ConflictException;
 import com.ntech.cabosse.shared.exception.ErrorCode;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.stock.dto.MovementInput;
@@ -109,7 +110,7 @@ public class ProducerPurchaseService {
         TenantPreferences prefs = preferences.current();
 
         MemberEntity m = members.findById(p.memberId()).orElseThrow(
-                () -> new NotFoundException("Producteur " + p.memberId() + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.ppu-producer-not-found", p.memberId())));
         ensureProducerFileUsable(prefs, m, p.date());
         if (prefs.requireProducerPaymentVigilance()) {
             MemberPaymentVigilance.check(m, p.paymentMethod() != null ? p.paymentMethod().name() : null,
@@ -117,9 +118,9 @@ public class ProducerPurchaseService {
         }
 
         ArticleEntity article = articles.findById(p.articleId()).orElseThrow(
-                () -> new NotFoundException("Article " + p.articleId() + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.ach-article-not-found", p.articleId())));
         if (!article.purchasable) {
-            throw new BusinessException("L'article « " + article.name + " » n'est pas marqué achetable.");
+            throw new BusinessException(Messages.msg("m.ppu-article-not-purchasable", article.name));
         }
 
         // Un reçu officiel ne couvre qu'une opération : un numéro réutilisé
@@ -130,8 +131,7 @@ public class ProducerPurchaseService {
         if (officialReceipt != null) {
             repo.findByOfficialReceipt(officialReceipt).ifPresent(existing -> {
                 throw new ConflictException(ErrorCode.DUPLICATE_RECEIPT,
-                        "Le reçu officiel « " + officialReceipt
-                        + " » est déjà enregistré sur la livraison " + existing.ref + ".");
+                        Messages.msg("m.ppu-receipt-duplicate", officialReceipt, existing.ref));
             });
         }
 
@@ -143,7 +143,7 @@ public class ProducerPurchaseService {
 
         UUID siteId = p.siteId();
         if (siteId == null) {
-            throw new BusinessException("Site d'entrée en stock requis.");
+            throw new BusinessException(Messages.msg("m.ppu-stock-site-required"));
         }
 
         // Délégué rattaché : son compte courant porte le reçu. Aucun
@@ -153,10 +153,9 @@ public class ProducerPurchaseService {
         SupplierEntity delegate = null;
         if (p.delegateSupplierId() != null) {
             delegate = suppliers.findById(p.delegateSupplierId()).orElseThrow(
-                    () -> new NotFoundException("Délégué " + p.delegateSupplierId() + " introuvable."));
+                    () -> new NotFoundException(Messages.msg("m.ppu-delegate-not-found", p.delegateSupplierId())));
             if (!delegate.collector) {
-                throw new BusinessException(
-                        "« " + delegate.name + " » n'est pas un délégué collecteur.");
+                throw new BusinessException(Messages.msg("m.ppu-not-collector", delegate.name));
             }
         }
         // L'apporteur est le délégué quand il y en a un, sinon le
@@ -185,8 +184,8 @@ public class ProducerPurchaseService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         if (creditImputed.compareTo(amount) > 0) {
             throw new BusinessException(ErrorCode.CREDIT_INSUFFICIENT,
-                    "Les retenues (" + creditImputed
-                    + ") dépassent le montant dû au producteur (" + amount + ").");
+                    Messages.msg("m.ppu-credit-exceeds-amount",
+                            String.valueOf(creditImputed), String.valueOf(amount)));
         }
         BigDecimal payable = amount.subtract(creditImputed);
         BigDecimal paid = resolvePaid(prefs, p, payable);
@@ -258,8 +257,7 @@ public class ProducerPurchaseService {
                 throw dup;
             }
             throw new ConflictException(ErrorCode.DUPLICATE_RECEIPT,
-                    "Le reçu officiel « " + officialReceipt
-                            + " » vient d'être enregistré par une autre saisie.");
+                    Messages.msg("m.ppu-receipt-duplicate-race", officialReceipt));
         }
 
         // 1) Imputation du compte courant du délégué. Le reçu et sa
@@ -384,14 +382,14 @@ public class ProducerPurchaseService {
         BigDecimal weight;
         if (TenantPreferences.PRODUCER_WEIGHT_FROM_BAGS.equals(prefs.producerWeightMode())) {
             if (p.nbSacs() == null || prefs.producerStandardBagKg == null) {
-                throw new BusinessException("Mode « poids dérivé des sacs » : nombre de sacs et poids standard requis.");
+                throw new BusinessException(Messages.msg("m.ppu-weight-from-bags-required"));
             }
             weight = prefs.producerStandardBagKg.multiply(BigDecimal.valueOf(p.nbSacs()));
         } else {
             weight = p.weightKg();
         }
         if (weight == null || weight.signum() <= 0) {
-            throw new BusinessException("Poids (kg) requis et strictement positif.");
+            throw new BusinessException(Messages.msg("m.ppu-weight-required"));
         }
         return weight;
     }
@@ -406,7 +404,7 @@ public class ProducerPurchaseService {
                     : (campaign != null ? campaign.basePricePerKgFcfa : null);
         }
         if (price == null || price.signum() < 0) {
-            throw new BusinessException("Prix garanti (FCFA/kg) requis.");
+            throw new BusinessException(Messages.msg("m.ppu-price-required"));
         }
         return price;
     }
@@ -420,7 +418,7 @@ public class ProducerPurchaseService {
             amount = weight.multiply(price);
         }
         if (amount == null || amount.signum() <= 0) {
-            throw new BusinessException("Montant total payé requis et strictement positif.");
+            throw new BusinessException(Messages.msg("m.ppu-amount-required"));
         }
         return amount;
     }
@@ -447,13 +445,12 @@ public class ProducerPurchaseService {
                 operationDate != null ? operationDate : java.time.LocalDate.now());
         if (status.expired()) {
             throw new BusinessException(ErrorCode.PRODUCER_FILE_INCOMPLETE,
-                    "Dossier du producteur « " + m.name + " » périmé depuis le "
-                    + status.expiresAt() + " : mettre à jour l'enquête avant d'enregistrer un achat.");
+                    Messages.msg("m.ppu-producer-file-expired", m.name, status.expiresAt()));
         }
         if (!status.missingFields().isEmpty()) {
             throw new BusinessException(ErrorCode.PRODUCER_FILE_INCOMPLETE,
-                    "Dossier du producteur « " + m.name + " » incomplet ("
-                    + String.join(", ", status.missingFields()) + ").");
+                    Messages.msg("m.ppu-producer-file-incomplete", m.name,
+                            String.join(", ", status.missingFields())));
         }
     }
 
@@ -518,11 +515,11 @@ public class ProducerPurchaseService {
         if (!prefs.producerPartialPaymentEnabled() || p.amountPaidFcfa() == null) return payable;
         BigDecimal paid = p.amountPaidFcfa();
         if (paid.signum() < 0) {
-            throw new BusinessException("Montant payé négatif.");
+            throw new BusinessException(Messages.msg("m.ppu-paid-negative"));
         }
         if (paid.compareTo(payable) > 0) {
-            throw new BusinessException("Montant payé (" + paid
-                    + ") supérieur au solde dû après retenues (" + payable + ").");
+            throw new BusinessException(Messages.msg("m.ppu-paid-exceeds-payable",
+                    String.valueOf(paid), String.valueOf(payable)));
         }
         return paid;
     }
@@ -533,7 +530,7 @@ public class ProducerPurchaseService {
 
     private ProducerPurchaseEntity loadOrFail(UUID id) {
         return repo.findById(id).orElseThrow(
-                () -> new NotFoundException("Reçu d'achat " + id + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.ppu-receipt-not-found", id)));
     }
 
     private String actor() { try { return jwt.getName(); } catch (Exception e) { return null; } }

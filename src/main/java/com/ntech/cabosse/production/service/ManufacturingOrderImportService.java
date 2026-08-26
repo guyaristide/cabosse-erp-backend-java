@@ -11,6 +11,7 @@ import com.ntech.cabosse.production.dto.ManufacturingOrderImportResultDto;
 import com.ntech.cabosse.production.dto.ManufacturingOrderImportResultDto.CreatedArticleRef;
 import com.ntech.cabosse.production.dto.ProductionOrderResponseDto;
 import com.ntech.cabosse.shared.exception.BusinessException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
@@ -55,8 +56,7 @@ public class ManufacturingOrderImportService {
             UUID articleId = c.articleId();
             if (articleId == null) {
                 if (c.newArticle() == null) {
-                    throw new BusinessException(
-                            "Ligne " + (i + 1) + " : ni article existant ni nouveau article fourni.");
+                    throw new BusinessException(Messages.msg("m.prd-import-line-no-article", i + 1));
                 }
                 ResolvedConsumable resolved = resolveConsumable(c.newArticle(), strict);
                 if (resolved.created()) {
@@ -100,12 +100,12 @@ public class ManufacturingOrderImportService {
             ManufacturingOrderImportDto.ImportedFinishedProduct fp, boolean strict) {
         if (fp.id() != null) {
             ArticleEntity existing = articleRepository.findById(fp.id()).orElseThrow(
-                    () -> new BusinessException("Produit fini " + fp.id() + " introuvable.")
+                    () -> new BusinessException(Messages.msg("m.prd-finished-product-not-found", fp.id()))
             );
             return new ResolvedFinishedProduct(existing.id, existing.name, false);
         }
         if (fp.name() == null || fp.name().isBlank()) {
-            throw new BusinessException("Nom du produit fini requis.");
+            throw new BusinessException(Messages.msg("m.prd-finished-product-name-required"));
         }
         var existing = articleRepository.findByName(fp.name(), ArticleType.FINISHED_PRODUCT);
         if (existing.isPresent()) {
@@ -114,8 +114,7 @@ public class ManufacturingOrderImportService {
         }
         if (strict) {
             throw new BusinessException(
-                    "Mode strict : produit fini « " + fp.name().trim()
-                    + " » introuvable. Créer le référentiel avant d'importer.");
+                    Messages.msg("m.prd-strict-finished-product-not-found", fp.name().trim()));
         }
         ArticleUpsertDto create = new ArticleUpsertDto(
                 ArticleType.FINISHED_PRODUCT.name(),
@@ -153,7 +152,7 @@ public class ManufacturingOrderImportService {
         try {
             type = ArticleType.valueOf(a.type());
         } catch (IllegalArgumentException ex) {
-            throw new BusinessException("Type d'article invalide : " + a.type());
+            throw new BusinessException(Messages.msg("m.prd-invalid-article-type", a.type()));
         }
         var existing = articleRepository.findByName(a.name(), type);
         if (existing.isPresent()) {
@@ -162,8 +161,7 @@ public class ManufacturingOrderImportService {
         }
         if (strict) {
             throw new BusinessException(
-                    "Mode strict : article « " + a.name().trim() + " » (" + a.type()
-                    + ") introuvable. Créer le référentiel avant d'importer.");
+                    Messages.msg("m.prd-strict-article-not-found", a.name().trim(), a.type()));
         }
         ArticleUpsertDto create = new ArticleUpsertDto(
                 a.type(),

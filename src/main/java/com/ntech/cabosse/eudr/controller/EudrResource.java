@@ -18,6 +18,7 @@ import com.ntech.cabosse.shared.api.ApiResponse;
 import com.ntech.cabosse.shared.api.PageRequest;
 import com.ntech.cabosse.shared.api.Pagination;
 import com.ntech.cabosse.shared.exception.BusinessException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.security.Roles;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.tenant.capability.TenantCapability;
@@ -64,9 +65,7 @@ public class EudrResource {
 
     private void ensureCapability() {
         if (!capabilities.has(tenantContext.tenantId(), TenantCapability.HAS_EUDR_COMPLIANCE)) {
-            throw new BusinessException(
-                    "Module EUDR non activé pour ce tenant. "
-                            + "Réservé aux filières soumises au règlement UE 2023/1115 (cacao, café, hévéa, palmier…).");
+            throw new BusinessException(Messages.msg("m.eud-module-disabled"));
         }
     }
 
@@ -232,7 +231,7 @@ public class EudrResource {
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response generateDdr(@QueryParam("saleId") UUID saleId) {
         ensureCapability();
-        if (saleId == null) throw new BusinessException("saleId requis.");
+        if (saleId == null) throw new BusinessException(Messages.msg("m.eud-sale-id-required"));
         var ddr = ddrService.generateForSale(saleId);
         return Response.status(Response.Status.CREATED)
                 .entity(ApiResponse.created(DueDiligenceResponseDto.from(ddr)))

@@ -21,6 +21,7 @@ import com.ntech.cabosse.shared.export.ExportFormat;
 import com.ntech.cabosse.shared.export.ExportResponses;
 import com.ntech.cabosse.shared.api.PageRequest;
 import com.ntech.cabosse.shared.exception.BusinessException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.security.Roles;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.tenant.capability.TenantCapability;
@@ -75,9 +76,7 @@ public class MemberResource {
      */
     private void ensureCapability() {
         if (!capabilities.has(tenantContext.tenantId(), TenantCapability.HAS_MEMBERS)) {
-            throw new BusinessException(
-                    "Module Membres non activé pour ce tenant. "
-                            + "Réservé aux structures organizationModel COOPERATIVE / INFORMAL_GROUP.");
+            throw new BusinessException(Messages.msg("m.mbr-module-not-enabled"));
         }
     }
 
@@ -88,8 +87,7 @@ public class MemberResource {
      */
     private void ensureEnrolmentCapability() {
         if (!capabilities.has(tenantContext.tenantId(), TenantCapability.HAS_PRODUCER_ENROLMENT)) {
-            throw new BusinessException(
-                    "Enrôlement des producteurs non activé pour ce tenant.");
+            throw new BusinessException(Messages.msg("m.mbr-enrolment-not-enabled"));
         }
     }
 
@@ -182,13 +180,13 @@ public class MemberResource {
             org.jboss.resteasy.reactive.multipart.FileUpload file) {
         ensureCapability();
         if (file == null) {
-            throw new BusinessException("Aucun fichier 'file' fourni dans la requête multipart.");
+            throw new BusinessException(Messages.msg("m.mbr-no-file-in-multipart"));
         }
         byte[] bytes;
         try {
             bytes = java.nio.file.Files.readAllBytes(file.uploadedFile());
         } catch (java.io.IOException e) {
-            throw new BusinessException("Lecture du fichier impossible : " + e.getMessage());
+            throw new BusinessException(Messages.msg("m.mbr-file-read-failed", e.getMessage()));
         }
         documents.attach(id, label, bytes, file.contentType(), file.fileName());
         return Response.ok(ApiResponse.ok(service.getById(id))).build();

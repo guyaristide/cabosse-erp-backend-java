@@ -6,6 +6,7 @@ import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.security.Roles;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.shared.tenant.TenantStatus;
@@ -64,20 +65,18 @@ public class TenantSubscriptionService {
     public TenantEntity activate(UUID tenantId, ActivateSubscriptionPayloadDto payload) {
         TenantEntity tenant = tenants.findById(tenantId);
         if (tenant == null) {
-            throw new NotFoundException("Tenant " + tenantId + " introuvable.");
+            throw new NotFoundException(Messages.msg("m.tnt-not-found-2", tenantId));
         }
         if (tenant.status == TenantStatus.DELETED
                 || tenant.status == TenantStatus.PROVISIONING
                 || tenant.status == TenantStatus.FAILED) {
-            throw new BusinessException(
-                    "Abonnement impossible : le tenant n'est pas opérationnel (statut "
-                            + tenant.status + ").");
+            throw new BusinessException(Messages.msg("m.tnt-not-operational", tenant.status));
         }
 
         PlanEntity plan = plans.findByCode(payload.planCode()).orElseThrow(
-                () -> new BusinessException("Plan « " + payload.planCode() + " » introuvable."));
+                () -> new BusinessException(Messages.msg("m.tnt-plan-not-found", payload.planCode())));
         if (!plan.active) {
-            throw new BusinessException("Plan « " + plan.code + " » inactif : non souscriptible.");
+            throw new BusinessException(Messages.msg("m.tnt-plan-inactive", plan.code));
         }
 
         LocalDate startDate = payload.startDate() != null ? payload.startDate() : LocalDate.now();

@@ -4,6 +4,7 @@ import com.ntech.cabosse.members.entity.MemberEntity;
 import com.ntech.cabosse.members.repository.MemberRepository;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.storage.CloudFileEntity;
 import com.ntech.cabosse.shared.storage.CloudFileScope;
@@ -36,7 +37,7 @@ public class MemberDocumentService {
     public MemberEntity attach(UUID memberId, String label, byte[] bytes,
                                String mimeType, String originalName) {
         if (label == null || label.isBlank()) {
-            throw new BusinessException("Libellé de la pièce requis (ex. « Attestation d'exploitation »).");
+            throw new BusinessException(Messages.msg("m.mbr-document-label-required"));
         }
         MemberEntity e = loadOrFail(memberId);
         CloudFileEntity file = uploads.upload(
@@ -81,15 +82,15 @@ public class MemberDocumentService {
                                  long sizeBytes, String fileName) {}
 
     private static MemberEntity.Document findDoc(MemberEntity e, UUID documentId) {
-        if (e.documents == null) throw new NotFoundException("Pièce introuvable.");
+        if (e.documents == null) throw new NotFoundException(Messages.msg("m.mbr-document-not-found"));
         return e.documents.stream()
                 .filter(d -> documentId.equals(d.id))
                 .findFirst()
-                .orElseThrow(() -> new NotFoundException("Pièce introuvable."));
+                .orElseThrow(() -> new NotFoundException(Messages.msg("m.mbr-document-not-found")));
     }
 
     private MemberEntity loadOrFail(UUID id) {
         return members.findById(id)
-                .orElseThrow(() -> new NotFoundException("Membre " + id + " introuvable."));
+                .orElseThrow(() -> new NotFoundException(Messages.msg("m.mbr-member-not-found", id)));
     }
 }

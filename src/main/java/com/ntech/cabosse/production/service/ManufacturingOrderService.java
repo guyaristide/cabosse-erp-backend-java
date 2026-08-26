@@ -23,6 +23,7 @@ import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.site.entity.SiteEntity;
 import com.ntech.cabosse.site.repository.SiteRepository;
@@ -163,16 +164,16 @@ public class ManufacturingOrderService {
     public ProductionOrderResponseDto update(UUID id, ProductionOrderUpsertDto payload) {
         ManufacturingOrderEntity e = loadOrFail(id);
         if (e.status != OfStatus.DRAFT) {
-            throw new BusinessException("Seul un OF en brouillon peut être édité.");
+            throw new BusinessException(Messages.msg("m.prd-draft-only-edit"));
         }
         // On autorise un changement de qté planifiée et de date — la
         // recette ne change pas (sinon recréer un OF, sinon on perd le
         // snapshot d'étapes).
         if (!e.recipeId.equals(payload.recipeId())) {
-            throw new BusinessException("Changement de recette interdit : créez un nouvel OF.");
+            throw new BusinessException(Messages.msg("m.prd-recipe-change-forbidden"));
         }
         if (!e.siteId.equals(payload.siteId())) {
-            throw new BusinessException("Changement de site interdit : créez un nouvel OF.");
+            throw new BusinessException(Messages.msg("m.prd-site-change-forbidden"));
         }
         RecipeEntity recipe = loadRecipe(payload.recipeId());
         BigDecimal ratio = payload.plannedQty().divide(recipe.yieldQty, 6, RoundingMode.HALF_UP);
@@ -194,7 +195,7 @@ public class ManufacturingOrderService {
     public ProductionOrderResponseDto start(UUID id) {
         ManufacturingOrderEntity e = loadOrFail(id);
         if (e.status != OfStatus.DRAFT) {
-            throw new BusinessException("OF déjà démarré ou clôturé (statut " + e.status + ").");
+            throw new BusinessException(Messages.msg("m.prd-already-started", e.status));
         }
 
         // Vérif disponibilité matières — bloquante ou non selon la préférence
@@ -259,18 +260,17 @@ public class ManufacturingOrderService {
     public ProductionOrderResponseDto advanceStep(UUID id, String notes) {
         ManufacturingOrderEntity e = loadOrFail(id);
         if (e.status != OfStatus.IN_PROGRESS) {
-            throw new BusinessException("Avance d'étape impossible (statut " + e.status + ").");
+            throw new BusinessException(Messages.msg("m.prd-advance-status", e.status));
         }
         if (e.recipeStepsSnapshot.isEmpty()) {
-            throw new BusinessException("Cette recette n'a pas d'étapes définies.");
+            throw new BusinessException(Messages.msg("m.prd-recipe-no-steps"));
         }
         if (e.currentStepIndex == null) {
-            throw new BusinessException("État incohérent : aucune étape courante.");
+            throw new BusinessException(Messages.msg("m.prd-no-current-step"));
         }
         int last = e.recipeStepsSnapshot.size() - 1;
         if (e.currentStepIndex >= last) {
-            throw new BusinessException(
-                    "Déjà sur la dernière étape : utilisez 'Terminer' pour clôturer l'OF.");
+            throw new BusinessException(Messages.msg("m.prd-last-step"));
         }
 
         Instant when = Instant.now();
@@ -302,11 +302,11 @@ public class ManufacturingOrderService {
     public ProductionOrderResponseDto complete(UUID id, CompleteOrderDto payload) {
         ManufacturingOrderEntity e = loadOrFail(id);
         if (e.status != OfStatus.IN_PROGRESS) {
-            throw new BusinessException("OF non démarré ou déjà clôturé (statut " + e.status + ").");
+            throw new BusinessException(Messages.msg("m.prd-not-started", e.status));
         }
         BigDecimal producedQty = payload.producedQty();
         if (producedQty == null || producedQty.signum() <= 0) {
-            throw new BusinessException("Quantité produite > 0 requise.");
+            throw new BusinessException(Messages.msg("m.prd-produced-qty-required"));
         }
 
         Instant when = Instant.now();
@@ -357,7 +357,7 @@ public class ManufacturingOrderService {
     public ProductionOrderResponseDto cancel(UUID id, String reason) {
         ManufacturingOrderEntity e = loadOrFail(id);
         if (e.status == OfStatus.CANCELLED) {
-            throw new BusinessException("OF déjà annulé.");
+            throw new BusinessException(Messages.msg("m.prd-already-cancelled"));
         }
         OfStatus previous = e.status;
         Instant when = Instant.now();
@@ -421,7 +421,7 @@ public class ManufacturingOrderService {
             }
         }
         if (!missing.isEmpty()) {
-            throw new BusinessException("Matières insuffisantes : " + String.join(" ; ", missing));
+            throw new BusinessException(Messages.msg("m.prd-insufficient-materials", String.join(" ; ", missing)));
         }
     }
 
@@ -453,7 +453,7 @@ public class ManufacturingOrderService {
             String notes,
             List<ImportConsumption> consumptions) {
         if (consumptions == null || consumptions.isEmpty()) {
-            throw new BusinessException("Au moins une ligne de consommation est requise.");
+            throw new BusinessException(Messages.msg("m.prd-consumption-line-required"));
         }
         SiteEntity site = loadSite(siteId);
         ArticleEntity fp = loadFinishedProduct(finishedProductId);
@@ -507,7 +507,7 @@ public class ManufacturingOrderService {
         for (ImportConsumption in : input) {
             if (in == null || in.articleId() == null) continue;
             ArticleEntity article = articles.findById(in.articleId()).orElseThrow(
-                    () -> new BusinessException("Article " + in.articleId() + " introuvable.")
+                    () -> new BusinessException(Messages.msg("m.prd-article-not-found", in.articleId()))
             );
             ConsumptionLine line = new ConsumptionLine();
             line.id = UuidCreator.getTimeOrderedEpoch();
@@ -528,7 +528,7 @@ public class ManufacturingOrderService {
         if (ingredients == null) return lines;
         for (RecipeIngredient ing : ingredients) {
             ArticleEntity article = articles.findById(ing.articleId).orElseThrow(
-                    () -> new BusinessException("Article " + ing.articleId + " introuvable.")
+                    () -> new BusinessException(Messages.msg("m.prd-article-not-found", ing.articleId))
             );
             ConsumptionLine line = new ConsumptionLine();
             line.id = UuidCreator.getTimeOrderedEpoch();
@@ -564,42 +564,41 @@ public class ManufacturingOrderService {
 
     private ManufacturingOrderEntity loadOrFail(UUID id) {
         return orders.findById(id).orElseThrow(
-                () -> new NotFoundException("OF " + id + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.prd-of-not-found", id)));
     }
 
     private RecipeEntity loadRecipe(UUID id) {
         RecipeEntity r = recipes.findById(id).orElseThrow(
-                () -> new NotFoundException("Recette " + id + " introuvable.")
+                () -> new NotFoundException(Messages.msg("m.prd-recipe-not-found", id))
         );
         if (!r.active) {
-            throw new BusinessException("Recette « " + r.name + " » désactivée.");
+            throw new BusinessException(Messages.msg("m.prd-recipe-disabled", r.name));
         }
         return r;
     }
 
     private ArticleEntity loadFinishedProduct(UUID id) {
         ArticleEntity a = articles.findById(id).orElseThrow(
-                () -> new NotFoundException("Produit fini " + id + " introuvable.")
+                () -> new NotFoundException(Messages.msg("m.prd-finished-product-not-found", id))
         );
         if (!ArticleType.FINISHED_PRODUCT.name().equals(a.type)) {
-            throw new BusinessException(
-                    "L'article cible « " + a.name + " » n'est pas un produit fini.");
+            throw new BusinessException(Messages.msg("m.prd-target-not-finished-product", a.name));
         }
         if (!a.active) {
-            throw new BusinessException("Produit fini « " + a.name + " » désactivé.");
+            throw new BusinessException(Messages.msg("m.prd-finished-product-disabled", a.name));
         }
         if (!a.stockable) {
-            throw new BusinessException("Produit fini « " + a.name + " » non stockable.");
+            throw new BusinessException(Messages.msg("m.prd-finished-product-not-stockable", a.name));
         }
         return a;
     }
 
     private SiteEntity loadSite(UUID id) {
         SiteEntity s = sites.findById(id).orElseThrow(
-                () -> new NotFoundException("Site " + id + " introuvable.")
+                () -> new NotFoundException(Messages.msg("m.prd-site-not-found", id))
         );
         if (!s.active) {
-            throw new BusinessException("Site « " + s.name + " » désactivé.");
+            throw new BusinessException(Messages.msg("m.prd-site-disabled", s.name));
         }
         return s;
     }

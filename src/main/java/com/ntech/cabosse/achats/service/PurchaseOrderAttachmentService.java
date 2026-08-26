@@ -3,6 +3,7 @@ package com.ntech.cabosse.achats.service;
 import com.ntech.cabosse.achats.entity.PurchaseOrderEntity;
 import com.ntech.cabosse.achats.repository.PurchaseOrderRepository;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.storage.CloudFileEntity;
 import com.ntech.cabosse.shared.storage.CloudFileScope;
 import com.ntech.cabosse.shared.storage.FileUploadService;
@@ -36,7 +37,7 @@ public class PurchaseOrderAttachmentService {
 
     public void attach(UUID orderId, byte[] bytes, String mimeType, String originalName) {
         PurchaseOrderEntity bc = orders.findById(orderId).orElseThrow(
-                () -> new NotFoundException("BC " + orderId + " introuvable.")
+                () -> new NotFoundException(Messages.msg("m.ach-bc-not-found", orderId))
         );
         if (bc.attachmentFileId != null) {
             uploads.archive(SCOPE, bc.attachmentFileId);
@@ -54,7 +55,7 @@ public class PurchaseOrderAttachmentService {
 
     public void detach(UUID orderId) {
         PurchaseOrderEntity bc = orders.findById(orderId).orElseThrow(
-                () -> new NotFoundException("BC " + orderId + " introuvable.")
+                () -> new NotFoundException(Messages.msg("m.ach-bc-not-found", orderId))
         );
         if (bc.attachmentFileId != null) {
             uploads.archive(SCOPE, bc.attachmentFileId);
@@ -66,10 +67,10 @@ public class PurchaseOrderAttachmentService {
 
     public AttachmentStream open(UUID orderId) {
         PurchaseOrderEntity bc = orders.findById(orderId).orElseThrow(
-                () -> new NotFoundException("BC " + orderId + " introuvable.")
+                () -> new NotFoundException(Messages.msg("m.ach-bc-not-found", orderId))
         );
         if (bc.attachmentFileId == null) {
-            throw new NotFoundException("Pas de facture jointe sur le BC " + orderId);
+            throw new NotFoundException(Messages.msg("m.ach-bc-no-invoice", orderId));
         }
         CloudFileEntity file = uploads.findById(SCOPE, bc.attachmentFileId);
         InputStream content = uploads.open(SCOPE, file.id);

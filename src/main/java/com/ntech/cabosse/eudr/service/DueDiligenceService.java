@@ -11,6 +11,7 @@ import com.ntech.cabosse.sale.entity.SaleLine;
 import com.ntech.cabosse.sale.repository.SaleRepository;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -74,7 +75,7 @@ public class DueDiligenceService {
      */
     public DueDiligenceStatementEntity generateForSale(UUID saleId) {
         SaleEntity sale = sales.findById(saleId)
-                .orElseThrow(() -> new NotFoundException("Vente " + saleId + " introuvable."));
+                .orElseThrow(() -> new NotFoundException(Messages.msg("m.eud-sale-not-found", saleId)));
         return ddrs.findBySale(saleId).orElseGet(() -> createNew(sale));
     }
 
@@ -117,10 +118,10 @@ public class DueDiligenceService {
     public DueDiligenceStatementEntity markReady(UUID ddrId, String exportCountryCode) {
         DueDiligenceStatementEntity ddr = load(ddrId);
         if (ddr.status != DueDiligenceStatus.DRAFT) {
-            throw new BusinessException("DDR en statut " + ddr.status + " : non transitionnable vers READY.");
+            throw new BusinessException(Messages.msg("m.eud-ddr-not-transitionable-ready", ddr.status));
         }
         if (exportCountryCode == null || exportCountryCode.isBlank()) {
-            throw new BusinessException("Code pays destinataire requis.");
+            throw new BusinessException(Messages.msg("m.eud-destination-country-required"));
         }
         ddr.exportCountryCode = exportCountryCode.trim().toUpperCase();
         ddr.status = DueDiligenceStatus.READY;
@@ -132,10 +133,10 @@ public class DueDiligenceService {
     public DueDiligenceStatementEntity markSubmitted(UUID ddrId, String eudrReferenceNumber) {
         DueDiligenceStatementEntity ddr = load(ddrId);
         if (ddr.status != DueDiligenceStatus.READY && ddr.status != DueDiligenceStatus.DRAFT) {
-            throw new BusinessException("DDR en statut " + ddr.status + " : soumission impossible.");
+            throw new BusinessException(Messages.msg("m.eud-ddr-not-submittable", ddr.status));
         }
         if (eudrReferenceNumber == null || eudrReferenceNumber.isBlank()) {
-            throw new BusinessException("N° référence EUDR (portail UE) requis.");
+            throw new BusinessException(Messages.msg("m.eud-eu-reference-required"));
         }
         ddr.eudrReferenceNumber = eudrReferenceNumber.trim();
         ddr.status = DueDiligenceStatus.SUBMITTED;
@@ -167,6 +168,6 @@ public class DueDiligenceService {
 
     private DueDiligenceStatementEntity load(UUID id) {
         return ddrs.findById(id)
-                .orElseThrow(() -> new NotFoundException("DDR " + id + " introuvable."));
+                .orElseThrow(() -> new NotFoundException(Messages.msg("m.eud-ddr-not-found", id)));
     }
 }

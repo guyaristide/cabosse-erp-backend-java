@@ -12,6 +12,7 @@ import com.ntech.cabosse.shared.config.ApplicationConfig;
 import com.ntech.cabosse.shared.events.Events;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.ConflictException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.migration.TenantMigrationRunner;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.security.Roles;
@@ -176,7 +177,7 @@ public class TenantProvisioningService {
                     .description("Échec du provisioning : " + e.getMessage())
                     .payload(java.util.Map.of("error", String.valueOf(e.getMessage())))
                     .record();
-            throw new BusinessException("Provisioning du tenant échoué : " + e.getMessage(), e);
+            throw new BusinessException(Messages.msg("m.tnt-provisioning-failed", e.getMessage()), e);
         }
     }
 
@@ -184,13 +185,13 @@ public class TenantProvisioningService {
 
     private void ensureSlugIsUnique(String slug) {
         if (tenants.slugExists(slug)) {
-            throw new ConflictException("Slug \"" + slug + "\" déjà utilisé par un autre tenant.");
+            throw new ConflictException(Messages.msg("m.tnt-slug-in-use", slug));
         }
     }
 
     private void ensureAdminEmailIsUnique(String email) {
         if (users.emailExists(email)) {
-            throw new ConflictException("L'e-mail \"" + email + "\" est déjà associé à un compte.");
+            throw new ConflictException(Messages.msg("m.tnt-email-linked", email));
         }
     }
 
@@ -203,17 +204,17 @@ public class TenantProvisioningService {
     private void ensureCatalogReferences(CreateTenantPayloadDto payload) {
         String country = payload.address().country().toUpperCase();
         if (!countries.codeExists(country)) {
-            throw new BusinessException("Pays inconnu du catalogue : " + country);
+            throw new BusinessException(Messages.msg("m.tnt-country-unknown", country));
         }
 
         String regionCode = payload.address().regionCode();
         if (regionCode != null && !regionCode.isBlank()) {
             RegionEntity region = regions.findById(regionCode);
             if (region == null) {
-                throw new BusinessException("Région inconnue du catalogue : " + regionCode);
+                throw new BusinessException(Messages.msg("m.tnt-region-unknown", regionCode));
             }
             if (!country.equals(region.countryCode)) {
-                throw new BusinessException("Région " + regionCode + " n'appartient pas au pays " + country);
+                throw new BusinessException(Messages.msg("m.tnt-region-not-in-country", regionCode, country));
             }
         }
 
@@ -221,24 +222,24 @@ public class TenantProvisioningService {
         if (cityId != null) {
             CityEntity city = cities.findById(cityId);
             if (city == null) {
-                throw new BusinessException("Ville inconnue du catalogue : " + cityId);
+                throw new BusinessException(Messages.msg("m.tnt-city-unknown", cityId));
             }
             if (!country.equals(city.countryCode)) {
-                throw new BusinessException("Ville " + cityId + " n'appartient pas au pays " + country);
+                throw new BusinessException(Messages.msg("m.tnt-city-not-in-country", cityId, country));
             }
             if (regionCode != null && !regionCode.isBlank() && !regionCode.equals(city.regionCode)) {
-                throw new BusinessException("Ville " + cityId + " n'appartient pas à la région " + regionCode);
+                throw new BusinessException(Messages.msg("m.tnt-city-not-in-region", cityId, regionCode));
             }
         }
 
         if (plans.findByCode(payload.planCode()).isEmpty()) {
-            throw new BusinessException("Plan inconnu : " + payload.planCode());
+            throw new BusinessException(Messages.msg("m.tnt-plan-unknown", payload.planCode()));
         }
 
         List<String> activityCodes = payload.activities().stream().map(a -> a.code()).toList();
         List<String> missing = industries.findMissingCodes(activityCodes);
         if (!missing.isEmpty()) {
-            throw new BusinessException("Activités inconnues du catalogue : " + String.join(", ", missing));
+            throw new BusinessException(Messages.msg("m.tnt-activities-unknown", String.join(", ", missing)));
         }
     }
 
@@ -246,15 +247,15 @@ public class TenantProvisioningService {
         // Si TRIAL, la durée d'essai est requise. Sinon, elle doit être null.
         boolean isTrial = payload.commercialStatus() == com.ntech.cabosse.tenant.entity.CommercialStatus.TRIAL;
         if (isTrial && payload.trialDurationDays() == null) {
-            throw new BusinessException("Durée d'essai requise pour le statut TRIAL.");
+            throw new BusinessException(Messages.msg("m.tnt-trial-duration-required"));
         }
         if (!isTrial && payload.trialDurationDays() != null) {
-            throw new BusinessException("Durée d'essai non applicable pour le statut " + payload.commercialStatus());
+            throw new BusinessException(Messages.msg("m.tnt-trial-duration-not-applicable", payload.commercialStatus()));
         }
         // Exactement une activité primaire
         long primaries = payload.activities().stream().filter(a -> a.isPrimary()).count();
         if (primaries != 1) {
-            throw new BusinessException("Exactement une activité doit être marquée comme primaire (trouvé " + primaries + ").");
+            throw new BusinessException(Messages.msg("m.tnt-one-primary-activity", primaries));
         }
     }
 

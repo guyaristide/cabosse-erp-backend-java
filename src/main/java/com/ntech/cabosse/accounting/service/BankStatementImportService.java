@@ -9,6 +9,7 @@ import com.ntech.cabosse.accounting.repository.BankStatementLineRepository;
 import com.ntech.cabosse.accounting.repository.BankStatementRepository;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -62,11 +63,11 @@ public class BankStatementImportService {
 
     public ImportResult importCsv(UUID bankAccountId, String fileName, InputStream csv) {
         if (banks.findById(bankAccountId).isEmpty()) {
-            throw new NotFoundException("Compte bancaire " + bankAccountId + " introuvable.");
+            throw new NotFoundException(Messages.msg("m.acc-bank-account-not-found", bankAccountId));
         }
         List<ParsedLine> parsed = parse(csv);
         if (parsed.isEmpty()) {
-            throw new BusinessException("Aucune ligne valide dans le fichier importé.");
+            throw new BusinessException(Messages.msg("m.acc-import-no-valid-line"));
         }
 
         // Construction de l'extrait
@@ -108,8 +109,7 @@ public class BankStatementImportService {
         }
 
         if (inserted == 0) {
-            throw new BusinessException(
-                    "Toutes les lignes du fichier ont déjà été importées (doublons sur ce compte).");
+            throw new BusinessException(Messages.msg("m.acc-import-all-duplicates"));
         }
 
         stmt.lineCount = inserted;
@@ -152,7 +152,7 @@ public class BankStatementImportService {
                 out.add(new ParsedLine(date, label, amount, direction));
             }
         } catch (Exception e) {
-            throw new BusinessException("Lecture CSV échouée : " + e.getMessage(), e);
+            throw new BusinessException(Messages.msg("m.acc-csv-read-failed", e.getMessage()), e);
         }
         return out;
     }

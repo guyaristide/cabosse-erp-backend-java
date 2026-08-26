@@ -1,6 +1,7 @@
 package com.ntech.cabosse.shared.storage;
 
 import com.ntech.cabosse.shared.exception.BusinessException;
+import com.ntech.cabosse.shared.i18n.Messages;
 
 import java.util.Map;
 import java.util.Set;

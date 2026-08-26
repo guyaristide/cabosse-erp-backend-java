@@ -2,6 +2,7 @@ package com.ntech.cabosse.tenant.service;
 
 import com.ntech.cabosse.shared.api.Pagination;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.tenant.TenantStatus;
 import com.ntech.cabosse.tenant.dto.TenantDetailResponseDto;
 import com.ntech.cabosse.tenant.dto.TenantSummaryResponseDto;
@@ -91,7 +92,7 @@ public class TenantRegistryService {
     public TenantDetailResponseDto getById(UUID tenantId) {
         TenantEntity entity = tenants.findById(tenantId);
         if (entity == null) {
-            throw new NotFoundException("Tenant " + tenantId + " introuvable");
+            throw new NotFoundException(Messages.msg("m.tnt-not-found", tenantId));
         }
         long usersCount = users.countByTenant(entity.id);
         return TenantMapper.toDetail(entity, usersCount);

@@ -12,6 +12,7 @@ import com.ntech.cabosse.shared.api.PageRequest;
 import com.ntech.cabosse.shared.api.Pagination;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.site.entity.SiteEntity;
@@ -81,9 +82,9 @@ public class BeanQualityCheckService {
 
     public BeanQualityCheckResponseDto create(BeanQualityCheckUpsertDto payload) {
         DryingBatchEntity drying = dryings.findById(payload.dryingBatchId())
-                .orElseThrow(() -> new NotFoundException("Séchage " + payload.dryingBatchId() + " introuvable."));
+                .orElseThrow(() -> new NotFoundException(Messages.msg("m.agr-drying-not-found", payload.dryingBatchId())));
         if (qcs.findByDryingBatch(drying.id).isPresent()) {
-            throw new BusinessException("Un QC existe déjà pour ce séchage. Éditez-le ou contre-passez.");
+            throw new BusinessException(Messages.msg("m.agr-qc-already-exists"));
         }
 
         BeanQualityCheckEntity e = new BeanQualityCheckEntity();
@@ -102,12 +103,10 @@ public class BeanQualityCheckService {
     public BeanQualityCheckResponseDto update(UUID id, BeanQualityCheckUpsertDto payload) {
         BeanQualityCheckEntity e = loadOrFail(id);
         if (e.stockMovementCreated) {
-            throw new BusinessException(
-                    "QC déjà validé avec entrée stock : édition refusée. "
-                            + "Pour corriger : contre-passer le mouvement et créer un nouveau QC.");
+            throw new BusinessException(Messages.msg("m.agr-qc-locked-stock-entry"));
         }
         DryingBatchEntity drying = dryings.findById(payload.dryingBatchId())
-                .orElseThrow(() -> new NotFoundException("Séchage " + payload.dryingBatchId() + " introuvable."));
+                .orElseThrow(() -> new NotFoundException(Messages.msg("m.agr-drying-not-found", payload.dryingBatchId())));
         applyPayload(e, payload, drying);
         e.updatedAt = Instant.now();
         qcs.replace(e);
@@ -125,18 +124,16 @@ public class BeanQualityCheckService {
             return BeanQualityCheckResponseDto.from(e);
         }
         if (!e.conformOverall) {
-            throw new BusinessException(
-                    "QC non conforme : aucune entrée stock générée. "
-                            + "Si vous souhaitez quand même tracer ces fèves, créez un mouvement manuel séparé.");
+            throw new BusinessException(Messages.msg("m.agr-qc-non-conform-no-entry"));
         }
         if (e.acceptedKg == null || e.acceptedKg.signum() <= 0) {
-            throw new BusinessException("Quantité acceptée > 0 requise pour générer l'entrée stock.");
+            throw new BusinessException(Messages.msg("m.agr-qc-accepted-qty-required"));
         }
         if (e.beanArticleId == null) {
-            throw new BusinessException("Article fève destinataire requis.");
+            throw new BusinessException(Messages.msg("m.agr-qc-bean-article-required"));
         }
         if (e.siteId == null) {
-            throw new BusinessException("Site de stockage requis.");
+            throw new BusinessException(Messages.msg("m.agr-qc-storage-site-required"));
         }
 
         // Verrou atomique : le perdant d'une double validation relit et
@@ -170,7 +167,7 @@ public class BeanQualityCheckService {
 
     private BeanQualityCheckEntity loadOrFail(UUID id) {
         return qcs.findById(id)
-                .orElseThrow(() -> new NotFoundException("QC " + id + " introuvable."));
+                .orElseThrow(() -> new NotFoundException(Messages.msg("m.agr-qc-not-found", id)));
     }
 
     private void applyPayload(BeanQualityCheckEntity e, BeanQualityCheckUpsertDto p, DryingBatchEntity drying) {
@@ -185,14 +182,14 @@ public class BeanQualityCheckService {
         e.acceptedKg = p.acceptedKg();
         if (p.beanArticleId() != null) {
             ArticleEntity article = articles.findById(p.beanArticleId())
-                    .orElseThrow(() -> new NotFoundException("Article " + p.beanArticleId() + " introuvable."));
+                    .orElseThrow(() -> new NotFoundException(Messages.msg("m.agr-article-not-found", p.beanArticleId())));
             e.beanArticleId = article.id;
             e.beanArticleCode = article.code;
             e.beanArticleName = article.name;
         }
         if (p.siteId() != null) {
             SiteEntity site = sites.findById(p.siteId())
-                    .orElseThrow(() -> new NotFoundException("Site " + p.siteId() + " introuvable."));
+                    .orElseThrow(() -> new NotFoundException(Messages.msg("m.agr-site-not-found", p.siteId())));
             e.siteId = site.id;
             e.siteName = site.name;
         }

@@ -5,6 +5,7 @@ import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.Updates;
 import com.ntech.cabosse.membercredit.entity.MemberCreditEntity;
 import com.ntech.cabosse.shared.exception.ConflictException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.TenantMongoDatabaseProvider;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -74,7 +75,7 @@ public class MemberCreditRepository {
         var result = coll().replaceOne(
                 Filters.and(Filters.eq("_id", e.id), Filters.eq("version", expected)), e);
         if (result.getMatchedCount() == 0) {
-            throw new ConflictException("Le crédit a été modifié entre-temps. Rechargez la page.");
+            throw new ConflictException(Messages.msg("m.mcr-concurrent-update"));
         }
     }
 

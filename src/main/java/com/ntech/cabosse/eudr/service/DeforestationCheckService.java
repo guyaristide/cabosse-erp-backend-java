@@ -8,6 +8,7 @@ import com.ntech.cabosse.eudr.entity.DeforestationSeverity;
 import com.ntech.cabosse.eudr.repository.DeforestationAlertRepository;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -73,8 +74,8 @@ public class DeforestationCheckService {
                                                      String sourceReference,
                                                      String notes) {
         ParcelEntity parcel = parcels.findById(parcelId)
-                .orElseThrow(() -> new NotFoundException("Parcelle " + parcelId + " introuvable."));
-        if (severity == null) throw new BusinessException("Sévérité requise.");
+                .orElseThrow(() -> new NotFoundException(Messages.msg("m.agr-parcel-not-found", parcelId)));
+        if (severity == null) throw new BusinessException(Messages.msg("m.eud-severity-required"));
         DeforestationAlertEntity alert = new DeforestationAlertEntity();
         alert.id = idGenerator.newId();
         alert.parcelId = parcel.id;
@@ -98,7 +99,7 @@ public class DeforestationCheckService {
                                                     DeforestationAlertStatus targetStatus,
                                                     String remediationAction) {
         DeforestationAlertEntity alert = alerts.findById(alertId)
-                .orElseThrow(() -> new NotFoundException("Alerte " + alertId + " introuvable."));
+                .orElseThrow(() -> new NotFoundException(Messages.msg("m.eud-alert-not-found", alertId)));
         alert.status = targetStatus;
         if (targetStatus == DeforestationAlertStatus.RESOLVED) {
             alert.remediationAction = remediationAction != null ? remediationAction.trim() : null;
@@ -117,7 +118,7 @@ public class DeforestationCheckService {
      */
     public CheckResult checkParcel(UUID parcelId) {
         ParcelEntity parcel = parcels.findById(parcelId)
-                .orElseThrow(() -> new NotFoundException("Parcelle " + parcelId + " introuvable."));
+                .orElseThrow(() -> new NotFoundException(Messages.msg("m.agr-parcel-not-found", parcelId)));
         // TODO Phase 7 : appel API GFW (GLAD-L, RADD) + Hansen baseline
         // pour comparer la couverture pré/post 2020. Retourner une alerte
         // si perte > 5% détectée.

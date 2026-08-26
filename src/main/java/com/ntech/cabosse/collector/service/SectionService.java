@@ -9,6 +9,7 @@ import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.ConflictException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -39,7 +40,7 @@ public class SectionService {
         String code = (p.code() != null && !p.code().isBlank())
                 ? p.code().trim().toUpperCase(Locale.ROOT) : slug(p.name());
         if (repo.codeExists(code)) {
-            throw new ConflictException("Une section avec le code « " + code + " » existe déjà.");
+            throw new ConflictException(Messages.msg("m.col-section-code-exists", code));
         }
         SectionEntity e = new SectionEntity();
         e.id = UuidCreator.getTimeOrderedEpoch();
@@ -55,7 +56,7 @@ public class SectionService {
 
     public SectionResponseDto update(UUID id, SectionUpsertDto p) {
         SectionEntity e = repo.findById(id).orElseThrow(
-                () -> new NotFoundException("Section " + id + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.col-section-not-found", id)));
         apply(e, p);
         e.updatedAt = Instant.now();
         repo.replace(e);
@@ -65,7 +66,7 @@ public class SectionService {
 
     public SectionResponseDto setActive(UUID id, boolean active) {
         SectionEntity e = repo.findById(id).orElseThrow(
-                () -> new NotFoundException("Section " + id + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.col-section-not-found", id)));
         if (e.active == active) return SectionResponseDto.from(e);
         repo.updateActive(id, active);
         e.active = active;

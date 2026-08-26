@@ -6,6 +6,7 @@ import com.ntech.cabosse.members.entity.MemberEntity;
 import com.ntech.cabosse.members.entity.MemberIdentityDocument;
 import com.ntech.cabosse.members.repository.MemberRepository;
 import com.ntech.cabosse.shared.exception.ConflictException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
@@ -89,9 +90,7 @@ public class ProducerRefKeyService {
         for (String key : keys) {
             for (MemberEntity other : members.findByProducerRefKey(key)) {
                 if (memberId != null && memberId.equals(other.id)) continue;
-                throw new ConflictException(
-                        "Le numéro « " + key + " » est déjà porté par « " + other.name
-                                + " ». Un même numéro ne peut pas désigner deux producteurs.");
+                throw new ConflictException(Messages.msg("m.mbr-ref-number-taken", key, other.name));
             }
         }
     }

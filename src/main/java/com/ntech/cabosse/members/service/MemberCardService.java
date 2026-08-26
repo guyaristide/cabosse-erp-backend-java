@@ -14,6 +14,7 @@ import com.ntech.cabosse.members.entity.MemberStatus;
 import com.ntech.cabosse.members.repository.MemberRepository;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.tenant.entity.TenantEntity;
 import com.ntech.cabosse.tenant.repository.TenantRepository;
@@ -45,12 +46,12 @@ public class MemberCardService {
 
     public byte[] buildCard(UUID memberId) {
         MemberEntity m = members.findById(memberId)
-                .orElseThrow(() -> new NotFoundException("Membre " + memberId + " introuvable."));
+                .orElseThrow(() -> new NotFoundException(Messages.msg("m.mbr-member-not-found", memberId)));
         if (m.status == MemberStatus.PENDING) {
-            throw new BusinessException("Le dossier d'adhésion doit être validé avant d'émettre la carte.");
+            throw new BusinessException(Messages.msg("m.mbr-card-requires-approved"));
         }
         if (m.status == MemberStatus.RETIRED || m.status == MemberStatus.INACTIVE) {
-            throw new BusinessException("Aucune carte pour un membre radié ou inactif.");
+            throw new BusinessException(Messages.msg("m.mbr-card-retired-or-inactive"));
         }
         TenantEntity tenant = tenants.findById(tenantContext.tenantId());
         String organization = tenant != null ? tenant.name : "";
@@ -91,7 +92,7 @@ public class MemberCardService {
             doc.close();
             return out.toByteArray();
         } catch (Exception e) {
-            throw new BusinessException("Génération de la carte impossible : " + e.getMessage());
+            throw new BusinessException(Messages.msg("m.mbr-card-generation-failed", e.getMessage()));
         }
     }
 

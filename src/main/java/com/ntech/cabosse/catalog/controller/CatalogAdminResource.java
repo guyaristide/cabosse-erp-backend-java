@@ -28,6 +28,7 @@ import com.ntech.cabosse.shared.api.ApiResponse;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.ConflictException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.security.Roles;
 import jakarta.annotation.security.RolesAllowed;
@@ -114,10 +115,10 @@ public class CatalogAdminResource {
     @Transactional
     public Response createCountry(@Valid CountryUpsertDto payload) {
         if (payload.code() == null || payload.code().isBlank()) {
-            throw new BusinessException("Code ISO requis à la création.");
+            throw new BusinessException(Messages.msg("m.cat-iso-code-required"));
         }
         if (countries.codeExists(payload.code())) {
-            throw new ConflictException("Le code " + payload.code() + " existe déjà.");
+            throw new ConflictException(Messages.msg("m.cat-code-exists", payload.code()));
         }
         CountryEntity entity = new CountryEntity();
         entity.code = payload.code();
@@ -134,7 +135,7 @@ public class CatalogAdminResource {
     @Transactional
     public Response updateCountry(@PathParam("code") String code, @Valid CountryUpsertDto payload) {
         CountryEntity entity = countries.findById(code);
-        if (entity == null) throw new NotFoundException("Pays " + code + " introuvable.");
+        if (entity == null) throw new NotFoundException(Messages.msg("m.cat-country-not-found", code));
         applyCountry(entity, payload);
         countries.update(entity);
         auditCatalog("country", entity.code, entity.nameFr, "Modification");
@@ -147,7 +148,7 @@ public class CatalogAdminResource {
     public Response toggleCountryActive(@PathParam("code") String code,
                                         @jakarta.ws.rs.QueryParam("value") boolean value) {
         CountryEntity entity = countries.findById(code);
-        if (entity == null) throw new NotFoundException("Pays " + code + " introuvable.");
+        if (entity == null) throw new NotFoundException(Messages.msg("m.cat-country-not-found", code));
         entity.isActive = value;
         countries.update(entity);
         auditCatalog("country", entity.code, entity.nameFr, value ? "Réactivation" : "Désactivation");
@@ -183,13 +184,13 @@ public class CatalogAdminResource {
     @Transactional
     public Response createRegion(@Valid RegionUpsertDto payload) {
         if (payload.code() == null || payload.code().isBlank()) {
-            throw new BusinessException("Code requis à la création.");
+            throw new BusinessException(Messages.msg("m.cat-code-required"));
         }
         if (regions.codeExists(payload.code())) {
-            throw new ConflictException("Le code " + payload.code() + " existe déjà.");
+            throw new ConflictException(Messages.msg("m.cat-code-exists", payload.code()));
         }
         if (!countries.codeExists(payload.countryCode())) {
-            throw new BusinessException("Pays " + payload.countryCode() + " inconnu.");
+            throw new BusinessException(Messages.msg("m.cat-country-unknown", payload.countryCode()));
         }
         RegionEntity entity = new RegionEntity();
         entity.code = payload.code();
@@ -206,9 +207,9 @@ public class CatalogAdminResource {
     @Transactional
     public Response updateRegion(@PathParam("code") String code, @Valid RegionUpsertDto payload) {
         RegionEntity entity = regions.findById(code);
-        if (entity == null) throw new NotFoundException("Région " + code + " introuvable.");
+        if (entity == null) throw new NotFoundException(Messages.msg("m.cat-region-not-found", code));
         if (!countries.codeExists(payload.countryCode())) {
-            throw new BusinessException("Pays " + payload.countryCode() + " inconnu.");
+            throw new BusinessException(Messages.msg("m.cat-country-unknown", payload.countryCode()));
         }
         applyRegion(entity, payload);
         regions.update(entity);
@@ -222,7 +223,7 @@ public class CatalogAdminResource {
     public Response toggleRegionActive(@PathParam("code") String code,
                                        @jakarta.ws.rs.QueryParam("value") boolean value) {
         RegionEntity entity = regions.findById(code);
-        if (entity == null) throw new NotFoundException("Région " + code + " introuvable.");
+        if (entity == null) throw new NotFoundException(Messages.msg("m.cat-region-not-found", code));
         entity.isActive = value;
         regions.update(entity);
         auditCatalog("region", entity.code, entity.name, value ? "Réactivation" : "Désactivation");
@@ -260,10 +261,10 @@ public class CatalogAdminResource {
     @Transactional
     public Response createCity(@Valid CityUpsertDto payload) {
         if (!regions.codeExists(payload.regionCode())) {
-            throw new BusinessException("Région " + payload.regionCode() + " inconnue.");
+            throw new BusinessException(Messages.msg("m.cat-region-unknown", payload.regionCode()));
         }
         if (!countries.codeExists(payload.countryCode())) {
-            throw new BusinessException("Pays " + payload.countryCode() + " inconnu.");
+            throw new BusinessException(Messages.msg("m.cat-country-unknown", payload.countryCode()));
         }
         CityEntity entity = new CityEntity();
         entity.id = idGenerator.newId();
@@ -280,9 +281,9 @@ public class CatalogAdminResource {
     @Transactional
     public Response updateCity(@PathParam("id") UUID id, @Valid CityUpsertDto payload) {
         CityEntity entity = cities.findById(id);
-        if (entity == null) throw new NotFoundException("Ville " + id + " introuvable.");
+        if (entity == null) throw new NotFoundException(Messages.msg("m.cat-city-not-found", id));
         if (!regions.codeExists(payload.regionCode())) {
-            throw new BusinessException("Région " + payload.regionCode() + " inconnue.");
+            throw new BusinessException(Messages.msg("m.cat-region-unknown", payload.regionCode()));
         }
         applyCity(entity, payload);
         cities.update(entity);
@@ -296,7 +297,7 @@ public class CatalogAdminResource {
     public Response toggleCityActive(@PathParam("id") UUID id,
                                      @jakarta.ws.rs.QueryParam("value") boolean value) {
         CityEntity entity = cities.findById(id);
-        if (entity == null) throw new NotFoundException("Ville " + id + " introuvable.");
+        if (entity == null) throw new NotFoundException(Messages.msg("m.cat-city-not-found", id));
         entity.isActive = value;
         cities.update(entity);
         auditCatalog("city", entity.id.toString(), entity.name, value ? "Réactivation" : "Désactivation");
@@ -331,10 +332,10 @@ public class CatalogAdminResource {
     @Transactional
     public Response createIndustry(@Valid IndustryUpsertDto payload) {
         if (payload.code() == null || payload.code().isBlank()) {
-            throw new BusinessException("Code requis à la création.");
+            throw new BusinessException(Messages.msg("m.cat-code-required"));
         }
         if (industries.codeExists(payload.code())) {
-            throw new ConflictException("Le code " + payload.code() + " existe déjà.");
+            throw new ConflictException(Messages.msg("m.cat-code-exists", payload.code()));
         }
         IndustryEntity entity = new IndustryEntity();
         entity.code = payload.code();
@@ -351,7 +352,7 @@ public class CatalogAdminResource {
     @Transactional
     public Response updateIndustry(@PathParam("code") String code, @Valid IndustryUpsertDto payload) {
         IndustryEntity entity = industries.findById(code);
-        if (entity == null) throw new NotFoundException("Activité " + code + " introuvable.");
+        if (entity == null) throw new NotFoundException(Messages.msg("m.cat-activity-not-found", code));
         applyIndustry(entity, payload);
         industries.update(entity);
         auditCatalog("industry", entity.code, entity.label, "Modification");
@@ -364,7 +365,7 @@ public class CatalogAdminResource {
     public Response toggleIndustryActive(@PathParam("code") String code,
                                          @jakarta.ws.rs.QueryParam("value") boolean value) {
         IndustryEntity entity = industries.findById(code);
-        if (entity == null) throw new NotFoundException("Activité " + code + " introuvable.");
+        if (entity == null) throw new NotFoundException(Messages.msg("m.cat-activity-not-found", code));
         entity.isActive = value;
         industries.update(entity);
         auditCatalog("industry", entity.code, entity.label, value ? "Réactivation" : "Désactivation");
@@ -386,7 +387,7 @@ public class CatalogAdminResource {
                 try {
                     com.ntech.cabosse.tenant.capability.TenantCapability.valueOf(trimmed);
                 } catch (IllegalArgumentException ex) {
-                    throw new BusinessException("Capacité inconnue : " + trimmed);
+                    throw new BusinessException(Messages.msg("m.cat-capability-unknown", trimmed));
                 }
                 if (!normalized.contains(trimmed)) normalized.add(trimmed);
             }
@@ -422,7 +423,7 @@ public class CatalogAdminResource {
     public Response updateOrganizationModel(@PathParam("code") String code,
                                             @Valid OrganizationModelUpdateDto payload) {
         OrganizationModelEntity entity = organizationModels.findById(code);
-        if (entity == null) throw new NotFoundException("Modèle d'organisation " + code + " introuvable.");
+        if (entity == null) throw new NotFoundException(Messages.msg("m.cat-org-model-not-found", code));
         entity.label = payload.label().trim();
         entity.description = payload.description() != null ? payload.description().trim() : null;
         entity.isActive = payload.isActive();
@@ -438,7 +439,7 @@ public class CatalogAdminResource {
     public Response toggleOrganizationModelActive(@PathParam("code") String code,
                                                   @jakarta.ws.rs.QueryParam("value") boolean value) {
         OrganizationModelEntity entity = organizationModels.findById(code);
-        if (entity == null) throw new NotFoundException("Modèle d'organisation " + code + " introuvable.");
+        if (entity == null) throw new NotFoundException(Messages.msg("m.cat-org-model-not-found", code));
         entity.isActive = value;
         organizationModels.update(entity);
         auditCatalog("organization-model", entity.code, entity.label, value ? "Réactivation" : "Désactivation");
@@ -455,7 +456,7 @@ public class CatalogAdminResource {
             try {
                 com.ntech.cabosse.tenant.capability.TenantCapability.valueOf(trimmed);
             } catch (IllegalArgumentException ex) {
-                throw new BusinessException("Capacité inconnue : " + trimmed);
+                throw new BusinessException(Messages.msg("m.cat-capability-unknown", trimmed));
             }
             if (!normalized.contains(trimmed)) normalized.add(trimmed);
         }
@@ -492,10 +493,10 @@ public class CatalogAdminResource {
     @Transactional
     public Response createPlan(@Valid PlanUpsertDto payload) {
         if (payload.code() == null || payload.code().isBlank()) {
-            throw new BusinessException("Code requis à la création.");
+            throw new BusinessException(Messages.msg("m.cat-code-required"));
         }
         if (plans.findByCode(payload.code()).isPresent()) {
-            throw new ConflictException("Le code " + payload.code() + " existe déjà.");
+            throw new ConflictException(Messages.msg("m.cat-code-exists", payload.code()));
         }
         PlanEntity entity = new PlanEntity();
         entity.code = payload.code();
@@ -512,7 +513,7 @@ public class CatalogAdminResource {
     @Transactional
     public Response updatePlan(@PathParam("code") String code, @Valid PlanUpsertDto payload) {
         PlanEntity entity = plans.findByCode(code).orElse(null);
-        if (entity == null) throw new NotFoundException("Plan " + code + " introuvable.");
+        if (entity == null) throw new NotFoundException(Messages.msg("m.cat-plan-not-found", code));
         applyPlan(entity, payload);
         plans.update(entity);
         auditCatalog("plan", entity.code, entity.name, "Modification");
@@ -525,7 +526,7 @@ public class CatalogAdminResource {
     public Response togglePlanActive(@PathParam("code") String code,
                                      @jakarta.ws.rs.QueryParam("value") boolean value) {
         PlanEntity entity = plans.findByCode(code).orElse(null);
-        if (entity == null) throw new NotFoundException("Plan " + code + " introuvable.");
+        if (entity == null) throw new NotFoundException(Messages.msg("m.cat-plan-not-found", code));
         entity.active = value;
         plans.update(entity);
         auditCatalog("plan", entity.code, entity.name, value ? "Réactivation" : "Désactivation");

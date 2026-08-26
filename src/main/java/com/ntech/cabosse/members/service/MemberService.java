@@ -22,6 +22,7 @@ import com.ntech.cabosse.shared.api.PageRequest;
 import com.ntech.cabosse.shared.api.Pagination;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.supplier.entity.SupplierEntity;
@@ -131,8 +132,7 @@ public class MemberService {
     public MemberResponseDto approve(UUID id) {
         MemberEntity e = loadOrFail(id);
         if (e.status != MemberStatus.PENDING) {
-            throw new BusinessException(
-                    "Seul un dossier en attente peut être validé (statut actuel : " + e.status + ").");
+            throw new BusinessException(Messages.msg("m.mbr-approve-requires-pending", e.status));
         }
         e.status = MemberStatus.ACTIVE;
         e.statusReason = null;
@@ -159,12 +159,11 @@ public class MemberService {
     /** Rejette le dossier avec motif : le membre passe inactif, motif tracé. */
     public MemberResponseDto reject(UUID id, String reason) {
         if (reason == null || reason.isBlank()) {
-            throw new BusinessException("Motif de rejet requis.");
+            throw new BusinessException(Messages.msg("m.mbr-rejection-reason-required"));
         }
         MemberEntity e = loadOrFail(id);
         if (e.status != MemberStatus.PENDING) {
-            throw new BusinessException(
-                    "Seul un dossier en attente peut être rejeté (statut actuel : " + e.status + ").");
+            throw new BusinessException(Messages.msg("m.mbr-reject-requires-pending", e.status));
         }
         e.status = MemberStatus.INACTIVE;
         e.statusReason = reason.trim();
@@ -185,8 +184,7 @@ public class MemberService {
     public MemberResponseDto update(UUID id, MemberUpsertDto payload) {
         MemberEntity e = loadOrFail(id);
         if (payload.status() == MemberStatus.RETIRED && e.status != MemberStatus.RETIRED) {
-            throw new BusinessException(
-                    "La radiation passe par l'action dédiée (remboursement des parts et clôture).");
+            throw new BusinessException(Messages.msg("m.mbr-retire-via-dedicated-action"));
         }
         String previousPaymentDetails = paymentDetails(e);
         applyPayload(e, payload);
@@ -208,13 +206,11 @@ public class MemberService {
      */
     public MemberResponseDto retire(UUID id, String reason) {
         if (reason == null || reason.isBlank()) {
-            throw new BusinessException("Motif de radiation requis.");
+            throw new BusinessException(Messages.msg("m.mbr-retirement-reason-required"));
         }
         MemberEntity e = loadOrFail(id);
         if (e.status != MemberStatus.ACTIVE && e.status != MemberStatus.SUSPENDED) {
-            throw new BusinessException(
-                    "Seul un membre actif ou suspendu peut être radié (statut actuel : "
-                            + e.status + ").");
+            throw new BusinessException(Messages.msg("m.mbr-retire-requires-active", e.status));
         }
         // Solde des parts sociales : miroir exact de la pièce d'adhésion,
         // no-op si aucune pièce capital n'existait (montant nul ou
@@ -296,7 +292,7 @@ public class MemberService {
 
     private MemberEntity loadOrFail(UUID id) {
         return members.findById(id)
-                .orElseThrow(() -> new NotFoundException("Membre " + id + " introuvable."));
+                .orElseThrow(() -> new NotFoundException(Messages.msg("m.mbr-member-not-found", id)));
     }
 
     /**
@@ -352,7 +348,7 @@ public class MemberService {
         }
         String code = provided.trim();
         if (members.codeExists(code)) {
-            throw new BusinessException("Un membre avec le code « " + code + " » existe déjà.");
+            throw new BusinessException(Messages.msg("m.mbr-code-exists", code));
         }
         return code;
     }
@@ -370,7 +366,7 @@ public class MemberService {
             // Rétrocompat : ancien client qui n'envoie que `name`.
             lastName = blankToNull(p.name());
             if (lastName == null) {
-                throw new BusinessException("Le nom du membre est requis.");
+                throw new BusinessException(Messages.msg("m.mbr-name-required"));
             }
         }
         e.lastName = lastName;
@@ -549,7 +545,7 @@ public class MemberService {
             // suffixe pour préserver l'unicité.
             s.code = s.code + "-MB";
             if (suppliers.codeExists(s.code)) {
-                throw new BusinessException("Impossible d'auto-créer le fournisseur miroir : code en collision.");
+                throw new BusinessException(Messages.msg("m.mbr-mirror-supplier-code-collision"));
             }
         }
         suppliers.insert(s);

@@ -6,6 +6,7 @@ import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.Sorts;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.ControlPlane;
 import com.ntech.cabosse.tenant.dto.BackupSnapshotDto;
 import com.ntech.cabosse.tenant.dto.CollectionStatDto;
@@ -144,7 +145,7 @@ public class TenantTechnicalService {
     public TenantTechnicalStatusDto getStatus(UUID tenantId) {
         TenantEntity tenant = tenants.findById(tenantId);
         if (tenant == null) {
-            throw new NotFoundException("Tenant " + tenantId + " introuvable");
+            throw new NotFoundException(Messages.msg("m.tnt-not-found", tenantId));
         }
 
         MongoDatabase tenantDb = mongoClient.getDatabase(tenant.databaseName);

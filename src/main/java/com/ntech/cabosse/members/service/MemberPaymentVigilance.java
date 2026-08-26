@@ -3,6 +3,7 @@ package com.ntech.cabosse.members.service;
 import com.ntech.cabosse.members.entity.MemberEntity;
 import com.ntech.cabosse.members.entity.MemberIdentityDocument;
 import com.ntech.cabosse.shared.exception.BusinessException;
+import com.ntech.cabosse.shared.i18n.Messages;
 
 import java.text.Normalizer;
 import java.util.Locale;
@@ -41,16 +42,12 @@ public final class MemberPaymentVigilance {
     public static void check(MemberEntity member, String paymentMethod,
                              java.util.Set<String> identityProofTypes) {
         if (!hasScannedIdentityDocument(member, identityProofTypes)) {
-            throw new BusinessException(
-                    "Vigilance paiements : aucune pièce d'identité scannée au dossier de « "
-                            + member.name + " ». Joindre le scan avant de payer.");
+            throw new BusinessException(Messages.msg("m.mbr-vigilance-no-identity-scan", member.name));
         }
         if (isMobileMoney(paymentMethod) && paysAThirdParty(member)
                 && !member.mobileMoneyMandateOnFile) {
-            throw new BusinessException(
-                    "Vigilance paiements : le compte mobile money de « " + member.name
-                            + " » est au nom de « " + member.mobileMoneyHolderName
-                            + " ». Un mandat écrit au dossier est requis.");
+            throw new BusinessException(Messages.msg("m.mbr-vigilance-mandate-required",
+                    member.name, member.mobileMoneyHolderName));
         }
     }
 

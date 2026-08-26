@@ -8,6 +8,7 @@ import com.ntech.cabosse.producerpurchase.entity.ProducerPurchaseEntity;
 import com.ntech.cabosse.producerpurchase.repository.ProducerPurchaseRepository;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.supplier.entity.SupplierEntity;
 import com.ntech.cabosse.supplier.repository.SupplierRepository;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -40,9 +41,9 @@ public class DelegateAccountService {
 
     public DelegateAccountDto account(UUID delegateSupplierId, UUID campaignId) {
         SupplierEntity delegate = suppliers.findById(delegateSupplierId).orElseThrow(
-                () -> new NotFoundException("Délégué " + delegateSupplierId + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.col-delegate-not-found", delegateSupplierId)));
         if (!delegate.collector) {
-            throw new BusinessException("« " + delegate.name + " » n'est pas un délégué collecteur.");
+            throw new BusinessException(Messages.msg("m.col-not-a-delegate", delegate.name));
         }
 
         List<CollectorAdvanceEntity> all = advances.listByDelegate(delegateSupplierId).stream()

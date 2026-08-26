@@ -9,6 +9,7 @@ import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.ConflictException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -37,7 +38,7 @@ public class ExpenseTypeService {
     public ExpenseTypeResponseDto create(ExpenseTypeUpsertDto p) {
         String code = (p.code() != null && !p.code().isBlank()) ? p.code().trim() : slugify(p.name());
         if (repo.codeExists(code)) {
-            throw new ConflictException("Un type de dépense avec le code « " + code + " » existe déjà.");
+            throw new ConflictException(Messages.msg("m.exp-type-code-exists", code));
         }
         ExpenseTypeEntity e = new ExpenseTypeEntity();
         e.id = UuidCreator.getTimeOrderedEpoch();
@@ -53,7 +54,7 @@ public class ExpenseTypeService {
 
     public ExpenseTypeResponseDto update(UUID id, ExpenseTypeUpsertDto p) {
         ExpenseTypeEntity e = repo.findById(id).orElseThrow(
-                () -> new NotFoundException("Type de dépense " + id + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.exp-type-not-found", id)));
         apply(e, p);
         e.updatedAt = Instant.now();
         repo.replace(e);
@@ -63,7 +64,7 @@ public class ExpenseTypeService {
 
     public ExpenseTypeResponseDto setActive(UUID id, boolean active) {
         ExpenseTypeEntity e = repo.findById(id).orElseThrow(
-                () -> new NotFoundException("Type de dépense " + id + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.exp-type-not-found", id)));
         if (e.active == active) return ExpenseTypeResponseDto.from(e);
         repo.updateActive(id, active);
         e.active = active;

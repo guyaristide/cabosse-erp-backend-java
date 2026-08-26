@@ -7,6 +7,7 @@ import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.ErrorCode;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.security.Roles;
 import com.ntech.cabosse.shared.tenant.TenantContext;
@@ -56,8 +57,7 @@ public class AccountingPeriodService {
         String period = YearMonth.from(date).toString();
         if (periods.isLocked(period)) {
             throw new BusinessException(ErrorCode.PERIOD_LOCKED,
-                    "Période " + period + " clôturée : aucune écriture ne peut plus y être passée. "
-                            + "Rouvrez la période pour corriger.");
+                    Messages.msg("m.acc-period-locked", period));
         }
     }
 
@@ -68,15 +68,14 @@ public class AccountingPeriodService {
     public AccountingPeriodEntity lock(String periodRaw) {
         YearMonth period = parse(periodRaw);
         if (period.isAfter(YearMonth.now())) {
-            throw new BusinessException("Impossible de clôturer un mois futur (" + period + ").");
+            throw new BusinessException(Messages.msg("m.acc-period-future-lock", period));
         }
         // Contrôle préalable (CPT-06, option B) : aucune OD en brouillard
         // datée dans le mois — elles doivent être validées ou supprimées.
         long pendingOd = odDrafts.countDraftsInPeriod(period.atDay(1), period.atEndOfMonth());
         if (pendingOd > 0) {
             throw new BusinessException(
-                    pendingOd + " opération(s) diverse(s) en brouillard sur " + period
-                            + " : validez-les ou supprimez-les avant de clôturer.");
+                    Messages.msg("m.acc-period-pending-od", String.valueOf(pendingOd), period));
         }
         // Même logique pour les écritures déjà retenues sur ce mois : les
         // enfermer derrière une clôture reviendrait à les abandonner, alors
@@ -85,8 +84,8 @@ public class AccountingPeriodService {
                 period.atDay(1), period.atEndOfMonth());
         if (pendingQuarantine > 0) {
             throw new BusinessException(
-                    pendingQuarantine + " écriture(s) en attente de régularisation sur " + period
-                            + " : traitez-les avant de clôturer.");
+                    Messages.msg("m.acc-period-pending-quarantine",
+                            String.valueOf(pendingQuarantine), period));
         }
 
         AccountingPeriodEntity existing = periods.findByPeriod(period.toString()).orElse(null);
@@ -115,21 +114,19 @@ public class AccountingPeriodService {
 
     public AccountingPeriodEntity reopen(String periodRaw, String reason) {
         if (reason == null || reason.isBlank()) {
-            throw new BusinessException("Motif de réouverture requis.");
+            throw new BusinessException(Messages.msg("m.acc-reopen-reason-required"));
         }
         // Politique du tenant : PLATFORM_ONLY réserve la réouverture au
         // back-office plateforme (préférence periodReopenPolicy, défaut
         // TENANT_ADMIN).
         if (TenantPreferences.REOPEN_PLATFORM_ONLY.equals(preferences.current().periodReopenPolicy())
                 && !isPlatformAdmin()) {
-            throw new BusinessException(
-                    "La réouverture de période est réservée au support plateforme "
-                            + "(politique définie par votre administration).");
+            throw new BusinessException(Messages.msg("m.acc-reopen-platform-only"));
         }
         YearMonth period = parse(periodRaw);
         AccountingPeriodEntity e = periods.findByPeriod(period.toString())
                 .orElseThrow(() -> new BusinessException(
-                        "La période " + period + " n'a jamais été clôturée."));
+                        Messages.msg("m.acc-period-never-locked", period)));
         if (!AccountingPeriodEntity.STATUS_LOCKED.equals(e.status)) {
             return e; // déjà rouverte — idempotent
         }
@@ -151,12 +148,12 @@ public class AccountingPeriodService {
 
     private static YearMonth parse(String raw) {
         if (raw == null || raw.isBlank()) {
-            throw new BusinessException("Période requise (format AAAA-MM).");
+            throw new BusinessException(Messages.msg("m.acc-period-required"));
         }
         try {
             return YearMonth.parse(raw.trim());
         } catch (DateTimeParseException e) {
-            throw new BusinessException("Période invalide « " + raw + "» : format attendu AAAA-MM.");
+            throw new BusinessException(Messages.msg("m.acc-period-invalid", raw));
         }
     }
 

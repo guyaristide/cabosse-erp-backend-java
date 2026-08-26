@@ -7,6 +7,7 @@ import com.ntech.cabosse.accounting.repository.BankAccountRepository;
 import com.ntech.cabosse.accounting.repository.ChartOfAccountsRepository;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -50,7 +51,7 @@ public class BankAccountService {
 
     public BankAccountResponseDto update(UUID id, BankAccountUpsertDto payload) {
         BankAccountEntity e = repo.findById(id)
-                .orElseThrow(() -> new NotFoundException("Compte bancaire " + id + " introuvable."));
+                .orElseThrow(() -> new NotFoundException(Messages.msg("m.acc-bank-account-not-found", id)));
         ensureChartAccount(payload.syscohadaAccount());
         applyPayload(e, payload);
         e.updatedAt = Instant.now();
@@ -60,7 +61,7 @@ public class BankAccountService {
 
     public void delete(UUID id) {
         BankAccountEntity e = repo.findById(id)
-                .orElseThrow(() -> new NotFoundException("Compte bancaire " + id + " introuvable."));
+                .orElseThrow(() -> new NotFoundException(Messages.msg("m.acc-bank-account-not-found", id)));
         // Désactiver plutôt que supprimer si le compte a déjà servi à des
         // paiements — l'historique doit rester lisible. Pour le MVP on
         // permet le delete direct ; à durcir quand on aura un index inverse
@@ -70,9 +71,7 @@ public class BankAccountService {
 
     private void ensureChartAccount(String number) {
         if (chart.findByNumber(number).isEmpty()) {
-            throw new BusinessException(
-                    "Compte SYSCOHADA " + number + " introuvable dans le plan comptable. "
-                            + "Créez-le d'abord ou utilisez un compte existant.");
+            throw new BusinessException(Messages.msg("m.acc-chart-account-not-found", number));
         }
     }
 

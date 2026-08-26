@@ -13,6 +13,7 @@ import com.ntech.cabosse.shared.api.PageRequest;
 import com.ntech.cabosse.shared.export.ExportFormat;
 import com.ntech.cabosse.shared.export.ExportResponses;
 import com.ntech.cabosse.shared.exception.BusinessException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.security.Roles;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.tenant.capability.TenantCapability;
@@ -55,9 +56,7 @@ public class ParcelResource {
 
     private void ensureCapability() {
         if (!capabilities.has(tenantContext.tenantId(), TenantCapability.HAS_PARCELS)) {
-            throw new BusinessException(
-                    "Module Parcelles non activé pour ce tenant. "
-                            + "Réservé aux filières de production agricole.");
+            throw new BusinessException(Messages.msg("m.agr-parcels-module-disabled"));
         }
     }
 

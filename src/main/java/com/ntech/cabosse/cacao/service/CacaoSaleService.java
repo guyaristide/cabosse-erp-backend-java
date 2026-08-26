@@ -24,6 +24,7 @@ import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.stock.dto.MovementInput;
@@ -209,19 +210,19 @@ public class CacaoSaleService {
         TenantPreferences prefs = preferences.current();
 
         var customer = customers.findById(p.customerId()).orElseThrow(
-                () -> new NotFoundException("Client " + p.customerId() + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.cco-customer-not-found", p.customerId())));
 
         ArticleEntity article = articles.findById(p.articleId()).orElseThrow(
-                () -> new NotFoundException("Article " + p.articleId() + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.cco-article-not-found", p.articleId())));
         if (!article.sellable) {
-            throw new BusinessException("L'article « " + article.name + " » n'est pas marqué vendable.");
+            throw new BusinessException(Messages.msg("m.cco-article-not-sellable", article.name));
         }
 
         CampaignEntity campaign = p.campaignId() != null ? campaigns.get(p.campaignId()) : campaigns.current();
 
         SalesContractEntity contract = p.contractId() != null
                 ? contracts.findById(p.contractId()).orElseThrow(
-                        () -> new NotFoundException("Contrat " + p.contractId() + " introuvable."))
+                        () -> new NotFoundException(Messages.msg("m.cco-contract-not-found", p.contractId())))
                 : null;
 
         BigDecimal declaredKg = required(p.weights() != null ? p.weights().declaredKg() : null, "Poids déclaré (départ)");
@@ -230,7 +231,7 @@ public class CacaoSaleService {
         BigDecimal price = p.pricePerKgFcfa() != null ? p.pricePerKgFcfa()
                 : nz(campaign != null ? campaign.basePricePerKgFcfa : null)
                         .add(nz(contract != null ? contract.marginPerKgFcfa : null));
-        if (price.signum() <= 0) throw new BusinessException("Prix de vente (FCFA/kg) requis (contrat/campagne ou saisi).");
+        if (price.signum() <= 0) throw new BusinessException(Messages.msg("m.cco-price-required"));
 
         BigDecimal commercial = acceptedKg.multiply(price);
         BigDecimal coopPrime = p.coopPrimeFcfa() != null ? p.coopPrimeFcfa()
@@ -381,7 +382,7 @@ public class CacaoSaleService {
     }
 
     private static BigDecimal required(BigDecimal v, String label) {
-        if (v == null || v.signum() <= 0) throw new BusinessException(label + " requis et strictement positif.");
+        if (v == null || v.signum() <= 0) throw new BusinessException(Messages.msg("m.cco-field-required-positive", label));
         return v;
     }
 
@@ -423,7 +424,7 @@ public class CacaoSaleService {
     }
 
     private CacaoSaleEntity loadOrFail(UUID id) {
-        return repo.findById(id).orElseThrow(() -> new NotFoundException("Vente " + id + " introuvable."));
+        return repo.findById(id).orElseThrow(() -> new NotFoundException(Messages.msg("m.cco-sale-not-found", id)));
     }
 
     private String actor() { try { return jwt.getName(); } catch (Exception e) { return null; } }

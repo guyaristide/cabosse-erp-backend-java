@@ -18,6 +18,7 @@ import com.ntech.cabosse.shared.export.ExportAudit;
 import com.ntech.cabosse.shared.export.ExportDataset;
 import com.ntech.cabosse.shared.export.ExportFormat;
 import com.ntech.cabosse.shared.export.ExportResponses;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.security.Roles;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import io.quarkus.security.Authenticated;
@@ -180,7 +181,7 @@ public class PurchaseOrderResource {
                                      @RestForm("file") FileUpload file) {
         byte[] bytes = readBytes(file);
         if (bytes == null) {
-            throw new BusinessException("Aucun fichier 'file' fourni dans la requête multipart.");
+            throw new BusinessException(Messages.msg("m.ach-multipart-file-missing"));
         }
         attachments.attach(id, bytes, file.contentType(), file.fileName());
         return Response.ok(ApiResponse.ok(service.getById(id))).build();
@@ -226,7 +227,7 @@ public class PurchaseOrderResource {
         try {
             return Files.readAllBytes(upload.uploadedFile());
         } catch (IOException e) {
-            throw new BusinessException("Lecture du fichier impossible : " + e.getMessage(), e);
+            throw new BusinessException(Messages.msg("m.ach-file-read-error", e.getMessage()), e);
         }
     }
 }

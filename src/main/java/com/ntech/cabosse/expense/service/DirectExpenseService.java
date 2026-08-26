@@ -13,6 +13,7 @@ import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.supplier.repository.SupplierRepository;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -77,7 +78,7 @@ public class DirectExpenseService {
         // Compte de charge : type de dépense en priorité, sinon saisie explicite.
         if (p.expenseTypeId() != null) {
             var type = expenseTypes.findById(p.expenseTypeId()).orElseThrow(
-                    () -> new NotFoundException("Type de dépense " + p.expenseTypeId() + " introuvable."));
+                    () -> new NotFoundException(Messages.msg("m.exp-type-not-found", p.expenseTypeId())));
             e.expenseTypeId = type.id;
             e.expenseTypeName = type.name;
             e.chargeAccount = type.syscohadaAccount;
@@ -86,15 +87,14 @@ public class DirectExpenseService {
             e.chargeAccount = p.chargeAccount().trim();
         }
         if (blankNull(e.chargeAccount) == null) {
-            throw new BusinessException(
-                    "Compte de charge requis : choisissez un type de dépense ou saisissez un compte.");
+            throw new BusinessException(Messages.msg("m.exp-charge-account-required"));
         }
 
         // Clé de répartition (charge indirecte, CPT-17). Facultative.
         if (blankNull(p.allocationKeyCode()) != null) {
             String keyCode = p.allocationKeyCode().trim();
             var key = allocationKeys.findByCode(keyCode).orElseThrow(
-                    () -> new NotFoundException("Clé de répartition « " + keyCode + " » introuvable."));
+                    () -> new NotFoundException(Messages.msg("m.exp-allocation-key-not-found", keyCode)));
             e.allocationKeyCode = key.code;
             e.allocationKeyName = key.name;
         }
@@ -102,7 +102,7 @@ public class DirectExpenseService {
         // Prestataire (contrat). Facultatif.
         if (p.supplierId() != null) {
             var supplier = suppliers.findById(p.supplierId()).orElseThrow(
-                    () -> new NotFoundException("Fournisseur " + p.supplierId() + " introuvable."));
+                    () -> new NotFoundException(Messages.msg("m.exp-supplier-not-found", p.supplierId())));
             e.supplierId = supplier.id;
             e.supplierName = supplier.name;
         }
@@ -142,7 +142,7 @@ public class DirectExpenseService {
 
     private DirectExpenseEntity loadOrFail(UUID id) {
         return repo.findById(id).orElseThrow(
-                () -> new NotFoundException("Dépense " + id + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.exp-expense-not-found", id)));
     }
 
     private static String blankNull(String s) {

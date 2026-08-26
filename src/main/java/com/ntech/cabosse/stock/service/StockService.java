@@ -14,6 +14,7 @@ import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.ErrorCode;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.site.entity.SiteEntity;
 import com.ntech.cabosse.site.repository.SiteRepository;
@@ -104,7 +105,7 @@ public class StockService {
     public StockItemResponseDto getByArticleAndSite(UUID articleId, UUID siteId) {
         StockItemEntity e = stockItems.findByArticleAndSite(articleId, siteId)
                 .orElseThrow(() -> new NotFoundException(
-                        "Aucun stock pour cet article sur ce site."));
+                        Messages.msg("m.stk-no-stock-for-article-site")));
         return StockItemResponseDto.from(e, warningPct());
     }
 
@@ -152,13 +153,13 @@ public class StockService {
      */
     public StockItemResponseDto applyMovement(MovementInput input) {
         // ── Validations ──
-        if (input.articleId() == null) throw new BusinessException("Article requis.");
-        if (input.siteId() == null) throw new BusinessException("Site requis.");
-        if (input.kind() == null) throw new BusinessException("Type de mouvement requis.");
-        if (input.quantity() == null) throw new BusinessException("Quantité requise.");
+        if (input.articleId() == null) throw new BusinessException(Messages.msg("m.stk-article-required"));
+        if (input.siteId() == null) throw new BusinessException(Messages.msg("m.stk-site-required"));
+        if (input.kind() == null) throw new BusinessException(Messages.msg("m.stk-movement-kind-required"));
+        if (input.quantity() == null) throw new BusinessException(Messages.msg("m.stk-quantity-required"));
         if (input.kind() == MovementKind.ADJUSTMENT
                 && (input.reason() == null || input.reason().isBlank())) {
-            throw new BusinessException("Motif obligatoire pour un ajustement.");
+            throw new BusinessException(Messages.msg("m.stk-adjustment-reason-required"));
         }
 
         ArticleEntity article = loadArticle(input.articleId());
@@ -171,16 +172,14 @@ public class StockService {
             case ADJUSTMENT -> input.quantity(); // déjà signée
         };
         if (signedQty.signum() == 0) {
-            throw new BusinessException("Quantité non nulle requise.");
+            throw new BusinessException(Messages.msg("m.stk-nonzero-quantity-required"));
         }
 
         // OPENING refusé si le couple a déjà un mouvement (un site ne
         // s'amorce qu'une fois — utiliser ADJUSTMENT sinon).
         if (input.kind() == MovementKind.OPENING
                 && movements.hasAnyMovement(input.articleId(), input.siteId())) {
-            throw new BusinessException(
-                    "Amorçage refusé : ce couple (article, site) a déjà des mouvements. "
-                            + "Utilisez un ajustement.");
+            throw new BusinessException(Messages.msg("m.stk-opening-refused-existing-movements"));
         }
 
         // OUT/TRANSFER_OUT : vérifier la disponibilité si on bloque les
@@ -198,9 +197,8 @@ public class StockService {
             BigDecimal needed = signedQty.abs();
             if (current.compareTo(needed) < 0) {
                 throw new BusinessException(ErrorCode.STOCK_INSUFFICIENT,
-                        "Stock insuffisant : "
-                                + current + " " + article.unit + " disponible, "
-                                + needed + " demandé(s).");
+                        Messages.msg("m.stk-insufficient",
+                                current.toString(), article.unit, needed.toString()));
             }
         }
 
@@ -429,7 +427,7 @@ public class StockService {
             articleType = ArticleType.valueOf(article.type);
         } catch (Exception ex) {
             throw new BusinessException(
-                    "Type d'article « " + article.type + " » non reconnu.");
+                    Messages.msg("m.stk-article-type-unknown", article.type));
         }
 
         // Stage 1 : recalcule quantity + cmupFcfa, met à jour snapshots
@@ -490,8 +488,7 @@ public class StockService {
         );
 
         if (result == null) {
-            throw new BusinessException(
-                    "Échec de l'application du mouvement sur le stock.");
+            throw new BusinessException(Messages.msg("m.stk-movement-apply-failed"));
         }
         return result;
     }
@@ -558,7 +555,7 @@ public class StockService {
             articleType = ArticleType.valueOf(article.type);
         } catch (Exception ex) {
             throw new BusinessException(
-                    "Type d'article « " + article.type + " » non reconnu.");
+                    Messages.msg("m.stk-article-type-unknown", article.type));
         }
 
         Document setComputed = new Document()
@@ -627,11 +624,10 @@ public class StockService {
                         .map(it -> it.quantity)
                         .orElse(BigDecimal.ZERO);
                 throw new BusinessException(ErrorCode.STOCK_INSUFFICIENT,
-                        "Stock insuffisant : " + current + " " + article.unit
-                                + " disponible, " + signedQty.abs() + " demandé(s).");
+                        Messages.msg("m.stk-insufficient",
+                                current.toString(), article.unit, signedQty.abs().toString()));
             }
-            throw new BusinessException(
-                    "Échec de l'application du mouvement sur le stock.");
+            throw new BusinessException(Messages.msg("m.stk-movement-apply-failed"));
         }
         return result;
     }
@@ -649,19 +645,19 @@ public class StockService {
                                     BigDecimal quantity, String reason, String notes,
                                     Instant occurredAt) {
         if (fromSiteId == null || toSiteId == null) {
-            throw new BusinessException("Sites source et destination requis.");
+            throw new BusinessException(Messages.msg("m.stk-transfer-sites-required"));
         }
         if (fromSiteId.equals(toSiteId)) {
-            throw new BusinessException("Site source et destination doivent différer.");
+            throw new BusinessException(Messages.msg("m.stk-transfer-sites-must-differ"));
         }
         if (quantity == null || quantity.signum() <= 0) {
-            throw new BusinessException("Quantité strictement positive requise.");
+            throw new BusinessException(Messages.msg("m.stk-positive-quantity-required"));
         }
 
         BigDecimal sourceCmup = stockItems.findByArticleAndSite(articleId, fromSiteId)
                 .map(e -> e.cmupFcfa)
                 .orElseThrow(() -> new BusinessException(
-                        "Aucun stock à transférer sur le site source."));
+                        Messages.msg("m.stk-no-stock-on-source-site")));
 
         UUID transferId = UuidCreator.getTimeOrderedEpoch();
         Instant when = occurredAt != null ? occurredAt : Instant.now();
@@ -758,39 +754,36 @@ public class StockService {
                                         BigDecimal quantity, String reason, String notes,
                                         Instant occurredAt) {
         if (fromArticleId == null || toArticleId == null || siteId == null) {
-            throw new BusinessException("Articles source et destination, et site, sont requis.");
+            throw new BusinessException(Messages.msg("m.stk-reclassify-articles-site-required"));
         }
         if (fromArticleId.equals(toArticleId)) {
-            throw new BusinessException("Articles source et destination doivent différer.");
+            throw new BusinessException(Messages.msg("m.stk-reclassify-articles-must-differ"));
         }
         if (quantity == null || quantity.signum() <= 0) {
-            throw new BusinessException("Quantité strictement positive requise.");
+            throw new BusinessException(Messages.msg("m.stk-positive-quantity-required"));
         }
         ArticleEntity from = articles.findById(fromArticleId).orElseThrow(
-                () -> new NotFoundException("Article " + fromArticleId + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.stk-article-not-found", fromArticleId)));
         ArticleEntity to = articles.findById(toArticleId).orElseThrow(
-                () -> new NotFoundException("Article " + toArticleId + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.stk-article-not-found", toArticleId)));
 
         ArticleType fromType = parseType(from.type);
         ArticleType toType = parseType(to.type);
         if (fromType == toType) {
-            throw new BusinessException(
-                    "Les deux articles sont de même nature : utilisez un transfert, pas une requalification.");
+            throw new BusinessException(Messages.msg("m.stk-reclassify-same-nature"));
         }
         if (!isReclassifiable(fromType) || !isReclassifiable(toType)) {
-            throw new BusinessException(
-                    "La requalification ne concerne que les marchandises et les matières premières.");
+            throw new BusinessException(Messages.msg("m.stk-reclassify-only-goods-raw"));
         }
         if (!Objects.equals(from.unit, to.unit)) {
             throw new BusinessException(
-                    "Unités différentes (« " + from.unit + " » et « " + to.unit
-                            + " ») : la quantité requalifiée n'aurait pas le même sens.");
+                    Messages.msg("m.stk-reclassify-units-differ", from.unit, to.unit));
         }
 
         BigDecimal cmup = stockItems.findByArticleAndSite(fromArticleId, siteId)
                 .map(e -> e.cmupFcfa)
                 .orElseThrow(() -> new BusinessException(
-                        "Aucun stock de « " + from.name + " » sur ce site."));
+                        Messages.msg("m.stk-no-stock-of-article-on-site", from.name)));
 
         UUID reclassificationId = UuidCreator.getTimeOrderedEpoch();
         Instant when = occurredAt != null ? occurredAt : Instant.now();
@@ -863,9 +856,9 @@ public class StockService {
      */
     public OpeningResult recordOpeningBatch(UUID siteId, List<OpeningLine> lines,
                                               Instant occurredAt) {
-        if (siteId == null) throw new BusinessException("Site requis.");
+        if (siteId == null) throw new BusinessException(Messages.msg("m.stk-site-required"));
         if (lines == null || lines.isEmpty()) {
-            throw new BusinessException("Au moins une ligne d'amorçage requise.");
+            throw new BusinessException(Messages.msg("m.stk-opening-line-required"));
         }
         List<StockItemResponseDto> created = new ArrayList<>();
         List<OpeningRejection> rejected = new ArrayList<>();
@@ -905,12 +898,12 @@ public class StockService {
      */
     public InventoryResult recordInventoryBatch(UUID siteId, List<InventoryLine> lines,
                                                   String reason, Instant occurredAt) {
-        if (siteId == null) throw new BusinessException("Site requis.");
+        if (siteId == null) throw new BusinessException(Messages.msg("m.stk-site-required"));
         if (lines == null || lines.isEmpty()) {
-            throw new BusinessException("Au moins une ligne d'inventaire requise.");
+            throw new BusinessException(Messages.msg("m.stk-inventory-line-required"));
         }
         if (reason == null || reason.isBlank()) {
-            throw new BusinessException("Motif d'inventaire requis.");
+            throw new BusinessException(Messages.msg("m.stk-inventory-reason-required"));
         }
         Instant when = occurredAt != null ? occurredAt : Instant.now();
 
@@ -1090,19 +1083,19 @@ public class StockService {
 
     private ArticleEntity loadArticle(UUID id) {
         ArticleEntity a = articles.findById(id).orElseThrow(
-                () -> new NotFoundException("Article " + id + " introuvable.")
+                () -> new NotFoundException(Messages.msg("m.stk-article-not-found", id))
         );
-        if (!a.active) throw new BusinessException("Article « " + a.name + " » désactivé.");
+        if (!a.active) throw new BusinessException(Messages.msg("m.stk-article-inactive", a.name));
         if (!a.stockable) throw new BusinessException(
-                "Article « " + a.name + " » non géré en stock.");
+                Messages.msg("m.stk-article-not-stockable", a.name));
         return a;
     }
 
     private SiteEntity loadSite(UUID id) {
         SiteEntity s = sites.findById(id).orElseThrow(
-                () -> new NotFoundException("Site " + id + " introuvable.")
+                () -> new NotFoundException(Messages.msg("m.stk-site-not-found", id))
         );
-        if (!s.active) throw new BusinessException("Site « " + s.name + " » désactivé.");
+        if (!s.active) throw new BusinessException(Messages.msg("m.stk-site-inactive", s.name));
         return s;
     }
 }

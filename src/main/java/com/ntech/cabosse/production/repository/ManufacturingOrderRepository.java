@@ -5,6 +5,7 @@ import com.mongodb.client.model.Filters;
 import com.ntech.cabosse.production.entity.ManufacturingOrderEntity;
 import com.ntech.cabosse.production.entity.OfStatus;
 import com.ntech.cabosse.shared.exception.ConflictException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.ListCap;
 import com.ntech.cabosse.shared.persistence.TenantMongoDatabaseProvider;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -124,8 +125,7 @@ public class ManufacturingOrderRepository {
                 .getMatchedCount();
         if (matched != 1L) {
             e.version = expected;
-            throw new ConflictException(
-                    "L'ordre de fabrication a été modifié par une autre opération entre-temps. Réessayez.");
+            throw new ConflictException(Messages.msg("m.prd-of-concurrent-update"));
         }
     }
 }

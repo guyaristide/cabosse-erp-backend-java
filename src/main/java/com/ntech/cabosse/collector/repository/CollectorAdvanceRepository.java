@@ -5,6 +5,7 @@ import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.Updates;
 import com.ntech.cabosse.collector.entity.CollectorAdvanceEntity;
 import com.ntech.cabosse.shared.exception.ConflictException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.TenantMongoDatabaseProvider;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -55,7 +56,7 @@ public class CollectorAdvanceRepository {
         var result = coll().replaceOne(
                 Filters.and(Filters.eq("_id", e.id), Filters.eq("version", expected)), e);
         if (result.getMatchedCount() == 0) {
-            throw new ConflictException("L'avance a été modifiée entre-temps. Rechargez la page.");
+            throw new ConflictException(Messages.msg("m.col-advance-concurrent-update"));
         }
     }
 

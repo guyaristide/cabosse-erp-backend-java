@@ -7,6 +7,7 @@ import com.ntech.cabosse.accounting.repository.QuarantinedPostingRepository;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.ErrorCode;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.jwt.JsonWebToken;
@@ -58,8 +59,7 @@ public class QuarantineService {
             // La date retenue tombe encore dans une période close : le dire
             // plutôt que de marquer la ligne traitée sans rien avoir écrit.
             throw new BusinessException(ErrorCode.PERIOD_LOCKED,
-                    "La date choisie tombe encore dans une période clôturée. "
-                            + "Rouvrez la période, ou choisissez une date dans une période ouverte.");
+                    Messages.msg("m.acc-quarantine-date-still-locked"));
         }
 
         q.status = QuarantineStatus.POSTED;
@@ -73,7 +73,7 @@ public class QuarantineService {
     /** Écarte l'écriture. La ligne et son motif restent consultables. */
     public QuarantinedPostingEntity discard(UUID id, String reason) {
         if (reason == null || reason.isBlank()) {
-            throw new BusinessException("Motif requis pour écarter une écriture en attente.");
+            throw new BusinessException(Messages.msg("m.acc-quarantine-reason-required"));
         }
         QuarantinedPostingEntity q = load(id);
         requirePending(q);
@@ -88,13 +88,13 @@ public class QuarantineService {
     private static void requirePending(QuarantinedPostingEntity q) {
         if (q.status != QuarantineStatus.PENDING) {
             throw new BusinessException(
-                    "Cette écriture a déjà été traitée (" + q.status + ").");
+                    Messages.msg("m.acc-quarantine-already-resolved", q.status));
         }
     }
 
     private QuarantinedPostingEntity load(UUID id) {
         return repo.findById(id).orElseThrow(
-                () -> new NotFoundException("Écriture en attente " + id + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.acc-quarantine-not-found", id)));
     }
 
     private String actor() {

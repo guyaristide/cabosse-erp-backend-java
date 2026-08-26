@@ -20,6 +20,7 @@ import com.ntech.cabosse.reception.entity.DirectReceiptStatus;
 import com.ntech.cabosse.reception.repository.DirectReceiptRepository;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.supplier.dto.SupplierResponseDto;
 import com.ntech.cabosse.supplier.dto.SupplierUpsertDto;
 import com.ntech.cabosse.supplier.entity.SupplierEntity;
@@ -395,10 +396,10 @@ public class DirectReceiptImportService {
 
     private ArticleEntity loadArticle(UUID id) {
         ArticleEntity a = articles.findById(id).orElseThrow(
-                () -> new NotFoundException("Article " + id + " introuvable.")
+                () -> new NotFoundException(Messages.msg("m.rcv-article-not-found", id))
         );
-        if (!a.active) throw new BusinessException("Article « " + a.name + " » désactivé.");
-        if (!a.stockable) throw new BusinessException("Article « " + a.name + " » non stockable.");
+        if (!a.active) throw new BusinessException(Messages.msg("m.rcv-article-disabled", a.name));
+        if (!a.stockable) throw new BusinessException(Messages.msg("m.rcv-article-not-stockable", a.name));
         return a;
     }
 

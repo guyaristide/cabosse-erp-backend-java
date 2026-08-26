@@ -27,6 +27,7 @@ import com.ntech.cabosse.members.entity.MemberMaritalStatus;
 import com.ntech.cabosse.members.repository.MemberRepository;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.tenant.entity.TenantEntity;
 import com.ntech.cabosse.tenant.repository.TenantRepository;
@@ -96,7 +97,7 @@ public class MemberProfileSheetService {
 
     public byte[] build(UUID memberId, UUID campaignId) {
         MemberEntity m = members.findById(memberId)
-                .orElseThrow(() -> new NotFoundException("Membre " + memberId + " introuvable."));
+                .orElseThrow(() -> new NotFoundException(Messages.msg("m.mbr-member-not-found", memberId)));
 
         TenantEntity tenant = tenants.findById(tenantContext.tenantId());
         String organization = tenant != null ? tenant.name : "";
@@ -151,7 +152,7 @@ public class MemberProfileSheetService {
             doc.close();
             return out.toByteArray();
         } catch (Exception e) {
-            throw new BusinessException("Génération de la fiche impossible : " + e.getMessage());
+            throw new BusinessException(Messages.msg("m.mbr-sheet-generation-failed", e.getMessage()));
         }
     }
 

@@ -4,6 +4,7 @@ import com.ntech.cabosse.accounting.entity.OdDraftEntity;
 import com.ntech.cabosse.accounting.repository.OdDraftRepository;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.storage.CloudFileEntity;
 import com.ntech.cabosse.shared.storage.CloudFileScope;
@@ -40,7 +41,7 @@ public class OdDocumentService {
     public OdDraftEntity attach(UUID odId, String label, byte[] bytes,
                                 String mimeType, String originalName) {
         if (label == null || label.isBlank()) {
-            throw new BusinessException("Libellé de la pièce requis (ex. « Tableau d'amortissement »).");
+            throw new BusinessException(Messages.msg("m.acc-od-doc-label-required"));
         }
         OdDraftEntity e = loadOrFail(odId);
         requireDraft(e);
@@ -89,21 +90,20 @@ public class OdDocumentService {
     private static void requireDraft(OdDraftEntity e) {
         if (!OdDraftEntity.STATUS_DRAFT.equals(e.status)) {
             throw new BusinessException(
-                    "Une OD validée est immuable, justificatifs compris (statut actuel : "
-                            + e.status + ").");
+                    Messages.msg("m.acc-od-validated-immutable", e.status));
         }
     }
 
     private static OdDraftEntity.Document findDoc(OdDraftEntity e, UUID documentId) {
-        if (e.documents == null) throw new NotFoundException("Pièce introuvable.");
+        if (e.documents == null) throw new NotFoundException(Messages.msg("m.acc-document-not-found"));
         return e.documents.stream()
                 .filter(d -> documentId.equals(d.id))
                 .findFirst()
-                .orElseThrow(() -> new NotFoundException("Pièce introuvable."));
+                .orElseThrow(() -> new NotFoundException(Messages.msg("m.acc-document-not-found")));
     }
 
     private OdDraftEntity loadOrFail(UUID id) {
         return drafts.findById(id)
-                .orElseThrow(() -> new NotFoundException("OD " + id + " introuvable."));
+                .orElseThrow(() -> new NotFoundException(Messages.msg("m.acc-od-not-found", id)));
     }
 }

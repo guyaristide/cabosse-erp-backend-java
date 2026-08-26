@@ -2,6 +2,7 @@ package com.ntech.cabosse.tenant.service;
 
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.tenant.dto.UpdateTenantPayloadDto;
 import com.ntech.cabosse.tenant.entity.CommercialStatus;
@@ -49,7 +50,7 @@ public class TenantUpdateService {
     public TenantEntity update(UUID tenantId, UpdateTenantPayloadDto payload) {
         TenantEntity tenant = tenants.findById(tenantId);
         if (tenant == null) {
-            throw new NotFoundException("Tenant " + tenantId + " introuvable");
+            throw new NotFoundException(Messages.msg("m.tnt-not-found", tenantId));
         }
 
         validateCommercialStatusConsistency(payload);
@@ -173,18 +174,17 @@ public class TenantUpdateService {
     private void validateCommercialStatusConsistency(UpdateTenantPayloadDto payload) {
         boolean isTrial = payload.commercialStatus() == CommercialStatus.TRIAL;
         if (isTrial && payload.trialDurationDays() == null) {
-            throw new BusinessException("Durée d'essai requise pour le statut TRIAL.");
+            throw new BusinessException(Messages.msg("m.tnt-trial-duration-required"));
         }
         if (!isTrial && payload.trialDurationDays() != null) {
-            throw new BusinessException("Durée d'essai non applicable pour le statut " + payload.commercialStatus());
+            throw new BusinessException(Messages.msg("m.tnt-trial-duration-not-applicable", payload.commercialStatus()));
         }
     }
 
     private void validateExactlyOnePrimaryActivity(UpdateTenantPayloadDto payload) {
         long primaries = payload.activities().stream().filter(a -> a.isPrimary()).count();
         if (primaries != 1) {
-            throw new BusinessException(
-                    "Exactement une activité doit être marquée comme primaire (trouvé " + primaries + ").");
+            throw new BusinessException(Messages.msg("m.tnt-one-primary-activity", primaries));
         }
     }
 }

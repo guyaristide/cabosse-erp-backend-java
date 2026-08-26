@@ -4,6 +4,7 @@ import com.ntech.cabosse.shared.api.ApiResponse;
 import com.ntech.cabosse.shared.api.Pagination;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.security.Roles;
 import com.ntech.cabosse.shared.tenant.TenantStatus;
 import com.ntech.cabosse.shared.tenant.TenantContext;
@@ -204,7 +205,7 @@ public class TenantsResource {
                                 @RestForm("logo") FileUpload logo) {
         byte[] bytes = readBytes(logo);
         if (bytes == null) {
-            throw new BusinessException("Aucun fichier 'logo' fourni dans la requête multipart.");
+            throw new BusinessException(Messages.msg("m.tnt-logo-part-missing"));
         }
         logoService.attachLogo(tenantId, bytes, logo.contentType(), tenantContext.userId());
         return Response.noContent().build();
@@ -347,7 +348,7 @@ public class TenantsResource {
         try {
             return Files.readAllBytes(upload.uploadedFile());
         } catch (IOException e) {
-            throw new BusinessException("Lecture du fichier logo impossible : " + e.getMessage(), e);
+            throw new BusinessException(Messages.msg("m.tnt-logo-read-failed", e.getMessage()), e);
         }
     }
 }

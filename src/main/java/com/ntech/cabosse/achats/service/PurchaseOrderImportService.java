@@ -14,6 +14,7 @@ import com.ntech.cabosse.article.entity.ArticleType;
 import com.ntech.cabosse.article.repository.ArticleRepository;
 import com.ntech.cabosse.article.service.ArticleService;
 import com.ntech.cabosse.shared.exception.BusinessException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.supplier.dto.SupplierUpsertDto;
 import com.ntech.cabosse.supplier.repository.SupplierRepository;
 import com.ntech.cabosse.supplier.service.SupplierService;
@@ -81,7 +82,7 @@ public class PurchaseOrderImportService {
             if (articleId == null) {
                 if (line.newArticle() == null) {
                     throw new BusinessException(
-                            "Ligne " + (i + 1) + " : ni article existant ni nouveau article fourni.");
+                            Messages.msg("m.ach-import-line-no-article", String.valueOf(i + 1)));
                 }
                 ResolvedArticle resolved = resolveArticle(line.newArticle(), strict);
                 if (resolved.created()) {
@@ -143,7 +144,7 @@ public class PurchaseOrderImportService {
             return new ResolvedSupplier(s.id(), s.name() != null ? s.name() : "—", false);
         }
         if (s.name() == null || s.name().isBlank()) {
-            throw new BusinessException("Nom du fournisseur requis pour création.");
+            throw new BusinessException(Messages.msg("m.ach-import-supplier-name-required"));
         }
         var existing = supplierRepository.findByName(s.name());
         if (existing.isPresent()) {
@@ -152,8 +153,7 @@ public class PurchaseOrderImportService {
         }
         if (strict) {
             throw new BusinessException(
-                    "Mode strict : fournisseur « " + s.name().trim() + " » introuvable. "
-                    + "Créer le référentiel avant d'importer.");
+                    Messages.msg("m.ach-import-strict-supplier", s.name().trim()));
         }
         SupplierUpsertDto create = new SupplierUpsertDto(
                 /* code */ null,
@@ -192,7 +192,7 @@ public class PurchaseOrderImportService {
         try {
             type = ArticleType.valueOf(a.type());
         } catch (IllegalArgumentException ex) {
-            throw new BusinessException("Type d'article invalide : " + a.type());
+            throw new BusinessException(Messages.msg("m.ach-import-invalid-article-type", a.type()));
         }
         var existing = articleRepository.findByName(a.name(), type);
         if (existing.isPresent()) {
@@ -201,8 +201,7 @@ public class PurchaseOrderImportService {
         }
         if (strict) {
             throw new BusinessException(
-                    "Mode strict : article « " + a.name().trim() + " » (" + a.type()
-                    + ") introuvable. Créer le référentiel avant d'importer.");
+                    Messages.msg("m.ach-import-strict-article", a.name().trim(), a.type()));
         }
         ArticleUpsertDto create = new ArticleUpsertDto(
                 a.type(),
@@ -251,7 +250,7 @@ public class PurchaseOrderImportService {
         try {
             target = BcStatus.valueOf(initialStatus);
         } catch (IllegalArgumentException ex) {
-            throw new BusinessException("Statut initial invalide : " + initialStatus);
+            throw new BusinessException(Messages.msg("m.ach-import-invalid-status", initialStatus));
         }
         return switch (target) {
             case DRAFT -> bc;

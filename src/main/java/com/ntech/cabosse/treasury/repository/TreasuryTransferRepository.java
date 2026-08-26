@@ -3,6 +3,7 @@ package com.ntech.cabosse.treasury.repository;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Filters;
 import com.ntech.cabosse.shared.exception.ConflictException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.TenantMongoDatabaseProvider;
 import com.ntech.cabosse.treasury.entity.TreasuryTransferEntity;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -71,7 +72,7 @@ public class TreasuryTransferRepository {
         var result = coll().replaceOne(
                 Filters.and(Filters.eq("_id", e.id), Filters.eq("version", expected)), e);
         if (result.getMatchedCount() == 0) {
-            throw new ConflictException("Le transfert a été modifié entre-temps. Rechargez la page.");
+            throw new ConflictException(Messages.msg("m.trs-transfer-concurrent-update"));
         }
     }
 }

@@ -5,6 +5,7 @@ import com.mongodb.client.model.Filters;
 import com.ntech.cabosse.sale.entity.SaleEntity;
 import com.ntech.cabosse.sale.entity.SaleStatus;
 import com.ntech.cabosse.shared.exception.ConflictException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.ListCap;
 import com.ntech.cabosse.shared.persistence.TenantMongoDatabaseProvider;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -82,8 +83,7 @@ public class SaleRepository {
                 .getMatchedCount();
         if (matched != 1L) {
             e.version = expected; // restaure la cohérence de l'objet en mémoire
-            throw new ConflictException(
-                    "La vente a été modifiée par une autre opération entre-temps. Réessayez.");
+            throw new ConflictException(Messages.msg("m.sal-concurrent-update"));
         }
     }
 

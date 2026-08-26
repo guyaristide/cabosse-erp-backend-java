@@ -28,8 +28,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class I18nDebtTest {
 
-    /** Valeur constatée le 2026-08-26 (départ : 602). À faire baisser, jamais monter. */
-    private static final int BUDGET = 602;
+    /** Départ 602 (2026-08-26), 171 après la vague des packages métier. À faire baisser, jamais monter. */
+    private static final int BUDGET = 171;
 
     private static final Pattern INLINE_MESSAGE = Pattern.compile(
             "new\\s+(BusinessException|ConflictException|NotFoundException)\\(\\s*\\n?\\s*"

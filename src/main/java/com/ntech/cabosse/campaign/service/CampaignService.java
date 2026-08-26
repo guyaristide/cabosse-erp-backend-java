@@ -8,6 +8,7 @@ import com.ntech.cabosse.campaign.entity.QualityPremium;
 import com.ntech.cabosse.campaign.repository.CampaignRepository;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.tenant.capability.TenantCapability;
 import com.ntech.cabosse.tenant.capability.TenantCapabilityService;
@@ -61,9 +62,7 @@ public class CampaignService {
         boolean allowed = capabilityService.has(tenantId, TenantCapability.HAS_MEMBERS)
                 || capabilityService.has(tenantId, TenantCapability.HAS_COMMODITY_TRADE);
         if (!allowed) {
-            throw new BusinessException(
-                    "Ce tenant n'a ni registre de membres ni négoce de matière première : "
-                            + "les campagnes ne s'appliquent pas.");
+            throw new BusinessException(Messages.msg("m.cmp-not-applicable"));
         }
     }
 
@@ -75,7 +74,7 @@ public class CampaignService {
     public CampaignEntity get(UUID id) {
         ensureCapability();
         return repo.findById(id)
-                .orElseThrow(() -> new NotFoundException("Campagne " + id + " introuvable"));
+                .orElseThrow(() -> new NotFoundException(Messages.msg("m.cmp-campaign-not-found", id)));
     }
 
     public CampaignEntity current() {
@@ -105,8 +104,7 @@ public class CampaignService {
         ensureCapability();
         CampaignEntity e = get(id);
         if (e.status != CampaignStatus.OPEN) {
-            throw new BusinessException(
-                    "Campagne clôturée : non modifiable.");
+            throw new BusinessException(Messages.msg("m.cmp-closed-not-editable"));
         }
         validateDates(payload);
         applyPayload(e, payload);
@@ -119,7 +117,7 @@ public class CampaignService {
         ensureCapability();
         CampaignEntity e = get(id);
         if (e.status == CampaignStatus.CLOSED) {
-            throw new BusinessException("Campagne déjà clôturée.");
+            throw new BusinessException(Messages.msg("m.cmp-already-closed"));
         }
         Instant now = Instant.now();
         e.status = CampaignStatus.CLOSED;
@@ -133,22 +131,19 @@ public class CampaignService {
 
     private static void validateDates(CampaignUpsertDto p) {
         if (p.startDate() == null) {
-            throw new BusinessException("Date d'ouverture requise.");
+            throw new BusinessException(Messages.msg("m.cmp-start-date-required"));
         }
         if (p.endDate() != null && p.endDate().isBefore(p.startDate())) {
-            throw new BusinessException(
-                    "Date de fin antérieure à la date d'ouverture.");
+            throw new BusinessException(Messages.msg("m.cmp-end-before-start"));
         }
         if (p.basePricePerKgFcfa() == null
                 || p.basePricePerKgFcfa().signum() < 0) {
-            throw new BusinessException(
-                    "Prix de base doit être positif ou nul.");
+            throw new BusinessException(Messages.msg("m.cmp-base-price-negative"));
         }
         if (p.ristournePct() != null
                 && (p.ristournePct().signum() < 0
                 || p.ristournePct().compareTo(BigDecimal.valueOf(100)) > 0)) {
-            throw new BusinessException(
-                    "Ristourne doit être comprise entre 0 et 100 %.");
+            throw new BusinessException(Messages.msg("m.cmp-ristourne-out-of-range"));
         }
     }
 

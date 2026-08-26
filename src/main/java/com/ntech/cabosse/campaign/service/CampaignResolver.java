@@ -4,6 +4,7 @@ import com.ntech.cabosse.campaign.entity.CampaignEntity;
 import com.ntech.cabosse.campaign.repository.CampaignRepository;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
@@ -40,8 +41,7 @@ public class CampaignResolver {
     public CampaignEntity resolve(UUID campaignId) {
         CampaignEntity resolved = resolveOptional(campaignId);
         if (resolved == null) {
-            throw new BusinessException(
-                    "Aucune campagne ouverte : créez une campagne avant d'enregistrer cette opération.");
+            throw new BusinessException(Messages.msg("m.cmp-no-open-campaign"));
         }
         return resolved;
     }
@@ -55,7 +55,7 @@ public class CampaignResolver {
     public CampaignEntity resolveOptional(UUID campaignId) {
         if (campaignId != null) {
             return repo.findById(campaignId).orElseThrow(
-                    () -> new NotFoundException("Campagne " + campaignId + " introuvable"));
+                    () -> new NotFoundException(Messages.msg("m.cmp-campaign-not-found", campaignId)));
         }
         return repo.findCurrent().orElse(null);
     }

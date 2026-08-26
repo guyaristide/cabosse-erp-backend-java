@@ -10,6 +10,7 @@ import com.ntech.cabosse.customer.repository.CustomerRepository;
 import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -48,7 +49,7 @@ public class SalesContractService {
         e.ref = refService.nextContract();
         e.customerId = p.customerId();
         e.customerName = customers.findById(p.customerId())
-                .orElseThrow(() -> new NotFoundException("Client " + p.customerId() + " introuvable.")).name;
+                .orElseThrow(() -> new NotFoundException(Messages.msg("m.cco-customer-not-found", p.customerId()))).name;
         CampaignEntity campaign = p.campaignId() != null ? campaigns.get(p.campaignId()) : campaigns.current();
         e.campaignId = campaign != null ? campaign.id : null;
         e.campaignYear = campaign != null ? campaign.campaignYear : null;
@@ -66,7 +67,7 @@ public class SalesContractService {
         SalesContractEntity e = loadOrFail(id);
         e.customerId = p.customerId();
         e.customerName = customers.findById(p.customerId())
-                .orElseThrow(() -> new NotFoundException("Client " + p.customerId() + " introuvable.")).name;
+                .orElseThrow(() -> new NotFoundException(Messages.msg("m.cco-customer-not-found", p.customerId()))).name;
         apply(e, p);
         e.updatedAt = Instant.now();
         repo.replace(e);
@@ -105,7 +106,7 @@ public class SalesContractService {
 
     private SalesContractEntity loadOrFail(UUID id) {
         return repo.findById(id).orElseThrow(
-                () -> new NotFoundException("Contrat " + id + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.cco-contract-not-found", id)));
     }
 
     private String actor() { try { return jwt.getName(); } catch (Exception e) { return null; } }

@@ -3,6 +3,7 @@ package com.ntech.cabosse.tenant.service;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.ConflictException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.security.Roles;
 import com.ntech.cabosse.tenant.dto.InviteTenantUserPayloadDto;
@@ -106,10 +107,10 @@ public class TenantUserService {
         TenantEntity tenant = ensureTenantExists(tenantId);
         String email = payload.email().trim().toLowerCase();
         if (users.emailExists(email)) {
-            throw new ConflictException("L'e-mail \"" + email + "\" est déjà utilisé.");
+            throw new ConflictException(Messages.msg("m.tnt-email-in-use", email));
         }
         if (!Roles.HUMAN_ASSIGNABLE.contains(payload.role())) {
-            throw new BusinessException("Rôle non assignable : " + payload.role());
+            throw new BusinessException(Messages.msg("m.tnt-role-not-assignable", payload.role()));
         }
         // Le plafond de comptes du plan se consomme ici, quelle que soit la
         // porte d'entrée (back-office ou administrateur du tenant).
@@ -155,10 +156,10 @@ public class TenantUserService {
         TenantEntity tenant = ensureTenantExists(tenantId);
         UserEntity user = users.findById(userId);
         if (user == null || !tenantId.equals(user.tenantId)) {
-            throw new NotFoundException("Utilisateur introuvable dans ce tenant.");
+            throw new NotFoundException(Messages.msg("m.tnt-user-not-found"));
         }
         if (user.status == UserStatus.DISABLED) {
-            throw new BusinessException("Compte désactivé : ré-activer avant de réinitialiser le mot de passe.");
+            throw new BusinessException(Messages.msg("m.tnt-account-disabled"));
         }
 
         InvitationTokenService.InvitationToken token = invitationTokens.generate();
@@ -185,7 +186,7 @@ public class TenantUserService {
     private TenantEntity ensureTenantExists(UUID tenantId) {
         TenantEntity tenant = tenants.findById(tenantId);
         if (tenant == null) {
-            throw new NotFoundException("Tenant " + tenantId + " introuvable.");
+            throw new NotFoundException(Messages.msg("m.tnt-not-found-2", tenantId));
         }
         return tenant;
     }

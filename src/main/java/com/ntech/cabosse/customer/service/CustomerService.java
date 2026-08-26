@@ -13,6 +13,7 @@ import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.ConflictException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -52,14 +53,14 @@ public class CustomerService {
 
     public CustomerResponseDto getById(UUID id) {
         return CustomerResponseDto.from(repo.findById(id).orElseThrow(
-                () -> new NotFoundException("Client " + id + " introuvable.")));
+                () -> new NotFoundException(Messages.msg("m.cst-customer-not-found", id))));
     }
 
     public CustomerResponseDto create(CustomerUpsertDto p) {
         CustomerType.valueOf(p.type()); // validation
         String code = (p.code() != null && !p.code().isBlank()) ? p.code().trim() : slugify(p.name());
         if (repo.codeExists(code)) {
-            throw new ConflictException("Un client avec le code « " + code + " » existe déjà.");
+            throw new ConflictException(Messages.msg("m.cst-code-exists", code));
         }
         CustomerEntity e = new CustomerEntity();
         e.id = UuidCreator.getTimeOrderedEpoch();
@@ -76,7 +77,7 @@ public class CustomerService {
 
     public CustomerResponseDto update(UUID id, CustomerUpsertDto p) {
         CustomerEntity e = repo.findById(id).orElseThrow(
-                () -> new NotFoundException("Client " + id + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.cst-customer-not-found", id)));
         // type modifiable (un particulier peut devenir personne morale)
         e.type = p.type();
         apply(e, p);
@@ -88,7 +89,7 @@ public class CustomerService {
 
     public CustomerResponseDto setActive(UUID id, boolean active) {
         CustomerEntity e = repo.findById(id).orElseThrow(
-                () -> new NotFoundException("Client " + id + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.cst-customer-not-found", id)));
         if (e.active == active) return CustomerResponseDto.from(e);
         repo.updateActive(id, active);
         e.active = active;

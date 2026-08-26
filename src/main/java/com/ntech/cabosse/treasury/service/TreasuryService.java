@@ -12,6 +12,7 @@ import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.tenant.service.TenantPreferencesLookup;
@@ -87,7 +88,7 @@ public class TreasuryService {
 
     public TreasuryDtos.TransferResponseDto send(TreasuryDtos.CreateTransferDto p) {
         if (p.fromAccountId().equals(p.toAccountId())) {
-            throw new BusinessException("Comptes d'origine et de destination identiques.");
+            throw new BusinessException(Messages.msg("m.trs-same-accounts"));
         }
         BankAccountEntity from = loadAccount(p.fromAccountId());
         BankAccountEntity to = loadAccount(p.toAccountId());
@@ -132,12 +133,12 @@ public class TreasuryService {
         TreasuryTransferEntity e = loadTransfer(id);
         if (e.status != TreasuryTransferStatus.IN_TRANSIT) {
             throw new BusinessException(
-                    "Ce transfert n'est pas en transit (statut : " + e.status + ").");
+                    Messages.msg("m.trs-transfer-not-in-transit", e.status));
         }
         BankAccountEntity to = loadAccount(e.toAccountId);
         LocalDate date = p.receivedAt() != null ? p.receivedAt() : LocalDate.now();
         if (date.isBefore(e.sentAt)) {
-            throw new BusinessException("La réception ne peut pas précéder le départ.");
+            throw new BusinessException(Messages.msg("m.trs-receive-before-send"));
         }
         e.amountReceivedFcfa = p.amountReceivedFcfa();
         e.discrepancyFcfa = p.amountReceivedFcfa().subtract(e.amountSentFcfa);
@@ -163,12 +164,12 @@ public class TreasuryService {
 
     public TreasuryDtos.TransferResponseDto cancel(UUID id, String reason) {
         if (reason == null || reason.isBlank()) {
-            throw new BusinessException("Motif d'annulation requis.");
+            throw new BusinessException(Messages.msg("m.trs-cancel-reason-required"));
         }
         TreasuryTransferEntity e = loadTransfer(id);
         if (e.status != TreasuryTransferStatus.IN_TRANSIT) {
             throw new BusinessException(
-                    "Seul un transfert en transit peut être annulé (statut : " + e.status + ").");
+                    Messages.msg("m.trs-cancel-only-in-transit", e.status));
         }
         // Contre-passation de la sortie : les fonds n'ont jamais quitté le
         // compte d'origine, la pièce initiale reste au journal.
@@ -328,15 +329,15 @@ public class TreasuryService {
 
     private TreasuryTransferEntity loadTransfer(UUID id) {
         return transfers.findById(id).orElseThrow(
-                () -> new NotFoundException("Transfert " + id + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.trs-transfer-not-found", id)));
     }
 
     private BankAccountEntity loadAccount(UUID id) {
         BankAccountEntity account = accounts.findById(id).orElseThrow(
-                () -> new NotFoundException("Compte de trésorerie " + id + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.trs-account-not-found", id)));
         if (account.syscohadaAccount == null || account.syscohadaAccount.isBlank()) {
             throw new BusinessException(
-                    "Le compte « " + label(account) + " » n'a pas de compte comptable rattaché.");
+                    Messages.msg("m.trs-account-no-ledger", label(account)));
         }
         return account;
     }

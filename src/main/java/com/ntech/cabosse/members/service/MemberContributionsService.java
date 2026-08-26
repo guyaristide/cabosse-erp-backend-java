@@ -7,6 +7,7 @@ import com.ntech.cabosse.agriculture.parcel.repository.ParcelRepository;
 import com.ntech.cabosse.members.dto.MemberContributionsDto;
 import com.ntech.cabosse.members.repository.MemberRepository;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
@@ -33,7 +34,7 @@ public class MemberContributionsService {
 
     public MemberContributionsDto contributions(UUID memberId) {
         members.findById(memberId)
-                .orElseThrow(() -> new NotFoundException("Membre " + memberId + " introuvable."));
+                .orElseThrow(() -> new NotFoundException(Messages.msg("m.mbr-member-not-found", memberId)));
 
         List<ParcelEntity> memberParcels = parcels.search(null, null, memberId, 0, 1000);
         BigDecimal totalSurface = memberParcels.stream()

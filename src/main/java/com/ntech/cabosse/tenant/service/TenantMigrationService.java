@@ -4,6 +4,7 @@ import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.migration.TenantMigrationRunner;
 import com.ntech.cabosse.shared.security.Roles;
 import com.ntech.cabosse.shared.tenant.TenantStatus;
@@ -55,12 +56,10 @@ public class TenantMigrationService {
     public void runMigrationsFor(UUID tenantId) {
         TenantEntity tenant = tenants.findById(tenantId);
         if (tenant == null) {
-            throw new NotFoundException("Tenant " + tenantId + " introuvable.");
+            throw new NotFoundException(Messages.msg("m.tnt-not-found-2", tenantId));
         }
         if (tenant.status == TenantStatus.DELETED) {
-            throw new BusinessException(
-                    "Tenant supprimé : sa base a été droppée, les migrations "
-                            + "ne peuvent pas être relancées.");
+            throw new BusinessException(Messages.msg("m.tnt-deleted-migrations-blocked"));
         }
 
         runner.runMigrationsFor(tenant.databaseName);

@@ -3,6 +3,7 @@ package com.ntech.cabosse.agriculture.potential.controller;
 import com.ntech.cabosse.agriculture.potential.service.ProductionPotentialService;
 import com.ntech.cabosse.shared.api.ApiResponse;
 import com.ntech.cabosse.shared.exception.BusinessException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.tenant.capability.TenantCapability;
 import com.ntech.cabosse.tenant.capability.TenantCapabilityService;
@@ -46,8 +47,7 @@ public class ProductionPotentialResource {
     public Response potential(@QueryParam("campaignId") UUID campaignId,
                               @QueryParam("cropCode") String cropCode) {
         if (!capabilities.has(tenantContext.tenantId(), TenantCapability.HAS_PARCELS)) {
-            throw new BusinessException(
-                    "Parcelles non activées pour ce tenant : aucune estimation à projeter.");
+            throw new BusinessException(Messages.msg("m.agr-potential-parcels-disabled"));
         }
         return Response.ok(ApiResponse.ok(service.compute(campaignId, cropCode))).build();
     }

@@ -5,6 +5,7 @@ import com.ntech.cabosse.plan.entity.PlanEntity;
 import com.ntech.cabosse.plan.repository.PlanRepository;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.ErrorCode;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.tenant.entity.TenantEntity;
 import com.ntech.cabosse.user.repository.UserRepository;
@@ -47,9 +48,7 @@ public class PlanLimitService {
         long active = users.countActiveByTenant(tenant.id);
         if (active >= plan.maxUsers) {
             throw new BusinessException(ErrorCode.PLAN_LIMIT,
-                    "Plafond du plan atteint : " + plan.maxUsers + " comptes utilisateurs ("
-                            + active + " actifs ou invités). Désactivez un compte ou demandez "
-                            + "le passage au palier supérieur.");
+                    Messages.msg("m.pln-user-seat-limit", plan.maxUsers, active));
         }
     }
 
@@ -67,9 +66,7 @@ public class PlanLimitService {
         long current = members.count();
         if (current + toAdd > plan.maxMembers) {
             throw new BusinessException(ErrorCode.PLAN_LIMIT,
-                    "Plafond du plan atteint : " + plan.maxMembers + " producteurs membres ("
-                            + current + " enregistrés, " + toAdd + " à créer). Demandez le "
-                            + "passage au palier supérieur avant d'enregistrer de nouveaux producteurs.");
+                    Messages.msg("m.pln-member-limit", plan.maxMembers, current, toAdd));
         }
     }
 

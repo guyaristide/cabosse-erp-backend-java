@@ -8,6 +8,7 @@ import com.ntech.cabosse.agriculture.qc.service.BeanQualityCheckService;
 import com.ntech.cabosse.shared.api.ApiResponse;
 import com.ntech.cabosse.shared.api.PageRequest;
 import com.ntech.cabosse.shared.exception.BusinessException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.security.Roles;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.tenant.capability.TenantCapability;
@@ -46,7 +47,7 @@ public class BeanQualityCheckResource {
 
     private void ensureCapability() {
         if (!capabilities.has(tenantContext.tenantId(), TenantCapability.HAS_DRYING)) {
-            throw new BusinessException("Module Contrôle Qualité fèves non activé pour ce tenant.");
+            throw new BusinessException(Messages.msg("m.agr-qc-module-disabled"));
         }
     }
 

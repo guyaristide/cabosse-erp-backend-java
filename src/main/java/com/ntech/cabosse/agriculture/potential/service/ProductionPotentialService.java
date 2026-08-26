@@ -13,6 +13,7 @@ import com.ntech.cabosse.members.entity.MemberEntity;
 import com.ntech.cabosse.members.entity.MemberStatus;
 import com.ntech.cabosse.members.repository.MemberRepository;
 import com.ntech.cabosse.shared.exception.BusinessException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
@@ -57,8 +58,7 @@ public class ProductionPotentialService {
     public ProductionPotentialResponseDto compute(UUID campaignId, String cropCode) {
         CampaignEntity campaign = campaignId != null ? campaigns.get(campaignId) : campaigns.current();
         if (campaign == null) {
-            throw new BusinessException(
-                    "Aucune campagne ouverte : créez une campagne pour projeter un potentiel.");
+            throw new BusinessException(Messages.msg("m.agr-no-open-campaign-potential"));
         }
 
         Map<UUID, String> sectionNames = new HashMap<>();

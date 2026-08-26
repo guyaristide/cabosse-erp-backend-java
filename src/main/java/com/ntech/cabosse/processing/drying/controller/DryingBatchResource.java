@@ -9,6 +9,7 @@ import com.ntech.cabosse.processing.drying.service.DryingBatchService;
 import com.ntech.cabosse.shared.api.ApiResponse;
 import com.ntech.cabosse.shared.api.PageRequest;
 import com.ntech.cabosse.shared.exception.BusinessException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.security.Roles;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.tenant.capability.TenantCapability;
@@ -47,7 +48,7 @@ public class DryingBatchResource {
 
     private void ensureCapability() {
         if (!capabilities.has(tenantContext.tenantId(), TenantCapability.HAS_DRYING)) {
-            throw new BusinessException("Module Séchage non activé pour ce tenant.");
+            throw new BusinessException(Messages.msg("m.prc-drying-module-disabled"));
         }
     }
 

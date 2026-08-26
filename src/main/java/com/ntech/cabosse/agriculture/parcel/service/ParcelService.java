@@ -12,6 +12,7 @@ import com.ntech.cabosse.shared.api.PageRequest;
 import com.ntech.cabosse.shared.api.Pagination;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -135,7 +136,7 @@ public class ParcelService {
 
     private ParcelEntity loadOrFail(UUID id) {
         return parcels.findById(id)
-                .orElseThrow(() -> new NotFoundException("Parcelle " + id + " introuvable."));
+                .orElseThrow(() -> new NotFoundException(Messages.msg("m.agr-parcel-not-found", id)));
     }
 
     private void applyPayload(ParcelEntity e, ParcelUpsertDto p, UUID previousMember) {
@@ -215,7 +216,7 @@ public class ParcelService {
         }
         String code = provided.trim();
         if (parcels.codeExists(code)) {
-            throw new BusinessException("Une parcelle avec le code « " + code + " » existe déjà.");
+            throw new BusinessException(Messages.msg("m.agr-parcel-code-exists", code));
         }
         return code;
     }

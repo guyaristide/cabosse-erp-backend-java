@@ -1,6 +1,7 @@
 package com.ntech.cabosse.tenant.service;
 
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.storage.CloudFileEntity;
 import com.ntech.cabosse.shared.storage.CloudFileScope;
 import com.ntech.cabosse.shared.storage.FileUploadService;
@@ -53,7 +54,7 @@ public class TenantLogoService {
     public void attachLogo(UUID tenantId, byte[] bytes, String mimeType, UUID actorId) {
         TenantEntity tenant = tenants.findById(tenantId);
         if (tenant == null) {
-            throw new NotFoundException("Tenant " + tenantId + " introuvable");
+            throw new NotFoundException(Messages.msg("m.tnt-not-found", tenantId));
         }
 
         // Archive l'ancien logo s'il existe.
@@ -86,7 +87,7 @@ public class TenantLogoService {
     public void detachLogo(UUID tenantId, UUID actorId) {
         TenantEntity tenant = tenants.findById(tenantId);
         if (tenant == null) {
-            throw new NotFoundException("Tenant " + tenantId + " introuvable");
+            throw new NotFoundException(Messages.msg("m.tnt-not-found", tenantId));
         }
 
         if (tenant.branding != null && tenant.branding.logoFileId != null) {
@@ -104,10 +105,10 @@ public class TenantLogoService {
     public LogoStream openLogo(UUID tenantId) {
         TenantEntity tenant = tenants.findById(tenantId);
         if (tenant == null) {
-            throw new NotFoundException("Tenant " + tenantId + " introuvable");
+            throw new NotFoundException(Messages.msg("m.tnt-not-found", tenantId));
         }
         if (tenant.branding == null || tenant.branding.logoFileId == null) {
-            throw new NotFoundException("Pas de logo pour le tenant " + tenantId);
+            throw new NotFoundException(Messages.msg("m.tnt-logo-none", tenantId));
         }
         CloudFileEntity file = uploads.findById(SCOPE, tenant.branding.logoFileId);
         InputStream content = uploads.open(SCOPE, file.id);

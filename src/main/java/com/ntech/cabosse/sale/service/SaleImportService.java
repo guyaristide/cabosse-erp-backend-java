@@ -21,6 +21,7 @@ import com.ntech.cabosse.sale.entity.SaleChannel;
 import com.ntech.cabosse.sale.entity.SaleStatus;
 import com.ntech.cabosse.sale.repository.SaleRepository;
 import com.ntech.cabosse.shared.exception.BusinessException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.site.repository.SiteRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -98,8 +99,7 @@ public class SaleImportService {
             UUID articleId = line.articleId();
             if (articleId == null) {
                 if (line.newArticle() == null) {
-                    throw new BusinessException(
-                            "Ligne " + (i + 1) + " : ni article existant ni nouveau article fourni.");
+                    throw new BusinessException(Messages.msg("m.sal-line-no-article", i + 1));
                 }
                 ResolvedArticle resolved = resolveArticle(line.newArticle(), strict);
                 if (resolved.created()) {
@@ -194,7 +194,7 @@ public class SaleImportService {
             return new ResolvedCustomer(c.id(), c.name() != null ? c.name() : "—", false);
         }
         if (c.name() == null || c.name().isBlank()) {
-            throw new BusinessException("Nom du client requis pour création.");
+            throw new BusinessException(Messages.msg("m.sal-customer-name-required"));
         }
         var existing = customerRepository.findByName(c.name());
         if (existing.isPresent()) {
@@ -202,9 +202,7 @@ public class SaleImportService {
             return new ResolvedCustomer(found.id, found.name, false);
         }
         if (strict) {
-            throw new BusinessException(
-                    "Mode strict : client « " + c.name().trim() + " » introuvable. "
-                    + "Créer le référentiel avant d'importer.");
+            throw new BusinessException(Messages.msg("m.sal-strict-customer-not-found", c.name().trim()));
         }
         // Canal effectif : celui porté par la ligne client si renseigné,
         // sinon celui porté par la vente (champ channelType du payload).
@@ -243,9 +241,7 @@ public class SaleImportService {
             return new ResolvedArticle(found.id, found.code, found.name, false);
         }
         if (strict) {
-            throw new BusinessException(
-                    "Mode strict : produit fini « " + a.name().trim()
-                    + " » introuvable. Créer le référentiel avant d'importer.");
+            throw new BusinessException(Messages.msg("m.sal-strict-product-not-found", a.name().trim()));
         }
         ArticleUpsertDto create = new ArticleUpsertDto(
                 ArticleType.FINISHED_PRODUCT.name(),
@@ -281,19 +277,17 @@ public class SaleImportService {
      */
     private UUID resolveSite(String siteName) {
         if (siteName == null || siteName.isBlank()) {
-            throw new BusinessException("Nom de site requis dans le payload d'import.");
+            throw new BusinessException(Messages.msg("m.sal-site-name-required"));
         }
         return siteRepository.findByName(siteName)
                 .map(s -> {
                     if (!s.active) {
-                        throw new BusinessException(
-                                "Site « " + s.name + " » désactivé : réactivez-le avant import.");
+                        throw new BusinessException(Messages.msg("m.sal-site-disabled-reactivate", s.name));
                     }
                     return s.id;
                 })
                 .orElseThrow(() -> new BusinessException(
-                        "Site « " + siteName.trim() + " » introuvable. "
-                        + "Créer le site avant d'importer."));
+                        Messages.msg("m.sal-site-not-found-import", siteName.trim())));
     }
 
     /**
@@ -316,7 +310,7 @@ public class SaleImportService {
         try {
             target = SaleStatus.valueOf(initialStatus.trim());
         } catch (IllegalArgumentException ex) {
-            throw new BusinessException("Statut initial invalide : " + initialStatus);
+            throw new BusinessException(Messages.msg("m.sal-invalid-initial-status", initialStatus));
         }
         return switch (target) {
             case QUOTE -> sale;

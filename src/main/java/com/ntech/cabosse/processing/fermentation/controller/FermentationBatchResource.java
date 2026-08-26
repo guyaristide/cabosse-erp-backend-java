@@ -9,6 +9,7 @@ import com.ntech.cabosse.processing.fermentation.service.FermentationBatchServic
 import com.ntech.cabosse.shared.api.ApiResponse;
 import com.ntech.cabosse.shared.api.PageRequest;
 import com.ntech.cabosse.shared.exception.BusinessException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.security.Roles;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.tenant.capability.TenantCapability;
@@ -47,8 +48,7 @@ public class FermentationBatchResource {
 
     private void ensureCapability() {
         if (!capabilities.has(tenantContext.tenantId(), TenantCapability.HAS_FERMENTATION)) {
-            throw new BusinessException(
-                    "Module Fermentation non activé pour ce tenant.");
+            throw new BusinessException(Messages.msg("m.prc-fermentation-module-disabled"));
         }
     }
 
@@ -99,7 +99,7 @@ public class FermentationBatchResource {
     public Response recordTemperature(@PathParam("id") UUID id, TemperaturePayload payload) {
         ensureCapability();
         if (payload == null || payload.celsius() == null) {
-            throw new BusinessException("Température en °C requise.");
+            throw new BusinessException(Messages.msg("m.prc-temperature-required"));
         }
         return Response.ok(ApiResponse.ok(service.recordTemperature(id, payload.celsius(), payload.observation()))).build();
     }

@@ -24,6 +24,7 @@ import com.ntech.cabosse.permission.service.PermissionResolver;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.ForbiddenException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.tenant.entity.TenantPreferences;
@@ -107,7 +108,7 @@ public class MemberCreditService {
     /** Ce que le producteur doit encore, engagement par engagement. */
     public MemberDebtDto debtOf(UUID memberId) {
         MemberEntity m = members.findById(memberId).orElseThrow(
-                () -> new NotFoundException("Producteur " + memberId + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.mcr-producer-not-found", memberId)));
         List<MemberCreditEntity> outstanding = repo.outstandingForMember(memberId);
         BigDecimal total = BigDecimal.ZERO;
         List<MemberDebtDto.Line> lines = new java.util.ArrayList<>();
@@ -126,10 +127,9 @@ public class MemberCreditService {
 
     public MemberCreditResponseDto create(CreateMemberCreditDto p) {
         MemberEntity m = members.findById(p.memberId()).orElseThrow(
-                () -> new NotFoundException("Producteur " + p.memberId() + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.mcr-producer-not-found", p.memberId())));
         if (m.status == MemberStatus.RETIRED) {
-            throw new BusinessException(
-                    "« " + m.name + " » est radié : aucun nouvel engagement ne peut lui être consenti.");
+            throw new BusinessException(Messages.msg("m.mcr-member-retired", m.name));
         }
         TenantPreferences prefs = preferences.current();
         BigDecimal threshold = prefs.memberCreditApprovalThresholdFcfa();
@@ -177,15 +177,13 @@ public class MemberCreditService {
     public MemberCreditResponseDto approve(UUID id, String note) {
         MemberCreditEntity e = loadOrFail(id);
         if (e.status != MemberCreditStatus.PENDING_APPROVAL) {
-            throw new BusinessException(
-                    "Seule une demande en attente peut être approuvée (statut actuel : " + e.status + ").");
+            throw new BusinessException(Messages.msg("m.mcr-approve-requires-pending", e.status));
         }
         // Séparation des tâches : celui qui a déposé le dossier ne peut
         // pas le trancher. L'administrateur du tenant en est exempt, pour
         // qu'une structure à compte unique reste opérable.
         if (isSameActor(e.createdBy, e.requestedByEmail) && !permissions.currentIsTenantAdmin()) {
-            throw new BusinessException(
-                    "La demande " + e.ref + " a été déposée par vous : son approbation revient à une autre personne.");
+            throw new BusinessException(Messages.msg("m.mcr-approve-self-forbidden", e.ref));
         }
         if (e.governanceApprovalRequired
                 && !permissions.currentIsTenantAdmin()
@@ -209,12 +207,11 @@ public class MemberCreditService {
 
     public MemberCreditResponseDto reject(UUID id, String reason) {
         if (reason == null || reason.isBlank()) {
-            throw new BusinessException("Motif de refus requis.");
+            throw new BusinessException(Messages.msg("m.mcr-rejection-reason-required"));
         }
         MemberCreditEntity e = loadOrFail(id);
         if (e.status != MemberCreditStatus.PENDING_APPROVAL) {
-            throw new BusinessException(
-                    "Seule une demande en attente peut être refusée (statut actuel : " + e.status + ").");
+            throw new BusinessException(Messages.msg("m.mcr-reject-requires-pending", e.status));
         }
         e.status = MemberCreditStatus.REJECTED;
         e.rejectedAt = Instant.now();
@@ -235,14 +232,12 @@ public class MemberCreditService {
     public MemberCreditResponseDto disburse(UUID id, DisburseMemberCreditDto p) {
         MemberCreditEntity e = loadOrFail(id);
         if (e.status != MemberCreditStatus.APPROVED) {
-            throw new BusinessException(
-                    "Seul un engagement approuvé peut être décaissé (statut actuel : " + e.status + ").");
+            throw new BusinessException(Messages.msg("m.mcr-disburse-requires-approved", e.status));
         }
         // Deux paires d'yeux par transition : l'approbateur ne remet pas
         // lui-même les fonds. Même exemption que ci-dessus pour l'admin.
         if (isSameActor(e.approvedBy, e.approvedByEmail) && !permissions.currentIsTenantAdmin()) {
-            throw new BusinessException(
-                    "Vous avez approuvé " + e.ref + " : la remise des fonds revient à une autre personne.");
+            throw new BusinessException(Messages.msg("m.mcr-disburse-self-forbidden", e.ref));
         }
         LocalDate date = p.disbursedAt() != null ? p.disbursedAt() : LocalDate.now();
         e.status = MemberCreditStatus.DISBURSED;
@@ -271,12 +266,12 @@ public class MemberCreditService {
      */
     public MemberCreditResponseDto cancel(UUID id, String reason) {
         if (reason == null || reason.isBlank()) {
-            throw new BusinessException("Motif requis.");
+            throw new BusinessException(Messages.msg("m.mcr-reason-required"));
         }
         MemberCreditEntity e = loadOrFail(id);
         if (e.status == MemberCreditStatus.SETTLED || e.status == MemberCreditStatus.CANCELLED
                 || e.status == MemberCreditStatus.REJECTED) {
-            throw new BusinessException("Engagement déjà clos (statut actuel : " + e.status + ").");
+            throw new BusinessException(Messages.msg("m.mcr-already-closed", e.status));
         }
         e.status = MemberCreditStatus.CANCELLED;
         e.notes = (e.notes == null ? "" : e.notes + " | ") + "Abandon : " + reason.trim();
@@ -298,21 +293,18 @@ public class MemberCreditService {
      */
     public MemberCreditEntity impute(UUID creditId, BigDecimal amount, UUID memberId) {
         if (amount == null || amount.signum() <= 0) {
-            throw new BusinessException("Montant de retenue strictement positif requis.");
+            throw new BusinessException(Messages.msg("m.mcr-withholding-amount-positive"));
         }
         MemberCreditEntity e = loadOrFail(creditId);
         if (memberId != null && !memberId.equals(e.memberId)) {
-            throw new BusinessException(
-                    "L'engagement " + e.ref + " ne concerne pas ce producteur.");
+            throw new BusinessException(Messages.msg("m.mcr-credit-wrong-member", e.ref));
         }
         if (e.status != MemberCreditStatus.DISBURSED) {
-            throw new BusinessException(
-                    "L'engagement " + e.ref + " n'est pas imputable (statut : " + e.status + ").");
+            throw new BusinessException(Messages.msg("m.mcr-credit-not-imputable", e.ref, e.status));
         }
         if (!repo.tryImpute(creditId, amount)) {
-            throw new BusinessException(
-                    "Retenue de " + amount + " impossible sur " + e.ref
-                            + " : le reste dû est de " + nz(e.remainingFcfa) + ".");
+            throw new BusinessException(Messages.msg("m.mcr-withholding-exceeds-remaining",
+                    amount, e.ref, nz(e.remainingFcfa)));
         }
         return e;
     }
@@ -402,7 +394,7 @@ public class MemberCreditService {
 
     private MemberCreditEntity loadOrFail(UUID id) {
         return repo.findById(id).orElseThrow(
-                () -> new NotFoundException("Engagement " + id + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.mcr-credit-not-found", id)));
     }
 
     private void audit(MemberCreditEntity e, AuditEventType type, String description) {

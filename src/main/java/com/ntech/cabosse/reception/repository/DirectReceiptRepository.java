@@ -5,6 +5,7 @@ import com.mongodb.client.model.Filters;
 import com.ntech.cabosse.reception.entity.DirectReceiptEntity;
 import com.ntech.cabosse.reception.entity.DirectReceiptStatus;
 import com.ntech.cabosse.shared.exception.ConflictException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.TenantMongoDatabaseProvider;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -98,8 +99,7 @@ public class DirectReceiptRepository {
                 .getMatchedCount();
         if (matched != 1L) {
             e.version = expected;
-            throw new ConflictException(
-                    "La réception a été modifiée par une autre opération entre-temps. Réessayez.");
+            throw new ConflictException(Messages.msg("m.rcv-concurrent-update"));
         }
     }
 }

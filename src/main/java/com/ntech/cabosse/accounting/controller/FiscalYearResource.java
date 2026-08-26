@@ -7,6 +7,7 @@ import com.ntech.cabosse.accounting.service.FiscalYearDocumentService;
 import com.ntech.cabosse.accounting.service.FiscalYearService;
 import com.ntech.cabosse.shared.api.ApiResponse;
 import com.ntech.cabosse.shared.exception.BusinessException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.security.Roles;
 import io.quarkus.security.Authenticated;
 import jakarta.annotation.security.RolesAllowed;
@@ -106,13 +107,13 @@ public class FiscalYearResource {
             @org.jboss.resteasy.reactive.RestForm("file")
             org.jboss.resteasy.reactive.multipart.FileUpload file) {
         if (file == null) {
-            throw new BusinessException("Aucun fichier 'file' fourni dans la requête multipart.");
+            throw new BusinessException(Messages.msg("m.acc-multipart-file-missing"));
         }
         byte[] bytes;
         try {
             bytes = java.nio.file.Files.readAllBytes(file.uploadedFile());
         } catch (java.io.IOException e) {
-            throw new BusinessException("Lecture du fichier impossible : " + e.getMessage());
+            throw new BusinessException(Messages.msg("m.acc-file-read-failed", e.getMessage()));
         }
         return Response.ok(ApiResponse.ok(FiscalYearDto.from(
                 documents.attach(id, label, bytes, file.contentType(), file.fileName())))).build();

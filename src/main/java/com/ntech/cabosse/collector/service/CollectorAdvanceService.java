@@ -17,6 +17,7 @@ import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.stock.dto.MovementInput;
 import com.ntech.cabosse.stock.entity.MovementKind;
@@ -77,11 +78,9 @@ public class CollectorAdvanceService {
 
     public CollectorAdvanceResponseDto create(CreateAdvanceDto p, UUID siteId) {
         SupplierEntity delegate = suppliers.findById(p.delegateSupplierId()).orElseThrow(
-                () -> new NotFoundException("Délégué " + p.delegateSupplierId() + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.col-delegate-not-found", p.delegateSupplierId())));
         if (!delegate.collector) {
-            throw new BusinessException(
-                    "« " + delegate.name + " » n'est pas un délégué collecteur. "
-                            + "Cochez « délégué collecteur » sur sa fiche fournisseur.");
+            throw new BusinessException(Messages.msg("m.col-not-a-delegate-check-card", delegate.name));
         }
         CollectorAdvanceEntity e = new CollectorAdvanceEntity();
         e.id = UuidCreator.getTimeOrderedEpoch();
@@ -123,7 +122,7 @@ public class CollectorAdvanceService {
     public CollectorAdvanceResponseDto close(UUID id, String note) {
         CollectorAdvanceEntity e = loadOrFail(id);
         if (e.status == CollectorAdvanceStatus.CLOSED) {
-            throw new BusinessException("Avance déjà clôturée.");
+            throw new BusinessException(Messages.msg("m.col-advance-already-closed"));
         }
         e.status = CollectorAdvanceStatus.CLOSED;
         e.closedAt = Instant.now();
@@ -200,7 +199,7 @@ public class CollectorAdvanceService {
 
     private CollectorAdvanceEntity loadOrFail(UUID id) {
         return repo.findById(id).orElseThrow(
-                () -> new NotFoundException("Avance " + id + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.col-advance-not-found", id)));
     }
 
     private String actor() { try { return jwt.getName(); } catch (Exception e) { return null; } }

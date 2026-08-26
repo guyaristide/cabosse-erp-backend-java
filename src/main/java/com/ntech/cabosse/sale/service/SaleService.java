@@ -24,6 +24,7 @@ import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.site.entity.SiteEntity;
 import com.ntech.cabosse.site.repository.SiteRepository;
@@ -169,12 +170,10 @@ public class SaleService {
     public SaleResponseDto update(UUID id, SaleUpsertDto payload) {
         SaleEntity e = loadOrFail(id);
         if (e.status != SaleStatus.QUOTE) {
-            throw new BusinessException(
-                    "Édition refusée : seuls les devis (QUOTE) sont modifiables. "
-                            + "Contre-passez la vente et recréez-la si besoin.");
+            throw new BusinessException(Messages.msg("m.sal-edit-quote-only"));
         }
         if (!e.siteId.equals(payload.siteId())) {
-            throw new BusinessException("Changement de site interdit : créez un nouveau devis.");
+            throw new BusinessException(Messages.msg("m.sal-site-change-forbidden"));
         }
         CustomerEntity customer = loadCustomer(payload.customerId());
         e.customerId = customer.id;
@@ -205,8 +204,7 @@ public class SaleService {
     public SaleResponseDto validateQuote(UUID id) {
         SaleEntity e = loadOrFail(id);
         if (e.status != SaleStatus.QUOTE) {
-            throw new BusinessException(
-                    "Validation refusée : la vente est en statut " + e.status + ".");
+            throw new BusinessException(Messages.msg("m.sal-validate-wrong-status", e.status));
         }
         e.status = SaleStatus.CONFIRMED;
         e.updatedAt = Instant.now();
@@ -221,9 +219,7 @@ public class SaleService {
     public SaleResponseDto markDelivered(UUID id) {
         SaleEntity e = loadOrFail(id);
         if (e.status != SaleStatus.CONFIRMED) {
-            throw new BusinessException(
-                    "Livraison refusée : la vente doit être en statut CONFIRMED (actuel : "
-                            + e.status + ").");
+            throw new BusinessException(Messages.msg("m.sal-deliver-wrong-status", e.status));
         }
         Instant when = Instant.now();
         // Transition d'abord (replace versionné) : le perdant d'une double
@@ -253,20 +249,19 @@ public class SaleService {
     public SaleResponseDto recordPayment(UUID id, SalePaymentDto payload) {
         SaleEntity e = loadOrFail(id);
         if (e.status == SaleStatus.CANCELLED) {
-            throw new BusinessException("Vente annulée : paiement impossible.");
+            throw new BusinessException(Messages.msg("m.sal-cancelled-no-payment"));
         }
         if (e.status == SaleStatus.QUOTE) {
-            throw new BusinessException(
-                    "Paiement impossible sur un devis : validez-le d'abord.");
+            throw new BusinessException(Messages.msg("m.sal-quote-no-payment"));
         }
         BigDecimal amount = payload.amountFcfa();
         if (amount == null || amount.signum() <= 0) {
-            throw new BusinessException("Montant > 0 requis.");
+            throw new BusinessException(Messages.msg("m.sal-amount-positive-required"));
         }
         BigDecimal balance = balance(e);
         if (amount.compareTo(balance) > 0) {
-            throw new BusinessException(
-                    "Montant supérieur au reste à payer (" + money.format(balance, tenantContext.currency()) + ").");
+            throw new BusinessException(Messages.msg("m.sal-amount-exceeds-balance",
+                    money.format(balance, tenantContext.currency())));
         }
         SalePayment p = new SalePayment();
         p.id = UuidCreator.getTimeOrderedEpoch();
@@ -292,11 +287,11 @@ public class SaleService {
     public SaleResponseDto removePayment(UUID id, UUID paymentId) {
         SaleEntity e = loadOrFail(id);
         if (e.status == SaleStatus.CANCELLED) {
-            throw new BusinessException("Vente annulée : retrait impossible.");
+            throw new BusinessException(Messages.msg("m.sal-cancelled-no-removal"));
         }
         boolean removed = e.payments.removeIf(p -> paymentId.equals(p.id));
         if (!removed) {
-            throw new NotFoundException("Paiement " + paymentId + " introuvable.");
+            throw new NotFoundException(Messages.msg("m.sal-payment-not-found", paymentId));
         }
         recomputePaymentStatus(e);
         e.updatedAt = Instant.now();
@@ -315,7 +310,7 @@ public class SaleService {
     public SaleResponseDto cancel(UUID id, String reason) {
         SaleEntity e = loadOrFail(id);
         if (e.status == SaleStatus.CANCELLED) {
-            throw new BusinessException("Vente déjà annulée.");
+            throw new BusinessException(Messages.msg("m.sal-already-cancelled"));
         }
         SaleStatus previous = e.status;
         Instant when = Instant.now();
@@ -377,14 +372,13 @@ public class SaleService {
         if (input != null) {
             for (SaleLineDto raw : input) {
                 ArticleEntity art = articles.findById(raw.articleId()).orElseThrow(
-                        () -> new NotFoundException("Article " + raw.articleId() + " introuvable.")
+                        () -> new NotFoundException(Messages.msg("m.sal-article-not-found", raw.articleId()))
                 );
                 if (!art.sellable) {
-                    throw new BusinessException(
-                            "L'article « " + art.name + " » n'est pas marqué vendable.");
+                    throw new BusinessException(Messages.msg("m.sal-article-not-sellable", art.name));
                 }
                 if (!art.active) {
-                    throw new BusinessException("Article « " + art.name + " » désactivé.");
+                    throw new BusinessException(Messages.msg("m.sal-article-disabled", art.name));
                 }
                 SaleLine line = new SaleLine();
                 line.id = UuidCreator.getTimeOrderedEpoch();
@@ -418,7 +412,7 @@ public class SaleService {
             }
         }
         if (lines.isEmpty()) {
-            throw new BusinessException("Au moins une ligne requise.");
+            throw new BusinessException(Messages.msg("m.sal-line-required"));
         }
         e.lines = lines;
         e.subtotalHtFcfa = subtotal;
@@ -453,25 +447,25 @@ public class SaleService {
 
     private SaleEntity loadOrFail(UUID id) {
         return sales.findById(id).orElseThrow(
-                () -> new NotFoundException("Vente " + id + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.sal-sale-not-found", id)));
     }
 
     private CustomerEntity loadCustomer(UUID id) {
         CustomerEntity c = customers.findById(id).orElseThrow(
-                () -> new NotFoundException("Client " + id + " introuvable.")
+                () -> new NotFoundException(Messages.msg("m.sal-customer-not-found", id))
         );
         if (!c.active) {
-            throw new BusinessException("Client « " + c.name + " » désactivé.");
+            throw new BusinessException(Messages.msg("m.sal-customer-disabled", c.name));
         }
         return c;
     }
 
     private SiteEntity loadSite(UUID id) {
         SiteEntity s = sites.findById(id).orElseThrow(
-                () -> new NotFoundException("Site " + id + " introuvable.")
+                () -> new NotFoundException(Messages.msg("m.sal-site-not-found", id))
         );
         if (!s.active) {
-            throw new BusinessException("Site « " + s.name + " » désactivé.");
+            throw new BusinessException(Messages.msg("m.sal-site-disabled", s.name));
         }
         return s;
     }
