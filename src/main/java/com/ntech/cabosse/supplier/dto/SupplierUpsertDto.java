@@ -7,20 +7,20 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
 
 @Schema(description = "Payload d'écriture fournisseur")
 public record SupplierUpsertDto(
-        @Pattern(regexp = "^$|^[a-z0-9-]{2,40}$", message = "Code en minuscules / chiffres / tirets, 2 à 40 caractères")
+        @Pattern(regexp = "^$|^[a-z0-9-]{2,40}$", message = "{v.code-en-minuscules-chiffres-tirets-2-a-40-caracteres}")
         String code,
 
-        @NotBlank(message = "Nom requis")
+        @NotBlank(message = "{v.nom-requis}")
         @Size(min = 2, max = 120)
         String name,
 
         @Size(max = 150) String legalName,
         @Size(max = 60)  String taxNumber,
 
-        @Pattern(regexp = "^$|^.+@.+\\..+$", message = "Adresse e-mail invalide")
+        @Pattern(regexp = "^$|^.+@.+\\..+$", message = "{v.adresse-e-mail-invalide}")
         @Size(max = 120) String email,
 
-        @Pattern(regexp = "^$|^\\+?[\\d\\s()-]{6,25}$", message = "Téléphone invalide")
+        @Pattern(regexp = "^$|^\\+?[\\d\\s()-]{6,25}$", message = "{v.telephone-invalide}")
         @Size(max = 25)  String phone,
 
         @Size(max = 250) String addressLine,
@@ -35,7 +35,7 @@ public record SupplierUpsertDto(
         /** Section rattachée au délégué. */
         java.util.UUID sectionId,
         /** Taux de rémunération propre au délégué. Vide : taux du tenant. */
-        @jakarta.validation.constraints.DecimalMin(value = "0", message = "Taux négatif interdit")
+        @jakarta.validation.constraints.DecimalMin(value = "0", message = "{v.taux-negatif-interdit}")
         java.math.BigDecimal collectorMarginRate,
         /** Catégorie de reprise (backlog ACH-07). Vide : aucune. */
         java.util.UUID categoryId

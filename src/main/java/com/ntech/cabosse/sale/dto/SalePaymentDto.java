@@ -14,11 +14,11 @@ public record SalePaymentDto(
 
         LocalDate paidOn,
 
-        @NotNull(message = "Montant requis")
-        @DecimalMin(value = "0", inclusive = false, message = "Montant > 0 requis")
+        @NotNull(message = "{v.montant-requis}")
+        @DecimalMin(value = "0", inclusive = false, message = "{v.montant-0-requis}")
         BigDecimal amountFcfa,
 
-        @NotNull(message = "Mode de paiement requis")
+        @NotNull(message = "{v.mode-de-paiement-requis}")
         PaymentMethod method,
 
         @Size(max = 80) String paymentNoteRef,

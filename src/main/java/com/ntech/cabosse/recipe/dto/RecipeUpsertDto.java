@@ -25,18 +25,18 @@ public record RecipeUpsertDto(
         @Size(max = 1000)
         String description,
 
-        @NotNull(message = "Produit fini requis")
+        @NotNull(message = "{v.produit-fini-requis}")
         UUID finishedProductId,
 
         @NotNull
-        @DecimalMin(value = "0.0001", inclusive = true, message = "Rendement strictement positif requis")
+        @DecimalMin(value = "0.0001", inclusive = true, message = "{v.rendement-strictement-positif-requis}")
         BigDecimal yieldQty,
 
         @NotBlank
         @Size(max = 20)
         String yieldUnit,
 
-        @NotEmpty(message = "Au moins un ingrédient requis")
+        @NotEmpty(message = "{v.au-moins-un-ingredient-requis}")
         List<@Valid RecipeIngredientDto> ingredients,
 
         /**

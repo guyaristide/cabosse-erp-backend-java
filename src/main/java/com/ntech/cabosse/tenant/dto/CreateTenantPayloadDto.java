@@ -34,59 +34,59 @@ import java.util.UUID;
 public record CreateTenantPayloadDto(
 
         // ─── Identité ───
-        @NotBlank(message = "Nom requis")
-        @Size(min = 3, max = 120, message = "Nom entre 3 et 120 caractères")
+        @NotBlank(message = "{v.nom-requis}")
+        @Size(min = 3, max = 120, message = "{v.nom-entre-3-et-120-caracteres}")
         String name,
 
-        @NotBlank(message = "Slug requis")
+        @NotBlank(message = "{v.slug-requis}")
         @Pattern(regexp = "^[a-z0-9-]{3,50}$",
-                message = "Slug en minuscules, chiffres et tirets, 3 à 50 caractères")
+                message = "{v.slug-en-minuscules-chiffres-et-tirets-3-a-50-caracteres}")
         String slug,
 
-        @Pattern(regexp = "^#[0-9a-fA-F]{6}$", message = "Couleur hexa attendue (#RRGGBB)")
+        @Pattern(regexp = "^#[0-9a-fA-F]{6}$", message = "{v.couleur-hexa-attendue-rrggbb}")
         @Schema(example = "#1A1A1A")
         String brandColor,
 
         // ─── Légal ───
-        @Valid @NotNull(message = "Informations légales requises") LegalPayload legal,
+        @Valid @NotNull(message = "{v.informations-legales-requises}") LegalPayload legal,
 
         // ─── Adresse ───
-        @Valid @NotNull(message = "Adresse requise") AddressPayload address,
+        @Valid @NotNull(message = "{v.adresse-requise}") AddressPayload address,
 
         // ─── Contact principal ───
-        @Valid @NotNull(message = "Contact requis") ContactPayload contact,
+        @Valid @NotNull(message = "{v.contact-requis}") ContactPayload contact,
 
         // ─── Facturation ───
-        @Valid @NotNull(message = "Coordonnées de facturation requises") BillingPayload billing,
+        @Valid @NotNull(message = "{v.coordonnees-de-facturation-requises}") BillingPayload billing,
 
         // ─── Préférences ───
-        @Valid @NotNull(message = "Préférences requises") PreferencesPayload preferences,
+        @Valid @NotNull(message = "{v.preferences-requises}") PreferencesPayload preferences,
 
         // ─── Activités économiques ───
-        @NotEmpty(message = "Au moins une activité requise")
+        @NotEmpty(message = "{v.au-moins-une-activite-requise}")
         List<@Valid ActivityPayload> activities,
 
         // ─── Certifications ───
         List<String> certifications,
 
         // ─── Sites initiaux ───
-        @Min(value = 1, message = "Au moins un site")
-        @Max(value = 50, message = "50 sites maximum")
+        @Min(value = 1, message = "{v.au-moins-un-site}")
+        @Max(value = 50, message = "{v.50-sites-maximum}")
         int initialSitesCount,
 
         // ─── Plan & souscription ───
-        @NotBlank(message = "Plan requis") String planCode,
-        @NotNull(message = "Statut commercial requis") CommercialStatus commercialStatus,
+        @NotBlank(message = "{v.plan-requis}") String planCode,
+        @NotNull(message = "{v.statut-commercial-requis}") CommercialStatus commercialStatus,
         @Min(1) @Max(90) Integer trialDurationDays,
 
         // ─── Structure organisationnelle ───
-        @NotNull(message = "Modèle organisationnel requis")
+        @NotNull(message = "{v.modele-organisationnel-requis}")
         @Schema(description = "Structure juridique. Pilote l'activation des capacités hasMembers et hasSustainability.",
                 example = "PRIVATE_COMPANY")
         TenantOrganizationModel organizationModel,
 
         // ─── Admin du tenant ───
-        @Valid @NotNull(message = "Admin du tenant requis") AdminPayload admin
+        @Valid @NotNull(message = "{v.admin-du-tenant-requis}") AdminPayload admin
 
 ) {
 
@@ -104,7 +104,7 @@ public record CreateTenantPayloadDto(
             @NotBlank @Size(min = 3, max = 200) String street,
             @Size(max = 20) String postalCode,
             @NotBlank @Size(min = 2, max = 80) String city,
-            @NotBlank @Pattern(regexp = "^[A-Z]{2}$", message = "ISO 3166-1 alpha-2 attendu") String country,
+            @NotBlank @Pattern(regexp = "^[A-Z]{2}$", message = "{v.iso-3166-1-alpha-2-attendu}") String country,
             @Schema(description = "Code région du catalogue, optionnel : validé si fourni", example = "ABJ")
             String regionCode,
             @Schema(description = "Identifiant ville du catalogue, optionnel : validé si fourni")
@@ -115,7 +115,7 @@ public record CreateTenantPayloadDto(
     public record ContactPayload(
             @NotBlank @Size(min = 3, max = 120) String name,
             @NotBlank @Email String email,
-            @NotBlank @Pattern(regexp = "^\\+?[\\d\\s()-]{6,25}$", message = "Numéro de téléphone invalide") String phone
+            @NotBlank @Pattern(regexp = "^\\+?[\\d\\s()-]{6,25}$", message = "{v.numero-de-telephone-invalide}") String phone
     ) {}
 
     @Schema(description = "Sous-payload facturation")
@@ -126,8 +126,8 @@ public record CreateTenantPayloadDto(
 
     @Schema(description = "Sous-payload préférences opérationnelles")
     public record PreferencesPayload(
-            @NotBlank @Pattern(regexp = "^[A-Z]{3}$", message = "ISO 4217 attendu") String currency,
-            @NotBlank @Pattern(regexp = "^[a-z]{2}$", message = "ISO 639-1 attendu") String language,
+            @NotBlank @Pattern(regexp = "^[A-Z]{3}$", message = "{v.iso-4217-attendu}") String currency,
+            @NotBlank @Pattern(regexp = "^[a-z]{2}$", message = "{v.iso-639-1-attendu}") String language,
             @NotBlank String timezone,
             @Min(1) @Max(50) int initialSitesCount,
             @Schema(description = "Si vrai (défaut), l'entreprise récupère la TVA sur les achats ; "

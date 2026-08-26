@@ -15,14 +15,14 @@ import java.util.List;
 public record IndustryUpsertDto(
 
         @Pattern(regexp = "^$|^[a-z0-9-]{2,40}$",
-                message = "Slug en minuscules / chiffres / tirets, 2 à 40 caractères")
+                message = "{v.slug-en-minuscules-chiffres-tirets-2-a-40-caracteres}")
         String code,
 
-        @NotBlank(message = "Libellé requis")
-        @Size(min = 2, max = 80, message = "Libellé entre 2 et 80 caractères")
+        @NotBlank(message = "{v.libelle-requis}")
+        @Size(min = 2, max = 80, message = "{v.libelle-entre-2-et-80-caracteres}")
         String label,
 
-        @Size(max = 300, message = "Description trop longue")
+        @Size(max = 300, message = "{v.description-trop-longue}")
         String description,
 
         boolean isActive,

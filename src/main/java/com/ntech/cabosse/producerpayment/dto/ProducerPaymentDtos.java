@@ -27,11 +27,11 @@ public final class ProducerPaymentDtos {
             /** Délégué bénéficiaire. Exclusif du producteur. */
             UUID delegateSupplierId,
 
-            @NotNull(message = "Mode de paiement requis") PaymentMethod paymentMethod,
+            @NotNull(message = "{v.mode-de-paiement-requis}") PaymentMethod paymentMethod,
             LocalDate date,
             @Size(max = 80) String paymentRef,
 
-            @NotEmpty(message = "Au moins une livraison à régler")
+            @NotEmpty(message = "{v.au-moins-une-livraison-a-regler}")
             List<@Valid AllocationDto> allocations,
 
             @Size(max = 1000) String notes
@@ -39,9 +39,9 @@ public final class ProducerPaymentDtos {
 
     @Schema(description = "Part du règlement affectée à une livraison")
     public record AllocationDto(
-            @NotNull(message = "Livraison requise") UUID purchaseId,
-            @NotNull(message = "Montant requis")
-            @DecimalMin(value = "0", inclusive = false, message = "Montant > 0 requis")
+            @NotNull(message = "{v.livraison-requise}") UUID purchaseId,
+            @NotNull(message = "{v.montant-requis}")
+            @DecimalMin(value = "0", inclusive = false, message = "{v.montant-0-requis}")
             BigDecimal amountFcfa
     ) {}
 

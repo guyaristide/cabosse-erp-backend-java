@@ -8,8 +8,8 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
 @Schema(description = "Payload d'annulation/contre-passation d'un BC")
 public record CancelPurchaseOrderDto(
 
-        @NotBlank(message = "Raison de l'annulation requise")
-        @Size(min = 5, max = 500, message = "Raison entre 5 et 500 caractères")
+        @NotBlank(message = "{v.raison-de-l-annulation-requise}")
+        @Size(min = 5, max = 500, message = "{v.raison-entre-5-et-500-caracteres}")
         String reason
 
 ) {}

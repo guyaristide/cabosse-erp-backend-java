@@ -12,15 +12,15 @@ import java.util.UUID;
 
 @Schema(description = "Payload d'écriture d'une demande d'achat")
 public record PurchaseRequestUpsertDto(
-        @NotNull(message = "Date de demande requise")
+        @NotNull(message = "{v.date-de-demande-requise}")
         LocalDate requestDate,
 
         /** Fournisseur pressenti (optionnel). */
         UUID supplierId,
 
-        @Size(max = 2000, message = "Justification trop longue (2000 caractères max)")
+        @Size(max = 2000, message = "{v.justification-trop-longue-2000-caracteres-max}")
         String justification,
 
-        @NotEmpty(message = "Au moins une ligne requise")
+        @NotEmpty(message = "{v.au-moins-une-ligne-requise}")
         List<@Valid PurchaseRequestLineDto> lines
 ) {}

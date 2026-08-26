@@ -25,23 +25,23 @@ import java.util.List;
 @Schema(description = "Remplace la liste des activités du tenant courant")
 public record UpdateTenantActivitiesDto(
 
-        @NotEmpty(message = "Au moins une activité requise")
-        @Size(max = 12, message = "Au plus 12 activités par tenant")
+        @NotEmpty(message = "{v.au-moins-une-activite-requise}")
+        @Size(max = 12, message = "{v.au-plus-12-activites-par-tenant}")
         List<@Valid Line> activities
 
 ) {
 
     @Schema(description = "Une activité")
     public record Line(
-            @NotBlank(message = "Code activité requis")
+            @NotBlank(message = "{v.code-activite-requis}")
             @Size(max = 60)
             String code,
 
-            @NotBlank(message = "Libellé requis")
+            @NotBlank(message = "{v.libelle-requis}")
             @Size(max = 120)
             String label,
 
-            @NotNull(message = "isPrimary requis (true | false)")
+            @NotNull(message = "{v.isprimary-requis-true-false}")
             Boolean isPrimary
     ) {}
 }

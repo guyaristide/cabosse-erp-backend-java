@@ -12,16 +12,16 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
 @Schema(description = "Payload d'écriture ville")
 public record CityUpsertDto(
 
-        @NotBlank(message = "Nom requis")
-        @Size(min = 2, max = 80, message = "Nom entre 2 et 80 caractères")
+        @NotBlank(message = "{v.nom-requis}")
+        @Size(min = 2, max = 80, message = "{v.nom-entre-2-et-80-caracteres}")
         String name,
 
-        @NotBlank(message = "Code région requis")
-        @Size(max = 10, message = "Code région trop long")
+        @NotBlank(message = "{v.code-region-requis}")
+        @Size(max = 10, message = "{v.code-region-trop-long}")
         String regionCode,
 
-        @NotBlank(message = "Code pays requis")
-        @Pattern(regexp = "^[A-Z]{2}$", message = "Code ISO 3166-1 alpha-2 attendu")
+        @NotBlank(message = "{v.code-pays-requis}")
+        @Pattern(regexp = "^[A-Z]{2}$", message = "{v.code-iso-3166-1-alpha-2-attendu}")
         String countryCode,
 
         boolean isActive

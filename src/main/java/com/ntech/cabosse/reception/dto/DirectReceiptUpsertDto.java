@@ -20,16 +20,16 @@ import java.util.UUID;
 @Schema(description = "Payload d'écriture d'une session de réception directe")
 public record DirectReceiptUpsertDto(
 
-        @NotNull(message = "Article requis")
+        @NotNull(message = "{v.article-requis}")
         UUID articleId,
 
-        @NotNull(message = "Date de réception requise")
+        @NotNull(message = "{v.date-de-reception-requise}")
         LocalDate receivedDate,
 
-        @Size(max = 80, message = "N° de bon de livraison de session trop long")
+        @Size(max = 80, message = "{v.n-de-bon-de-livraison-de-session-trop-long}")
         String deliveryNoteRef,
 
-        @NotEmpty(message = "Au moins une ligne requise")
+        @NotEmpty(message = "{v.au-moins-une-ligne-requise}")
         List<@Valid DirectReceiptLineDto> lines,
 
         @Size(max = 2000)
@@ -40,8 +40,8 @@ public record DirectReceiptUpsertDto(
          * font auprès de producteurs paysans non assujettis. Renseigner
          * uniquement si la RD inclut une TVA facturée.
          */
-        @DecimalMin(value = "0", message = "TVA négative interdite")
-        @DecimalMax(value = "100", message = "TVA supérieure à 100 % interdite")
+        @DecimalMin(value = "0", message = "{v.tva-negative-interdite}")
+        @DecimalMax(value = "100", message = "{v.tva-superieure-a-100-interdite}")
         BigDecimal vatRatePct,
 
         /**

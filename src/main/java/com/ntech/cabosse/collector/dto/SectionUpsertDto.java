@@ -8,7 +8,7 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
 @Schema(description = "Payload d'écriture d'une section")
 public record SectionUpsertDto(
         @Pattern(regexp = "^$|^[A-Z0-9-]{2,16}$",
-                message = "Code : 2 à 16 caractères majuscules, chiffres ou tiret")
+                message = "{v.code-2-a-16-caracteres-majuscules-chiffres-ou-tiret}")
         String code,
         @NotBlank @Size(min = 2, max = 120) String name,
         @Size(max = 500) String description

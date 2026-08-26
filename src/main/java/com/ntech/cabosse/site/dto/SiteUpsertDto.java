@@ -18,19 +18,19 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
 public record SiteUpsertDto(
 
         @Pattern(regexp = "^$|^(TRANSFORMATION|SALES_POINT|SECTION_WAREHOUSE|CENTRAL_WAREHOUSE)$",
-                message = "Type autorisé : TRANSFORMATION | SALES_POINT "
+                message = "{v.type-autorise-transformation-sales-point}"
                         + "| SECTION_WAREHOUSE | CENTRAL_WAREHOUSE")
         String type,
 
         @Pattern(regexp = "^$|^[A-Za-z0-9-]{2,40}$",
-                message = "Code en lettres / chiffres / tirets, 2 à 40 caractères")
+                message = "{v.code-en-lettres-chiffres-tirets-2-a-40-caracteres}")
         String code,
 
-        @NotBlank(message = "Nom requis")
-        @Size(min = 2, max = 120, message = "Nom entre 2 et 120 caractères")
+        @NotBlank(message = "{v.nom-requis}")
+        @Size(min = 2, max = 120, message = "{v.nom-entre-2-et-120-caracteres}")
         String name,
 
-        @Size(max = 250, message = "Adresse trop longue")
+        @Size(max = 250, message = "{v.adresse-trop-longue}")
         String addressLine,
 
         String cityId,
@@ -38,30 +38,30 @@ public record SiteUpsertDto(
         String regionCode,
         String countryCode,
 
-        @DecimalMin(value = "-90", message = "Latitude entre -90 et 90")
-        @DecimalMax(value = "90", message = "Latitude entre -90 et 90")
+        @DecimalMin(value = "-90", message = "{v.latitude-entre-90-et-90}")
+        @DecimalMax(value = "90", message = "{v.latitude-entre-90-et-90}")
         Double latitude,
 
-        @DecimalMin(value = "-180", message = "Longitude entre -180 et 180")
-        @DecimalMax(value = "180", message = "Longitude entre -180 et 180")
+        @DecimalMin(value = "-180", message = "{v.longitude-entre-180-et-180}")
+        @DecimalMax(value = "180", message = "{v.longitude-entre-180-et-180}")
         Double longitude,
 
-        @Size(max = 25, message = "Téléphone trop long")
+        @Size(max = 25, message = "{v.telephone-trop-long}")
         @Pattern(regexp = "^$|^\\+?[\\d\\s()-]{6,25}$",
-                message = "Numéro de téléphone invalide")
+                message = "{v.numero-de-telephone-invalide}")
         String phone,
 
-        @Size(max = 120, message = "Adresse e-mail trop longue")
-        @Pattern(regexp = "^$|^.+@.+\\..+$", message = "Adresse e-mail invalide")
+        @Size(max = 120, message = "{v.adresse-e-mail-trop-longue}")
+        @Pattern(regexp = "^$|^.+@.+\\..+$", message = "{v.adresse-e-mail-invalide}")
         String email,
 
-        @Size(max = 120, message = "Nom du responsable trop long")
+        @Size(max = 120, message = "{v.nom-du-responsable-trop-long}")
         String managerName,
 
-        @Size(max = 1000, message = "Description trop longue (1000 caractères max)")
+        @Size(max = 1000, message = "{v.description-trop-longue-1000-caracteres-max}")
         String description,
 
-        @Size(max = 250, message = "Horaires trop longs")
+        @Size(max = 250, message = "{v.horaires-trop-longs}")
         String openingHours
 
 ) {}

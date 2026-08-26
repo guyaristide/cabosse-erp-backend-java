@@ -15,21 +15,21 @@ import java.util.UUID;
 /** Amorçage initial du stock d'un site. */
 @Schema(description = "Amorçage initial : N lignes (article, qté, PU) pour un site")
 public record OpeningBatchDto(
-        @NotNull(message = "Site requis") UUID siteId,
-        @NotEmpty(message = "Au moins une ligne requise")
+        @NotNull(message = "{v.site-requis}") UUID siteId,
+        @NotEmpty(message = "{v.au-moins-une-ligne-requise}")
         List<@Valid Line> lines,
         Instant occurredAt
 ) {
     @Schema(description = "Une ligne d'amorçage")
     public record Line(
-            @NotNull(message = "Article requis") UUID articleId,
+            @NotNull(message = "{v.article-requis}") UUID articleId,
 
-            @NotNull(message = "Quantité requise")
-            @DecimalMin(value = "0", inclusive = false, message = "Quantité > 0 requise")
+            @NotNull(message = "{v.quantite-requise}")
+            @DecimalMin(value = "0", inclusive = false, message = "{v.quantite-0-requise}")
             BigDecimal quantity,
 
-            @NotNull(message = "Prix unitaire requis")
-            @DecimalMin(value = "0", message = "Prix négatif interdit")
+            @NotNull(message = "{v.prix-unitaire-requis}")
+            @DecimalMin(value = "0", message = "{v.prix-negatif-interdit}")
             BigDecimal unitPriceFcfa,
 
             @Size(max = 500) String notes

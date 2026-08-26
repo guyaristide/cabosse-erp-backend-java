@@ -43,7 +43,7 @@ public record UpdateTenantPayloadDto(
 
         @NotBlank @Size(min = 3, max = 120) String name,
 
-        @Pattern(regexp = "^#[0-9a-fA-F]{6}$", message = "Couleur hexa attendue (#RRGGBB)")
+        @Pattern(regexp = "^#[0-9a-fA-F]{6}$", message = "{v.couleur-hexa-attendue-rrggbb}")
         String brandColor,
 
         @Valid @NotNull LegalPayload legal,
@@ -63,7 +63,7 @@ public record UpdateTenantPayloadDto(
         @NotNull CommercialStatus commercialStatus,
         @Min(1) @Max(90) Integer trialDurationDays,
 
-        @NotNull(message = "Modèle organisationnel requis")
+        @NotNull(message = "{v.modele-organisationnel-requis}")
         @Schema(description = "Structure juridique. Pilote l'activation des capacités hasMembers et hasSustainability.",
                 example = "COOPERATIVE")
         TenantOrganizationModel organizationModel

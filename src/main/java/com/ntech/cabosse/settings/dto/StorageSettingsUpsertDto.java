@@ -7,9 +7,9 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
 @Schema(description = "Payload d'écriture stockage")
 public record StorageSettingsUpsertDto(
 
-        @NotBlank(message = "Provider requis")
+        @NotBlank(message = "{v.provider-requis}")
         @Pattern(regexp = "LOCAL|S3|MINIO",
-                message = "Valeur autorisée : LOCAL | S3 | MINIO")
+                message = "{v.valeur-autorisee-local-s3-minio}")
         String provider,
 
         /** Requis pour S3/MINIO ; ignoré pour LOCAL. */

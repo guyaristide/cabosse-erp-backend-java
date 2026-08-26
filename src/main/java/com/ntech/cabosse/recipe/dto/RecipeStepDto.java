@@ -13,14 +13,14 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
 @Schema(description = "Étape de production d'une recette (optionnelle)")
 public record RecipeStepDto(
 
-        @NotBlank(message = "Nom de l'étape requis")
-        @Size(max = 100, message = "Nom trop long (100 caractères max)")
+        @NotBlank(message = "{v.nom-de-l-etape-requis}")
+        @Size(max = 100, message = "{v.nom-trop-long-100-caracteres-max}")
         String name,
 
-        @Size(max = 500, message = "Description trop longue (500 caractères max)")
+        @Size(max = 500, message = "{v.description-trop-longue-500-caracteres-max}")
         String description,
 
-        @Positive(message = "Durée doit être positive")
+        @Positive(message = "{v.duree-doit-etre-positive}")
         Integer expectedDurationMinutes
 
 ) {}

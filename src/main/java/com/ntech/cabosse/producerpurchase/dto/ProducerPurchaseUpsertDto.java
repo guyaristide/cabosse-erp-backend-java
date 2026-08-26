@@ -68,9 +68,9 @@ public record ProducerPurchaseUpsertDto(
     /** Retenue sur un engagement précis. */
     @Schema(description = "Retenue décidée au titre d'un crédit ou d'une avance")
     public record CreditImputationDto(
-            @NotNull(message = "Engagement requis") UUID creditId,
-            @NotNull(message = "Montant requis")
-            @DecimalMin(value = "0", inclusive = false, message = "Montant > 0 requis")
+            @NotNull(message = "{v.engagement-requis}") UUID creditId,
+            @NotNull(message = "{v.montant-requis}")
+            @DecimalMin(value = "0", inclusive = false, message = "{v.montant-0-requis}")
             BigDecimal amountFcfa,
             @Size(max = 500) String notes
     ) {}

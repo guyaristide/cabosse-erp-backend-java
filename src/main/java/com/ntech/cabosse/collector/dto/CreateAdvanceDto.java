@@ -12,12 +12,12 @@ import java.util.UUID;
 
 @Schema(description = "Payload de création d'une avance délégué")
 public record CreateAdvanceDto(
-        @NotNull(message = "Délégué requis") UUID delegateSupplierId,
-        @NotNull(message = "Date d'avance requise") LocalDate advanceDate,
-        @NotNull(message = "Montant requis")
-        @DecimalMin(value = "0", inclusive = false, message = "Montant > 0 requis")
+        @NotNull(message = "{v.delegue-requis}") UUID delegateSupplierId,
+        @NotNull(message = "{v.date-d-avance-requise}") LocalDate advanceDate,
+        @NotNull(message = "{v.montant-requis}")
+        @DecimalMin(value = "0", inclusive = false, message = "{v.montant-0-requis}")
         BigDecimal advanceAmountFcfa,
-        @NotNull(message = "Mode de paiement requis") PaymentMethod paymentMethod,
+        @NotNull(message = "{v.mode-de-paiement-requis}") PaymentMethod paymentMethod,
         UUID campaignId,
         @Size(max = 1000) String notes
 ) {}

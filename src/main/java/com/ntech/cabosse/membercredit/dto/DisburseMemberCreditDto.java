@@ -10,7 +10,7 @@ import java.time.LocalDate;
 /** Remise effective des fonds au producteur. */
 @Schema(description = "Décaissement d'un crédit approuvé")
 public record DisburseMemberCreditDto(
-        @NotNull(message = "Mode de paiement requis") PaymentMethod paymentMethod,
+        @NotNull(message = "{v.mode-de-paiement-requis}") PaymentMethod paymentMethod,
         LocalDate disbursedAt,
         @Size(max = 80) String paymentRef
 ) {}

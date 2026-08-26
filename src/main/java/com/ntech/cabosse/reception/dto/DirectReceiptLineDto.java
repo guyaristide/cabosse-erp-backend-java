@@ -12,18 +12,18 @@ import java.util.UUID;
 @Schema(description = "Ligne d'une session de réception directe (1 producteur)")
 public record DirectReceiptLineDto(
 
-        @NotNull(message = "Fournisseur requis")
+        @NotNull(message = "{v.fournisseur-requis}")
         UUID supplierId,
 
-        @NotNull(message = "Quantité requise")
-        @DecimalMin(value = "0", inclusive = false, message = "Quantité > 0 requise")
+        @NotNull(message = "{v.quantite-requise}")
+        @DecimalMin(value = "0", inclusive = false, message = "{v.quantite-0-requise}")
         BigDecimal quantity,
 
-        @NotNull(message = "Prix unitaire requis")
-        @DecimalMin(value = "0", message = "Prix négatif interdit")
+        @NotNull(message = "{v.prix-unitaire-requis}")
+        @DecimalMin(value = "0", message = "{v.prix-negatif-interdit}")
         BigDecimal unitPriceFcfa,
 
-        @Size(max = 80, message = "Référence du bon de livraison trop longue")
+        @Size(max = 80, message = "{v.reference-du-bon-de-livraison-trop-longue}")
         String deliveryNoteRef,
 
         @Size(max = 500)

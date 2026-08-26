@@ -19,6 +19,6 @@ public record ExpenseTypeUpsertDto(
         @Size(max = 40)
         String category,
 
-        @Pattern(regexp = "^$|^\\d{2,8}$", message = "Compte SYSCOHADA : 2 à 8 chiffres")
+        @Pattern(regexp = "^$|^\\d{2,8}$", message = "{v.compte-syscohada-2-a-8-chiffres}")
         String syscohadaAccount
 ) {}

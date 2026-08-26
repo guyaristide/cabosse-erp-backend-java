@@ -14,29 +14,29 @@ import java.math.BigDecimal;
 public record ArticleUpsertDto(
 
         @Pattern(regexp = "^$|^(RAW_MATERIAL|MERCHANDISE|FINISHED_PRODUCT|CONSUMABLE|PACKAGING|TRANSPORT)$",
-                message = "Type autorisé : RAW_MATERIAL | MERCHANDISE | FINISHED_PRODUCT "
+                message = "{v.type-autorise-raw-material-merchandise-finished-product}"
                         + "| CONSUMABLE | PACKAGING | TRANSPORT")
         String type,
 
         @Pattern(regexp = "^$|^[A-Za-z0-9-]{2,40}$",
-                message = "Code en lettres / chiffres / tirets, 2 à 40 caractères")
+                message = "{v.code-en-lettres-chiffres-tirets-2-a-40-caracteres}")
         String code,
 
-        @NotBlank(message = "Nom requis")
+        @NotBlank(message = "{v.nom-requis}")
         @Size(min = 2, max = 120)
         String name,
 
         @Size(max = 1000)
         String description,
 
-        @NotBlank(message = "Unité requise (kg, L, pcs, sac…)")
+        @NotBlank(message = "{v.unite-requise-kg-l-pcs-sac}")
         @Size(max = 20)
         String unit,
 
-        @DecimalMin(value = "0", message = "Coût standard négatif interdit")
+        @DecimalMin(value = "0", message = "{v.cout-standard-negatif-interdit}")
         BigDecimal standardCost,
 
-        @DecimalMin(value = "0", message = "Prix de vente négatif interdit")
+        @DecimalMin(value = "0", message = "{v.prix-de-vente-negatif-interdit}")
         BigDecimal standardSalePrice,
 
         @Size(max = 60)
@@ -51,47 +51,47 @@ public record ArticleUpsertDto(
         /** Rôle vendable. {@code null} = défaut selon la nature (création) / inchangé (update). */
         Boolean sellable,
 
-        @DecimalMin(value = "0", message = "Seuil d'alerte négatif interdit")
+        @DecimalMin(value = "0", message = "{v.seuil-d-alerte-negatif-interdit}")
         BigDecimal alertThreshold,
 
-        @Size(max = 40, message = "Code-barres trop long (40 caractères max)")
+        @Size(max = 40, message = "{v.code-barres-trop-long-40-caracteres-max}")
         @Pattern(regexp = "^$|^[A-Za-z0-9._-]+$",
-                message = "Code-barres : lettres, chiffres, point, tiret ou souligné uniquement")
+                message = "{v.code-barres-lettres-chiffres-point-tiret-ou-souligne-uniquem}")
         String barcode,
 
-        @DecimalMin(value = "0", message = "Taux de TVA négatif interdit")
-        @DecimalMax(value = "100", message = "Taux de TVA supérieur à 100 % interdit")
+        @DecimalMin(value = "0", message = "{v.taux-de-tva-negatif-interdit}")
+        @DecimalMax(value = "100", message = "{v.taux-de-tva-superieur-a-100-interdit}")
         BigDecimal vatRate,
 
         /** Compte de charge SYSCOHADA débité aux achats. Vide = défaut selon le type. */
         @Pattern(regexp = "^$|^[0-9]{2,8}$",
-                message = "Compte d'achat : 2 à 8 chiffres")
+                message = "{v.compte-d-achat-2-a-8-chiffres}")
         String purchaseChargeAccount,
 
         /** Compte de produit SYSCOHADA crédité aux ventes. Vide = défaut (701000). */
         @Pattern(regexp = "^$|^[0-9]{2,8}$",
-                message = "Compte de vente : 2 à 8 chiffres")
+                message = "{v.compte-de-vente-2-a-8-chiffres}")
         String salesRevenueAccount,
 
         /** Centre de coût analytique par défaut aux achats. Vide = aucun. */
         @Pattern(regexp = "^$|^[A-Z0-9-]{2,12}$",
-                message = "Centre de coût : 2 à 12 caractères majuscules, chiffres ou tiret")
+                message = "{v.centre-de-cout-2-a-12-caracteres-majuscules-chiffres-ou-tire}")
         String defaultCostCenter,
 
         /** Programme budgétaire par défaut aux ventes. Vide = aucun. */
         @Pattern(regexp = "^$|^[A-Z0-9-]{2,16}$",
-                message = "Programme : 2 à 16 caractères majuscules, chiffres ou tiret")
+                message = "{v.programme-2-a-16-caracteres-majuscules-chiffres-ou-tiret}")
         String defaultProgram,
 
         @Pattern(regexp = "^$|^[A-Z0-9-]{2,16}$",
-                message = "Projet : 2 à 16 caractères majuscules, chiffres ou tiret")
+                message = "{v.projet-2-a-16-caracteres-majuscules-chiffres-ou-tiret}")
         String defaultProject,
 
         /**
          * Poids unitaire en grammes (PF). {@code null} accepté ; sert au
          * calcul du poids total produit et du rendement d'un OF.
          */
-        @Min(value = 1, message = "Poids unitaire doit être strictement positif")
+        @Min(value = 1, message = "{v.poids-unitaire-doit-etre-strictement-positif}")
         Integer unitWeightGrams
 
 ) {}

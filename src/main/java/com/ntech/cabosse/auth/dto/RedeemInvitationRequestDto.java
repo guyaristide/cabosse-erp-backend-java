@@ -17,11 +17,11 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
 @Schema(description = "Activation d'un compte invité / reset de mot de passe")
 public record RedeemInvitationRequestDto(
 
-        @NotBlank(message = "Token requis")
+        @NotBlank(message = "{v.token-requis}")
         String token,
 
-        @NotBlank(message = "Mot de passe requis")
-        @Size(min = 8, max = 200, message = "Mot de passe : 8 à 200 caractères")
+        @NotBlank(message = "{v.mot-de-passe-requis}")
+        @Size(min = 8, max = 200, message = "{v.mot-de-passe-8-a-200-caracteres}")
         String password
 
 ) {}

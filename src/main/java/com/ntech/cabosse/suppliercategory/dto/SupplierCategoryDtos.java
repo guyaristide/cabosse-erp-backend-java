@@ -20,17 +20,17 @@ public final class SupplierCategoryDtos {
     @Schema(description = "Payload d'écriture d'une catégorie de fournisseur")
     public record UpsertDto(
             @Pattern(regexp = "^$|^[A-Z0-9-]{2,16}$",
-                    message = "Code : 2 à 16 caractères majuscules, chiffres ou tiret")
+                    message = "{v.code-2-a-16-caracteres-majuscules-chiffres-ou-tiret}")
             String code,
             @NotBlank @Size(min = 2, max = 120) String name,
             @Size(max = 500) String description,
 
             /** {@code NONE}, {@code PER_KG}, {@code PERCENT} ou vide pour hériter du tenant. */
             @Pattern(regexp = "^$|^(NONE|PER_KG|PERCENT)$",
-                    message = "Mode de rémunération : NONE, PER_KG ou PERCENT")
+                    message = "{v.mode-de-remuneration-none-per-kg-ou-percent}")
             String marginMode,
 
-            @DecimalMin(value = "0", message = "Taux positif ou nul")
+            @DecimalMin(value = "0", message = "{v.taux-positif-ou-nul}")
             BigDecimal marginRate
     ) {}
 

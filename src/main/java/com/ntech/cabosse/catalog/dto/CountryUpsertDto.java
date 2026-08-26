@@ -14,17 +14,17 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
 @Schema(description = "Payload d'écriture pays")
 public record CountryUpsertDto(
 
-        @Pattern(regexp = "^$|^[A-Z]{2}$", message = "Code ISO 3166-1 alpha-2 (deux lettres majuscules) attendu")
+        @Pattern(regexp = "^$|^[A-Z]{2}$", message = "{v.code-iso-3166-1-alpha-2-deux-lettres-majuscules-attendu}")
         String code,
 
-        @NotBlank(message = "Nom français requis")
-        @Size(min = 2, max = 80, message = "Nom français entre 2 et 80 caractères")
+        @NotBlank(message = "{v.nom-francais-requis}")
+        @Size(min = 2, max = 80, message = "{v.nom-francais-entre-2-et-80-caracteres}")
         String nameFr,
 
-        @Size(max = 80, message = "Nom anglais trop long")
+        @Size(max = 80, message = "{v.nom-anglais-trop-long}")
         String nameEn,
 
-        @Pattern(regexp = "^\\+?\\d{1,4}$", message = "Indicatif téléphonique (+XX[X]) attendu")
+        @Pattern(regexp = "^\\+?\\d{1,4}$", message = "{v.indicatif-telephonique-xx-x-attendu}")
         String dialCode,
 
         boolean isActive

@@ -26,7 +26,7 @@ public record ActivateSubscriptionPayloadDto(
         @Schema(description = "Cycle de facturation retenu")
         BillingCycle cycle,
 
-        @Min(value = 1, message = "Le nombre de périodes doit être au moins 1")
+        @Min(value = 1, message = "{v.le-nombre-de-periodes-doit-etre-au-moins-1}")
         @Schema(description = "Nombre de cycles couverts (durée = periods × cycle, ex. 2)")
         int periods,
 

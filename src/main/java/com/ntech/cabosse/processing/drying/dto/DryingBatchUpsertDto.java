@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.UUID;
 
 public record DryingBatchUpsertDto(
-        @NotEmpty(message = "Au moins un bac fermentation à sécher") List<UUID> fermentationBatchIds,
+        @NotEmpty(message = "{v.au-moins-un-bac-fermentation-a-secher}") List<UUID> fermentationBatchIds,
         @NotNull DryingMethod method,
         @DecimalMin("0.0") BigDecimal weightInKg,
         @Size(max = 500) String notes

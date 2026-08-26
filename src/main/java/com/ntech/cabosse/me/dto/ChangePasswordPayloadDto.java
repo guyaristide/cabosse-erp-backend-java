@@ -7,11 +7,11 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
 @Schema(description = "Changement de mot de passe : current + new")
 public record ChangePasswordPayloadDto(
 
-        @NotBlank(message = "Mot de passe actuel requis")
+        @NotBlank(message = "{v.mot-de-passe-actuel-requis}")
         String currentPassword,
 
-        @NotBlank(message = "Nouveau mot de passe requis")
-        @Size(min = 8, max = 200, message = "Au moins 8 caractères")
+        @NotBlank(message = "{v.nouveau-mot-de-passe-requis}")
+        @Size(min = 8, max = 200, message = "{v.au-moins-8-caracteres}")
         String newPassword
 
 ) {}

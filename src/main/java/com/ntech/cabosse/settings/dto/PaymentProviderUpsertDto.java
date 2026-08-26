@@ -6,10 +6,10 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
 @Schema(description = "Payload d'écriture passerelle paiement")
 public record PaymentProviderUpsertDto(
 
-        @NotBlank(message = "Code requis")
+        @NotBlank(message = "{v.code-requis}")
         String code,
 
-        @NotBlank(message = "Nom requis")
+        @NotBlank(message = "{v.nom-requis}")
         String name,
 
         boolean enabled,

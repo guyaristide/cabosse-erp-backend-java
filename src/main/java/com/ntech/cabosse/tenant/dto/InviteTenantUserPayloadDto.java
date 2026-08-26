@@ -18,21 +18,21 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
 @Schema(description = "Payload d'invitation d'un utilisateur sur un tenant")
 public record InviteTenantUserPayloadDto(
 
-        @NotBlank(message = "E-mail requis")
-        @Email(message = "Adresse e-mail invalide")
+        @NotBlank(message = "{v.e-mail-requis}")
+        @Email(message = "{v.adresse-e-mail-invalide}")
         String email,
 
-        @NotBlank(message = "Prénom requis")
-        @Size(min = 2, max = 80, message = "Prénom entre 2 et 80 caractères")
+        @NotBlank(message = "{v.prenom-requis}")
+        @Size(min = 2, max = 80, message = "{v.prenom-entre-2-et-80-caracteres}")
         String firstName,
 
-        @NotBlank(message = "Nom requis")
-        @Size(min = 2, max = 80, message = "Nom entre 2 et 80 caractères")
+        @NotBlank(message = "{v.nom-requis}")
+        @Size(min = 2, max = 80, message = "{v.nom-entre-2-et-80-caracteres}")
         String lastName,
 
-        @NotBlank(message = "Rôle requis")
+        @NotBlank(message = "{v.role-requis}")
         @Pattern(regexp = "^(TENANT_ADMIN|USER)$",
-                message = "Rôle invalide : TENANT_ADMIN ou USER attendu")
+                message = "{v.role-invalide-tenant-admin-ou-user-attendu}")
         String role
 
 ) {}

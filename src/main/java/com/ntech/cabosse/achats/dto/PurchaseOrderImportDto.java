@@ -38,30 +38,30 @@ public record PurchaseOrderImportDto(
          * modes ne sont pas mélangés sur un même payload.
          */
         @Valid
-        @NotNull(message = "Fournisseur requis")
+        @NotNull(message = "{v.fournisseur-requis}")
         ImportedSupplier supplier,
 
-        @NotNull(message = "Date de commande requise")
+        @NotNull(message = "{v.date-de-commande-requise}")
         LocalDate orderDate,
 
         LocalDate deliveryDate,
         LocalDate invoiceDate,
 
-        @Size(max = 80, message = "Numéro de facture trop long")
+        @Size(max = 80, message = "{v.numero-de-facture-trop-long}")
         String invoiceNumber,
 
         @Size(max = 120)
         String paymentTerms,
 
-        @NotEmpty(message = "Au moins une ligne requise")
+        @NotEmpty(message = "{v.au-moins-une-ligne-requise}")
         List<@Valid ImportedLine> lines,
 
-        @DecimalMin(value = "0", message = "Transport négatif interdit")
+        @DecimalMin(value = "0", message = "{v.transport-negatif-interdit}")
         BigDecimal transportFcfa,
 
-        @NotNull(message = "Taux de TVA requis")
-        @DecimalMin(value = "0", message = "TVA négative interdite")
-        @DecimalMax(value = "100", message = "TVA > 100 % interdite")
+        @NotNull(message = "{v.taux-de-tva-requis}")
+        @DecimalMin(value = "0", message = "{v.tva-negative-interdite}")
+        @DecimalMax(value = "100", message = "{v.tva-100-interdite}")
         BigDecimal vatRatePct,
 
         @Size(max = 2000)
@@ -92,7 +92,7 @@ public record PurchaseOrderImportDto(
          */
         @jakarta.validation.constraints.Pattern(
                 regexp = "^$|^(DRAFT|CONFIRMED|IN_TRANSIT|DELIVERED|CANCELLED)$",
-                message = "Statut autorisé : DRAFT | CONFIRMED | IN_TRANSIT | DELIVERED | CANCELLED")
+                message = "{v.statut-autorise-draft-confirmed-in-transit-delivered-cancell}")
         String initialStatus,
 
         /**
@@ -122,11 +122,11 @@ public record PurchaseOrderImportDto(
             @Valid
             ImportedArticle newArticle,
 
-            @NotNull(message = "Quantité requise")
-            @DecimalMin(value = "0", inclusive = false, message = "Quantité doit être > 0")
+            @NotNull(message = "{v.quantite-requise}")
+            @DecimalMin(value = "0", inclusive = false, message = "{v.quantite-doit-etre-0}")
             BigDecimal quantity,
 
-            @NotNull(message = "Prix unitaire requis")
+            @NotNull(message = "{v.prix-unitaire-requis}")
             @DecimalMin(value = "0")
             BigDecimal unitPriceFcfa,
 
@@ -145,7 +145,7 @@ public record PurchaseOrderImportDto(
 
             UUID id,
 
-            @Size(min = 2, max = 120, message = "Nom entre 2 et 120 caractères")
+            @Size(min = 2, max = 120, message = "{v.nom-entre-2-et-120-caracteres}")
             String name,
 
             @Size(max = 200)
@@ -182,7 +182,7 @@ public record PurchaseOrderImportDto(
     @Schema(description = "Article à créer durant l'import")
     public record ImportedArticle(
 
-            @NotBlank(message = "Nom de l'article requis")
+            @NotBlank(message = "{v.nom-de-l-article-requis}")
             @Size(min = 2, max = 120)
             String name,
 
@@ -194,10 +194,10 @@ public record PurchaseOrderImportDto(
              * | {@code TRANSPORT}. Pour TRANSPORT, l'article est
              * automatiquement marqué non stockable côté service.
              */
-            @NotBlank(message = "Type de l'article requis")
+            @NotBlank(message = "{v.type-de-l-article-requis}")
             String type,
 
-            @NotBlank(message = "Unité requise")
+            @NotBlank(message = "{v.unite-requise}")
             @Size(max = 20)
             String unit,
 

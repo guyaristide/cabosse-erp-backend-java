@@ -23,21 +23,21 @@ import java.util.UUID;
 @Schema(description = "Payload d'écriture d'une vente")
 public record SaleUpsertDto(
 
-        @NotNull(message = "Site requis") UUID siteId,
-        @NotNull(message = "Canal requis") SaleChannel channel,
-        @NotNull(message = "Client requis") UUID customerId,
+        @NotNull(message = "{v.site-requis}") UUID siteId,
+        @NotNull(message = "{v.canal-requis}") SaleChannel channel,
+        @NotNull(message = "{v.client-requis}") UUID customerId,
 
         LocalDate saleDate,
         LocalDate dueDate,
         LocalDate deliveryDate,
 
-        @NotEmpty(message = "Au moins une ligne requise")
+        @NotEmpty(message = "{v.au-moins-une-ligne-requise}")
         List<@Valid SaleLineDto> lines,
 
         /** Remise globale 0..100. */
-        @DecimalMin(value = "0", message = "Pourcentage négatif interdit") @DecimalMax(value = "100", message = "Pourcentage supérieur à 100") BigDecimal discountPct,
+        @DecimalMin(value = "0", message = "{v.pourcentage-negatif-interdit}") @DecimalMax(value = "100", message = "{v.pourcentage-superieur-a-100}") BigDecimal discountPct,
         /** Taux TVA 0..100. */
-        @DecimalMin(value = "0", message = "Pourcentage négatif interdit") @DecimalMax(value = "100", message = "Pourcentage supérieur à 100") BigDecimal vatRatePct,
+        @DecimalMin(value = "0", message = "{v.pourcentage-negatif-interdit}") @DecimalMax(value = "100", message = "{v.pourcentage-superieur-a-100}") BigDecimal vatRatePct,
 
         @Size(max = 80) String invoiceNumber,
         @Size(max = 2000) String notes

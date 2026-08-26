@@ -8,7 +8,7 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
 @Schema(description = "Payload d'écriture d'un centre de coût")
 public record CostCenterUpsertDto(
         @Pattern(regexp = "^$|^[A-Z0-9-]{2,12}$",
-                message = "Code : 2 à 12 caractères majuscules, chiffres ou tiret")
+                message = "{v.code-2-a-12-caracteres-majuscules-chiffres-ou-tiret}")
         String code,
 
         @NotBlank @Size(min = 2, max = 120)
@@ -19,10 +19,10 @@ public record CostCenterUpsertDto(
 
         /** Programme imputé par défaut aux charges du centre (règle CPT-10). Vide = aucun. */
         @Pattern(regexp = "^$|^[A-Z0-9-]{2,16}$",
-                message = "Programme : 2 à 16 caractères majuscules, chiffres ou tiret")
+                message = "{v.programme-2-a-16-caracteres-majuscules-chiffres-ou-tiret}")
         String defaultProgram,
 
         @Pattern(regexp = "^$|^[A-Z0-9-]{2,16}$",
-                message = "Projet : 2 à 16 caractères majuscules, chiffres ou tiret")
+                message = "{v.projet-2-a-16-caracteres-majuscules-chiffres-ou-tiret}")
         String defaultProject
 ) {}

@@ -18,11 +18,11 @@ import java.util.UUID;
 @Schema(description = "Payload d'écriture d'un ordre de fabrication")
 public record ProductionOrderUpsertDto(
 
-        @NotNull(message = "Site requis") UUID siteId,
-        @NotNull(message = "Recette requise") UUID recipeId,
+        @NotNull(message = "{v.site-requis}") UUID siteId,
+        @NotNull(message = "{v.recette-requise}") UUID recipeId,
 
-        @NotNull(message = "Quantité planifiée requise")
-        @DecimalMin(value = "0", inclusive = false, message = "Quantité > 0 requise")
+        @NotNull(message = "{v.quantite-planifiee-requise}")
+        @DecimalMin(value = "0", inclusive = false, message = "{v.quantite-0-requise}")
         BigDecimal plannedQty,
 
         LocalDate scheduledDate,

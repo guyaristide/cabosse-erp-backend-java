@@ -12,13 +12,13 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
 @Schema(description = "Identifiants de connexion à Cabosse ERP")
 public record LoginRequestDto(
 
-        @NotBlank(message = "E-mail requis")
-        @Email(message = "E-mail invalide")
+        @NotBlank(message = "{v.e-mail-requis}")
+        @Email(message = "{v.e-mail-invalide}")
         @Schema(example = "admin@cooperative.ci")
         String email,
 
-        @NotBlank(message = "Mot de passe requis")
-        @Size(min = 8, max = 256, message = "Mot de passe de 8 à 256 caractères")
+        @NotBlank(message = "{v.mot-de-passe-requis}")
+        @Size(min = 8, max = 256, message = "{v.mot-de-passe-de-8-a-256-caracteres}")
         @Schema(example = "•••••••••••")
         String password
 

@@ -13,6 +13,12 @@ quarkus:
   application:
     name: cabosse-erp
 
+  # Catalogue de messages FR/EN : la langue d'une réponse suit l'en-tête
+  # Accept-Language envoyé par le front (français par défaut). Vaut pour
+  # les messages de validation Jakarta et pour le résolveur Messages.
+  default-locale: fr
+  locales: fr,en
+
   http:
     # Port surchargeable par variable d'env APP_HTTP_PORT. Le 8080 est
     # statistiquement souvent occupé sur un poste dev (autre service Java),

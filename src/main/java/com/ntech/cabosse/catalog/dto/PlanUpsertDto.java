@@ -18,36 +18,36 @@ import java.util.List;
 public record PlanUpsertDto(
 
         @Pattern(regexp = "^$|^[a-z0-9-]{2,40}$",
-                message = "Slug en minuscules / chiffres / tirets, 2 à 40 caractères")
+                message = "{v.slug-en-minuscules-chiffres-tirets-2-a-40-caracteres}")
         String code,
 
-        @NotBlank(message = "Nom requis")
-        @Size(min = 2, max = 80, message = "Nom entre 2 et 80 caractères")
+        @NotBlank(message = "{v.nom-requis}")
+        @Size(min = 2, max = 80, message = "{v.nom-entre-2-et-80-caracteres}")
         String name,
 
-        @Size(max = 300, message = "Description trop longue")
+        @Size(max = 300, message = "{v.description-trop-longue}")
         String description,
 
-        @NotNull(message = "Prix mensuel requis (0 pour 'sur devis')")
-        @Min(value = 0, message = "Prix mensuel négatif interdit")
+        @NotNull(message = "{v.prix-mensuel-requis-0-pour-sur-devis}")
+        @Min(value = 0, message = "{v.prix-mensuel-negatif-interdit}")
         BigDecimal monthlyPriceFcfa,
 
-        @NotNull(message = "Prix annuel requis (0 pour 'sur devis')")
-        @Min(value = 0, message = "Prix annuel négatif interdit")
+        @NotNull(message = "{v.prix-annuel-requis-0-pour-sur-devis}")
+        @Min(value = 0, message = "{v.prix-annuel-negatif-interdit}")
         BigDecimal yearlyPriceFcfa,
 
-        @Min(value = 1, message = "Au moins 1 user")
+        @Min(value = 1, message = "{v.au-moins-1-user}")
         int maxUsers,
         /** Plafond de producteurs membres. Nul : non contraint. */
         int maxMembers,
 
-        @Min(value = 1, message = "Au moins 1 site")
+        @Min(value = 1, message = "{v.au-moins-1-site}")
         int maxSites,
 
-        @NotNull(message = "Liste des modules requise (peut être vide)")
+        @NotNull(message = "{v.liste-des-modules-requise-peut-etre-vide}")
         List<String> includedModules,
 
-        @NotNull(message = "Liste des features requise (peut être vide)")
+        @NotNull(message = "{v.liste-des-features-requise-peut-etre-vide}")
         List<String> features,
 
         boolean active

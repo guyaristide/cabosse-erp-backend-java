@@ -51,7 +51,7 @@ public class ConstraintViolationExceptionMapper
 
         String summary = errors.size() == 1
                 ? errors.get(0).message()
-                : "Le formulaire contient " + errors.size() + " erreurs.";
+                : com.ntech.cabosse.shared.i18n.Messages.msg("m.form-contains-errors", errors.size());
 
         return Response
                 .status(400)

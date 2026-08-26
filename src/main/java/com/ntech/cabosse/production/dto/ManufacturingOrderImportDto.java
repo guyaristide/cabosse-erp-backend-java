@@ -32,16 +32,16 @@ import java.util.UUID;
 @Schema(description = "Payload d'import d'un ordre de fabrication")
 public record ManufacturingOrderImportDto(
 
-        @NotNull(message = "Site requis")
+        @NotNull(message = "{v.site-requis}")
         UUID siteId,
 
         /** PF existant ou à créer (resolve-or-create par nom + type). */
         @Valid
-        @NotNull(message = "Produit fini requis")
+        @NotNull(message = "{v.produit-fini-requis}")
         ImportedFinishedProduct finishedProduct,
 
-        @NotNull(message = "Quantité planifiée requise")
-        @DecimalMin(value = "0", inclusive = false, message = "Quantité > 0 requise")
+        @NotNull(message = "{v.quantite-planifiee-requise}")
+        @DecimalMin(value = "0", inclusive = false, message = "{v.quantite-0-requise}")
         BigDecimal plannedQty,
 
         LocalDate scheduledDate,
@@ -52,7 +52,7 @@ public record ManufacturingOrderImportDto(
         @Size(max = 2000)
         String notes,
 
-        @NotEmpty(message = "Au moins une ligne de consommation requise")
+        @NotEmpty(message = "{v.au-moins-une-ligne-de-consommation-requise}")
         List<@Valid ImportedConsumption> consumptions,
 
         /**
@@ -75,8 +75,8 @@ public record ManufacturingOrderImportDto(
             @Valid
             ImportedArticle newArticle,
 
-            @NotNull(message = "Quantité requise")
-            @DecimalMin(value = "0", inclusive = false, message = "Quantité > 0 requise")
+            @NotNull(message = "{v.quantite-requise}")
+            @DecimalMin(value = "0", inclusive = false, message = "{v.quantite-0-requise}")
             BigDecimal quantity
 
     ) {}
@@ -85,7 +85,7 @@ public record ManufacturingOrderImportDto(
     @Schema(description = "Article à créer durant l'import")
     public record ImportedArticle(
 
-            @NotBlank(message = "Nom de l'article requis")
+            @NotBlank(message = "{v.nom-de-l-article-requis}")
             @Size(min = 2, max = 120)
             String name,
 
@@ -93,10 +93,10 @@ public record ManufacturingOrderImportDto(
             String code,
 
             /** {@code RAW_MATERIAL} | {@code CONSUMABLE} | {@code PACKAGING}. */
-            @NotBlank(message = "Type de l'article requis")
+            @NotBlank(message = "{v.type-de-l-article-requis}")
             String type,
 
-            @NotBlank(message = "Unité requise")
+            @NotBlank(message = "{v.unite-requise}")
             @Size(max = 20)
             String unit
 

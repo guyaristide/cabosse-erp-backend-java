@@ -28,9 +28,9 @@ public final class PermissionDtos {
     @Schema(description = "Payload d'écriture d'un profil")
     public record RoleUpsertDto(
             @Pattern(regexp = "^$|^[A-Z0-9_-]{2,32}$",
-                    message = "Code : 2 à 32 caractères majuscules, chiffres, tiret ou souligné")
+                    message = "{v.code-2-a-32-caracteres-majuscules-chiffres-tiret-ou-souligne}")
             String code,
-            @NotBlank(message = "Nom requis") @Size(min = 2, max = 80) String name,
+            @NotBlank(message = "{v.nom-requis}") @Size(min = 2, max = 80) String name,
             @Size(max = 300) String description,
             List<String> permissions
     ) {}

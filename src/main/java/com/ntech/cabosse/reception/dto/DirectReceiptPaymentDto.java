@@ -18,10 +18,10 @@ public record DirectReceiptPaymentDto(
 
         LocalDate paidOn,
 
-        @DecimalMin(value = "0", inclusive = false, message = "Montant > 0 requis")
+        @DecimalMin(value = "0", inclusive = false, message = "{v.montant-0-requis}")
         BigDecimal amountFcfa,
 
-        @Size(max = 80, message = "Référence du bon de paiement trop longue")
+        @Size(max = 80, message = "{v.reference-du-bon-de-paiement-trop-longue}")
         String paymentNoteRef,
 
         PaymentMethod method,

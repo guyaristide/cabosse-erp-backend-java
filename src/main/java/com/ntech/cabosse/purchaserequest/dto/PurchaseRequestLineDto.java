@@ -9,10 +9,10 @@ import java.util.UUID;
 
 @Schema(description = "Ligne de demande d'achat (payload)")
 public record PurchaseRequestLineDto(
-        @NotNull(message = "articleId requis") UUID articleId,
-        @NotNull(message = "Quantité requise")
-        @DecimalMin(value = "0", inclusive = false, message = "Quantité doit être > 0")
+        @NotNull(message = "{v.articleid-requis}") UUID articleId,
+        @NotNull(message = "{v.quantite-requise}")
+        @DecimalMin(value = "0", inclusive = false, message = "{v.quantite-doit-etre-0}")
         BigDecimal quantity,
-        @DecimalMin(value = "0", message = "Prix estimé négatif interdit")
+        @DecimalMin(value = "0", message = "{v.prix-estime-negatif-interdit}")
         BigDecimal estimatedUnitPriceFcfa
 ) {}

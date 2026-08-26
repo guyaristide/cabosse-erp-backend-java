@@ -14,11 +14,11 @@ import java.util.List;
 @Schema(description = "Payload de mise à jour d'un modèle d'organisation")
 public record OrganizationModelUpdateDto(
 
-        @NotBlank(message = "Libellé requis")
-        @Size(min = 2, max = 80, message = "Libellé entre 2 et 80 caractères")
+        @NotBlank(message = "{v.libelle-requis}")
+        @Size(min = 2, max = 80, message = "{v.libelle-entre-2-et-80-caracteres}")
         String label,
 
-        @Size(max = 300, message = "Description trop longue")
+        @Size(max = 300, message = "{v.description-trop-longue}")
         String description,
 
         boolean isActive,

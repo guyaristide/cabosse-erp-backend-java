@@ -16,22 +16,22 @@ import java.util.UUID;
 /** Saisie d'un inventaire physique : N (article, qté comptée). */
 @Schema(description = "Inventaire physique d'un site : génère des ajustements")
 public record InventoryBatchDto(
-        @NotNull(message = "Site requis") UUID siteId,
+        @NotNull(message = "{v.site-requis}") UUID siteId,
 
-        @NotBlank(message = "Motif requis")
+        @NotBlank(message = "{v.motif-requis}")
         @Size(max = 500) String reason,
 
-        @NotEmpty(message = "Au moins une ligne requise")
+        @NotEmpty(message = "{v.au-moins-une-ligne-requise}")
         List<@Valid Line> lines,
 
         Instant occurredAt
 ) {
     @Schema(description = "Une ligne de comptage")
     public record Line(
-            @NotNull(message = "Article requis") UUID articleId,
+            @NotNull(message = "{v.article-requis}") UUID articleId,
 
-            @NotNull(message = "Quantité comptée requise")
-            @DecimalMin(value = "0", message = "Quantité négative interdite")
+            @NotNull(message = "{v.quantite-comptee-requise}")
+            @DecimalMin(value = "0", message = "{v.quantite-negative-interdite}")
             BigDecimal countedQuantity,
 
             @Size(max = 500) String notes

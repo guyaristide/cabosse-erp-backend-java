@@ -21,33 +21,33 @@ import java.util.UUID;
 @Schema(description = "Payload d'écriture d'un BC")
 public record PurchaseOrderUpsertDto(
 
-        @NotNull(message = "Fournisseur requis")
+        @NotNull(message = "{v.fournisseur-requis}")
         UUID supplierId,
 
-        @NotNull(message = "Date de commande requise")
+        @NotNull(message = "{v.date-de-commande-requise}")
         LocalDate orderDate,
 
         LocalDate deliveryDate,
         LocalDate invoiceDate,
 
-        @Size(max = 80, message = "Numéro de facture trop long")
+        @Size(max = 80, message = "{v.numero-de-facture-trop-long}")
         String invoiceNumber,
 
         @Size(max = 120)
         String paymentTerms,
 
-        @NotEmpty(message = "Au moins une ligne requise")
+        @NotEmpty(message = "{v.au-moins-une-ligne-requise}")
         List<@Valid PurchaseOrderLineDto> lines,
 
-        @DecimalMin(value = "0", message = "Transport négatif interdit")
+        @DecimalMin(value = "0", message = "{v.transport-negatif-interdit}")
         BigDecimal transportFcfa,
 
-        @NotNull(message = "Taux de TVA requis")
-        @DecimalMin(value = "0", message = "TVA négative interdite")
-        @DecimalMax(value = "100", message = "TVA supérieure à 100 % interdite")
+        @NotNull(message = "{v.taux-de-tva-requis}")
+        @DecimalMin(value = "0", message = "{v.tva-negative-interdite}")
+        @DecimalMax(value = "100", message = "{v.tva-superieure-a-100-interdite}")
         BigDecimal vatRatePct,
 
-        @Size(max = 2000, message = "Notes trop longues (2000 caractères max)")
+        @Size(max = 2000, message = "{v.notes-trop-longues-2000-caracteres-max}")
         String notes,
 
         /**

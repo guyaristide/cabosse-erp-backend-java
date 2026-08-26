@@ -13,17 +13,17 @@ import java.util.UUID;
 @Schema(description = "Ligne de nomenclature (BOM)")
 public record RecipeIngredientDto(
 
-        @NotNull(message = "Article requis")
+        @NotNull(message = "{v.article-requis}")
         UUID articleId,
 
         /** Dénormalisé — peut être omis en POST, le serveur le résout. */
         String articleName,
 
         @NotNull
-        @DecimalMin(value = "0.0001", inclusive = true, message = "Quantité strictement positive requise")
+        @DecimalMin(value = "0.0001", inclusive = true, message = "{v.quantite-strictement-positive-requise}")
         BigDecimal quantity,
 
-        @NotBlank(message = "Unité requise")
+        @NotBlank(message = "{v.unite-requise}")
         @Size(max = 20)
         String unit
 ) {}

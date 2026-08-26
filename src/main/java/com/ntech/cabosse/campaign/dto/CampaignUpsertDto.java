@@ -28,26 +28,26 @@ import java.util.List;
 @Schema(description = "Payload de création / édition d'une campagne membres")
 public record CampaignUpsertDto(
 
-        @NotBlank(message = "Libellé requis")
-        @Size(min = 3, max = 120, message = "Libellé entre 3 et 120 caractères")
+        @NotBlank(message = "{v.libelle-requis}")
+        @Size(min = 3, max = 120, message = "{v.libelle-entre-3-et-120-caracteres}")
         String label,
 
-        @NotNull(message = "Date d'ouverture requise")
+        @NotNull(message = "{v.date-d-ouverture-requise}")
         LocalDate startDate,
 
         LocalDate endDate,
 
-        @NotNull(message = "Prix de base requis")
-        @DecimalMin(value = "0", message = "Valeur négative interdite") BigDecimal basePricePerKgFcfa,
+        @NotNull(message = "{v.prix-de-base-requis}")
+        @DecimalMin(value = "0", message = "{v.valeur-negative-interdite}") BigDecimal basePricePerKgFcfa,
 
         List<@Valid QualityPremiumPayload> qualityPremiums,
 
-        @DecimalMin(value = "0", message = "Pourcentage négatif interdit") @DecimalMax(value = "100", message = "Pourcentage supérieur à 100") BigDecimal ristournePct,
+        @DecimalMin(value = "0", message = "{v.pourcentage-negatif-interdit}") @DecimalMax(value = "100", message = "{v.pourcentage-superieur-a-100}") BigDecimal ristournePct,
 
-        @Size(max = 80, message = "Mode de paiement trop long")
+        @Size(max = 80, message = "{v.mode-de-paiement-trop-long}")
         String defaultPaymentMethod,
 
-        @Size(max = 800, message = "Notes trop longues")
+        @Size(max = 800, message = "{v.notes-trop-longues}")
         String notes
 
 ) {
@@ -55,6 +55,6 @@ public record CampaignUpsertDto(
     @Schema(description = "Prime qualité par grade de fèves")
     public record QualityPremiumPayload(
             @NotNull BeanGrade grade,
-            @NotNull @DecimalMin(value = "0", message = "Valeur négative interdite") BigDecimal premiumPerKg
+            @NotNull @DecimalMin(value = "0", message = "{v.valeur-negative-interdite}") BigDecimal premiumPerKg
     ) {}
 }

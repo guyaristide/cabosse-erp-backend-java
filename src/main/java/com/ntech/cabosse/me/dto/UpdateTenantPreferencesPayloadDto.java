@@ -29,7 +29,7 @@ public record UpdateTenantPreferencesPayloadDto(
         Boolean postMemberCapitalEntries,
 
         @jakarta.validation.constraints.Pattern(regexp = "^$|^[0-9]{2,8}$",
-                message = "Compte capital : 2 à 8 chiffres")
+                message = "{v.compte-capital-2-a-8-chiffres}")
         @Schema(description = "Compte SYSCOHADA crédité pour les parts sociales.", example = "101000")
         String memberCapitalAccount,
 
@@ -37,31 +37,31 @@ public record UpdateTenantPreferencesPayloadDto(
         Boolean postStockTransferEntries,
 
         @jakarta.validation.constraints.DecimalMin(value = "0",
-                message = "Seuil en pourcentage négatif interdit")
+                message = "{v.seuil-en-pourcentage-negatif-interdit}")
         @jakarta.validation.constraints.DecimalMax(value = "100",
-                message = "Seuil en pourcentage supérieur à 100 interdit")
+                message = "{v.seuil-en-pourcentage-superieur-a-100-interdit}")
         @Schema(description = "Seuil d'écart d'inventaire significatif, en % du théorique.")
-        @jakarta.validation.constraints.DecimalMin(value = "0", message = "Pourcentage négatif interdit") @jakarta.validation.constraints.DecimalMax(value = "100", message = "Pourcentage supérieur à 100") java.math.BigDecimal inventoryAlertThresholdPct,
+        @jakarta.validation.constraints.DecimalMin(value = "0", message = "{v.pourcentage-negatif-interdit}") @jakarta.validation.constraints.DecimalMax(value = "100", message = "{v.pourcentage-superieur-a-100}") java.math.BigDecimal inventoryAlertThresholdPct,
 
         @jakarta.validation.constraints.DecimalMin(value = "0",
-                message = "Seuil en FCFA négatif interdit")
+                message = "{v.seuil-en-fcfa-negatif-interdit}")
         @Schema(description = "Seuil d'écart d'inventaire significatif, en valeur absolue FCFA.")
         java.math.BigDecimal inventoryAlertThresholdFcfa,
 
         @jakarta.validation.constraints.Pattern(regexp = "^$|^(TENANT_ADMIN|PLATFORM_ONLY)$",
-                message = "Politique de réouverture : TENANT_ADMIN ou PLATFORM_ONLY")
+                message = "{v.politique-de-reouverture-tenant-admin-ou-platform-only}")
         @Schema(description = "Qui peut rouvrir une période comptable clôturée.",
                 enumeration = { "TENANT_ADMIN", "PLATFORM_ONLY" })
         String periodReopenPolicy,
 
         @jakarta.validation.constraints.Pattern(regexp = "^$|^[0-9]{2,8}$",
-                message = "Compte TVA déductible : 2 à 8 chiffres")
+                message = "{v.compte-tva-deductible-2-a-8-chiffres}")
         @Schema(description = "Compte SYSCOHADA débité pour la TVA déductible sur achats.",
                 example = "445660")
         String vatDeductibleAccount,
 
         @jakarta.validation.constraints.Pattern(regexp = "^$|^(DIRECT|SUBSCRIPTION)$",
-                message = "Cycle des parts sociales : DIRECT ou SUBSCRIPTION")
+                message = "{v.cycle-des-parts-sociales-direct-ou-subscription}")
         @Schema(description = "Cycle comptable des parts sociales.",
                 enumeration = { "DIRECT", "SUBSCRIPTION" })
         String memberCapitalFlow,
@@ -69,13 +69,13 @@ public record UpdateTenantPreferencesPayloadDto(
         @Schema(description = "Inclut les transferts inter-magasins dans les états analytiques.")
         Boolean analyticsIncludeStockTransfers,
 
-        @jakarta.validation.constraints.Min(value = 1, message = "Mois de début : 1 à 12")
-        @jakarta.validation.constraints.Max(value = 12, message = "Mois de début : 1 à 12")
+        @jakarta.validation.constraints.Min(value = 1, message = "{v.mois-de-debut-1-a-12}")
+        @jakarta.validation.constraints.Max(value = 12, message = "{v.mois-de-debut-1-a-12}")
         @Schema(description = "Mois de début de l'exercice comptable (1 à 12).")
         Integer fiscalYearStartMonth,
 
-        @jakarta.validation.constraints.DecimalMin(value = "0", message = "Taux d'impôt négatif interdit")
-        @jakarta.validation.constraints.DecimalMax(value = "100", message = "Taux d'impôt supérieur à 100 % interdit")
+        @jakarta.validation.constraints.DecimalMin(value = "0", message = "{v.taux-d-impot-negatif-interdit}")
+        @jakarta.validation.constraints.DecimalMax(value = "100", message = "{v.taux-d-impot-superieur-a-100-interdit}")
         @Schema(description = "Taux d'impôt sur le résultat (%).")
         java.math.BigDecimal incomeTaxRatePct,
 
@@ -85,30 +85,30 @@ public record UpdateTenantPreferencesPayloadDto(
         @Schema(description = "Active le circuit de contrôle interne des achats (DA avant BC).")
         Boolean purchaseRequestEnabled,
 
-        @jakarta.validation.constraints.DecimalMin(value = "0", message = "Seuil négatif interdit")
+        @jakarta.validation.constraints.DecimalMin(value = "0", message = "{v.seuil-negatif-interdit}")
         @Schema(description = "Seuil FCFA au-dessus duquel une demande d'achat approuvée est exigée.")
         java.math.BigDecimal purchaseRequestThresholdFcfa,
 
         @jakarta.validation.constraints.Pattern(regexp = "^$|^[0-9]{2,8}$",
-                message = "Compte d'avance : 2 à 8 chiffres")
+                message = "{v.compte-d-avance-2-a-8-chiffres}")
         @Schema(description = "Compte SYSCOHADA des avances aux délégués collecteurs.")
         String collectorAdvanceAccount,
 
         @jakarta.validation.constraints.Pattern(regexp = "^$|^(BY_LOT|WEIGHTED_CMUP)$",
-                message = "Valorisation collecteur : BY_LOT | WEIGHTED_CMUP")
+                message = "{v.valorisation-collecteur-by-lot-weighted-cmup}")
         @Schema(description = "Valorisation d'une livraison délégué : BY_LOT (coût de l'avance) ou WEIGHTED_CMUP.")
         String collectorDeliveryValuation,
 
         @Schema(description = "Bloque le démarrage d'un OF si une matière dépasse le stock disponible.")
         Boolean blockProductionOnStockShortage,
 
-        @jakarta.validation.constraints.Min(value = 0, message = "Pourcentage négatif interdit")
-        @jakarta.validation.constraints.Max(value = 100, message = "Pourcentage supérieur à 100 interdit")
+        @jakarta.validation.constraints.Min(value = 0, message = "{v.pourcentage-negatif-interdit}")
+        @jakarta.validation.constraints.Max(value = 100, message = "{v.pourcentage-superieur-a-100-interdit}")
         @Schema(description = "Pourcentage du seuil d'alerte sous lequel le stock passe en critique.")
         Integer stockMinWarningPct,
 
-        @jakarta.validation.constraints.Min(value = 1, message = "Durée de validité inférieure à 1 mois interdite")
-        @jakarta.validation.constraints.Max(value = 120, message = "Durée de validité supérieure à 120 mois interdite")
+        @jakarta.validation.constraints.Min(value = 1, message = "{v.duree-de-validite-inferieure-a-1-mois-interdite}")
+        @jakarta.validation.constraints.Max(value = 120, message = "{v.duree-de-validite-superieure-a-120-mois-interdite}")
         @Schema(description = "Durée de validité d'une enquête producteur, en mois.")
         Integer producerFileValidityMonths,
 
@@ -119,16 +119,16 @@ public record UpdateTenantPreferencesPayloadDto(
         Boolean requireProducerPaymentVigilance,
 
         @jakarta.validation.constraints.Pattern(regexp = "^$|^(NONE|PER_KG|PERCENT)$",
-                message = "Rémunération délégué : NONE | PER_KG | PERCENT")
+                message = "{v.remuneration-delegue-none-per-kg-percent}")
         @Schema(description = "Rémunération du délégué collecteur sur les reçus rattachés.")
         String delegateMarginMode,
 
-        @jakarta.validation.constraints.DecimalMin(value = "0", message = "Taux négatif interdit")
+        @jakarta.validation.constraints.DecimalMin(value = "0", message = "{v.taux-negatif-interdit}")
         @Schema(description = "Taux de rémunération par défaut du délégué (FCFA/kg ou %).")
         java.math.BigDecimal delegateMarginRate,
 
         @jakarta.validation.constraints.Pattern(regexp = "^$|^[0-9]{2,8}$",
-                message = "Compte de rémunération : 2 à 8 chiffres")
+                message = "{v.compte-de-remuneration-2-a-8-chiffres}")
         @Schema(description = "Compte de charge de la rémunération des délégués.")
         String delegateMarginAccount,
 
@@ -136,26 +136,26 @@ public record UpdateTenantPreferencesPayloadDto(
         Boolean producerPartialPaymentEnabled,
 
         @jakarta.validation.constraints.Pattern(regexp = "^$|^[0-9]{2,8}$",
-                message = "Compte de dette producteur : 2 à 8 chiffres")
+                message = "{v.compte-de-dette-producteur-2-a-8-chiffres}")
         @Schema(description = "Compte de dette envers les producteurs (reliquats).")
         String producerPayableAccount,
         String delegatePayableAccount,
 
-        @jakarta.validation.constraints.Size(max = 60, message = "Type de code trop long")
+        @jakarta.validation.constraints.Size(max = 60, message = "{v.type-de-code-trop-long}")
         @Schema(description = "Type de code externe producteur qui fait référence.")
         String producerReferenceCodeType,
 
-        @jakarta.validation.constraints.DecimalMin(value = "0", message = "Seuil négatif interdit")
+        @jakarta.validation.constraints.DecimalMin(value = "0", message = "{v.seuil-negatif-interdit}")
         @Schema(description = "Seuil d'approbation de gouvernance des crédits producteurs.")
         java.math.BigDecimal memberCreditApprovalThresholdFcfa,
 
         @jakarta.validation.constraints.Pattern(regexp = "^$|^[0-9]{2,8}$",
-                message = "Compte de créance : 2 à 8 chiffres")
+                message = "{v.compte-de-creance-2-a-8-chiffres}")
         @Schema(description = "Compte de créance sur les producteurs.")
         String memberCreditAccount,
 
         @jakarta.validation.constraints.Pattern(regexp = "^$|^[0-9]{2,8}$",
-                message = "Compte d'écart de trésorerie : 2 à 8 chiffres")
+                message = "{v.compte-d-ecart-de-tresorerie-2-a-8-chiffres}")
         @Schema(description = "Compte où se constate un écart de trésorerie.")
         String cashDiscrepancyAccount
 

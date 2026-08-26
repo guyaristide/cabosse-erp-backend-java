@@ -6,7 +6,7 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
 @Schema(description = "Payload de révocation d'un refresh token")
 public record LogoutRequestDto(
 
-        @NotBlank(message = "refreshToken requis")
+        @NotBlank(message = "{v.refreshtoken-requis}")
         String refreshToken
 
 ) {}

@@ -14,18 +14,18 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
 @Schema(description = "Champs éditables du profil courant")
 public record UpdateMePayloadDto(
 
-        @NotBlank(message = "Prénom requis")
-        @Size(min = 2, max = 80, message = "Prénom entre 2 et 80 caractères")
+        @NotBlank(message = "{v.prenom-requis}")
+        @Size(min = 2, max = 80, message = "{v.prenom-entre-2-et-80-caracteres}")
         String firstName,
 
-        @NotBlank(message = "Nom requis")
-        @Size(min = 2, max = 80, message = "Nom entre 2 et 80 caractères")
+        @NotBlank(message = "{v.nom-requis}")
+        @Size(min = 2, max = 80, message = "{v.nom-entre-2-et-80-caracteres}")
         String lastName,
 
-        @Size(max = 25, message = "Téléphone trop long")
+        @Size(max = 25, message = "{v.telephone-trop-long}")
         @Pattern(
                 regexp = "^$|^\\+?[\\d\\s()-]{6,25}$",
-                message = "Numéro de téléphone invalide"
+                message = "{v.numero-de-telephone-invalide}"
         )
         String phone,
 
@@ -34,7 +34,7 @@ public record UpdateMePayloadDto(
          * supportées au MVP. {@code null}/vide = on conserve la valeur
          * existante (le front omet le champ s'il ne change pas la langue).
          */
-        @Pattern(regexp = "^$|^(fr|en)$", message = "Langue supportée : fr, en")
+        @Pattern(regexp = "^$|^(fr|en)$", message = "{v.langue-supportee-fr-en}")
         String locale
 
 ) {}

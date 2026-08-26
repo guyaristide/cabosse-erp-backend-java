@@ -18,12 +18,12 @@ import java.util.UUID;
  */
 @Schema(description = "Saisie manuelle d'un mouvement de stock")
 public record MovementUpsertDto(
-        @NotNull(message = "Article requis") UUID articleId,
-        @NotNull(message = "Site requis") UUID siteId,
-        @NotNull(message = "Type de mouvement requis") MovementKind kind,
-        @NotNull(message = "Quantité requise") BigDecimal quantity,
+        @NotNull(message = "{v.article-requis}") UUID articleId,
+        @NotNull(message = "{v.site-requis}") UUID siteId,
+        @NotNull(message = "{v.type-de-mouvement-requis}") MovementKind kind,
+        @NotNull(message = "{v.quantite-requise}") BigDecimal quantity,
         /** Requis pour IN, ignoré pour OUT et ADJUSTMENT. */
-        @DecimalMin(value = "0", message = "Valeur négative interdite") BigDecimal unitPriceFcfa,
+        @DecimalMin(value = "0", message = "{v.valeur-negative-interdite}") BigDecimal unitPriceFcfa,
         /** Obligatoire pour ADJUSTMENT. */
         @Size(max = 500) String reason,
         @Size(max = 1000) String notes,

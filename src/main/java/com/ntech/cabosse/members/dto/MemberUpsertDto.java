@@ -66,7 +66,7 @@ public record MemberUpsertDto(
         /** Le producteur est aussi délégué collecteur. */
         Boolean collector,
         /** Rémunération propre au délégué. Vide : taux commun du tenant. */
-        @jakarta.validation.constraints.DecimalMin(value = "0", message = "Taux négatif interdit")
+        @jakarta.validation.constraints.DecimalMin(value = "0", message = "{v.taux-negatif-interdit}")
         java.math.BigDecimal collectorMarginRate,
         List<UUID> deliveredArticleIds,
         List<@Valid MemberExternalCodeDto> externalProducerCodes,
@@ -75,7 +75,7 @@ public record MemberUpsertDto(
         @Size(max = 30) String phone,
         @Email @Size(max = 120) String email,
         LocalDate joinedAt,
-        @DecimalMin(value = "0", message = "Valeur négative interdite") BigDecimal partsSocialesAmount,
+        @DecimalMin(value = "0", message = "{v.valeur-negative-interdite}") BigDecimal partsSocialesAmount,
         @NotNull MemberStatus status,
         @Size(max = 60) String preferredPaymentMethod,
         @Size(max = 30) String mobileMoneyNumber,

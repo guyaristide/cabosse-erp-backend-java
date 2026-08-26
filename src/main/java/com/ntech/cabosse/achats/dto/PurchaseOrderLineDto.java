@@ -17,19 +17,19 @@ import java.util.UUID;
 @Schema(description = "Ligne de bon de commande (payload écriture)")
 public record PurchaseOrderLineDto(
 
-        @NotNull(message = "articleId requis")
+        @NotNull(message = "{v.articleid-requis}")
         UUID articleId,
 
-        @NotNull(message = "Quantité requise")
-        @DecimalMin(value = "0", inclusive = false, message = "Quantité doit être > 0")
+        @NotNull(message = "{v.quantite-requise}")
+        @DecimalMin(value = "0", inclusive = false, message = "{v.quantite-doit-etre-0}")
         BigDecimal quantity,
 
-        @NotNull(message = "Prix unitaire requis")
-        @DecimalMin(value = "0", message = "Prix unitaire négatif interdit")
+        @NotNull(message = "{v.prix-unitaire-requis}")
+        @DecimalMin(value = "0", message = "{v.prix-unitaire-negatif-interdit}")
         BigDecimal unitPriceFcfa,
 
-        @DecimalMin(value = "0", message = "Remise négative interdite")
-        @DecimalMax(value = "100", message = "Remise supérieure à 100 % interdite")
+        @DecimalMin(value = "0", message = "{v.remise-negative-interdite}")
+        @DecimalMax(value = "100", message = "{v.remise-superieure-a-100-interdite}")
         BigDecimal discountPct
 
 ) {}

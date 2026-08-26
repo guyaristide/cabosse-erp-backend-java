@@ -17,13 +17,13 @@ import java.util.UUID;
 @Schema(description = "Requête d'import de réceptions directes")
 public record DirectReceiptImportRequestDto(
 
-        @NotNull(message = "Article requis")
+        @NotNull(message = "{v.article-requis}")
         UUID articleId,
 
         /** Date par défaut si la cellule Date d'une ligne est vide. Optionnel. */
         LocalDate defaultDate,
 
-        @NotEmpty(message = "Au moins une ligne requise")
+        @NotEmpty(message = "{v.au-moins-une-ligne-requise}")
         List<@Valid DirectReceiptImportRowDto> rows
 
 ) {}

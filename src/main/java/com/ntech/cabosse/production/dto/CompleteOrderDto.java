@@ -12,8 +12,8 @@ import java.math.BigDecimal;
 @Schema(description = "Saisie de la quantité réellement produite à la complétion")
 public record CompleteOrderDto(
 
-        @NotNull(message = "Quantité produite requise")
-        @DecimalMin(value = "0", inclusive = false, message = "Quantité > 0 requise")
+        @NotNull(message = "{v.quantite-produite-requise}")
+        @DecimalMin(value = "0", inclusive = false, message = "{v.quantite-0-requise}")
         BigDecimal producedQty,
 
         /**
@@ -21,13 +21,13 @@ public record CompleteOrderDto(
          * (l'OF peut être conclu sans ce KPI, mais il manquera dans les
          * rapports).
          */
-        @Min(value = 1, message = "Durée doit être positive")
-        @Max(value = 720, message = "Durée déraisonnable (>30 jours)")
+        @Min(value = 1, message = "{v.duree-doit-etre-positive}")
+        @Max(value = 720, message = "{v.duree-deraisonnable-30-jours}")
         Integer actualDurationHours,
 
         /** Nombre d'opérateurs mobilisés. Optionnel. */
-        @Min(value = 1, message = "Au moins 1 opérateur")
-        @Max(value = 999, message = "Effectif déraisonnable")
+        @Min(value = 1, message = "{v.au-moins-1-operateur}")
+        @Max(value = 999, message = "{v.effectif-deraisonnable}")
         Integer operatorsCount,
 
         @Size(max = 500) String notes

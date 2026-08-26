@@ -22,25 +22,25 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
 @Schema(description = "Payload d'écriture SMTP")
 public record EmailSettingsUpsertDto(
 
-        @NotBlank(message = "Adresse expéditeur requise")
-        @Email(message = "Adresse expéditeur invalide")
+        @NotBlank(message = "{v.adresse-expediteur-requise}")
+        @Email(message = "{v.adresse-expediteur-invalide}")
         String from,
 
-        @NotBlank(message = "Serveur SMTP requis")
+        @NotBlank(message = "{v.serveur-smtp-requis}")
         String host,
 
-        @Min(value = 1, message = "Port invalide")
-        @Max(value = 65535, message = "Port invalide")
+        @Min(value = 1, message = "{v.port-invalide}")
+        @Max(value = 65535, message = "{v.port-invalide}")
         int port,
 
-        @NotBlank(message = "Identifiant SMTP requis")
+        @NotBlank(message = "{v.identifiant-smtp-requis}")
         String username,
 
         /** Voir convention « patch sensible » dans la doc de la classe. */
         String password,
 
         @Pattern(regexp = "NONE|REQUIRED|OPTIONAL",
-                message = "Valeur autorisée : NONE | REQUIRED | OPTIONAL")
+                message = "{v.valeur-autorisee-none-required-optional}")
         String startTls,
 
         boolean mockMode

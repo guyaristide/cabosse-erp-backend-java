@@ -12,14 +12,14 @@ import java.util.UUID;
 @Schema(description = "Ligne de vente (article PF + qté + PU négocié)")
 public record SaleLineDto(
 
-        @NotNull(message = "Article requis") UUID articleId,
+        @NotNull(message = "{v.article-requis}") UUID articleId,
 
-        @NotNull(message = "Quantité requise")
-        @DecimalMin(value = "0", inclusive = false, message = "Quantité > 0 requise")
+        @NotNull(message = "{v.quantite-requise}")
+        @DecimalMin(value = "0", inclusive = false, message = "{v.quantite-0-requise}")
         BigDecimal quantity,
 
-        @NotNull(message = "Prix unitaire requis")
-        @DecimalMin(value = "0", message = "Prix négatif interdit")
+        @NotNull(message = "{v.prix-unitaire-requis}")
+        @DecimalMin(value = "0", message = "{v.prix-negatif-interdit}")
         BigDecimal unitPriceFcfa,
 
         /** Remise ligne 0..100. Optionnel. */

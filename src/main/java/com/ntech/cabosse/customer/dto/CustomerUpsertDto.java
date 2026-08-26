@@ -17,7 +17,7 @@ public record CustomerUpsertDto(
         String name,
 
         @NotBlank @Pattern(regexp = "^(INDIVIDUAL|COMPANY)$",
-                message = "Type autorisé : INDIVIDUAL | COMPANY")
+                message = "{v.type-autorise-individual-company}")
         String type,
 
         /**
@@ -26,7 +26,7 @@ public record CustomerUpsertDto(
          * humanisé.
          */
         @Pattern(regexp = "^$|^(GMS|HOTELLERIE|B2B|B2C|RETAIL|OTHER)$",
-                message = "Canal autorisé : GMS | HOTELLERIE | B2B | B2C | RETAIL | OTHER")
+                message = "{v.canal-autorise-gms-hotellerie-b2b-b2c-retail-other}")
         String channelType,
 
         @Size(max = 150) String legalName,
@@ -43,7 +43,7 @@ public record CustomerUpsertDto(
         @Size(max = 2)   String countryCode,
         @Size(max = 120) String contactName,
 
-        @DecimalMin(value = "0", message = "Plafond de crédit négatif interdit")
+        @DecimalMin(value = "0", message = "{v.plafond-de-credit-negatif-interdit}")
         BigDecimal creditLimit,
 
         @Size(max = 1000) String notes

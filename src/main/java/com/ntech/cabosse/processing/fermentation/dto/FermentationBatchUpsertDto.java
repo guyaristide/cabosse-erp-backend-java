@@ -14,7 +14,7 @@ import java.util.UUID;
  * endpoints dédiés (POST /readings, POST /turnings).
  */
 public record FermentationBatchUpsertDto(
-        @NotEmpty(message = "Au moins une récolte à charger") List<UUID> harvestIds,
+        @NotEmpty(message = "{v.au-moins-une-recolte-a-charger}") List<UUID> harvestIds,
         @DecimalMin("0.0") BigDecimal weightInKg,
         @Size(max = 500) String notes
 ) {}

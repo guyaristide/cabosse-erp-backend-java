@@ -22,10 +22,10 @@ import java.util.Map;
  */
 @Schema(description = "Passerelle d'envoi à créer ou modifier")
 public record ProviderUpsertDto(
-        @NotBlank(message = "Moteur requis.")
+        @NotBlank(message = "{v.moteur-requis}")
         String engineCode,
 
-        @NotBlank(message = "Libellé requis.")
+        @NotBlank(message = "{v.libelle-requis-2}")
         String label,
 
         boolean active,

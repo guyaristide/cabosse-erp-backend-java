@@ -16,12 +16,12 @@ import java.util.UUID;
  */
 @Schema(description = "Requalification de stock entre deux natures d'article")
 public record ReclassifyDto(
-        @NotNull(message = "Article source requis") UUID fromArticleId,
-        @NotNull(message = "Article destination requis") UUID toArticleId,
-        @NotNull(message = "Site requis") UUID siteId,
+        @NotNull(message = "{v.article-source-requis}") UUID fromArticleId,
+        @NotNull(message = "{v.article-destination-requis}") UUID toArticleId,
+        @NotNull(message = "{v.site-requis}") UUID siteId,
 
-        @NotNull(message = "Quantité requise")
-        @DecimalMin(value = "0", inclusive = false, message = "Quantité > 0 requise")
+        @NotNull(message = "{v.quantite-requise}")
+        @DecimalMin(value = "0", inclusive = false, message = "{v.quantite-0-requise}")
         BigDecimal quantity,
 
         @Size(max = 500) String reason,

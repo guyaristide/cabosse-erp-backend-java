@@ -36,7 +36,7 @@ import java.util.UUID;
 @Schema(description = "Payload d'import de vente depuis fichier Excel parsé côté client")
 public record SaleImportDto(
 
-        @NotNull(message = "Client requis")
+        @NotNull(message = "{v.client-requis}")
         @Valid
         ImportedCustomer customer,
 
@@ -45,7 +45,7 @@ public record SaleImportDto(
          * envoie le libellé brut du fichier (ex : « Méagui »). Si vide ou
          * non résolu, le serveur fallback au site courant (TenantContext).
          */
-        @NotBlank(message = "Nom de site requis")
+        @NotBlank(message = "{v.nom-de-site-requis}")
         @Size(max = 120)
         String siteName,
 
@@ -56,13 +56,13 @@ public record SaleImportDto(
          * canal de vente B2B/B2C.
          */
         @Pattern(regexp = "^$|^(GMS|HOTELLERIE|B2B|B2C|RETAIL|OTHER)$",
-                message = "Canal autorisé : GMS | HOTELLERIE | B2B | B2C | RETAIL | OTHER")
+                message = "{v.canal-autorise-gms-hotellerie-b2b-b2c-retail-other}")
         String channelType,
 
-        @NotNull(message = "Date de vente requise")
+        @NotNull(message = "{v.date-de-vente-requise}")
         LocalDate saleDate,
 
-        @Size(max = 80, message = "Numéro de facture trop long")
+        @Size(max = 80, message = "{v.numero-de-facture-trop-long}")
         String invoiceNumber,
 
         /**
@@ -73,7 +73,7 @@ public record SaleImportDto(
          * pas chèque vs autre).
          */
         @Pattern(regexp = "^$|^(CASH|MOBILE_MONEY|BANK_TRANSFER|CHECK)$",
-                message = "Méthode autorisée : CASH | MOBILE_MONEY | BANK_TRANSFER | CHECK")
+                message = "{v.methode-autorisee-cash-mobile-money-bank-transfer-check}")
         String paymentMethod,
 
         /**
@@ -83,7 +83,7 @@ public record SaleImportDto(
          * implicitement par {@link com.ntech.cabosse.sale.service.SaleService#recordPayment}
          * (qui refuse les paiements > reste dû).
          */
-        @DecimalMin(value = "0", message = "Montant payé négatif interdit")
+        @DecimalMin(value = "0", message = "{v.montant-paye-negatif-interdit}")
         BigDecimal totalPaidFcfa,
 
         /**
@@ -92,7 +92,7 @@ public record SaleImportDto(
          * puis livre (mouvements stock OUT). CANCELLED valide puis annule.
          */
         @Pattern(regexp = "^$|^(DRAFT|QUOTE|CONFIRMED|DELIVERED|CANCELLED)$",
-                message = "Statut autorisé : DRAFT | QUOTE | CONFIRMED | DELIVERED | CANCELLED")
+                message = "{v.statut-autorise-draft-quote-confirmed-delivered-cancelled}")
         String initialStatus,
 
         /**
@@ -102,7 +102,7 @@ public record SaleImportDto(
          */
         Boolean strictMode,
 
-        @NotEmpty(message = "Au moins une ligne requise")
+        @NotEmpty(message = "{v.au-moins-une-ligne-requise}")
         List<@Valid ImportedLine> lines
 
 ) {
@@ -116,12 +116,12 @@ public record SaleImportDto(
 
             UUID id,
 
-            @Size(min = 2, max = 120, message = "Nom entre 2 et 120 caractères")
+            @Size(min = 2, max = 120, message = "{v.nom-entre-2-et-120-caracteres}")
             String name,
 
             /** Canal de distribution — appliqué uniquement si création. */
             @Pattern(regexp = "^$|^(GMS|HOTELLERIE|B2B|B2C|RETAIL|OTHER)$",
-                    message = "Canal autorisé : GMS | HOTELLERIE | B2B | B2C | RETAIL | OTHER")
+                    message = "{v.canal-autorise-gms-hotellerie-b2b-b2c-retail-other}")
             String channelType,
 
             @Size(max = 120) String email,
@@ -149,16 +149,16 @@ public record SaleImportDto(
             @Valid
             ImportedArticle newArticle,
 
-            @NotNull(message = "Quantité requise")
-            @Positive(message = "Quantité doit être > 0")
+            @NotNull(message = "{v.quantite-requise}")
+            @Positive(message = "{v.quantite-doit-etre-0}")
             BigDecimal quantity,
 
-            @NotNull(message = "Prix unitaire requis")
-            @DecimalMin(value = "0", message = "Prix négatif interdit")
+            @NotNull(message = "{v.prix-unitaire-requis}")
+            @DecimalMin(value = "0", message = "{v.prix-negatif-interdit}")
             BigDecimal unitPriceFcfa,
 
             /** Remise ligne 0..100. Optionnel. */
-            @DecimalMin(value = "0", message = "Remise négative interdite")
+            @DecimalMin(value = "0", message = "{v.remise-negative-interdite}")
             BigDecimal discountPct
 
     ) {}
@@ -172,14 +172,14 @@ public record SaleImportDto(
     @Schema(description = "Article à créer durant l'import vente (FINISHED_PRODUCT)")
     public record ImportedArticle(
 
-            @NotBlank(message = "Nom de l'article requis")
+            @NotBlank(message = "{v.nom-de-l-article-requis}")
             @Size(min = 2, max = 120)
             String name,
 
             @Size(max = 40)
             String code,
 
-            @NotBlank(message = "Unité requise")
+            @NotBlank(message = "{v.unite-requise}")
             @Size(max = 20)
             String unit
 

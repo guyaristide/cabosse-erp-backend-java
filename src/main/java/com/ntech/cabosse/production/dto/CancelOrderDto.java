@@ -6,7 +6,7 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
 
 @Schema(description = "Motif de contre-passation d'un OF")
 public record CancelOrderDto(
-        @NotBlank(message = "Motif requis")
+        @NotBlank(message = "{v.motif-requis}")
         @Size(max = 500)
         String reason
 ) {}

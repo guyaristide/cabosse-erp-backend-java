@@ -34,14 +34,14 @@ public record CacaoSaleUpsertDto(
         @Valid QualityDto quality,
 
         /** Surcharge du prix (sinon prix bord champ campagne + marge du contrat). */
-        @DecimalMin(value = "0", message = "Valeur négative interdite") BigDecimal pricePerKgFcfa,
+        @DecimalMin(value = "0", message = "{v.valeur-negative-interdite}") BigDecimal pricePerKgFcfa,
         /** Surcharges des primes (sinon taux du contrat × poids accepté). */
-        @DecimalMin(value = "0", message = "Valeur négative interdite") BigDecimal coopPrimeFcfa,
-        @DecimalMin(value = "0", message = "Valeur négative interdite") BigDecimal producerPrimeFcfa,
-        @DecimalMin(value = "0", message = "Valeur négative interdite") BigDecimal socialPrimeFcfa,
+        @DecimalMin(value = "0", message = "{v.valeur-negative-interdite}") BigDecimal coopPrimeFcfa,
+        @DecimalMin(value = "0", message = "{v.valeur-negative-interdite}") BigDecimal producerPrimeFcfa,
+        @DecimalMin(value = "0", message = "{v.valeur-negative-interdite}") BigDecimal socialPrimeFcfa,
         /** Surcharge du taux de TVA (sinon préférence tenant). */
-        @DecimalMin(value = "0", message = "Pourcentage négatif interdit")
-        @DecimalMax(value = "100", message = "Pourcentage supérieur à 100") BigDecimal vatRatePct
+        @DecimalMin(value = "0", message = "{v.pourcentage-negatif-interdit}")
+        @DecimalMax(value = "100", message = "{v.pourcentage-superieur-a-100}") BigDecimal vatRatePct
 ) {
     public record LogisticsDto(
             @Size(max = 120) String departureLocation,
@@ -52,38 +52,38 @@ public record CacaoSaleUpsertDto(
     ) {}
 
     public record WeightsDto(
-            @DecimalMin(value = "0", message = "Valeur négative interdite") BigDecimal declaredKg,
-            @DecimalMin(value = "0", message = "Valeur négative interdite") BigDecimal dischargedKg,
-            @DecimalMin(value = "0", message = "Valeur négative interdite") BigDecimal acceptedKg,
+            @DecimalMin(value = "0", message = "{v.valeur-negative-interdite}") BigDecimal declaredKg,
+            @DecimalMin(value = "0", message = "{v.valeur-negative-interdite}") BigDecimal dischargedKg,
+            @DecimalMin(value = "0", message = "{v.valeur-negative-interdite}") BigDecimal acceptedKg,
             Integer sacsAccepted,
             Integer sacsMissing,
             Integer sacsRejected
     ) {}
 
     public record RefactionsDto(
-            @DecimalMin(value = "0", message = "Valeur négative interdite") BigDecimal usineKg,
-            @DecimalMin(value = "0", message = "Valeur négative interdite") BigDecimal humidityKg,
-            @DecimalMin(value = "0", message = "Valeur négative interdite") BigDecimal foreignMatterKg,
-            @DecimalMin(value = "0", message = "Valeur négative interdite") BigDecimal moldyKg,
-            @DecimalMin(value = "0", message = "Valeur négative interdite") BigDecimal crabotsKg,
-            @DecimalMin(value = "0", message = "Valeur négative interdite") BigDecimal brokenKg,
-            @DecimalMin(value = "0", message = "Valeur négative interdite") BigDecimal wasteKg,
-            @DecimalMin(value = "0", message = "Valeur négative interdite") BigDecimal otherKg
+            @DecimalMin(value = "0", message = "{v.valeur-negative-interdite}") BigDecimal usineKg,
+            @DecimalMin(value = "0", message = "{v.valeur-negative-interdite}") BigDecimal humidityKg,
+            @DecimalMin(value = "0", message = "{v.valeur-negative-interdite}") BigDecimal foreignMatterKg,
+            @DecimalMin(value = "0", message = "{v.valeur-negative-interdite}") BigDecimal moldyKg,
+            @DecimalMin(value = "0", message = "{v.valeur-negative-interdite}") BigDecimal crabotsKg,
+            @DecimalMin(value = "0", message = "{v.valeur-negative-interdite}") BigDecimal brokenKg,
+            @DecimalMin(value = "0", message = "{v.valeur-negative-interdite}") BigDecimal wasteKg,
+            @DecimalMin(value = "0", message = "{v.valeur-negative-interdite}") BigDecimal otherKg
     ) {}
 
     public record QualityDto(
-            @DecimalMin(value = "0", message = "Valeur négative interdite") BigDecimal grainage,
-            @DecimalMin(value = "0", message = "Pourcentage négatif interdit") @DecimalMax(value = "100", message = "Pourcentage supérieur à 100") BigDecimal moldyPct,
-            @DecimalMin(value = "0", message = "Pourcentage négatif interdit") @DecimalMax(value = "100", message = "Pourcentage supérieur à 100") BigDecimal slatePct,
-            @DecimalMin(value = "0", message = "Pourcentage négatif interdit") @DecimalMax(value = "100", message = "Pourcentage supérieur à 100") BigDecimal purplePct,
-            @DecimalMin(value = "0", message = "Pourcentage négatif interdit") @DecimalMax(value = "100", message = "Pourcentage supérieur à 100") BigDecimal mitedPct,
-            @DecimalMin(value = "0", message = "Pourcentage négatif interdit") @DecimalMax(value = "100", message = "Pourcentage supérieur à 100") BigDecimal flatPct,
-            @DecimalMin(value = "0", message = "Pourcentage négatif interdit") @DecimalMax(value = "100", message = "Pourcentage supérieur à 100") BigDecimal germinatedPct,
-            @DecimalMin(value = "0", message = "Pourcentage négatif interdit") @DecimalMax(value = "100", message = "Pourcentage supérieur à 100") BigDecimal defectivePct,
-            @DecimalMin(value = "0", message = "Pourcentage négatif interdit") @DecimalMax(value = "100", message = "Pourcentage supérieur à 100") BigDecimal foreignMatterPct,
-            @DecimalMin(value = "0", message = "Pourcentage négatif interdit") @DecimalMax(value = "100", message = "Pourcentage supérieur à 100") BigDecimal ffaPct,
-            @DecimalMin(value = "0", message = "Pourcentage négatif interdit") @DecimalMax(value = "100", message = "Pourcentage supérieur à 100") BigDecimal brokenPct,
-            @DecimalMin(value = "0", message = "Pourcentage négatif interdit") @DecimalMax(value = "100", message = "Pourcentage supérieur à 100") BigDecimal humidityPct,
+            @DecimalMin(value = "0", message = "{v.valeur-negative-interdite}") BigDecimal grainage,
+            @DecimalMin(value = "0", message = "{v.pourcentage-negatif-interdit}") @DecimalMax(value = "100", message = "{v.pourcentage-superieur-a-100}") BigDecimal moldyPct,
+            @DecimalMin(value = "0", message = "{v.pourcentage-negatif-interdit}") @DecimalMax(value = "100", message = "{v.pourcentage-superieur-a-100}") BigDecimal slatePct,
+            @DecimalMin(value = "0", message = "{v.pourcentage-negatif-interdit}") @DecimalMax(value = "100", message = "{v.pourcentage-superieur-a-100}") BigDecimal purplePct,
+            @DecimalMin(value = "0", message = "{v.pourcentage-negatif-interdit}") @DecimalMax(value = "100", message = "{v.pourcentage-superieur-a-100}") BigDecimal mitedPct,
+            @DecimalMin(value = "0", message = "{v.pourcentage-negatif-interdit}") @DecimalMax(value = "100", message = "{v.pourcentage-superieur-a-100}") BigDecimal flatPct,
+            @DecimalMin(value = "0", message = "{v.pourcentage-negatif-interdit}") @DecimalMax(value = "100", message = "{v.pourcentage-superieur-a-100}") BigDecimal germinatedPct,
+            @DecimalMin(value = "0", message = "{v.pourcentage-negatif-interdit}") @DecimalMax(value = "100", message = "{v.pourcentage-superieur-a-100}") BigDecimal defectivePct,
+            @DecimalMin(value = "0", message = "{v.pourcentage-negatif-interdit}") @DecimalMax(value = "100", message = "{v.pourcentage-superieur-a-100}") BigDecimal foreignMatterPct,
+            @DecimalMin(value = "0", message = "{v.pourcentage-negatif-interdit}") @DecimalMax(value = "100", message = "{v.pourcentage-superieur-a-100}") BigDecimal ffaPct,
+            @DecimalMin(value = "0", message = "{v.pourcentage-negatif-interdit}") @DecimalMax(value = "100", message = "{v.pourcentage-superieur-a-100}") BigDecimal brokenPct,
+            @DecimalMin(value = "0", message = "{v.pourcentage-negatif-interdit}") @DecimalMax(value = "100", message = "{v.pourcentage-superieur-a-100}") BigDecimal humidityPct,
             @Size(max = 40) String taste, @Size(max = 8) String grade, @Size(max = 20) String analysisResult
     ) {}
 }

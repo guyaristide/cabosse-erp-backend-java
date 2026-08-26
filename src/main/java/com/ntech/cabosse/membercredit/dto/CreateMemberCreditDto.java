@@ -13,14 +13,14 @@ import java.util.UUID;
 /** Demande de crédit ou d'avance pour un producteur membre. */
 @Schema(description = "Demande de crédit ou d'avance à un producteur membre")
 public record CreateMemberCreditDto(
-        @NotNull(message = "Producteur requis") UUID memberId,
-        @NotNull(message = "Nature requise") MemberCreditKind kind,
+        @NotNull(message = "{v.producteur-requis}") UUID memberId,
+        @NotNull(message = "{v.nature-requise}") MemberCreditKind kind,
 
-        @NotNull(message = "Montant requis")
-        @DecimalMin(value = "0", inclusive = false, message = "Montant > 0 requis")
+        @NotNull(message = "{v.montant-requis}")
+        @DecimalMin(value = "0", inclusive = false, message = "{v.montant-0-requis}")
         BigDecimal amountFcfa,
 
-        @Size(max = 200, message = "Objet trop long") String purpose,
+        @Size(max = 200, message = "{v.objet-trop-long}") String purpose,
         LocalDate requestedAt,
         UUID campaignId,
         @Size(max = 1000) String notes

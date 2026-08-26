@@ -20,8 +20,8 @@ import java.util.UUID;
 @Schema(description = "Payload de création d'une dépense directe (contrat/abonnement ou petite caisse)")
 public record CreateDirectExpenseDto(
 
-        @NotNull(message = "Nature requise")
-        @Pattern(regexp = "^(CONTRACT|PETTY_CASH)$", message = "Nature : CONTRACT | PETTY_CASH")
+        @NotNull(message = "{v.nature-requise}")
+        @Pattern(regexp = "^(CONTRACT|PETTY_CASH)$", message = "{v.nature-contract-petty-cash}")
         String kind,
 
         LocalDate expenseDate,
@@ -33,10 +33,10 @@ public record CreateDirectExpenseDto(
         UUID expenseTypeId,
 
         /** Compte de charge SYSCOHADA explicite (si pas de type de dépense). */
-        @Pattern(regexp = "^$|^[0-9]{2,8}$", message = "Compte de charge : 2 à 8 chiffres")
+        @Pattern(regexp = "^$|^[0-9]{2,8}$", message = "{v.compte-de-charge-2-a-8-chiffres}")
         String chargeAccount,
 
-        @NotBlank(message = "Libellé requis")
+        @NotBlank(message = "{v.libelle-requis}")
         @Size(max = 200)
         String label,
 
@@ -44,20 +44,20 @@ public record CreateDirectExpenseDto(
         String periodLabel,
 
         /** Clé de répartition d'une charge indirecte (code). Vide = charge directe. */
-        @Pattern(regexp = "^$|^[A-Z0-9-]{2,16}$", message = "Clé : 2 à 16 caractères majuscules, chiffres ou tiret")
+        @Pattern(regexp = "^$|^[A-Z0-9-]{2,16}$", message = "{v.cle-2-a-16-caracteres-majuscules-chiffres-ou-tiret}")
         String allocationKeyCode,
 
-        @NotNull(message = "Montant HT requis")
-        @DecimalMin(value = "0", inclusive = false, message = "Montant HT > 0 requis")
+        @NotNull(message = "{v.montant-ht-requis}")
+        @DecimalMin(value = "0", inclusive = false, message = "{v.montant-ht-0-requis}")
         BigDecimal amountHtFcfa,
 
-        @DecimalMin(value = "0", message = "Taux de TVA négatif interdit")
-        @DecimalMax(value = "100", message = "Taux de TVA supérieur à 100 % interdit")
+        @DecimalMin(value = "0", message = "{v.taux-de-tva-negatif-interdit}")
+        @DecimalMax(value = "100", message = "{v.taux-de-tva-superieur-a-100-interdit}")
         BigDecimal vatRatePct,
 
-        @NotNull(message = "Mode de règlement requis")
+        @NotNull(message = "{v.mode-de-reglement-requis}")
         @Pattern(regexp = "^(CASH|MOBILE_MONEY|BANK_TRANSFER|OTHER)$",
-                message = "Règlement : CASH | MOBILE_MONEY | BANK_TRANSFER | OTHER")
+                message = "{v.reglement-cash-mobile-money-bank-transfer-other}")
         String paymentMethod,
 
         @Size(max = 1000)

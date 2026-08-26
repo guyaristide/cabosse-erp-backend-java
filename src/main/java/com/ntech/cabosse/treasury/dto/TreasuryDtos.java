@@ -20,20 +20,20 @@ public final class TreasuryDtos {
 
     @Schema(description = "Sortie de fonds vers un autre compte de trésorerie")
     public record CreateTransferDto(
-            @NotNull(message = "Compte d'origine requis") UUID fromAccountId,
-            @NotNull(message = "Compte de destination requis") UUID toAccountId,
-            @NotNull(message = "Montant requis")
-            @DecimalMin(value = "0", inclusive = false, message = "Montant > 0 requis")
+            @NotNull(message = "{v.compte-d-origine-requis}") UUID fromAccountId,
+            @NotNull(message = "{v.compte-de-destination-requis}") UUID toAccountId,
+            @NotNull(message = "{v.montant-requis}")
+            @DecimalMin(value = "0", inclusive = false, message = "{v.montant-0-requis}")
             BigDecimal amountFcfa,
             LocalDate sentAt,
-            @Size(max = 120, message = "Nom du porteur trop long") String carrierName,
+            @Size(max = 120, message = "{v.nom-du-porteur-trop-long}") String carrierName,
             @Size(max = 1000) String notes
     ) {}
 
     @Schema(description = "Réception et comptage des fonds à l'arrivée")
     public record ReceiveTransferDto(
-            @NotNull(message = "Montant reçu requis")
-            @DecimalMin(value = "0", message = "Montant reçu négatif interdit")
+            @NotNull(message = "{v.montant-recu-requis}")
+            @DecimalMin(value = "0", message = "{v.montant-recu-negatif-interdit}")
             BigDecimal amountReceivedFcfa,
             LocalDate receivedAt,
             @Size(max = 1000) String notes
@@ -66,9 +66,9 @@ public final class TreasuryDtos {
 
     @Schema(description = "Enregistrement d'un comptage physique de caisse")
     public record CreateCashCountDto(
-            @NotNull(message = "Caisse requise") UUID accountId,
-            @NotNull(message = "Montant compté requis")
-            @DecimalMin(value = "0", message = "Montant compté négatif interdit")
+            @NotNull(message = "{v.caisse-requise}") UUID accountId,
+            @NotNull(message = "{v.montant-compte-requis}")
+            @DecimalMin(value = "0", message = "{v.montant-compte-negatif-interdit}")
             BigDecimal countedFcfa,
             LocalDate countedAt,
             /**
