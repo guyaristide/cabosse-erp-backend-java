@@ -1,6 +1,7 @@
 package com.ntech.cabosse.shared.exception;
 
 import com.ntech.cabosse.shared.api.ApiResponse;
+import com.ntech.cabosse.shared.i18n.Messages;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.ExceptionMapper;
@@ -33,7 +34,7 @@ public class ThrowableExceptionMapper implements ExceptionMapper<Throwable> {
             String message = wae.getMessage() != null ? wae.getMessage()
                     : Response.Status.fromStatusCode(status) != null
                         ? Response.Status.fromStatusCode(status).getReasonPhrase()
-                        : "Erreur";
+                        : Messages.msg("m.request-error");
             // Une erreur portée par le framework (405, 415, 404 de route…)
             // n'est pas rejouable : la requête elle-même est mal formée.
             return Response.status(status)
@@ -44,7 +45,7 @@ public class ThrowableExceptionMapper implements ExceptionMapper<Throwable> {
         // Seule catégorie réellement rejouable : l'incident inattendu peut
         // avoir disparu à la tentative suivante.
         return Response.status(500)
-                .entity(ApiResponse.error(500, "Une erreur interne est survenue.", ErrorCode.INTERNAL))
+                .entity(ApiResponse.error(500, Messages.msg("m.internal-error"), ErrorCode.INTERNAL))
                 .build();
     }
 }
