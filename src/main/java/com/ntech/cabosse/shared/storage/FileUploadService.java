@@ -67,7 +67,7 @@ public class FileUploadService {
             storage.store(in, content.length, relativePath);
         } catch (java.io.IOException e) {
             throw new com.ntech.cabosse.shared.exception.BusinessException(
-                    "Écriture du fichier impossible : " + e.getMessage(), e);
+                    Messages.msg("m.shr-file-write-failed", e.getMessage()), e);
         }
 
         CloudFileEntity file = new CloudFileEntity();
@@ -126,7 +126,7 @@ public class FileUploadService {
     private CloudFileEntity findOrFail(CloudFileScope scope, UUID fileId) {
         CloudFileEntity file = cloudFiles.findById(scope, fileId);
         if (file == null) {
-            throw new NotFoundException("Fichier " + fileId + " introuvable");
+            throw new NotFoundException(Messages.msg("m.shr-file-not-found", fileId));
         }
         return file;
     }

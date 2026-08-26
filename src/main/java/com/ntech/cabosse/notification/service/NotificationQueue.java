@@ -8,6 +8,7 @@ import com.ntech.cabosse.notification.entity.NotificationUsage;
 import com.ntech.cabosse.notification.repository.NotificationDeliveryRepository;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.i18n.Locales;
+import com.ntech.cabosse.shared.i18n.Messages;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
@@ -86,13 +87,13 @@ public class NotificationQueue {
      *         une ligne qui échouera cinq fois avant d'être abandonnée.
      */
     public UUID enqueue(Request request) {
-        if (request == null) throw new BusinessException("Demande de notification requise.");
-        if (request.channel() == null) throw new BusinessException("Canal requis.");
+        if (request == null) throw new BusinessException(Messages.msg("m.ntf-request-required"));
+        if (request.channel() == null) throw new BusinessException(Messages.msg("m.ntf-channel-required"));
         if (request.target() == null || request.target().isBlank()) {
-            throw new BusinessException("Destinataire requis.");
+            throw new BusinessException(Messages.msg("m.ntf-target-required"));
         }
         if (request.body() == null || request.body().isBlank()) {
-            throw new BusinessException("Corps du message requis.");
+            throw new BusinessException(Messages.msg("m.ntf-body-required"));
         }
 
         Instant now = Instant.now();

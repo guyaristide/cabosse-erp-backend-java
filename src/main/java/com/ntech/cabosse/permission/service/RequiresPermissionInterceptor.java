@@ -2,6 +2,7 @@ package com.ntech.cabosse.permission.service;
 
 import com.ntech.cabosse.permission.entity.Permission;
 import com.ntech.cabosse.shared.exception.ForbiddenException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import jakarta.annotation.Priority;
 import jakarta.inject.Inject;
 import jakarta.interceptor.AroundInvoke;
@@ -50,10 +51,10 @@ public class RequiresPermissionInterceptor {
      */
     private static String message(Permission[] required) {
         if (required.length == 1) {
-            return "Droit requis : « " + required[0].label() + " ».";
+            return Messages.msg("m.per-permission-required", required[0].label());
         }
-        return "L'un de ces droits est requis : "
-                + Arrays.stream(required).map(p -> "« " + p.label() + " »")
-                        .reduce((a, b) -> a + ", " + b).orElse("");
+        String list = Arrays.stream(required).map(p -> "« " + p.label() + " »")
+                .reduce((a, b) -> a + ", " + b).orElse("");
+        return Messages.msg("m.per-one-of-permissions-required", list);
     }
 }

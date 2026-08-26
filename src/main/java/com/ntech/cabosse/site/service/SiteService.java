@@ -8,6 +8,7 @@ import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.ConflictException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.site.dto.SiteResponseDto;
 import com.ntech.cabosse.site.dto.SiteUpsertDto;
@@ -61,7 +62,7 @@ public class SiteService {
 
     public SiteResponseDto getById(UUID id) {
         SiteEntity e = sites.findById(id).orElseThrow(
-                () -> new NotFoundException("Site " + id + " introuvable.")
+                () -> new NotFoundException(Messages.msg("m.stk-site-not-found", id))
         );
         return SiteResponseDto.from(e);
     }
@@ -70,8 +71,7 @@ public class SiteService {
 
     public SiteResponseDto create(SiteUpsertDto payload) {
         if (payload.type() == null || payload.type().isBlank()) {
-            throw new BusinessException("Type requis à la création (TRANSFORMATION | SALES_POINT "
-                    + "| SECTION_WAREHOUSE | CENTRAL_WAREHOUSE).");
+            throw new BusinessException(Messages.msg("m.sit-type-required"));
         }
         SiteType type = SiteType.valueOf(payload.type());
         assertWithinQuota();
@@ -80,7 +80,7 @@ public class SiteService {
                 ? payload.code().trim()
                 : slugify(payload.name());
         if (sites.codeExists(code)) {
-            throw new ConflictException("Un site avec le code « " + code + " » existe déjà.");
+            throw new ConflictException(Messages.msg("m.sit-code-exists", code));
         }
 
         SiteEntity entity = new SiteEntity();
@@ -106,7 +106,7 @@ public class SiteService {
 
     public SiteResponseDto update(UUID id, SiteUpsertDto payload) {
         SiteEntity entity = sites.findById(id).orElseThrow(
-                () -> new NotFoundException("Site " + id + " introuvable.")
+                () -> new NotFoundException(Messages.msg("m.stk-site-not-found", id))
         );
         // Type et code sont immutables — on ignore ces deux champs en update.
         applyMutableFields(entity, payload);
@@ -126,7 +126,7 @@ public class SiteService {
 
     public SiteResponseDto setActive(UUID id, boolean active) {
         SiteEntity entity = sites.findById(id).orElseThrow(
-                () -> new NotFoundException("Site " + id + " introuvable.")
+                () -> new NotFoundException(Messages.msg("m.stk-site-not-found", id))
         );
         if (entity.active == active) return SiteResponseDto.from(entity);
         sites.updateActive(id, active);
@@ -189,10 +189,8 @@ public class SiteService {
         if (plan == null) return; // plan inconnu → on ne bloque pas, l'admin verra
         long current = sites.count();
         if (current >= plan.maxSites) {
-            throw new BusinessException(
-                    "Quota atteint : votre plan « " + plan.name + " » autorise "
-                            + plan.maxSites + " sites. Mettez à niveau votre abonnement pour en ajouter."
-            );
+            throw new BusinessException(Messages.msg("m.sit-quota-reached",
+                    plan.name, String.valueOf(plan.maxSites)));
         }
     }
 

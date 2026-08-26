@@ -7,6 +7,7 @@ import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.tenant.entity.TenantActivity;
 import com.ntech.cabosse.tenant.entity.TenantEntity;
@@ -75,7 +76,7 @@ public class TenantActivitiesService {
         long primaries = lines.stream().filter(l -> Boolean.TRUE.equals(l.isPrimary())).count();
         if (primaries != 1) {
             throw new BusinessException(
-                    "Exactement une activité doit être primaire (trouvé " + primaries + ")."
+                    Messages.msg("m.me-one-primary-activity", String.valueOf(primaries))
             );
         }
 
@@ -83,7 +84,7 @@ public class TenantActivitiesService {
         Set<String> codes = new HashSet<>();
         for (UpdateTenantActivitiesDto.Line l : lines) {
             if (!codes.add(l.code())) {
-                throw new BusinessException("Code « " + l.code() + " » référencé plusieurs fois.");
+                throw new BusinessException(Messages.msg("m.me-activity-code-duplicated", l.code()));
             }
         }
 
@@ -97,7 +98,7 @@ public class TenantActivitiesService {
         }
         if (!missing.isEmpty()) {
             throw new BusinessException(
-                    "Activités inconnues du catalogue : " + String.join(", ", missing)
+                    Messages.msg("m.tnt-activities-unknown", String.join(", ", missing))
             );
         }
 
@@ -136,7 +137,7 @@ public class TenantActivitiesService {
     private TenantEntity loadCurrentTenant() {
         TenantEntity t = tenants.findById(tenantContext.tenantId());
         if (t == null) {
-            throw new NotFoundException("Tenant courant introuvable.");
+            throw new NotFoundException(Messages.msg("m.me-current-tenant-not-found"));
         }
         return t;
     }

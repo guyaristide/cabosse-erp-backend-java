@@ -10,6 +10,7 @@ import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.ConflictException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.security.Roles;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.user.entity.UserEntity;
@@ -68,7 +69,7 @@ public class TenantRoleService {
         String code = (p.code() != null && !p.code().isBlank())
                 ? p.code().trim().toUpperCase(Locale.ROOT) : slug(p.name());
         if (repo.codeExists(code)) {
-            throw new ConflictException("Un profil avec le code « " + code + " » existe déjà.");
+            throw new ConflictException(Messages.msg("m.per-role-code-exists", code));
         }
         TenantRoleEntity e = new TenantRoleEntity();
         e.id = UuidCreator.getTimeOrderedEpoch();
@@ -120,8 +121,8 @@ public class TenantRoleService {
                 .filter(u -> u.tenantRoleIds != null && u.tenantRoleIds.contains(id))
                 .count();
         if (holders > 0) {
-            throw new BusinessException("Le profil « " + e.name + " » est attribué à "
-                    + holders + " utilisateur(s). Retirez-le d'abord, ou désactivez-le.");
+            throw new BusinessException(
+                    Messages.msg("m.per-role-in-use", e.name, String.valueOf(holders)));
         }
         repo.delete(id);
         audit(e, "Suppression du profil « " + e.name + " »");
@@ -133,17 +134,15 @@ public class TenantRoleService {
     public void assign(UUID userId, List<UUID> roleIds) {
         UserEntity user = users.findById(userId);
         if (user == null || !tenantContext.tenantId().equals(user.tenantId)) {
-            throw new NotFoundException("Utilisateur " + userId + " introuvable dans ce tenant.");
+            throw new NotFoundException(Messages.msg("m.per-user-not-found-in-tenant", userId));
         }
         if (user.roles != null && user.roles.contains(Roles.TENANT_ADMIN)) {
-            throw new BusinessException(
-                    "L'administrateur du tenant détient déjà tous les droits : "
-                            + "lui attribuer un profil n'aurait aucun effet.");
+            throw new BusinessException(Messages.msg("m.per-tenant-admin-has-all-rights"));
         }
         List<UUID> wanted = roleIds != null ? roleIds : List.of();
         for (UUID roleId : wanted) {
             repo.findById(roleId).orElseThrow(
-                    () -> new NotFoundException("Profil " + roleId + " introuvable."));
+                    () -> new NotFoundException(Messages.msg("m.per-role-not-found", roleId)));
         }
         user.tenantRoleIds = new ArrayList<>(new LinkedHashSet<>(wanted));
         user.updatedAt = Instant.now();
@@ -182,7 +181,7 @@ public class TenantRoleService {
             if (raw == null || raw.isBlank()) continue;
             Permission permission = Permission.ofCode(raw.trim());
             if (permission == null) {
-                throw new BusinessException("Droit inconnu : « " + raw + " ».");
+                throw new BusinessException(Messages.msg("m.per-unknown-permission", raw));
             }
             codes.add(permission.name());
         }
@@ -191,7 +190,7 @@ public class TenantRoleService {
 
     private TenantRoleEntity loadOrFail(UUID id) {
         return repo.findById(id).orElseThrow(
-                () -> new NotFoundException("Profil " + id + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.per-role-not-found", id)));
     }
 
     private void audit(TenantRoleEntity e, String description) {

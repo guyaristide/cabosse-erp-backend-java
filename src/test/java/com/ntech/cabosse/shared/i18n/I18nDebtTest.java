@@ -45,7 +45,7 @@ class I18nDebtTest {
      * le 26/08/2026 : trois types d'exception exposés au client s'ajoutent au
      * compte, et les commentaires en sortent. À faire baisser, jamais monter.
      */
-    private static final int BUDGET = 170;
+    private static final int BUDGET = 0;
 
     /**
      * Messages d'anomalie de ligne d'import, affichés un par un dans l'écran

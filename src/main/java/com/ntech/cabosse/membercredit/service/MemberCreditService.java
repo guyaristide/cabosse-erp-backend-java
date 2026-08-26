@@ -189,8 +189,7 @@ public class MemberCreditService {
                 && !permissions.currentIsTenantAdmin()
                 && !permissions.can(Permission.MEMBER_CREDIT_APPROVE_GOVERNANCE)) {
             throw new ForbiddenException(
-                    "Le montant de " + e.ref + " impose l'approbation du conseil : "
-                            + "le droit « Approuver un crédit soumis au conseil » est requis.");
+                    Messages.msg("m.mcr-governance-approval-required", e.ref));
         }
         e.status = MemberCreditStatus.APPROVED;
         e.approvedAt = Instant.now();

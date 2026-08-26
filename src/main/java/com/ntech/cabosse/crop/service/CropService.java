@@ -8,6 +8,7 @@ import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.ConflictException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -49,7 +50,7 @@ public class CropService {
     public CropResponseDto create(CropUpsertDto p) {
         String code = (p.code() != null && !p.code().isBlank()) ? p.code().trim() : slugify(p.name());
         if (repo.codeExists(code)) {
-            throw new ConflictException("Une culture avec le code « " + code + " » existe déjà.");
+            throw new ConflictException(Messages.msg("m.cro-code-exists", code));
         }
         CropEntity e = new CropEntity();
         e.id = idGenerator.newId();
@@ -66,7 +67,7 @@ public class CropService {
 
     public CropResponseDto update(UUID id, CropUpsertDto p) {
         CropEntity e = repo.findById(id).orElseThrow(
-                () -> new NotFoundException("Culture " + id + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.cro-not-found", id)));
         e.name = p.name().trim();
         e.updatedAt = Instant.now();
         repo.replace(e);
@@ -76,7 +77,7 @@ public class CropService {
 
     public CropResponseDto setActive(UUID id, boolean active) {
         CropEntity e = repo.findById(id).orElseThrow(
-                () -> new NotFoundException("Culture " + id + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.cro-not-found", id)));
         if (e.active == active) return CropResponseDto.from(e);
         repo.updateActive(id, active);
         e.active = active;

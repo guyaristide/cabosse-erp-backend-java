@@ -14,6 +14,7 @@ import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.supplier.repository.SupplierRepository;
@@ -138,15 +139,15 @@ public class ProducerPaymentService {
         boolean toDelegate = p.delegateSupplierId() != null;
         if (toDelegate == (p.memberId() != null)) {
             throw new BusinessException(
-                    "Indiquez un bénéficiaire, producteur ou délégué, et un seul.");
+                    Messages.msg("m.ppy-beneficiary-exclusive"));
         }
         String beneficiaryName = toDelegate
                 ? suppliers.findById(p.delegateSupplierId())
                         .orElseThrow(() -> new NotFoundException(
-                                "Délégué " + p.delegateSupplierId() + " introuvable.")).name
+                                Messages.msg("m.ppu-delegate-not-found", p.delegateSupplierId()))).name
                 : members.findById(p.memberId())
                         .orElseThrow(() -> new NotFoundException(
-                                "Producteur " + p.memberId() + " introuvable.")).name;
+                                Messages.msg("m.ppu-producer-not-found", p.memberId()))).name;
 
         // Une même livraison ne peut pas figurer deux fois sur le même
         // règlement : le cumul serait juste, la lecture ligne à ligne
@@ -154,7 +155,7 @@ public class ProducerPaymentService {
         List<UUID> seen = new ArrayList<>();
         for (ProducerPaymentDtos.AllocationDto a : p.allocations()) {
             if (seen.contains(a.purchaseId())) {
-                throw new BusinessException("La même livraison est affectée deux fois.");
+                throw new BusinessException(Messages.msg("m.ppy-purchase-allocated-twice"));
             }
             seen.add(a.purchaseId());
         }
@@ -186,13 +187,14 @@ public class ProducerPaymentService {
         try {
             for (ProducerPaymentDtos.AllocationDto a : p.allocations()) {
                 ProducerPurchaseEntity r = purchases.findById(a.purchaseId()).orElseThrow(
-                        () -> new NotFoundException("Livraison " + a.purchaseId() + " introuvable."));
+                        () -> new NotFoundException(
+                                Messages.msg("m.ppy-purchase-not-found", a.purchaseId())));
                 ensureBeneficiaryMatches(e, r);
                 BigDecimal due = dueOf(r);
                 if (!purchases.tryPay(r.id, a.amountFcfa())) {
-                    throw new BusinessException("Règlement de " + a.amountFcfa()
-                            + " refusé sur la livraison " + r.ref + " : il ne reste que "
-                            + remainingOf(r) + " à payer.");
+                    throw new BusinessException(Messages.msg("m.ppy-payment-exceeds-remaining",
+                            String.valueOf(a.amountFcfa()), r.ref,
+                            String.valueOf(remainingOf(r))));
                 }
                 applied.add(a);
                 total = total.add(a.amountFcfa());
@@ -245,18 +247,17 @@ public class ProducerPaymentService {
     private static void ensureBeneficiaryMatches(ProducerPaymentEntity e, ProducerPurchaseEntity r) {
         if (e.beneficiaryKind == ProducerPaymentBeneficiary.DELEGATE) {
             if (!e.delegateSupplierId.equals(r.delegateSupplierId)) {
-                throw new BusinessException("La livraison " + r.ref
-                        + " n'a pas été apportée par ce délégué.");
+                throw new BusinessException(
+                        Messages.msg("m.ppy-purchase-not-from-delegate", r.ref));
             }
         } else {
             if (r.delegateSupplierId != null) {
-                throw new BusinessException("La livraison " + r.ref
-                        + " a été apportée par le délégué " + r.delegateName
-                        + " : elle se règle au délégué.");
+                throw new BusinessException(
+                        Messages.msg("m.ppy-purchase-from-delegate", r.ref, r.delegateName));
             }
             if (!e.memberId.equals(r.memberId)) {
-                throw new BusinessException("La livraison " + r.ref
-                        + " n'appartient pas à ce producteur.");
+                throw new BusinessException(
+                        Messages.msg("m.ppy-purchase-not-from-producer", r.ref));
             }
         }
     }
@@ -279,7 +280,7 @@ public class ProducerPaymentService {
 
     private ProducerPaymentEntity loadOrFail(UUID id) {
         return repo.findById(id).orElseThrow(
-                () -> new NotFoundException("Règlement " + id + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.ppy-payment-not-found", id)));
     }
 
     private static String blankToNull(String v) {

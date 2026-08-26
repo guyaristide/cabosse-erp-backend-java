@@ -23,12 +23,12 @@ public final class AttachmentEndpoints {
     /** Contenu d'un envoi multipart, ou erreur explicite si rien n'est joint. */
     public static byte[] readBytes(FileUpload upload) {
         if (upload == null || upload.size() == 0) {
-            throw new BusinessException("Aucun fichier fourni dans la requête.");
+            throw new BusinessException(Messages.msg("m.shr-no-file-in-request"));
         }
         try {
             return Files.readAllBytes(upload.uploadedFile());
         } catch (IOException e) {
-            throw new BusinessException("Lecture du fichier impossible : " + e.getMessage(), e);
+            throw new BusinessException(Messages.msg("m.shr-file-read-failed", e.getMessage()), e);
         }
     }
 

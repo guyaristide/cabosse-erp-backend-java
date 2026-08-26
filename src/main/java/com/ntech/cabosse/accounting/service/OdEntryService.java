@@ -9,6 +9,7 @@ import com.ntech.cabosse.accounting.repository.ChartOfAccountsRepository;
 import com.ntech.cabosse.accounting.repository.OdDraftRepository;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -87,7 +88,7 @@ public class OdEntryService {
 
     public OdDraftEntity update(UUID id, LocalDate date, String libelle, List<OdLineInput> lines) {
         OdDraftEntity e = loadOrFail(id);
-        requireDraft(e, "Seul un brouillon peut être modifié");
+        requireDraft(e, "m.acc-od-draft-edit-only");
         requireHeader(date, libelle);
         e.date = date;
         e.libelle = libelle.trim();
@@ -99,7 +100,7 @@ public class OdEntryService {
 
     public void delete(UUID id) {
         OdDraftEntity e = loadOrFail(id);
-        requireDraft(e, "Seul un brouillon peut être supprimé");
+        requireDraft(e, "m.acc-od-draft-delete-only");
         drafts.delete(id);
     }
 
@@ -110,10 +111,10 @@ public class OdEntryService {
      */
     public OdDraftEntity validate(UUID id) {
         OdDraftEntity e = loadOrFail(id);
-        requireDraft(e, "Ce brouillon est déjà validé");
+        requireDraft(e, "m.acc-od-draft-already-validated");
 
         if (e.entries == null || e.entries.size() < 2) {
-            throw new BusinessException("Au moins deux lignes sont requises (un débit et un crédit).");
+            throw new BusinessException(Messages.msg("m.acc-od-two-lines-required"));
         }
         // Contrôle d'existence au plan comptable — ignoré si le plan n'est
         // pas encore seedé (tenant en cours de provisioning) : postPiece
@@ -124,8 +125,8 @@ public class OdEntryService {
         if (!known.isEmpty()) {
             for (JournalEntry line : e.entries) {
                 if (line.syscohadaAccount == null || !known.contains(line.syscohadaAccount)) {
-                    throw new BusinessException(
-                            "Compte « " + line.syscohadaAccount + " » absent du plan comptable.");
+                    throw new BusinessException(Messages.msg(
+                            "m.acc-od-account-not-in-chart", line.syscohadaAccount));
                 }
             }
         }
@@ -139,26 +140,24 @@ public class OdEntryService {
         for (JournalEntry line : e.entries) {
             if (line.costCenter != null && !activeCenters.isEmpty()
                     && !activeCenters.contains(line.costCenter)) {
-                throw new BusinessException(
-                        "Centre de coût « " + line.costCenter + " » inconnu ou inactif.");
+                throw new BusinessException(Messages.msg(
+                        "m.acc-od-cost-center-unknown", line.costCenter));
             }
             if (required && line.syscohadaAccount != null
                     && line.syscohadaAccount.startsWith("6") && line.costCenter == null) {
-                throw new BusinessException(
-                        "Centre de coût requis sur la ligne de charge « "
-                                + line.syscohadaAccount + " » (imputation analytique obligatoire).");
+                throw new BusinessException(Messages.msg(
+                        "m.acc-od-cost-center-required", line.syscohadaAccount));
             }
             if (line.program != null) {
                 var prog = programs.findByCode(line.program);
                 if (prog.isEmpty() || !prog.get().active) {
-                    throw new BusinessException(
-                            "Programme « " + line.program + " » inconnu ou inactif.");
+                    throw new BusinessException(Messages.msg(
+                            "m.acc-od-program-unknown", line.program));
                 }
                 if (line.project != null && prog.get().projects.stream()
                         .noneMatch(pr -> pr.active && pr.code.equals(line.project))) {
-                    throw new BusinessException(
-                            "Projet « " + line.project + " » absent du programme « "
-                                    + line.program + " ».");
+                    throw new BusinessException(Messages.msg(
+                            "m.acc-od-project-not-in-program", line.project, line.program));
                 }
             }
         }
@@ -167,8 +166,8 @@ public class OdEntryService {
         // clic s'arrête avant le posting (la pièce est de toute façon
         // idempotente, mais le statut ne doit pas être écrit deux fois).
         if (!drafts.tryMarkValidated(e.id)) {
-            throw new BusinessException("Ce brouillon est déjà validé (statut actuel : "
-                    + OdDraftEntity.STATUS_VALIDATED + ").");
+            throw new BusinessException(Messages.msg(
+                    "m.acc-od-draft-already-validated", OdDraftEntity.STATUS_VALIDATED));
         }
 
         Optional<JournalPieceEntity> piece;
@@ -199,13 +198,16 @@ public class OdEntryService {
     // ─── Internals ──────────────────────────────────────────────────
 
     private static void requireHeader(LocalDate date, String libelle) {
-        if (date == null) throw new BusinessException("Date comptable requise.");
-        if (libelle == null || libelle.isBlank()) throw new BusinessException("Libellé requis.");
+        if (date == null) throw new BusinessException(Messages.msg("m.acc-od-date-required"));
+        if (libelle == null || libelle.isBlank()) {
+            throw new BusinessException(Messages.msg("m.acc-od-label-required"));
+        }
     }
 
-    private static void requireDraft(OdDraftEntity e, String message) {
+    /** {@code messageKey} porte le refus complet, statut courant en {0}. */
+    private static void requireDraft(OdDraftEntity e, String messageKey) {
         if (!OdDraftEntity.STATUS_DRAFT.equals(e.status)) {
-            throw new BusinessException(message + " (statut actuel : " + e.status + ").");
+            throw new BusinessException(Messages.msg(messageKey, e.status));
         }
     }
 
@@ -222,16 +224,15 @@ public class OdEntryService {
             boolean hasCredit = line.creditFcfa() != null && line.creditFcfa().signum() != 0;
             if (!hasDebit && !hasCredit) continue; // ligne vide ignorée
             if (hasDebit && hasCredit) {
-                throw new BusinessException(
-                        "Une ligne porte soit un débit, soit un crédit, jamais les deux (compte "
-                                + line.account() + ").");
+                throw new BusinessException(Messages.msg(
+                        "m.acc-od-debit-or-credit", line.account()));
             }
             if ((hasDebit && line.debitFcfa().signum() < 0)
                     || (hasCredit && line.creditFcfa().signum() < 0)) {
-                throw new BusinessException("Montant négatif interdit (compte " + line.account() + ").");
+                throw new BusinessException(Messages.msg("m.acc-od-negative-amount", line.account()));
             }
             if (line.account() == null || line.account().isBlank()) {
-                throw new BusinessException("Compte requis sur chaque ligne montée.");
+                throw new BusinessException(Messages.msg("m.acc-od-account-required"));
             }
             String label = line.libelle() != null && !line.libelle().isBlank()
                     ? line.libelle().trim() : "OD";
@@ -245,7 +246,7 @@ public class OdEntryService {
 
     private OdDraftEntity loadOrFail(UUID id) {
         return drafts.findById(id)
-                .orElseThrow(() -> new NotFoundException("OD " + id + " introuvable."));
+                .orElseThrow(() -> new NotFoundException(Messages.msg("m.acc-od-not-found", id)));
     }
 
     private String actor() {

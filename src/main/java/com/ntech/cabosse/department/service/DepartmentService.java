@@ -9,6 +9,7 @@ import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.ConflictException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -38,7 +39,7 @@ public class DepartmentService {
     public DepartmentResponseDto create(DepartmentUpsertDto p) {
         String code = (p.code() != null && !p.code().isBlank()) ? p.code().trim() : slugify(p.name());
         if (repo.codeExists(code)) {
-            throw new ConflictException("Un département avec le code « " + code + " » existe déjà.");
+            throw new ConflictException(Messages.msg("m.dep-code-exists", code));
         }
         DepartmentEntity e = new DepartmentEntity();
         e.id = UuidCreator.getTimeOrderedEpoch();
@@ -55,7 +56,7 @@ public class DepartmentService {
 
     public DepartmentResponseDto update(UUID id, DepartmentUpsertDto p) {
         DepartmentEntity e = repo.findById(id).orElseThrow(
-                () -> new NotFoundException("Département " + id + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.dep-not-found", id)));
         e.name = p.name().trim();
         e.updatedAt = Instant.now();
         repo.replace(e);
@@ -65,7 +66,7 @@ public class DepartmentService {
 
     public DepartmentResponseDto setActive(UUID id, boolean active) {
         DepartmentEntity e = repo.findById(id).orElseThrow(
-                () -> new NotFoundException("Département " + id + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.dep-not-found", id)));
         if (e.active == active) return DepartmentResponseDto.from(e);
         repo.updateActive(id, active);
         e.active = active;

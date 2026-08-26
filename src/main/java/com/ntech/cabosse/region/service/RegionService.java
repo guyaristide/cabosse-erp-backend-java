@@ -9,6 +9,7 @@ import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.ConflictException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -38,7 +39,7 @@ public class RegionService {
     public RegionResponseDto create(RegionUpsertDto p) {
         String code = (p.code() != null && !p.code().isBlank()) ? p.code().trim() : slugify(p.name());
         if (repo.codeExists(code)) {
-            throw new ConflictException("Une région avec le code « " + code + " » existe déjà.");
+            throw new ConflictException(Messages.msg("m.reg-code-exists", code));
         }
         RegionEntity e = new RegionEntity();
         e.id = UuidCreator.getTimeOrderedEpoch();
@@ -55,7 +56,7 @@ public class RegionService {
 
     public RegionResponseDto update(UUID id, RegionUpsertDto p) {
         RegionEntity e = repo.findById(id).orElseThrow(
-                () -> new NotFoundException("Région " + id + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.cat-region-not-found", id)));
         e.name = p.name().trim();
         e.updatedAt = Instant.now();
         repo.replace(e);
@@ -65,7 +66,7 @@ public class RegionService {
 
     public RegionResponseDto setActive(UUID id, boolean active) {
         RegionEntity e = repo.findById(id).orElseThrow(
-                () -> new NotFoundException("Région " + id + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.cat-region-not-found", id)));
         if (e.active == active) return RegionResponseDto.from(e);
         repo.updateActive(id, active);
         e.active = active;

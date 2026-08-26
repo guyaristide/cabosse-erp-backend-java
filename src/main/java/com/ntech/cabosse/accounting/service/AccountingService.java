@@ -18,6 +18,7 @@ import com.ntech.cabosse.accounting.entity.QuarantineStatus;
 import com.ntech.cabosse.accounting.entity.QuarantinedPostingEntity;
 import com.ntech.cabosse.tenant.entity.TenantPreferences;
 import com.ntech.cabosse.shared.exception.BusinessException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -183,7 +184,7 @@ public class AccountingService {
 
     public Optional<JournalPieceEntity> postPiece(PostingRequest request) {
         if (request.entries() == null || request.entries().isEmpty()) {
-            throw new BusinessException("Pièce comptable vide : au moins une écriture requise.");
+            throw new BusinessException(Messages.msg("m.acc-piece-empty"));
         }
 
         // 1. Idempotence
@@ -217,17 +218,16 @@ public class AccountingService {
             BigDecimal d = e.debitFcfa;
             BigDecimal c = e.creditFcfa;
             if ((d != null && c != null) || (d == null && c == null)) {
-                throw new BusinessException(
-                        "Écriture invalide : exactement un de débit/crédit doit être renseigné (compte "
-                                + e.syscohadaAccount + ").");
+                throw new BusinessException(Messages.msg(
+                        "m.acc-entry-debit-or-credit", e.syscohadaAccount));
             }
             if (d != null) totalDebit = totalDebit.add(d);
             if (c != null) totalCredit = totalCredit.add(c);
         }
         if (totalDebit.compareTo(totalCredit) != 0) {
-            throw new BusinessException(
-                    "Pièce déséquilibrée : débit " + totalDebit + " ≠ crédit " + totalCredit
-                            + " (source " + request.sourceRef() + ").");
+            throw new BusinessException(Messages.msg("m.acc-piece-unbalanced",
+                    String.valueOf(totalDebit), String.valueOf(totalCredit),
+                    request.sourceRef()));
         }
 
         // Imputation analytique : un centre de coût ne se pose que sur une
@@ -236,20 +236,18 @@ public class AccountingService {
         for (JournalEntry e : request.entries()) {
             if (e.costCenter != null
                     && (e.syscohadaAccount == null || !e.syscohadaAccount.startsWith("6"))) {
-                throw new BusinessException(
-                        "Un centre de coût ne s'impute que sur une ligne de charge (classe 6) — "
-                                + "compte « " + e.syscohadaAccount + " ».");
+                throw new BusinessException(Messages.msg(
+                        "m.acc-cost-center-charge-only", e.syscohadaAccount));
             }
             boolean chargeOrProduct = e.syscohadaAccount != null
                     && (e.syscohadaAccount.startsWith("6") || e.syscohadaAccount.startsWith("7"));
             if (e.program != null && !chargeOrProduct) {
-                throw new BusinessException(
-                        "Un programme ne s'impute que sur une charge (classe 6) ou un produit "
-                                + "(classe 7) — compte « " + e.syscohadaAccount + " ».");
+                throw new BusinessException(Messages.msg(
+                        "m.acc-program-charge-or-revenue-only", e.syscohadaAccount));
             }
             if (e.project != null && e.program == null) {
-                throw new BusinessException(
-                        "Un projet requiert un programme (compte « " + e.syscohadaAccount + " »).");
+                throw new BusinessException(Messages.msg(
+                        "m.acc-project-requires-program", e.syscohadaAccount));
             }
         }
 
@@ -721,7 +719,7 @@ public class AccountingService {
         com.ntech.cabosse.analytics.entity.AllocationKeyEntity key = allocationKeys
                 .findByCode(allocationKeyCode)
                 .orElseThrow(() -> new BusinessException(
-                        "Clé de répartition « " + allocationKeyCode + " » introuvable."));
+                        Messages.msg("m.exp-allocation-key-not-found", allocationKeyCode)));
         if (key.lines == null || key.lines.isEmpty()) {
             List<JournalEntry> single = new ArrayList<>();
             single.add(JournalEntry.debit(account, label, base));
@@ -795,7 +793,7 @@ public class AccountingService {
             case COLLECTOR_ADVANCE -> PostingSourceType.COLLECTOR_ADVANCE_REVERSAL;
             case DIRECT_EXPENSE -> PostingSourceType.DIRECT_EXPENSE_REVERSAL;
             default -> throw new BusinessException(
-                    "Contre-passation impossible sur une pièce déjà contre-passée (" + t + ").");
+                    Messages.msg("m.acc-piece-already-reversed", t));
         };
     }
 

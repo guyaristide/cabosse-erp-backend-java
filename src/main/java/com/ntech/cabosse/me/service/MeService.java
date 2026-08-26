@@ -7,6 +7,7 @@ import com.ntech.cabosse.me.dto.UpdateMePayloadDto;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.exception.UnauthorizedException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.tenant.entity.TenantEntity;
 import com.ntech.cabosse.tenant.repository.TenantRepository;
@@ -120,10 +121,10 @@ public class MeService {
     public void changePassword(ChangePasswordPayloadDto payload) {
         UserEntity user = loadCurrent();
         if (!passwordHasher.verify(payload.currentPassword(), user.passwordHash)) {
-            throw new UnauthorizedException("Mot de passe actuel incorrect.");
+            throw new UnauthorizedException(Messages.msg("m.me-current-password-wrong"));
         }
         if (payload.currentPassword().equals(payload.newPassword())) {
-            throw new BusinessException("Le nouveau mot de passe doit différer de l'actuel.");
+            throw new BusinessException(Messages.msg("m.me-new-password-must-differ"));
         }
         user.passwordHash = passwordHasher.hash(payload.newPassword());
         user.updatedAt = Instant.now();
@@ -143,10 +144,10 @@ public class MeService {
         if (user == null) {
             // Token techniquement valide mais user supprimé en base entre
             // l'émission et l'utilisation — situation rare mais possible.
-            throw new NotFoundException("Utilisateur introuvable.");
+            throw new NotFoundException(Messages.msg("m.me-user-not-found"));
         }
         if (user.status == UserStatus.DISABLED) {
-            throw new UnauthorizedException("Compte désactivé.");
+            throw new UnauthorizedException(Messages.msg("m.me-account-disabled"));
         }
         return user;
     }

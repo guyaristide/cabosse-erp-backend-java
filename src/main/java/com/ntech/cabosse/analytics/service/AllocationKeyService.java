@@ -11,6 +11,7 @@ import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.ConflictException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -45,7 +46,7 @@ public class AllocationKeyService {
         String code = (p.code() != null && !p.code().isBlank())
                 ? p.code().trim().toUpperCase(Locale.ROOT) : slugCode(p.name());
         if (repo.codeExists(code)) {
-            throw new ConflictException("Une clé de répartition avec le code « " + code + " » existe déjà.");
+            throw new ConflictException(Messages.msg("m.ana-allocation-key-code-exists", code));
         }
         AllocationKeyEntity e = new AllocationKeyEntity();
         e.id = UuidCreator.getTimeOrderedEpoch();
@@ -61,7 +62,7 @@ public class AllocationKeyService {
 
     public AllocationKeyResponseDto update(UUID id, AllocationKeyUpsertDto p) {
         AllocationKeyEntity e = repo.findById(id).orElseThrow(
-                () -> new NotFoundException("Clé de répartition " + id + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.ana-allocation-key-not-found", id)));
         apply(e, p);
         e.updatedAt = Instant.now();
         repo.replace(e);
@@ -71,7 +72,7 @@ public class AllocationKeyService {
 
     public AllocationKeyResponseDto setActive(UUID id, boolean active) {
         AllocationKeyEntity e = repo.findById(id).orElseThrow(
-                () -> new NotFoundException("Clé de répartition " + id + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.ana-allocation-key-not-found", id)));
         if (e.active == active) return AllocationKeyResponseDto.from(e);
         repo.updateActive(id, active);
         e.active = active;
@@ -90,7 +91,7 @@ public class AllocationKeyService {
         for (AllocationKeyUpsertDto.Line l : p.lines()) {
             String cc = l.costCenter().trim().toUpperCase(Locale.ROOT);
             if (!known.isEmpty() && !known.contains(cc)) {
-                throw new BusinessException("Centre de coût « " + cc + " » inconnu.");
+                throw new BusinessException(Messages.msg("m.ana-cost-center-unknown", cc));
             }
             e.lines.add(new AllocationKeyEntity.Line(cc, l.weight()));
         }

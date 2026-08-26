@@ -39,7 +39,7 @@ public class AttachmentService {
     public AttachmentRef store(byte[] bytes, String mimeType, String originalName,
                                String label, UUID ownerId, String ownerType) {
         if (bytes == null || bytes.length == 0) {
-            throw new BusinessException("Aucun fichier fourni.");
+            throw new BusinessException(Messages.msg("m.shr-no-file-provided"));
         }
         String name = originalName != null && !originalName.isBlank()
                 ? originalName.trim() : "piece-jointe";
@@ -77,12 +77,12 @@ public class AttachmentService {
      * opération soit servi à qui connaît son identifiant.
      */
     public AttachmentRef find(List<AttachmentRef> attachments, UUID fileId) {
-        if (attachments == null) throw new NotFoundException("Pièce jointe introuvable.");
+        if (attachments == null) throw new NotFoundException(Messages.msg("m.shr-attachment-not-found"));
         return attachments.stream()
                 .filter(a -> a.fileId != null && a.fileId.equals(fileId))
                 .findFirst()
                 .orElseThrow(() -> new NotFoundException(
-                        "Pièce jointe " + fileId + " introuvable sur cette opération."));
+                        Messages.msg("m.shr-attachment-not-found-on-operation", fileId)));
     }
 
     private String actor() {

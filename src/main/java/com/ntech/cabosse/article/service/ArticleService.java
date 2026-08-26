@@ -13,6 +13,7 @@ import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.ConflictException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -56,17 +57,17 @@ public class ArticleService {
 
     public ArticleResponseDto getById(UUID id) {
         return ArticleResponseDto.from(articles.findById(id).orElseThrow(
-                () -> new NotFoundException("Article " + id + " introuvable.")));
+                () -> new NotFoundException(Messages.msg("m.art-not-found", id))));
     }
 
     public ArticleResponseDto create(ArticleUpsertDto p) {
         if (p.type() == null || p.type().isBlank()) {
-            throw new BusinessException("Type requis à la création.");
+            throw new BusinessException(Messages.msg("m.art-type-required"));
         }
         ArticleType type = ArticleType.valueOf(p.type());
         String code = (p.code() != null && !p.code().isBlank()) ? p.code().trim() : slugify(p.name());
         if (articles.codeExists(code)) {
-            throw new ConflictException("Un article avec le code « " + code + " » existe déjà.");
+            throw new ConflictException(Messages.msg("m.art-code-exists", code));
         }
         ArticleEntity e = new ArticleEntity();
         e.id = UuidCreator.getTimeOrderedEpoch();
@@ -86,7 +87,7 @@ public class ArticleService {
 
     public ArticleResponseDto update(UUID id, ArticleUpsertDto p) {
         ArticleEntity e = articles.findById(id).orElseThrow(
-                () -> new NotFoundException("Article " + id + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.art-not-found", id)));
         apply(e, p);
         e.updatedAt = Instant.now();
         articles.replace(e);
@@ -96,7 +97,7 @@ public class ArticleService {
 
     public ArticleResponseDto setActive(UUID id, boolean active) {
         ArticleEntity e = articles.findById(id).orElseThrow(
-                () -> new NotFoundException("Article " + id + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.art-not-found", id)));
         if (e.active == active) return ArticleResponseDto.from(e);
         articles.updateActive(id, active);
         e.active = active;

@@ -8,6 +8,7 @@ import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.tenant.entity.TenantAddress;
 import com.ntech.cabosse.tenant.entity.TenantContact;
@@ -119,7 +120,8 @@ public class TenantProfileService {
         if (out.isEmpty()) return out;
         long primaries = out.stream().filter(c -> c.isPrimary).count();
         if (primaries > 1) {
-            throw new BusinessException("Un seul contact peut être marqué principal (trouvé " + primaries + ").");
+            throw new BusinessException(
+                    Messages.msg("m.me-single-primary-contact", String.valueOf(primaries)));
         }
         if (primaries == 0) {
             out.get(0).isPrimary = true;
@@ -172,7 +174,7 @@ public class TenantProfileService {
     private TenantEntity loadCurrentTenant() {
         TenantEntity t = tenants.findById(tenantContext.tenantId());
         if (t == null) {
-            throw new NotFoundException("Tenant courant introuvable.");
+            throw new NotFoundException(Messages.msg("m.me-current-tenant-not-found"));
         }
         return t;
     }

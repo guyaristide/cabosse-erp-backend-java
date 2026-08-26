@@ -9,6 +9,7 @@ import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.ConflictException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -39,7 +40,7 @@ public class IdDocumentTypeService {
     public IdDocumentTypeResponseDto create(IdDocumentTypeUpsertDto p) {
         String code = (p.code() != null && !p.code().isBlank()) ? p.code().trim() : slugify(p.name());
         if (repo.codeExists(code)) {
-            throw new ConflictException("Un type de pièce avec le code « " + code + " » existe déjà.");
+            throw new ConflictException(Messages.msg("m.idd-code-exists", code));
         }
         IdDocumentTypeEntity e = new IdDocumentTypeEntity();
         e.id = UuidCreator.getTimeOrderedEpoch();
@@ -58,7 +59,7 @@ public class IdDocumentTypeService {
 
     public IdDocumentTypeResponseDto update(UUID id, IdDocumentTypeUpsertDto p) {
         IdDocumentTypeEntity e = repo.findById(id).orElseThrow(
-                () -> new NotFoundException("Type de pièce " + id + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.idd-not-found", id)));
         String previousName = e.name;
         boolean wasProducerRef = e.usableAsProducerRef;
         e.name = p.name().trim();
@@ -79,7 +80,7 @@ public class IdDocumentTypeService {
 
     public IdDocumentTypeResponseDto setActive(UUID id, boolean active) {
         IdDocumentTypeEntity e = repo.findById(id).orElseThrow(
-                () -> new NotFoundException("Type de pièce " + id + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.idd-not-found", id)));
         if (e.active == active) return IdDocumentTypeResponseDto.from(e);
         repo.updateActive(id, active);
         e.active = active;

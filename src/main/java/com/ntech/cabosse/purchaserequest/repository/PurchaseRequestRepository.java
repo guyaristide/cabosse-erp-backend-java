@@ -4,6 +4,7 @@ import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Filters;
 import com.ntech.cabosse.purchaserequest.entity.PurchaseRequestEntity;
 import com.ntech.cabosse.shared.exception.ConflictException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.TenantMongoDatabaseProvider;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -55,8 +56,7 @@ public class PurchaseRequestRepository {
         var result = coll().replaceOne(
                 Filters.and(Filters.eq("_id", e.id), Filters.eq("version", expected)), e);
         if (result.getMatchedCount() == 0) {
-            throw new ConflictException(
-                    "La demande d'achat a été modifiée entre-temps. Rechargez la page.");
+            throw new ConflictException(Messages.msg("m.prq-concurrent-update"));
         }
     }
 

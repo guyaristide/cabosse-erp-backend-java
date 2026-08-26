@@ -6,6 +6,7 @@ import com.ntech.cabosse.auth.dto.LoginResponseDto;
 import com.ntech.cabosse.auth.dto.RedeemInvitationRequestDto;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.UnauthorizedException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.tenant.service.InvitationTokenService;
 import com.ntech.cabosse.shared.tenant.TenantStatus;
 import com.ntech.cabosse.tenant.entity.TenantEntity;
@@ -39,7 +40,8 @@ import java.util.UUID;
 @ApplicationScoped
 public class AuthService {
 
-    private static final String GENERIC_ERROR = "Identifiants invalides";
+    /** Clé du message générique : le texte est rendu dans la langue de la requête. */
+    private static final String GENERIC_ERROR_KEY = "m.aut-invalid-credentials";
 
     /** Hash bcrypt fixe utilisé pour égaliser le temps de réponse en cas de user inexistant. */
     private static final String DUMMY_HASH =
@@ -61,18 +63,18 @@ public class AuthService {
             // Hash dummy pour égaliser le temps de réponse (timing attack mitigation).
             passwordHasher.verify(request.password(), DUMMY_HASH);
             recordLoginFailure(request.email(), "user_not_found", ipAddress);
-            throw new UnauthorizedException(GENERIC_ERROR);
+            throw new UnauthorizedException(Messages.msg(GENERIC_ERROR_KEY));
         }
 
         if (!passwordHasher.verify(request.password(), user.passwordHash)) {
             recordLoginFailure(user.email, "bad_password", ipAddress);
-            throw new UnauthorizedException(GENERIC_ERROR);
+            throw new UnauthorizedException(Messages.msg(GENERIC_ERROR_KEY));
         }
 
         if (user.status != UserStatus.ACTIVE) {
             log.infof("Login refused for %s: status=%s", user.email, user.status);
             recordLoginFailure(user.email, "user_status_" + user.status, ipAddress);
-            throw new UnauthorizedException(GENERIC_ERROR);
+            throw new UnauthorizedException(Messages.msg(GENERIC_ERROR_KEY));
         }
 
         TenantEntity tenant = tenants.findById(user.tenantId);
@@ -82,7 +84,7 @@ public class AuthService {
                     tenant != null ? tenant.id : "null",
                     tenant != null ? tenant.status : "null");
             recordLoginFailure(user.email, "tenant_inactive", ipAddress);
-            throw new UnauthorizedException(GENERIC_ERROR);
+            throw new UnauthorizedException(Messages.msg(GENERIC_ERROR_KEY));
         }
 
         // Mise à jour lastLoginAt — best-effort, update atomique : deux
@@ -120,11 +122,11 @@ public class AuthService {
 
         UserEntity user = users.findById(rotated.userId());
         if (user == null || user.status != UserStatus.ACTIVE) {
-            throw new UnauthorizedException("Compte non actif.");
+            throw new UnauthorizedException(Messages.msg("m.aut-account-not-active"));
         }
         TenantEntity tenant = tenants.findById(rotated.tenantId());
         if (tenant == null || tenant.status != TenantStatus.ACTIVE) {
-            throw new UnauthorizedException("Tenant non actif.");
+            throw new UnauthorizedException(Messages.msg("m.aut-tenant-not-active"));
         }
 
         // L'access token vient d'être ré-émis pour ce couple — on le construit
@@ -166,31 +168,31 @@ public class AuthService {
             // par hash, on log juste en debug.
             log.debugf("Redeem invitation : token inconnu (hash=%s…)",
                     hash.substring(0, Math.min(8, hash.length())));
-            throw new UnauthorizedException("Lien d'invitation invalide ou déjà utilisé.");
+            throw new UnauthorizedException(Messages.msg("m.aut-invitation-link-invalid"));
         }
 
         if (user.status != UserStatus.INVITED) {
             log.infof("Redeem refused for %s: status=%s", user.email, user.status);
-            throw new UnauthorizedException("Ce lien n'est plus utilisable.");
+            throw new UnauthorizedException(Messages.msg("m.aut-link-no-longer-usable"));
         }
 
         if (user.invitationExpiresAt == null || user.invitationExpiresAt.isBefore(Instant.now())) {
             log.infof("Redeem refused for %s: token expired (%s)", user.email, user.invitationExpiresAt);
-            throw new UnauthorizedException("Ce lien d'invitation a expiré. Demandez un nouveau lien.");
+            throw new UnauthorizedException(Messages.msg("m.aut-invitation-link-expired"));
         }
 
         TenantEntity tenant = tenants.findById(user.tenantId);
         if (tenant == null || tenant.status != TenantStatus.ACTIVE) {
             log.warnf("Redeem refused for %s: tenant inactive (%s)", user.email,
                     tenant != null ? tenant.status : "null");
-            throw new BusinessException("Le tenant associé à ce compte n'est pas actif.");
+            throw new BusinessException(Messages.msg("m.aut-account-tenant-not-active"));
         }
 
         // Consommation atomique du token : le perdant d'une double
         // soumission reçoit un 401 propre, jamais un WriteConflict.
         if (!users.consumeInvitation(hash, passwordHasher.hash(request.password()),
                 Instant.now())) {
-            throw new UnauthorizedException("Ce lien n'est plus utilisable.");
+            throw new UnauthorizedException(Messages.msg("m.aut-link-no-longer-usable"));
         }
         user.status = UserStatus.ACTIVE;
 

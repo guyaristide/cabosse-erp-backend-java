@@ -14,6 +14,7 @@ import com.ntech.cabosse.notification.repository.NotificationProviderRepository;
 import com.ntech.cabosse.settings.service.SecretCipher;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
@@ -68,8 +69,7 @@ public class ProviderAdminService {
         if (!engine.code().equals(e.engineCode)) {
             // Changer de moteur revient à changer de contrat de paramètres :
             // les valeurs enregistrées n'auraient plus le même sens.
-            throw new BusinessException(
-                    "Le moteur d'une passerelle ne se change pas : créez-en une autre.");
+            throw new BusinessException(Messages.msg("m.ntf-engine-immutable"));
         }
         apply(e, payload, engine, actor);
         repo.replace(e);
@@ -88,7 +88,7 @@ public class ProviderAdminService {
      */
     public TestResult test(UUID id, String target) {
         if (target == null || target.isBlank()) {
-            throw new BusinessException("Destinataire d'essai requis.");
+            throw new BusinessException(Messages.msg("m.ntf-test-target-required"));
         }
         NotificationProviderEntity e = load(id);
         Optional<ResolvedProvider> resolved = resolver.resolveOne(e);
@@ -207,12 +207,12 @@ public class ProviderAdminService {
 
     private ProviderEnginePort requireEngine(String code) {
         return engines.find(code).orElseThrow(() -> new BusinessException(
-                "Moteur « " + code + " » inconnu. Moteurs disponibles : "
-                        + engines.all().stream().map(ProviderEnginePort::code).toList()));
+                Messages.msg("m.ntf-engine-unknown", code,
+                        engines.all().stream().map(ProviderEnginePort::code).toList())));
     }
 
     private NotificationProviderEntity load(UUID id) {
         return repo.findById(id).orElseThrow(
-                () -> new NotFoundException("Passerelle " + id + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.ntf-provider-not-found", id)));
     }
 }

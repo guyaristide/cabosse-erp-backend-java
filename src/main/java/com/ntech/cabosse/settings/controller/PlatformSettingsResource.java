@@ -13,6 +13,7 @@ import com.ntech.cabosse.settings.service.PlatformSettingsService.RawSection;
 import com.ntech.cabosse.settings.service.SecretCipher;
 import com.ntech.cabosse.shared.api.ApiResponse;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.security.Roles;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
@@ -304,7 +305,7 @@ public class PlatformSettingsResource {
     @Path("/payment-providers/{code}")
     public Response getPaymentProvider(@PathParam("code") String code) {
         RawSection raw = settings.rawValuesForAdmin(PAYMENT_PREFIX + code);
-        if (!raw.exists()) throw new NotFoundException("Passerelle " + code + " introuvable.");
+        if (!raw.exists()) throw new NotFoundException(Messages.msg("m.set-payment-gateway-not-found", code));
         return Response.ok(ApiResponse.ok(toPaymentDto(code, raw))).build();
     }
 
@@ -313,7 +314,7 @@ public class PlatformSettingsResource {
     public Response upsertPaymentProvider(@PathParam("code") String code, @Valid PaymentProviderUpsertDto body) {
         if (!code.equals(body.code())) {
             throw new com.ntech.cabosse.shared.exception.BusinessException(
-                    "Le code dans l'URL ne correspond pas au code du payload."
+                    Messages.msg("m.set-url-code-mismatch")
             );
         }
         Map<String, String> values = new HashMap<>();
@@ -334,7 +335,7 @@ public class PlatformSettingsResource {
         // Désactivation seulement — on conserve la config historique mais
         // on coupe la passerelle.
         RawSection raw = settings.rawValuesForAdmin(PAYMENT_PREFIX + code);
-        if (!raw.exists()) throw new NotFoundException("Passerelle " + code + " introuvable.");
+        if (!raw.exists()) throw new NotFoundException(Messages.msg("m.set-payment-gateway-not-found", code));
         Map<String, String> values = new HashMap<>(raw.values());
         values.put("enabled", "false");
         // On écrit en gardant secrets tels quels — la sentinelle vide fait conserver

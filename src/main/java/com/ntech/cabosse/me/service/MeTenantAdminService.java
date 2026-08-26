@@ -4,6 +4,7 @@ import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.security.Roles;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.tenant.dto.TenantUserSummaryDto;
@@ -55,13 +56,13 @@ public class MeTenantAdminService {
     public TenantUserSummaryDto setActive(UUID tenantId, UUID userId, boolean active) {
         UserEntity target = users.findById(userId);
         if (target == null || !tenantId.equals(target.tenantId)) {
-            throw new NotFoundException("Utilisateur introuvable dans ce tenant.");
+            throw new NotFoundException(Messages.msg("m.tnt-user-not-found"));
         }
 
         UUID actorId;
         try { actorId = tenantContext.userId(); } catch (Exception e) { actorId = null; }
         if (!active && actorId != null && actorId.equals(userId)) {
-            throw new BusinessException("Vous ne pouvez pas vous désactiver vous-même.");
+            throw new BusinessException(Messages.msg("m.me-self-deactivation-forbidden"));
         }
 
         if (active && target.status != UserStatus.DISABLED) {
@@ -73,8 +74,7 @@ public class MeTenantAdminService {
         }
 
         if (!active && isLastActiveAdmin(tenantId, target)) {
-            throw new BusinessException(
-                    "Impossible de désactiver le dernier administrateur du tenant.");
+            throw new BusinessException(Messages.msg("m.me-last-admin-deactivation"));
         }
 
         UserStatus previous = target.status;

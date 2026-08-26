@@ -5,6 +5,7 @@ import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.ConflictException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.suppliercategory.dto.SupplierCategoryDtos;
 import com.ntech.cabosse.suppliercategory.entity.SupplierCategoryEntity;
@@ -48,7 +49,7 @@ public class SupplierCategoryService {
         String code = (p.code() != null && !p.code().isBlank())
                 ? p.code().trim().toUpperCase(Locale.ROOT) : slug(p.name());
         if (repo.codeExists(code)) {
-            throw new ConflictException("Une catégorie avec le code « " + code + " » existe déjà.");
+            throw new ConflictException(Messages.msg("m.suc-code-exists", code));
         }
         SupplierCategoryEntity e = new SupplierCategoryEntity();
         e.id = UuidCreator.getTimeOrderedEpoch();
@@ -104,7 +105,7 @@ public class SupplierCategoryService {
 
     private SupplierCategoryEntity loadOrFail(UUID id) {
         return repo.findById(id).orElseThrow(
-                () -> new NotFoundException("Catégorie de fournisseur " + id + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.suc-not-found", id)));
     }
 
     private static String describe(String mode, BigDecimal rate) {

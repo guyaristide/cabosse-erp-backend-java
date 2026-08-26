@@ -7,6 +7,7 @@ import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.ConflictException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.supplier.dto.SupplierResponseDto;
 import com.ntech.cabosse.supplier.dto.SupplierDuplicateDto;
@@ -57,7 +58,7 @@ public class SupplierService {
 
     public SupplierResponseDto getById(UUID id) {
         SupplierEntity e = repo.findById(id).orElseThrow(
-                () -> new NotFoundException("Fournisseur " + id + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.sup-not-found", id)));
         return SupplierResponseDto.from(e, categoryName(categories.byId(), e));
     }
 
@@ -89,7 +90,7 @@ public class SupplierService {
     public SupplierResponseDto create(SupplierUpsertDto p) {
         String code = (p.code() != null && !p.code().isBlank()) ? p.code().trim() : slugify(p.name());
         if (repo.codeExists(code)) {
-            throw new ConflictException("Un fournisseur avec le code « " + code + " » existe déjà.");
+            throw new ConflictException(Messages.msg("m.sup-code-exists", code));
         }
         SupplierEntity e = new SupplierEntity();
         e.id = UuidCreator.getTimeOrderedEpoch();
@@ -105,7 +106,7 @@ public class SupplierService {
 
     public SupplierResponseDto update(UUID id, SupplierUpsertDto p) {
         SupplierEntity e = repo.findById(id).orElseThrow(
-                () -> new NotFoundException("Fournisseur " + id + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.sup-not-found", id)));
         apply(e, p);
         e.updatedAt = Instant.now();
         repo.replace(e);
@@ -135,7 +136,7 @@ public class SupplierService {
 
     public SupplierResponseDto setActive(UUID id, boolean active) {
         SupplierEntity e = repo.findById(id).orElseThrow(
-                () -> new NotFoundException("Fournisseur " + id + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.sup-not-found", id)));
         if (e.active == active) return SupplierResponseDto.from(e);
         repo.updateActive(id, active);
         e.active = active;
@@ -162,7 +163,7 @@ public class SupplierService {
         // La catégorie classe le fournisseur quelle que soit sa qualité :
         // un planteur qui livre en direct en a une comme un délégué.
         if (p.categoryId() != null && categories.findById(p.categoryId()).isEmpty()) {
-            throw new NotFoundException("Catégorie de fournisseur " + p.categoryId() + " introuvable.");
+            throw new NotFoundException(Messages.msg("m.suc-not-found", p.categoryId()));
         }
         e.categoryId = p.categoryId();
     }

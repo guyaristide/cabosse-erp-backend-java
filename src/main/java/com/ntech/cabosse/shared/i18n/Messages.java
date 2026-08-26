@@ -22,6 +22,14 @@ import java.util.ResourceBundle;
  * Un message sans paramètre est rendu tel quel, apostrophes simples
  * comprises.</p>
  *
+ * <p><strong>Un nombre passé en paramètre est mis en forme selon la
+ * langue.</strong> C'est voulu pour une grandeur : un montant sort
+ * « 150 000 » en français et « 150,000 » en anglais, mieux que le
+ * « 150000 » brut de la concaténation qu'on remplace. Ça ne l'est pas pour
+ * un identifiant : un numéro de ligne deviendrait « 1 234 ». Passer donc
+ * les numéros, identifiants et références en {@link String#valueOf},
+ * jamais les montants ni les quantités.</p>
+ *
  * <p><strong>Hors requête, la langue ne se devine pas.</strong> Une tâche
  * planifiée, un consommateur d'événement ou une migration n'ont aucune
  * requête sous la main : {@link #current()} y répond français, et c'est le

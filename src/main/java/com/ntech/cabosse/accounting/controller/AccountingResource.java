@@ -28,6 +28,7 @@ import com.ntech.cabosse.shared.api.Pagination;
 import com.ntech.cabosse.shared.export.ExportAudit;
 import com.ntech.cabosse.shared.export.ExportFormat;
 import com.ntech.cabosse.shared.export.ExportResponses;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.security.Roles;
 import io.quarkus.security.Authenticated;
 import jakarta.annotation.security.RolesAllowed;
@@ -184,11 +185,11 @@ public class AccountingResource {
     ) {
         if (bankAccountIdRaw == null || bankAccountIdRaw.isBlank()) {
             throw new com.ntech.cabosse.shared.exception.BusinessException(
-                    "Champ 'bankAccountId' requis dans le formulaire multipart.");
+                    Messages.msg("m.acc-bank-account-id-required-multipart"));
         }
         if (file == null) {
             throw new com.ntech.cabosse.shared.exception.BusinessException(
-                    "Aucun fichier 'file' fourni dans la requête multipart.");
+                    Messages.msg("m.acc-multipart-file-missing"));
         }
         UUID bankAccountId = UUID.fromString(bankAccountIdRaw);
         try (java.io.InputStream in = java.nio.file.Files.newInputStream(file.uploadedFile())) {
@@ -205,7 +206,7 @@ public class AccountingResource {
                     .build();
         } catch (java.io.IOException e) {
             throw new com.ntech.cabosse.shared.exception.BusinessException(
-                    "Lecture du fichier échouée : " + e.getMessage(), e);
+                    Messages.msg("m.acc-file-read-error", e.getMessage()), e);
         }
     }
 
@@ -250,7 +251,8 @@ public class AccountingResource {
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
     public Response matchLine(@PathParam("lineId") UUID lineId, MatchPayload payload) {
         if (payload == null || payload.pieceId() == null) {
-            throw new com.ntech.cabosse.shared.exception.BusinessException("pieceId requis.");
+            throw new com.ntech.cabosse.shared.exception.BusinessException(
+                    Messages.msg("m.acc-piece-id-required"));
         }
         var line = reconciliation.match(lineId, payload.pieceId());
         return Response.ok(ApiResponse.ok(BankStatementLineResponseDto.from(line))).build();
@@ -433,14 +435,14 @@ public class AccountingResource {
             org.jboss.resteasy.reactive.multipart.FileUpload file) {
         if (file == null) {
             throw new com.ntech.cabosse.shared.exception.BusinessException(
-                    "Aucun fichier 'file' fourni dans la requête multipart.");
+                    Messages.msg("m.acc-multipart-file-missing"));
         }
         byte[] bytes;
         try {
             bytes = java.nio.file.Files.readAllBytes(file.uploadedFile());
         } catch (java.io.IOException e) {
             throw new com.ntech.cabosse.shared.exception.BusinessException(
-                    "Lecture du fichier impossible : " + e.getMessage());
+                    Messages.msg("m.acc-file-read-failed", e.getMessage()));
         }
         return Response.ok(ApiResponse.ok(OdDraftDto.from(
                 odDocuments.attach(id, label, bytes, file.contentType(), file.fileName())))).build();

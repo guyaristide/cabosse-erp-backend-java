@@ -20,6 +20,7 @@ import com.ntech.cabosse.shared.export.ExportDataset;
 import com.ntech.cabosse.shared.export.ExportFormat;
 import com.ntech.cabosse.shared.export.ExportImage;
 import com.ntech.cabosse.shared.export.ExportResponses;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.security.Roles;
 import io.quarkus.security.Authenticated;
 import jakarta.annotation.security.RolesAllowed;
@@ -104,7 +105,7 @@ public class ArticleResource {
     public Response uploadImage(@PathParam("id") UUID id, @RestForm("image") FileUpload image) {
         byte[] bytes = readBytes(image);
         if (bytes == null) {
-            throw new BusinessException("Aucun fichier 'image' fourni dans la requête multipart.");
+            throw new BusinessException(Messages.msg("m.art-multipart-image-missing"));
         }
         imageService.attachImage(id, bytes, image.contentType());
         return Response.ok(ApiResponse.ok(service.getById(id))).build();
@@ -215,7 +216,7 @@ public class ArticleResource {
         try {
             return Files.readAllBytes(upload.uploadedFile());
         } catch (IOException e) {
-            throw new BusinessException("Lecture du fichier impossible : " + e.getMessage());
+            throw new BusinessException(Messages.msg("m.art-file-read-failed", e.getMessage()));
         }
     }
 

@@ -4,6 +4,7 @@ import com.ntech.cabosse.me.dto.UpdateTenantPreferencesPayloadDto;
 import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.tenant.dto.TenantPreferencesDto;
 import com.ntech.cabosse.tenant.entity.TenantEntity;
@@ -370,7 +371,7 @@ public class TenantPreferencesService {
     private TenantEntity loadCurrentTenant() {
         TenantEntity t = tenants.findById(tenantContext.tenantId());
         if (t == null) {
-            throw new NotFoundException("Tenant courant introuvable.");
+            throw new NotFoundException(Messages.msg("m.me-current-tenant-not-found"));
         }
         return t;
     }

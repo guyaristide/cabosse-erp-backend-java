@@ -52,7 +52,7 @@ public class LocalFileStorage implements FileStorage {
             log.debugf("Local storage : écrit %s (%d octets)", target, sizeBytes);
             return relativePath;
         } catch (IOException e) {
-            throw new BusinessException("Échec d'écriture du fichier local : " + e.getMessage(), e);
+            throw new BusinessException(Messages.msg("m.shr-local-write-failed", e.getMessage()), e);
         }
     }
 
@@ -62,7 +62,7 @@ public class LocalFileStorage implements FileStorage {
         try {
             return Files.newInputStream(source, StandardOpenOption.READ);
         } catch (IOException e) {
-            throw new BusinessException("Fichier illisible : " + storagePath, e);
+            throw new BusinessException(Messages.msg("m.shr-file-unreadable", storagePath), e);
         }
     }
 
@@ -91,7 +91,7 @@ public class LocalFileStorage implements FileStorage {
         Path resolved = base.resolve(storagePath).normalize();
         // Garde anti path-traversal : le path résolu doit rester sous la base.
         if (!resolved.startsWith(base)) {
-            throw new BusinessException("Path traversal détecté : " + storagePath);
+            throw new BusinessException(Messages.msg("m.shr-path-traversal", storagePath));
         }
         return resolved;
     }

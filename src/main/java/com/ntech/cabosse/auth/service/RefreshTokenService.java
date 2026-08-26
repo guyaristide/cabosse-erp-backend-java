@@ -3,6 +3,7 @@ package com.ntech.cabosse.auth.service;
 import com.ntech.cabosse.auth.entity.RefreshTokenEntity;
 import com.ntech.cabosse.auth.repository.RefreshTokenRepository;
 import com.ntech.cabosse.shared.exception.UnauthorizedException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -80,18 +81,18 @@ public class RefreshTokenService {
     public RotatedRefresh rotate(String presentedSecret, String userAgent, String ipAddress) {
         Instant now = Instant.now();
         RefreshTokenEntity old = repo.findByHash(hash(presentedSecret))
-                .orElseThrow(() -> new UnauthorizedException("Refresh token invalide."));
+                .orElseThrow(() -> new UnauthorizedException(Messages.msg("m.aut-refresh-token-invalid")));
 
         if (old.revokedAt != null) {
-            throw new UnauthorizedException("Refresh token révoqué.");
+            throw new UnauthorizedException(Messages.msg("m.aut-refresh-token-revoked"));
         }
         if (old.expiresAt.isBefore(now)) {
-            throw new UnauthorizedException("Refresh token expiré.");
+            throw new UnauthorizedException(Messages.msg("m.aut-refresh-token-expired"));
         }
         if (old.rotatedAt != null) {
             // Reuse detected — révocation en cascade de toute la famille.
             revokeFamilyForReuse(old, now);
-            throw new UnauthorizedException("Refresh token réutilisé : toutes les sessions ont été invalidées.");
+            throw new UnauthorizedException(Messages.msg("m.aut-refresh-token-reused"));
         }
 
         // Point de sérialisation : une seule rotation gagne l'updateOne
@@ -100,7 +101,7 @@ public class RefreshTokenService {
         // même traitement qu'un rejeu : la famille est révoquée.
         if (!repo.markRotated(old.id, now)) {
             revokeFamilyForReuse(old, now);
-            throw new UnauthorizedException("Refresh token réutilisé : toutes les sessions ont été invalidées.");
+            throw new UnauthorizedException(Messages.msg("m.aut-refresh-token-reused"));
         }
 
         return new RotatedRefresh(

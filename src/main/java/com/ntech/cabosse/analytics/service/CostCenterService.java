@@ -9,6 +9,7 @@ import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.ConflictException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -43,7 +44,7 @@ public class CostCenterService {
         String code = (p.code() != null && !p.code().isBlank())
                 ? p.code().trim().toUpperCase(Locale.ROOT) : slugCode(p.name());
         if (repo.codeExists(code)) {
-            throw new ConflictException("Un centre de coût avec le code « " + code + " » existe déjà.");
+            throw new ConflictException(Messages.msg("m.ana-cost-center-code-exists", code));
         }
         CostCenterEntity e = new CostCenterEntity();
         e.id = UuidCreator.getTimeOrderedEpoch();
@@ -59,7 +60,7 @@ public class CostCenterService {
 
     public CostCenterResponseDto update(UUID id, CostCenterUpsertDto p) {
         CostCenterEntity e = repo.findById(id).orElseThrow(
-                () -> new NotFoundException("Centre de coût " + id + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.ana-cost-center-not-found", id)));
         apply(e, p);
         e.updatedAt = Instant.now();
         repo.replace(e);
@@ -69,7 +70,7 @@ public class CostCenterService {
 
     public CostCenterResponseDto setActive(UUID id, boolean active) {
         CostCenterEntity e = repo.findById(id).orElseThrow(
-                () -> new NotFoundException("Centre de coût " + id + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.ana-cost-center-not-found", id)));
         if (e.active == active) return CostCenterResponseDto.from(e);
         repo.updateActive(id, active);
         e.active = active;

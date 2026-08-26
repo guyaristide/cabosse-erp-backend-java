@@ -9,6 +9,7 @@ import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.ConflictException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -37,7 +38,7 @@ public class LocalityService {
     public LocalityResponseDto create(LocalityUpsertDto p) {
         String code = (p.code() != null && !p.code().isBlank()) ? p.code().trim() : slugify(p.name());
         if (repo.codeExists(code)) {
-            throw new ConflictException("Une localité avec le code « " + code + " » existe déjà.");
+            throw new ConflictException(Messages.msg("m.loc-code-exists", code));
         }
         LocalityEntity e = new LocalityEntity();
         e.id = UuidCreator.getTimeOrderedEpoch();
@@ -54,7 +55,7 @@ public class LocalityService {
 
     public LocalityResponseDto update(UUID id, LocalityUpsertDto p) {
         LocalityEntity e = repo.findById(id).orElseThrow(
-                () -> new NotFoundException("Localité " + id + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.loc-not-found", id)));
         e.name = p.name().trim();
         e.updatedAt = Instant.now();
         repo.replace(e);
@@ -64,7 +65,7 @@ public class LocalityService {
 
     public LocalityResponseDto setActive(UUID id, boolean active) {
         LocalityEntity e = repo.findById(id).orElseThrow(
-                () -> new NotFoundException("Localité " + id + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.loc-not-found", id)));
         if (e.active == active) return LocalityResponseDto.from(e);
         repo.updateActive(id, active);
         e.active = active;

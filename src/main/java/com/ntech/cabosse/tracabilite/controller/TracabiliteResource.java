@@ -4,6 +4,7 @@ import com.ntech.cabosse.permission.entity.Permission;
 import com.ntech.cabosse.permission.service.RequiresPermission;
 import com.ntech.cabosse.shared.api.ApiResponse;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.tracabilite.dto.LotIndexEntryDto;
 import com.ntech.cabosse.tracabilite.dto.LotTraceResponseDto;
 import com.ntech.cabosse.tracabilite.service.LotTraceService;
@@ -40,7 +41,7 @@ public class TracabiliteResource {
     @Path("/lot/{lotRef}")
     public Response getByLot(@PathParam("lotRef") String lotRef) {
         LotTraceResponseDto dto = service.findByLotRef(lotRef)
-                .orElseThrow(() -> new NotFoundException("Lot " + lotRef + " introuvable."));
+                .orElseThrow(() -> new NotFoundException(Messages.msg("m.tra-lot-not-found", lotRef)));
         return Response.ok(ApiResponse.ok(dto)).build();
     }
 

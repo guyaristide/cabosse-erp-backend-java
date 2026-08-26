@@ -6,6 +6,7 @@ import com.ntech.cabosse.accounting.entity.TvaDeclarationStatus;
 import com.ntech.cabosse.accounting.repository.TvaDeclarationRepository;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -68,8 +69,7 @@ public class TvaDeclarationService {
         YearMonth ym = parseYearMonth(yearMonth);
         Optional<TvaDeclarationEntity> existing = repo.findByYearMonth(yearMonth);
         if (existing.isPresent() && existing.get().status == TvaDeclarationStatus.DEPOSE) {
-            throw new BusinessException(
-                    "Déclaration " + yearMonth + " déjà déposée : verrouillage refusé.");
+            throw new BusinessException(Messages.msg("m.acc-tva-already-filed", yearMonth));
         }
         TvaDeclarationEntity e = existing.orElseGet(TvaDeclarationEntity::new);
         boolean isNew = e.id == null;
@@ -94,14 +94,13 @@ public class TvaDeclarationService {
                                             LocalDate depositedAt, String notes) {
         TvaDeclarationEntity e = repo.findByYearMonth(yearMonth)
                 .orElseThrow(() -> new NotFoundException(
-                        "Déclaration " + yearMonth + " introuvable : verrouillez-la d'abord."));
+                        Messages.msg("m.acc-tva-not-found", yearMonth)));
         if (e.status != TvaDeclarationStatus.PRET_A_DEPOSER) {
             throw new BusinessException(
-                    "Déclaration " + yearMonth + " en statut " + e.status
-                            + " : dépôt impossible.");
+                    Messages.msg("m.acc-tva-file-wrong-status", yearMonth, e.status));
         }
         if (depositedNumber == null || depositedNumber.isBlank()) {
-            throw new BusinessException("N° de déclaration requis.");
+            throw new BusinessException(Messages.msg("m.acc-tva-number-required"));
         }
         e.depositedNumber = depositedNumber.trim();
         e.depositedAt = depositedAt != null ? depositedAt : LocalDate.now();
@@ -131,7 +130,7 @@ public class TvaDeclarationService {
     private static YearMonth parseYearMonth(String s) {
         try { return YearMonth.parse(s); }
         catch (Exception e) {
-            throw new BusinessException("Format yearMonth invalide (attendu YYYY-MM) : " + s);
+            throw new BusinessException(Messages.msg("m.acc-tva-yearmonth-invalid", s));
         }
     }
 

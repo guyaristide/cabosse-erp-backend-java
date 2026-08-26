@@ -5,6 +5,7 @@ import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.ConflictException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.variety.dto.VarietyResponseDto;
 import com.ntech.cabosse.variety.dto.VarietyUpsertDto;
@@ -37,7 +38,7 @@ public class VarietyService {
     public VarietyResponseDto create(VarietyUpsertDto p) {
         String code = (p.code() != null && !p.code().isBlank()) ? p.code().trim() : slugify(p.name());
         if (repo.codeExists(code)) {
-            throw new ConflictException("Une variété avec le code « " + code + " » existe déjà.");
+            throw new ConflictException(Messages.msg("m.var-code-exists", code));
         }
         VarietyEntity e = new VarietyEntity();
         e.id = UuidCreator.getTimeOrderedEpoch();
@@ -54,7 +55,7 @@ public class VarietyService {
 
     public VarietyResponseDto update(UUID id, VarietyUpsertDto p) {
         VarietyEntity e = repo.findById(id).orElseThrow(
-                () -> new NotFoundException("Variété " + id + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.var-not-found", id)));
         e.name = p.name().trim();
         e.updatedAt = Instant.now();
         repo.replace(e);
@@ -64,7 +65,7 @@ public class VarietyService {
 
     public VarietyResponseDto setActive(UUID id, boolean active) {
         VarietyEntity e = repo.findById(id).orElseThrow(
-                () -> new NotFoundException("Variété " + id + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.var-not-found", id)));
         if (e.active == active) return VarietyResponseDto.from(e);
         repo.updateActive(id, active);
         e.active = active;

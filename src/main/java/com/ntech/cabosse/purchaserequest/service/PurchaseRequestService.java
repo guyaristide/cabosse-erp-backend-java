@@ -17,6 +17,7 @@ import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.supplier.entity.SupplierEntity;
 import com.ntech.cabosse.supplier.repository.SupplierRepository;
@@ -81,7 +82,7 @@ public class PurchaseRequestService {
 
     public PurchaseRequestResponseDto update(UUID id, PurchaseRequestUpsertDto payload) {
         PurchaseRequestEntity e = loadOrFail(id);
-        requireStatus(e, PurchaseRequestStatus.DRAFT, "Seule une DA en brouillon peut être éditée");
+        requireStatus(e, PurchaseRequestStatus.DRAFT, "m.prq-edit-draft-only");
         apply(e, payload);
         e.updatedAt = Instant.now();
         repo.replace(e);
@@ -91,13 +92,13 @@ public class PurchaseRequestService {
 
     public void delete(UUID id) {
         PurchaseRequestEntity e = loadOrFail(id);
-        requireStatus(e, PurchaseRequestStatus.DRAFT, "Seule une DA en brouillon peut être supprimée");
+        requireStatus(e, PurchaseRequestStatus.DRAFT, "m.prq-delete-draft-only");
         repo.delete(id);
     }
 
     public PurchaseRequestResponseDto submit(UUID id) {
         PurchaseRequestEntity e = loadOrFail(id);
-        requireStatus(e, PurchaseRequestStatus.DRAFT, "Seule une DA en brouillon peut être soumise");
+        requireStatus(e, PurchaseRequestStatus.DRAFT, "m.prq-submit-draft-only");
         e.status = PurchaseRequestStatus.SUBMITTED;
         e.submittedAt = Instant.now();
         e.updatedAt = e.submittedAt;
@@ -108,7 +109,7 @@ public class PurchaseRequestService {
 
     public PurchaseRequestResponseDto approve(UUID id) {
         PurchaseRequestEntity e = loadOrFail(id);
-        requireStatus(e, PurchaseRequestStatus.SUBMITTED, "Seule une DA soumise peut être approuvée");
+        requireStatus(e, PurchaseRequestStatus.SUBMITTED, "m.prq-approve-submitted-only");
         e.status = PurchaseRequestStatus.APPROVED;
         e.decidedAt = Instant.now();
         e.decidedByEmail = actor();
@@ -121,10 +122,10 @@ public class PurchaseRequestService {
 
     public PurchaseRequestResponseDto reject(UUID id, String reason) {
         if (reason == null || reason.isBlank()) {
-            throw new BusinessException("Motif de rejet requis.");
+            throw new BusinessException(Messages.msg("m.mbr-rejection-reason-required"));
         }
         PurchaseRequestEntity e = loadOrFail(id);
-        requireStatus(e, PurchaseRequestStatus.SUBMITTED, "Seule une DA soumise peut être rejetée");
+        requireStatus(e, PurchaseRequestStatus.SUBMITTED, "m.prq-reject-submitted-only");
         e.status = PurchaseRequestStatus.REJECTED;
         e.decisionReason = reason.trim();
         e.decidedAt = Instant.now();
@@ -143,10 +144,10 @@ public class PurchaseRequestService {
     public PurchaseRequestResponseDto convert(UUID id, UUID supplierIdOverride,
                                               BigDecimal vatRatePct) {
         PurchaseRequestEntity e = loadOrFail(id);
-        requireStatus(e, PurchaseRequestStatus.APPROVED, "Seule une DA approuvée peut être convertie");
+        requireStatus(e, PurchaseRequestStatus.APPROVED, "m.prq-convert-approved-only");
         UUID supplierId = supplierIdOverride != null ? supplierIdOverride : e.supplierId;
         if (supplierId == null) {
-            throw new BusinessException("Fournisseur requis pour convertir la demande en bon de commande.");
+            throw new BusinessException(Messages.msg("m.prq-supplier-required-to-convert"));
         }
 
         List<PurchaseOrderLineDto> orderLines = new ArrayList<>();
@@ -183,7 +184,8 @@ public class PurchaseRequestService {
                 ? null : p.justification().trim();
         if (p.supplierId() != null) {
             SupplierEntity s = suppliers.findById(p.supplierId()).orElseThrow(
-                    () -> new NotFoundException("Fournisseur " + p.supplierId() + " introuvable."));
+                    () -> new NotFoundException(
+                            Messages.msg("m.exp-supplier-not-found", p.supplierId())));
             e.supplierId = s.id;
             e.supplierName = s.name;
         } else {
@@ -194,7 +196,8 @@ public class PurchaseRequestService {
         BigDecimal total = BigDecimal.ZERO;
         for (var ld : p.lines()) {
             ArticleEntity a = articles.findById(ld.articleId()).orElseThrow(
-                    () -> new NotFoundException("Article " + ld.articleId() + " introuvable."));
+                    () -> new NotFoundException(
+                            Messages.msg("m.ach-article-not-found", ld.articleId())));
             PurchaseRequestLine line = new PurchaseRequestLine();
             line.id = UuidCreator.getTimeOrderedEpoch();
             line.articleId = a.id;
@@ -212,9 +215,9 @@ public class PurchaseRequestService {
         e.estimatedTotalFcfa = total;
     }
 
-    private void requireStatus(PurchaseRequestEntity e, PurchaseRequestStatus expected, String msg) {
+    private void requireStatus(PurchaseRequestEntity e, PurchaseRequestStatus expected, String messageKey) {
         if (e.status != expected) {
-            throw new BusinessException(msg + " (statut actuel : " + e.status + ").");
+            throw new BusinessException(Messages.msg(messageKey, e.status));
         }
     }
 
@@ -229,7 +232,7 @@ public class PurchaseRequestService {
 
     private PurchaseRequestEntity loadOrFail(UUID id) {
         return repo.findById(id).orElseThrow(
-                () -> new NotFoundException("Demande d'achat " + id + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.prq-not-found", id)));
     }
 
     private String actor() { try { return jwt.getName(); } catch (Exception e) { return null; } }

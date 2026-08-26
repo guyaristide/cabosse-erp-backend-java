@@ -74,7 +74,8 @@ public final class FileUploadLimits {
         }
         if (sizeBytes > rule.maxBytes()) {
             throw new BusinessException(
-                    Messages.msg("m.shr-file-too-large", sizeBytes, rule.maxBytes(), type));
+                    Messages.msg("m.shr-file-too-large",
+                            String.valueOf(sizeBytes), String.valueOf(rule.maxBytes()), type));
         }
         if (mimeType == null || !rule.allowedMimes().contains(mimeType.toLowerCase())) {
             throw new BusinessException(

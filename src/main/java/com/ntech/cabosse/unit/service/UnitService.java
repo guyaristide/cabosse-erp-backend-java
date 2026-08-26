@@ -5,6 +5,7 @@ import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.ConflictException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.unit.dto.UnitResponseDto;
 import com.ntech.cabosse.unit.dto.UnitUpsertDto;
@@ -37,7 +38,7 @@ public class UnitService {
     public UnitResponseDto create(UnitUpsertDto p) {
         String code = (p.code() != null && !p.code().isBlank()) ? p.code().trim() : slugify(p.name());
         if (repo.codeExists(code)) {
-            throw new ConflictException("Une unité avec le code « " + code + " » existe déjà.");
+            throw new ConflictException(Messages.msg("m.uni-code-exists", code));
         }
         UnitEntity e = new UnitEntity();
         e.id = UuidCreator.getTimeOrderedEpoch();
@@ -54,7 +55,7 @@ public class UnitService {
 
     public UnitResponseDto update(UUID id, UnitUpsertDto p) {
         UnitEntity e = repo.findById(id).orElseThrow(
-                () -> new NotFoundException("Unité " + id + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.uni-not-found", id)));
         e.name = p.name().trim();
         e.updatedAt = Instant.now();
         repo.replace(e);
@@ -64,7 +65,7 @@ public class UnitService {
 
     public UnitResponseDto setActive(UUID id, boolean active) {
         UnitEntity e = repo.findById(id).orElseThrow(
-                () -> new NotFoundException("Unité " + id + " introuvable."));
+                () -> new NotFoundException(Messages.msg("m.uni-not-found", id)));
         if (e.active == active) return UnitResponseDto.from(e);
         repo.updateActive(id, active);
         e.active = active;

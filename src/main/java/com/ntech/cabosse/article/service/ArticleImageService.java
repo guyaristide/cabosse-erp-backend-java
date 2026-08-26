@@ -3,6 +3,7 @@ package com.ntech.cabosse.article.service;
 import com.ntech.cabosse.article.entity.ArticleEntity;
 import com.ntech.cabosse.article.repository.ArticleRepository;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.storage.CloudFileEntity;
 import com.ntech.cabosse.shared.storage.CloudFileScope;
 import com.ntech.cabosse.shared.storage.FileUploadService;
@@ -43,7 +44,7 @@ public class ArticleImageService {
      */
     public void attachImage(UUID articleId, byte[] bytes, String mimeType) {
         ArticleEntity article = articles.findById(articleId).orElseThrow(
-                () -> new NotFoundException("Article " + articleId + " introuvable.")
+                () -> new NotFoundException(Messages.msg("m.art-not-found", articleId))
         );
 
         if (article.imageFileId != null) {
@@ -65,7 +66,7 @@ public class ArticleImageService {
     /** Retire l'image d'un article (no-op s'il n'y en a pas). */
     public void detachImage(UUID articleId) {
         ArticleEntity article = articles.findById(articleId).orElseThrow(
-                () -> new NotFoundException("Article " + articleId + " introuvable.")
+                () -> new NotFoundException(Messages.msg("m.art-not-found", articleId))
         );
         if (article.imageFileId != null) {
             uploads.archive(SCOPE, article.imageFileId);
@@ -78,10 +79,10 @@ public class ArticleImageService {
     /** Ouvre un stream sur le binaire de l'image, avec ses méta. */
     public ImageStream openImage(UUID articleId) {
         ArticleEntity article = articles.findById(articleId).orElseThrow(
-                () -> new NotFoundException("Article " + articleId + " introuvable.")
+                () -> new NotFoundException(Messages.msg("m.art-not-found", articleId))
         );
         if (article.imageFileId == null) {
-            throw new NotFoundException("Pas d'image pour l'article " + articleId);
+            throw new NotFoundException(Messages.msg("m.art-no-image", articleId));
         }
         CloudFileEntity file = uploads.findById(SCOPE, article.imageFileId);
         InputStream content = uploads.open(SCOPE, file.id);

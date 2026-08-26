@@ -18,6 +18,7 @@ import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.tenant.service.TenantPreferencesLookup;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -87,7 +88,8 @@ public class FiscalYearService {
 
     public FiscalYearEntity getById(UUID id) {
         return years.findById(id)
-                .orElseThrow(() -> new NotFoundException("Exercice " + id + " introuvable."));
+                .orElseThrow(() -> new NotFoundException(
+                        Messages.msg("m.acc-fiscal-year-not-found", id)));
     }
 
     /**
@@ -106,9 +108,8 @@ public class FiscalYearService {
                 .orElse(currentStart.minusYears(1));
         LocalDate end = start.plusYears(1).minusDays(1);
         if (!end.isBefore(today)) {
-            throw new BusinessException(
-                    "L'exercice du " + start + " au " + end + " n'est pas terminé : "
-                            + "il ne peut pas encore être arrêté.");
+            throw new BusinessException(Messages.msg(
+                    "m.acc-fy-not-ended", String.valueOf(start), String.valueOf(end)));
         }
         String label = start.getYear() == end.getYear()
                 ? String.valueOf(start.getYear())
@@ -152,15 +153,14 @@ public class FiscalYearService {
         Bounds b = nextBounds();
         List<String> unlocked = unlockedPeriods(b);
         if (!unlocked.isEmpty()) {
-            throw new BusinessException(
-                    "Tous les mois de l'exercice doivent être clôturés avant l'arrêté. "
-                            + "Mois encore ouverts : " + String.join(", ", unlocked) + ".");
+            throw new BusinessException(Messages.msg(
+                    "m.acc-fy-months-not-locked", String.join(", ", unlocked)));
         }
         if (years.findByEndDate(b.end()).isPresent()) {
-            throw new BusinessException("L'exercice " + b.label() + " est déjà arrêté.");
+            throw new BusinessException(Messages.msg("m.acc-fy-already-closed", b.label()));
         }
         if (taxFcfa != null && taxFcfa.signum() < 0) {
-            throw new BusinessException("Impôt négatif interdit.");
+            throw new BusinessException(Messages.msg("m.acc-fy-negative-tax"));
         }
 
         FiscalYearEntity e = new FiscalYearEntity();
@@ -176,7 +176,7 @@ public class FiscalYearService {
         for (WipLine line : wipLines != null ? wipLines : List.<WipLine>of()) {
             if (line.amountFcfa() == null || line.amountFcfa().signum() <= 0) continue;
             if (line.amountFcfa().signum() < 0) {
-                throw new BusinessException("Montant d'en-cours négatif interdit.");
+                throw new BusinessException(Messages.msg("m.acc-fy-negative-wip"));
             }
             wipTotal = wipTotal.add(line.amountFcfa());
             wipEntries.add(JournalEntry.debit(SyscohadaAccounts.EN_COURS,
@@ -307,29 +307,26 @@ public class FiscalYearService {
         FiscalYearEntity e = getById(id);
         if (!FiscalYearEntity.STATUS_ARRETE.equals(e.status)) {
             throw new BusinessException(
-                    "Le résultat de l'exercice " + e.label + " est déjà affecté.");
+                    Messages.msg("m.acc-fy-result-already-allocated", e.label));
         }
         if (lines == null || lines.isEmpty()) {
-            throw new BusinessException("Au moins une ligne d'affectation est requise.");
+            throw new BusinessException(Messages.msg("m.acc-fy-allocation-line-required"));
         }
         BigDecimal total = BigDecimal.ZERO;
         for (AllocationInput line : lines) {
             if (line.account() == null || !line.account().startsWith("1")) {
-                throw new BusinessException(
-                        "L'affectation se fait vers des comptes de classe 1 "
-                                + "(capital, réserves, report à nouveau) : compte reçu : "
-                                + line.account() + ".");
+                throw new BusinessException(Messages.msg(
+                        "m.acc-fy-allocation-class1-only", line.account()));
             }
             if (line.amountFcfa() == null || line.amountFcfa().signum() <= 0) {
-                throw new BusinessException("Chaque ligne d'affectation porte un montant positif.");
+                throw new BusinessException(Messages.msg("m.acc-fy-allocation-positive-amount"));
             }
             total = total.add(line.amountFcfa());
         }
         BigDecimal target = e.resultNetFcfa.abs();
         if (total.compareTo(target) != 0) {
-            throw new BusinessException(
-                    "Le total affecté (" + total + ") doit égaler le résultat net ("
-                            + target + ").");
+            throw new BusinessException(Messages.msg("m.acc-fy-allocation-total-mismatch",
+                    String.valueOf(total), String.valueOf(target)));
         }
 
         // Bénéfice : débit 13, crédit classe 1. Perte : miroir.
