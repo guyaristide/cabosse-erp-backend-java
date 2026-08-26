@@ -74,6 +74,15 @@ public class ParcelService {
                 .stream().map(ParcelResponseDto::from).toList();
     }
 
+    /** Code producteur par membre : l'export l'ajoute pour que le fichier se réimporte. */
+    public Map<UUID, String> memberCodesById() {
+        Map<UUID, String> codes = new HashMap<>();
+        members.listAll().forEach(m -> {
+            if (m.code != null) codes.put(m.id, m.code);
+        });
+        return codes;
+    }
+
     public ParcelResponseDto getById(UUID id) {
         return ParcelResponseDto.from(loadOrFail(id));
     }

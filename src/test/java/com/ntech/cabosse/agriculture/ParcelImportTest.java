@@ -169,6 +169,50 @@ class ParcelImportTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void an_exported_file_reimports_and_rematches_without_duplicating() {
+        UserEntity admin = tenantAdmin();
+        String memberCode = createMember(admin, "Koné", "Awa");
+
+        givenAs(admin).contentType("application/json").body("""
+                [
+                  { "rowNumber": 1, "code": "PR-RT-1", "name": "Parcelle aller-retour",
+                    "producerCode": "%s", "surfaceHa": "3,5",
+                    "latitude": "5.236830", "longitude": "-4.020996",
+                    "crop": "Cacao", "status": "En jachère" }
+                ]
+                """.formatted(memberCode))
+                .when().post("/api/v1/parcels/import/commit")
+                .then().statusCode(200)
+                .body("data.createdCount", equalTo(1));
+
+        // L'export porte le code producteur et le statut en français,
+        // pas la valeur technique : c'est ce qui rend le fichier réimportable.
+        String csv = givenAs(admin)
+                .queryParam("format", "csv")
+                .when().get("/api/v1/parcels/export")
+                .then().statusCode(200)
+                .extract().asString();
+        assertThat(csv).contains("Code producteur");
+        assertThat(csv).contains(memberCode);
+        assertThat(csv).contains("En jachère");
+        assertThat(csv).doesNotContain("FALLOW");
+
+        // Rejouer les valeurs exportées : la ligne se rapproche, rien ne se crée.
+        givenAs(admin).contentType("application/json").body("""
+                [
+                  { "rowNumber": 1, "code": "PR-RT-1", "name": "Parcelle aller-retour",
+                    "producerCode": "%s", "producerName": "Koné Awa",
+                    "surfaceHa": "3.5", "latitude": "5.23683", "longitude": "-4.020996",
+                    "crop": "cacao", "status": "En jachère" }
+                ]
+                """.formatted(memberCode))
+                .when().post("/api/v1/parcels/import/commit")
+                .then().statusCode(200)
+                .body("data.createdCount", equalTo(0))
+                .body("data.updatedCount", equalTo(1));
+    }
+
+    @Test
     void orphan_parcels_are_created_only_when_explicitly_accepted() {
         UserEntity admin = tenantAdmin();
         String body = """

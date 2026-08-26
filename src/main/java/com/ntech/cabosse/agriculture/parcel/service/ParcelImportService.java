@@ -178,9 +178,14 @@ public class ParcelImportService {
                 rowStatus = Status.DUPLICATE_IN_FILE;
                 duplicate++;
             } else if (producerRequested && member == null) {
+                String wanted = trim(raw.producerCode()) != null
+                        ? "« " + trim(raw.producerCode()) + " »"
+                        : "« " + trim(raw.producerName()) + " »";
                 issues.add(new FieldIssue("producerCode",
-                        "Producteur introuvable : la parcelle serait créée sans rattachement "
-                                + "et sortirait des projections."));
+                        "Producteur " + wanted + " absent du registre (recherche par numéro puis "
+                                + "par nom). Vérifiez le code producteur ou enrôlez le membre avant "
+                                + "l'import ; sinon la parcelle sera créée sans rattachement et "
+                                + "sortira des projections par producteur."));
                 rowStatus = Status.WARNING;
                 warning++;
             } else if (match != null) {
