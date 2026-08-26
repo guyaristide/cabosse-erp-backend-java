@@ -15,6 +15,7 @@ import com.ntech.cabosse.accounting.entity.SyscohadaAccounts;
 import com.ntech.cabosse.accounting.repository.JournalPieceRepository;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Messages;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.jwt.JsonWebToken;
@@ -71,9 +72,9 @@ public class BankReconciliationService {
      */
     public int autoMatch(UUID statementId) {
         BankStatementEntity stmt = statements.findById(statementId)
-                .orElseThrow(() -> new NotFoundException("Extrait " + statementId + " introuvable."));
+                .orElseThrow(() -> new NotFoundException(Messages.msg("m.acc-statement-not-found", statementId)));
         BankAccountEntity bank = banks.findById(stmt.bankAccountId)
-                .orElseThrow(() -> new NotFoundException("Compte bancaire " + stmt.bankAccountId + " introuvable."));
+                .orElseThrow(() -> new NotFoundException(Messages.msg("m.acc-bank-account-not-found", stmt.bankAccountId)));
 
         int matched = 0;
         for (BankStatementLineEntity line : lines.listByStatement(statementId, BankStatementLineStatus.UNMATCHED)) {
@@ -94,9 +95,9 @@ public class BankReconciliationService {
      */
     public List<JournalPieceEntity> suggestCandidates(UUID lineId) {
         BankStatementLineEntity line = lines.findById(lineId)
-                .orElseThrow(() -> new NotFoundException("Ligne " + lineId + " introuvable."));
+                .orElseThrow(() -> new NotFoundException(Messages.msg("m.acc-statement-line-not-found", lineId)));
         BankAccountEntity bank = banks.findById(line.bankAccountId)
-                .orElseThrow(() -> new NotFoundException("Compte bancaire " + line.bankAccountId + " introuvable."));
+                .orElseThrow(() -> new NotFoundException(Messages.msg("m.acc-bank-account-not-found", line.bankAccountId)));
         return findCandidates(bank, line);
     }
 
@@ -138,10 +139,10 @@ public class BankReconciliationService {
     public BankStatementLineEntity match(UUID lineId, UUID pieceId) {
         BankStatementLineEntity line = loadLine(lineId);
         if (line.status == BankStatementLineStatus.MATCHED) {
-            throw new BusinessException("Ligne déjà rapprochée : annulez d'abord le rapprochement.");
+            throw new BusinessException(Messages.msg("m.acc-line-already-matched"));
         }
         JournalPieceEntity piece = pieces.findById(pieceId)
-                .orElseThrow(() -> new NotFoundException("Pièce " + pieceId + " introuvable."));
+                .orElseThrow(() -> new NotFoundException(Messages.msg("m.acc-piece-not-found", pieceId)));
         applyMatch(line, piece);
         refreshStatementCounters(line.statementId);
         return line;
@@ -150,7 +151,7 @@ public class BankReconciliationService {
     public BankStatementLineEntity unmatch(UUID lineId) {
         BankStatementLineEntity line = loadLine(lineId);
         if (line.status != BankStatementLineStatus.MATCHED) {
-            throw new BusinessException("Ligne non rapprochée : rien à annuler.");
+            throw new BusinessException(Messages.msg("m.acc-line-not-matched"));
         }
         line.status = BankStatementLineStatus.UNMATCHED;
         line.matchedPieceId = null;
@@ -229,8 +230,7 @@ public class BankReconciliationService {
 
     private void requireRegularizable(BankStatementLineEntity line) {
         if (line.status == BankStatementLineStatus.MATCHED) {
-            throw new BusinessException(
-                    "Ligne déjà rapprochée : délettrez-la avant toute régularisation.");
+            throw new BusinessException(Messages.msg("m.acc-line-matched-no-regularize"));
         }
     }
 
@@ -240,7 +240,7 @@ public class BankReconciliationService {
                                                     String counterpartAccount,
                                                     String label) {
         BankAccountEntity bank = banks.findById(line.bankAccountId)
-                .orElseThrow(() -> new NotFoundException("Compte bancaire introuvable."));
+                .orElseThrow(() -> new NotFoundException(Messages.msg("m.acc-bank-account-not-found-2")));
         String bankAccount = bank.syscohadaAccount != null && !bank.syscohadaAccount.isBlank()
                 ? bank.syscohadaAccount
                 : SyscohadaAccounts.BANQUE_DEFAULT;
@@ -260,7 +260,7 @@ public class BankReconciliationService {
                 bank.label != null ? bank.label : bank.bankName,
                 label,
                 entries
-        )).orElseThrow(() -> new BusinessException("Pièce non générée."));
+        )).orElseThrow(() -> new BusinessException(Messages.msg("m.acc-piece-not-generated")));
     }
 
     private void applyMatch(BankStatementLineEntity line, JournalPieceEntity piece) {
@@ -273,7 +273,7 @@ public class BankReconciliationService {
 
     private BankStatementLineEntity loadLine(UUID id) {
         return lines.findById(id)
-                .orElseThrow(() -> new NotFoundException("Ligne " + id + " introuvable."));
+                .orElseThrow(() -> new NotFoundException(Messages.msg("m.acc-statement-line-not-found", id)));
     }
 
     private void refreshStatementCounters(UUID statementId) {

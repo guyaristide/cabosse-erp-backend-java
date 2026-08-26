@@ -67,20 +67,18 @@ public final class FileUploadLimits {
     public static void enforce(String type, long sizeBytes, String mimeType) {
         TypeRule rule = RULES.get(type);
         if (rule == null) {
-            throw new BusinessException(
-                    "Type de fichier inconnu : \"" + type + "\". Voir FileUploadLimits.RULES.");
+            throw new BusinessException(Messages.msg("m.shr-file-type-unknown", type));
         }
         if (sizeBytes <= 0) {
-            throw new BusinessException("Fichier vide");
+            throw new BusinessException(Messages.msg("m.shr-file-empty"));
         }
         if (sizeBytes > rule.maxBytes()) {
             throw new BusinessException(
-                    "Fichier trop volumineux (" + sizeBytes + " octets, max " + rule.maxBytes() + " pour le type " + type + ").");
+                    Messages.msg("m.shr-file-too-large", sizeBytes, rule.maxBytes(), type));
         }
         if (mimeType == null || !rule.allowedMimes().contains(mimeType.toLowerCase())) {
             throw new BusinessException(
-                    "Type MIME \"" + mimeType + "\" non autorisé pour le type " + type
-                            + " (autorisés : " + rule.allowedMimes() + ").");
+                    Messages.msg("m.shr-mime-not-allowed", mimeType, type, rule.allowedMimes()));
         }
     }
 }

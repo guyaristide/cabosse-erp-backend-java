@@ -24,6 +24,7 @@ import com.ntech.cabosse.members.repository.MemberRepository;
 import com.ntech.cabosse.members.service.ProducerLookup;
 import com.ntech.cabosse.region.entity.RegionEntity;
 import com.ntech.cabosse.region.repository.RegionRepository;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.imports.FuzzyLabels;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -114,27 +115,26 @@ public class ParcelImportService {
             List<FieldIssue> issues = new ArrayList<>();
 
             String name = trim(raw.name());
-            if (name == null) issues.add(new FieldIssue("name", "Nom de parcelle requis."));
+            if (name == null) issues.add(new FieldIssue("name", Messages.msg("m.imp-parcel-name-required")));
 
             String code = trim(raw.code());
             BigDecimal surface = parseDecimal(raw.surfaceHa(), "surfaceHa", issues);
             if (surface != null && surface.signum() <= 0) {
-                issues.add(new FieldIssue("surfaceHa", "Superficie nulle ou négative."));
+                issues.add(new FieldIssue("surfaceHa", Messages.msg("m.imp-surface-not-positive")));
             }
 
             Double latitude = parseCoordinate(raw.latitude(), "latitude", issues);
             Double longitude = parseCoordinate(raw.longitude(), "longitude", issues);
             if (latitude != null && (latitude < -90 || latitude > 90)) {
-                issues.add(new FieldIssue("latitude", "Latitude hors [-90, 90]."));
+                issues.add(new FieldIssue("latitude", Messages.msg("m.imp-latitude-range")));
                 latitude = null;
             }
             if (longitude != null && (longitude < -180 || longitude > 180)) {
-                issues.add(new FieldIssue("longitude", "Longitude hors [-180, 180]."));
+                issues.add(new FieldIssue("longitude", Messages.msg("m.imp-longitude-range")));
                 longitude = null;
             }
             if ((latitude == null) != (longitude == null)) {
-                issues.add(new FieldIssue("latitude",
-                        "Latitude et longitude vont par paire : renseignez les deux ou aucune."));
+                issues.add(new FieldIssue("latitude", Messages.msg("m.imp-coords-pair")));
             }
 
             LocalDate plantingDate = parseDate(raw.plantingDate(), "plantingDate", issues);
@@ -176,7 +176,7 @@ public class ParcelImportService {
                 rowStatus = Status.INVALID;
                 invalid++;
             } else if (dedupKey != null && !codesSeen.add(dedupKey)) {
-                issues.add(new FieldIssue("code", "Parcelle déjà présente plus haut dans le fichier."));
+                issues.add(new FieldIssue("code", Messages.msg("m.imp-parcel-duplicate-in-file")));
                 rowStatus = Status.DUPLICATE_IN_FILE;
                 duplicate++;
             } else if (producerRequested && member == null) {
@@ -184,10 +184,7 @@ public class ParcelImportService {
                         ? "« " + trim(raw.producerCode()) + " »"
                         : "« " + trim(raw.producerName()) + " »";
                 issues.add(new FieldIssue("producerCode",
-                        "Producteur " + wanted + " absent du registre (recherche par numéro puis "
-                                + "par nom). Vérifiez le code producteur ou enrôlez le membre avant "
-                                + "l'import ; sinon la parcelle sera créée sans rattachement et "
-                                + "sortira des projections par producteur."));
+                        Messages.msg("m.imp-producer-not-in-registry", wanted)));
                 rowStatus = Status.WARNING;
                 warning++;
             } else if (match != null) {
@@ -476,7 +473,7 @@ public class ParcelImportService {
         try {
             return Double.valueOf(value.replace(',', '.').replaceAll("[\\s ]", ""));
         } catch (NumberFormatException e) {
-            issues.add(new FieldIssue(field, "Coordonnée « " + raw + " » illisible."));
+            issues.add(new FieldIssue(field, Messages.msg("m.imp-coordinate-unreadable", raw)));
             return null;
         }
     }
@@ -490,7 +487,7 @@ public class ParcelImportService {
         if (c.contains("replant")) return "REPLANTING";
         if (c.contains("abandon")) return "ABANDONED";
         issues.add(new FieldIssue("status",
-                "Statut « " + raw + " » non reconnu (en production, jachère, replantation, abandonnée)."));
+                Messages.msg("m.imp-parcel-status-unknown", raw)));
         return null;
     }
 
@@ -514,7 +511,7 @@ public class ParcelImportService {
         }
         // Une année seule est une date de plantation acceptable.
         if (value.matches("\\d{4}")) return null;
-        issues.add(new FieldIssue(field, "Date « " + raw + " » illisible (attendu JJ/MM/AAAA)."));
+        issues.add(new FieldIssue(field, Messages.msg("m.imp-date-unreadable", raw)));
         return null;
     }
 
@@ -524,7 +521,7 @@ public class ParcelImportService {
         try {
             return Integer.valueOf(value.replaceAll("[\\s ]", ""));
         } catch (NumberFormatException e) {
-            issues.add(new FieldIssue(field, "Nombre « " + raw + " » illisible."));
+            issues.add(new FieldIssue(field, Messages.msg("m.imp-number-unreadable", raw)));
             return null;
         }
     }
@@ -535,7 +532,7 @@ public class ParcelImportService {
         try {
             return new BigDecimal(value.replaceAll("[\\s ]", "").replace(',', '.'));
         } catch (NumberFormatException e) {
-            issues.add(new FieldIssue(field, "Nombre « " + raw + " » illisible."));
+            issues.add(new FieldIssue(field, Messages.msg("m.imp-number-unreadable", raw)));
             return null;
         }
     }

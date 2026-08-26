@@ -15,6 +15,7 @@ import com.ntech.cabosse.agriculture.parcel.entity.ParcelEntity;
 import com.ntech.cabosse.agriculture.parcel.repository.ParcelRepository;
 import com.ntech.cabosse.campaign.entity.CampaignEntity;
 import com.ntech.cabosse.campaign.service.CampaignResolver;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.imports.FuzzyLabels;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -80,19 +81,19 @@ public class HarvestImportService {
                     raw.producerCode());
             if (parcel == null) {
                 issues.add(new FieldIssue("parcelCode",
-                        "Parcelle introuvable : importez les parcelles avant les récoltes."));
+                        Messages.msg("m.imp-parcel-not-found")));
             }
 
             LocalDate harvestDate = parseDate(raw.harvestDate(), issues);
             if (harvestDate == null && trim(raw.harvestDate()) == null) {
-                issues.add(new FieldIssue("harvestDate", "Date de récolte requise."));
+                issues.add(new FieldIssue("harvestDate", Messages.msg("m.imp-harvest-date-required")));
             }
 
             BigDecimal cabosses = parseDecimal(raw.cabossesKg(), "cabossesKg", issues);
             BigDecimal freshBeans = parseDecimal(raw.freshBeansKg(), "freshBeansKg", issues);
             if (isEmptyQuantity(cabosses) && isEmptyQuantity(freshBeans)) {
                 issues.add(new FieldIssue("cabossesKg",
-                        "Aucune quantité récoltée : renseignez les cabosses ou les fèves fraîches."));
+                        Messages.msg("m.imp-harvest-quantity-required")));
             }
 
             Normalized normalized = new Normalized(
@@ -119,12 +120,12 @@ public class HarvestImportService {
                 invalid++;
             } else if (key != null && !keysSeen.add(key)) {
                 issues.add(new FieldIssue("harvestDate",
-                        "Même parcelle et même date qu'une ligne précédente du fichier."));
+                        Messages.msg("m.imp-harvest-duplicate-in-file")));
                 status = Status.DUPLICATE_IN_FILE;
                 duplicate++;
             } else if (outsideCampaign(harvestDate, campaign)) {
                 issues.add(new FieldIssue("harvestDate",
-                        "Date hors de la période de la campagne « " + campaign.label + " »."));
+                        Messages.msg("m.imp-date-outside-campaign", campaign.label)));
                 status = Status.WARNING;
                 warning++;
             } else if (match != null) {
@@ -277,7 +278,7 @@ public class HarvestImportService {
                 // format suivant
             }
         }
-        issues.add(new FieldIssue("harvestDate", "Date « " + raw + " » illisible (attendu JJ/MM/AAAA)."));
+        issues.add(new FieldIssue("harvestDate", Messages.msg("m.imp-date-unreadable", raw)));
         return null;
     }
 
@@ -287,7 +288,7 @@ public class HarvestImportService {
         try {
             return new BigDecimal(value.replaceAll("[\\s ]", "").replace(',', '.'));
         } catch (NumberFormatException e) {
-            issues.add(new FieldIssue(field, "Quantité « " + raw + " » illisible."));
+            issues.add(new FieldIssue(field, Messages.msg("m.imp-quantity-unreadable", raw)));
             return null;
         }
     }
