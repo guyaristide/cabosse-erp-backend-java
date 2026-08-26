@@ -113,6 +113,30 @@ class HarvestImportTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void a_parcel_code_in_the_parcel_name_column_still_matches() {
+        UserEntity admin = tenantAdmin();
+        String campaignId = createCampaign(admin);
+        createParcel(admin);
+
+        // Fichier retravaillé sur le terrain : le code plantation atterrit
+        // dans la colonne « Parcelle », relue comme un nom.
+        givenAs(admin)
+                .contentType("application/json")
+                .queryParam("campaignId", campaignId)
+                .body("""
+                        [
+                          { "rowNumber": 1, "parcelCode": "HV-2026-0001",
+                            "parcelName": "PR-REC-1", "harvestDate": "12/11/2025",
+                            "freshBeansKg": "500" }
+                        ]
+                        """)
+                .when().post("/api/v1/harvests/import/preview")
+                .then().statusCode(200)
+                .body("data.readyRows", equalTo(1))
+                .body("data.rows[0].normalized.parcelCode", equalTo("PR-REC-1"));
+    }
+
+    @Test
     void a_date_outside_the_campaign_is_a_warning_the_user_can_accept() {
         UserEntity admin = tenantAdmin();
         String campaignId = createCampaign(admin);

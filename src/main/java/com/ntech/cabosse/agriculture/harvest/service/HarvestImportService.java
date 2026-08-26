@@ -209,6 +209,13 @@ public class HarvestImportService {
         }
         String name = trim(rawName);
         if (name != null) {
+            // Les fichiers retravaillés mettent souvent le code plantation
+            // dans la colonne « Parcelle » : on le tente d'abord comme code.
+            Optional<ParcelEntity> nameAsCode = all.stream()
+                    .filter(p -> name.equalsIgnoreCase(p.code))
+                    .findFirst();
+            if (nameAsCode.isPresent()) return nameAsCode.get();
+
             String canonical = FuzzyLabels.canonical(name);
             List<ParcelEntity> byName = all.stream()
                     .filter(p -> FuzzyLabels.canonical(p.name).equals(canonical))
