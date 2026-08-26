@@ -1,6 +1,7 @@
 package com.ntech.cabosse.producerpurchase.controller;
 
 import com.ntech.cabosse.shared.export.ExportColumn;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.export.ExportDataset;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.tenant.entity.TenantEntity;
@@ -51,34 +52,34 @@ public class ProducerPurchaseImportTemplate {
         boolean withCard = !producerRefKeys.identifierTypeNames().isEmpty();
         List<ExportColumn<TemplateRow>> cols = new java.util.ArrayList<>(List.of(
                 // Constantes de la coopérative : pré-remplies, non relues.
-                ExportColumn.of("Acheteur (coopérative)", TemplateRow::buyerName),
-                ExportColumn.of("N° d'agrément",          TemplateRow::buyerAgrement),
-                ExportColumn.of("Localité",               TemplateRow::buyerCity),
-                ExportColumn.of("Téléphone acheteur",     TemplateRow::buyerPhone),
+                ExportColumn.of(Messages.msg("m.imp-h-purchase-buyer"),               TemplateRow::buyerName),
+                ExportColumn.of(Messages.msg("m.imp-h-purchase-buyer-agrement"),      TemplateRow::buyerAgrement),
+                ExportColumn.of(Messages.msg("m.imp-h-purchase-buyer-city"),          TemplateRow::buyerCity),
+                ExportColumn.of(Messages.msg("m.imp-h-purchase-buyer-phone"),         TemplateRow::buyerPhone),
                 // Transaction.
-                ExportColumn.of("Campagne",               TemplateRow::campaignLabel),
-                ExportColumn.of("N° reçu d'achat",        TemplateRow::officialReceiptRef),
+                ExportColumn.of(Messages.msg("m.imp-h-purchase-campaign"),            TemplateRow::campaignLabel),
+                ExportColumn.of(Messages.msg("m.imp-h-purchase-receipt-ref"),         TemplateRow::officialReceiptRef),
                 // Rappels de la fiche producteur : contrôle.
-                ExportColumn.of("Nom et prénoms producteur", TemplateRow::producerName),
-                ExportColumn.of("N° interne producteur",  TemplateRow::producerRef),
-                ExportColumn.of("Village / campement",    TemplateRow::village),
-                ExportColumn.of("Téléphone producteur",   TemplateRow::producerPhone),
-                ExportColumn.of("Section",                TemplateRow::sectionName),
+                ExportColumn.of(Messages.msg("m.imp-h-purchase-producer-full-name"),  TemplateRow::producerName),
+                ExportColumn.of(Messages.msg("m.imp-h-purchase-producer-ref"),        TemplateRow::producerRef),
+                ExportColumn.of(Messages.msg("m.imp-h-purchase-village"),             TemplateRow::village),
+                ExportColumn.of(Messages.msg("m.imp-h-purchase-producer-phone"),      TemplateRow::producerPhone),
+                ExportColumn.of(Messages.msg("m.imp-h-section"),                      TemplateRow::sectionName),
                 // Transaction (suite).
-                ExportColumn.of("Date achat",             TemplateRow::date),
-                ExportColumn.of("Produit acheté",         TemplateRow::product),
-                ExportColumn.of("Nombre de sacs",         TemplateRow::nbSacs),
-                ExportColumn.of("Poids total (kg)",       TemplateRow::weightKg),
-                ExportColumn.of("Prix garanti (FCFA/kg)", TemplateRow::price),
-                ExportColumn.of("Montant total (FCFA)",   TemplateRow::amount),
-                ExportColumn.of("Montant payé (FCFA)",    TemplateRow::amountPaid),
-                ExportColumn.of("Mode de paiement",       TemplateRow::paymentMethod),
-                ExportColumn.of("Référence paiement",     TemplateRow::paymentRef),
-                ExportColumn.of("Code délégué payeur",    TemplateRow::delegateCode),
-                ExportColumn.of("Nom délégué payeur",     TemplateRow::delegateName)
+                ExportColumn.of(Messages.msg("m.imp-h-purchase-date"),                TemplateRow::date),
+                ExportColumn.of(Messages.msg("m.imp-h-purchase-product"),             TemplateRow::product),
+                ExportColumn.of(Messages.msg("m.imp-h-purchase-bags"),                TemplateRow::nbSacs),
+                ExportColumn.of(Messages.msg("m.imp-h-purchase-weight"),              TemplateRow::weightKg),
+                ExportColumn.of(Messages.msg("m.imp-h-purchase-price"),               TemplateRow::price),
+                ExportColumn.of(Messages.msg("m.imp-h-purchase-amount"),              TemplateRow::amount),
+                ExportColumn.of(Messages.msg("m.imp-h-purchase-amount-paid"),         TemplateRow::amountPaid),
+                ExportColumn.of(Messages.msg("m.imp-h-purchase-payment-method"),      TemplateRow::paymentMethod),
+                ExportColumn.of(Messages.msg("m.imp-h-purchase-payment-ref"),         TemplateRow::paymentRef),
+                ExportColumn.of(Messages.msg("m.imp-h-purchase-delegate-code"),       TemplateRow::delegateCode),
+                ExportColumn.of(Messages.msg("m.imp-h-purchase-delegate-name"),       TemplateRow::delegateName)
         ));
         if (withCard) {
-            cols.add(7, ExportColumn.of("N° carte producteur", TemplateRow::producerExternalCode));
+            cols.add(7, ExportColumn.of(Messages.msg("m.imp-h-producer-card-number"), TemplateRow::producerExternalCode));
         }
         List<TemplateRow> samples = List.of(
                 new TemplateRow(

@@ -1,6 +1,7 @@
 package com.ntech.cabosse.agriculture.parcel.controller;
 
 import com.ntech.cabosse.shared.export.ExportColumn;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.export.ExportDataset;
 
 import java.util.List;
@@ -27,23 +28,23 @@ final class ParcelImportTemplate {
 
     static ExportDataset<TemplateRow> dataset() {
         List<ExportColumn<TemplateRow>> cols = List.of(
-                ExportColumn.of("Code plantation",     TemplateRow::code),
-                ExportColumn.of("Nom de la parcelle",  TemplateRow::name),
-                ExportColumn.of("Code producteur",     TemplateRow::producerCode),
-                ExportColumn.of("Nom du producteur",   TemplateRow::producerName),
-                ExportColumn.of("Superficie (ha)",     TemplateRow::surfaceHa),
-                ExportColumn.of("Latitude",            TemplateRow::latitude),
-                ExportColumn.of("Longitude",           TemplateRow::longitude),
-                ExportColumn.of("Culture",             TemplateRow::crop),
-                ExportColumn.of("Culture principale",  TemplateRow::mainCrop),
-                ExportColumn.of("Variété",             TemplateRow::variety),
-                ExportColumn.of("Date de plantation",  TemplateRow::plantingDate),
-                ExportColumn.of("Région",              TemplateRow::region),
-                ExportColumn.of("Département",         TemplateRow::department),
-                ExportColumn.of("Statut",              TemplateRow::status),
-                ExportColumn.of("Estimation (kg)",     TemplateRow::estimateKg),
-                ExportColumn.of("Rendement (kg/ha)",   TemplateRow::yieldPerHa),
-                ExportColumn.of("Notes",               TemplateRow::notes)
+                ExportColumn.of(Messages.msg("m.imp-h-parcel-code"),     TemplateRow::code),
+                ExportColumn.of(Messages.msg("m.imp-h-parcel-name"),  TemplateRow::name),
+                ExportColumn.of(Messages.msg("m.imp-h-producer-code"),     TemplateRow::producerCode),
+                ExportColumn.of(Messages.msg("m.imp-h-producer-name"),   TemplateRow::producerName),
+                ExportColumn.of(Messages.msg("m.imp-h-parcel-surface"),     TemplateRow::surfaceHa),
+                ExportColumn.of(Messages.msg("m.imp-h-latitude"),            TemplateRow::latitude),
+                ExportColumn.of(Messages.msg("m.imp-h-longitude"),           TemplateRow::longitude),
+                ExportColumn.of(Messages.msg("m.imp-h-parcel-crop"),             TemplateRow::crop),
+                ExportColumn.of(Messages.msg("m.imp-h-parcel-main-crop"),  TemplateRow::mainCrop),
+                ExportColumn.of(Messages.msg("m.imp-h-parcel-variety"),             TemplateRow::variety),
+                ExportColumn.of(Messages.msg("m.imp-h-parcel-planting-date"),  TemplateRow::plantingDate),
+                ExportColumn.of(Messages.msg("m.imp-h-region"),              TemplateRow::region),
+                ExportColumn.of(Messages.msg("m.imp-h-department"),         TemplateRow::department),
+                ExportColumn.of(Messages.msg("m.imp-h-status"),              TemplateRow::status),
+                ExportColumn.of(Messages.msg("m.imp-h-parcel-estimate"),     TemplateRow::estimateKg),
+                ExportColumn.of(Messages.msg("m.imp-h-parcel-yield"),   TemplateRow::yieldPerHa),
+                ExportColumn.of(Messages.msg("m.imp-h-notes"),               TemplateRow::notes)
         );
 
         List<TemplateRow> samples = List.of(

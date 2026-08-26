@@ -1,6 +1,7 @@
 package com.ntech.cabosse.site.controller;
 
 import com.ntech.cabosse.shared.export.ExportColumn;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.export.ExportDataset;
 
 import java.util.List;
@@ -18,20 +19,20 @@ final class SiteImportTemplate {
 
     static ExportDataset<TemplateRow> dataset() {
         List<ExportColumn<TemplateRow>> cols = List.of(
-                ExportColumn.of("Type",         TemplateRow::type),
-                ExportColumn.of("Code",         TemplateRow::code),
-                ExportColumn.of("Nom",          TemplateRow::name),
-                ExportColumn.of("Adresse",      TemplateRow::addressLine),
-                ExportColumn.of("Ville",        TemplateRow::cityName),
-                ExportColumn.of("Région",       TemplateRow::regionCode),
-                ExportColumn.of("Pays",         TemplateRow::countryCode),
-                ExportColumn.of("Latitude",     TemplateRow::latitude),
-                ExportColumn.of("Longitude",    TemplateRow::longitude),
-                ExportColumn.of("Téléphone",    TemplateRow::phone),
-                ExportColumn.of("E-mail",       TemplateRow::email),
-                ExportColumn.of("Responsable",  TemplateRow::managerName),
-                ExportColumn.of("Horaires",     TemplateRow::openingHours),
-                ExportColumn.of("Description",  TemplateRow::description)
+                ExportColumn.of(Messages.msg("m.imp-h-type"),                   TemplateRow::type),
+                ExportColumn.of(Messages.msg("m.imp-h-code"),                   TemplateRow::code),
+                ExportColumn.of(Messages.msg("m.imp-h-name"),                   TemplateRow::name),
+                ExportColumn.of(Messages.msg("m.imp-h-address"),                TemplateRow::addressLine),
+                ExportColumn.of(Messages.msg("m.imp-h-city"),                   TemplateRow::cityName),
+                ExportColumn.of(Messages.msg("m.imp-h-region"),                 TemplateRow::regionCode),
+                ExportColumn.of(Messages.msg("m.imp-h-country"),                TemplateRow::countryCode),
+                ExportColumn.of(Messages.msg("m.imp-h-latitude"),               TemplateRow::latitude),
+                ExportColumn.of(Messages.msg("m.imp-h-longitude"),              TemplateRow::longitude),
+                ExportColumn.of(Messages.msg("m.imp-h-phone"),                  TemplateRow::phone),
+                ExportColumn.of(Messages.msg("m.imp-h-email"),                  TemplateRow::email),
+                ExportColumn.of(Messages.msg("m.imp-h-site-manager"),           TemplateRow::managerName),
+                ExportColumn.of(Messages.msg("m.imp-h-site-opening-hours"),     TemplateRow::openingHours),
+                ExportColumn.of(Messages.msg("m.imp-h-description"),            TemplateRow::description)
         );
         List<TemplateRow> samples = List.of(
                 new TemplateRow(

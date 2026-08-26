@@ -1,6 +1,7 @@
 package com.ntech.cabosse.supplier.controller;
 
 import com.ntech.cabosse.shared.export.ExportColumn;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.export.ExportDataset;
 
 import java.util.List;
@@ -17,18 +18,18 @@ final class SupplierImportTemplate {
 
     static ExportDataset<TemplateRow> dataset() {
         List<ExportColumn<TemplateRow>> cols = List.of(
-                ExportColumn.of("Code",             TemplateRow::code),
-                ExportColumn.of("Nom",              TemplateRow::name),
-                ExportColumn.of("Raison sociale",   TemplateRow::legalName),
-                ExportColumn.of("N° fiscal",        TemplateRow::taxNumber),
-                ExportColumn.of("E-mail",           TemplateRow::email),
-                ExportColumn.of("Téléphone",        TemplateRow::phone),
-                ExportColumn.of("Adresse",          TemplateRow::addressLine),
-                ExportColumn.of("Ville",            TemplateRow::cityName),
-                ExportColumn.of("Pays",             TemplateRow::countryCode),
-                ExportColumn.of("Contact",          TemplateRow::contactName),
-                ExportColumn.of("Conditions paiement", TemplateRow::paymentTerms),
-                ExportColumn.of("Notes",            TemplateRow::notes)
+                ExportColumn.of(Messages.msg("m.imp-h-code"),                        TemplateRow::code),
+                ExportColumn.of(Messages.msg("m.imp-h-name"),                        TemplateRow::name),
+                ExportColumn.of(Messages.msg("m.imp-h-legal-name"),                  TemplateRow::legalName),
+                ExportColumn.of(Messages.msg("m.imp-h-tax-number"),                  TemplateRow::taxNumber),
+                ExportColumn.of(Messages.msg("m.imp-h-email"),                       TemplateRow::email),
+                ExportColumn.of(Messages.msg("m.imp-h-phone"),                       TemplateRow::phone),
+                ExportColumn.of(Messages.msg("m.imp-h-address"),                     TemplateRow::addressLine),
+                ExportColumn.of(Messages.msg("m.imp-h-city"),                        TemplateRow::cityName),
+                ExportColumn.of(Messages.msg("m.imp-h-country"),                     TemplateRow::countryCode),
+                ExportColumn.of(Messages.msg("m.imp-h-contact"),                     TemplateRow::contactName),
+                ExportColumn.of(Messages.msg("m.imp-h-supplier-payment-terms"),      TemplateRow::paymentTerms),
+                ExportColumn.of(Messages.msg("m.imp-h-notes"),                       TemplateRow::notes)
         );
         List<TemplateRow> samples = List.of(
                 new TemplateRow(

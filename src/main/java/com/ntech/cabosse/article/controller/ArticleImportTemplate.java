@@ -1,6 +1,7 @@
 package com.ntech.cabosse.article.controller;
 
 import com.ntech.cabosse.shared.export.ExportColumn;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.export.ExportDataset;
 
 import java.util.List;
@@ -24,18 +25,18 @@ final class ArticleImportTemplate {
 
     static ExportDataset<TemplateRow> dataset() {
         List<ExportColumn<TemplateRow>> cols = List.of(
-                ExportColumn.of("Type",          TemplateRow::type),
-                ExportColumn.of("Code",          TemplateRow::code),
-                ExportColumn.of("Nom",           TemplateRow::name),
-                ExportColumn.of("Unité",         TemplateRow::unit),
-                ExportColumn.of("Activité",      TemplateRow::activity),
-                ExportColumn.of("Stockable",     TemplateRow::stockable),
-                ExportColumn.of("Seuil alerte",  TemplateRow::alertThreshold),
-                ExportColumn.of("Coût standard", TemplateRow::standardCost),
-                ExportColumn.of("Prix de vente", TemplateRow::standardSalePrice),
-                ExportColumn.of("TVA (%)",       TemplateRow::vatRate),
-                ExportColumn.of("Code-barres",   TemplateRow::barcode),
-                ExportColumn.of("Description",   TemplateRow::description)
+                ExportColumn.of(Messages.msg("m.imp-h-type"),                     TemplateRow::type),
+                ExportColumn.of(Messages.msg("m.imp-h-code"),                     TemplateRow::code),
+                ExportColumn.of(Messages.msg("m.imp-h-name"),                     TemplateRow::name),
+                ExportColumn.of(Messages.msg("m.imp-h-article-unit"),             TemplateRow::unit),
+                ExportColumn.of(Messages.msg("m.imp-h-article-activity"),         TemplateRow::activity),
+                ExportColumn.of(Messages.msg("m.imp-h-article-stockable"),        TemplateRow::stockable),
+                ExportColumn.of(Messages.msg("m.imp-h-article-alert-threshold"),  TemplateRow::alertThreshold),
+                ExportColumn.of(Messages.msg("m.imp-h-article-standard-cost"),    TemplateRow::standardCost),
+                ExportColumn.of(Messages.msg("m.imp-h-article-sale-price"),       TemplateRow::standardSalePrice),
+                ExportColumn.of(Messages.msg("m.imp-h-article-vat-rate"),         TemplateRow::vatRate),
+                ExportColumn.of(Messages.msg("m.imp-h-article-barcode"),          TemplateRow::barcode),
+                ExportColumn.of(Messages.msg("m.imp-h-description"),              TemplateRow::description)
         );
         List<TemplateRow> samples = List.of(
                 new TemplateRow(

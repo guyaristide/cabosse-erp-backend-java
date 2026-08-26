@@ -1,6 +1,7 @@
 package com.ntech.cabosse.members.controller;
 
 import com.ntech.cabosse.shared.export.ExportColumn;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.export.ExportDataset;
 
 import java.util.List;
@@ -32,41 +33,41 @@ final class MemberImportTemplate {
 
     static ExportDataset<TemplateRow> dataset() {
         List<ExportColumn<TemplateRow>> cols = List.of(
-                ExportColumn.of("Code producteur",           TemplateRow::code),
+                ExportColumn.of(Messages.msg("m.imp-h-producer-code"),                  TemplateRow::code),
                 // Carte délivrée par un tiers (organisme de filière). Le type
                 // absent du référentiel est créé et déclaré comme servant à
                 // retrouver le producteur ; laissez les deux vides si votre
                 // filière n'en délivre pas.
-                ExportColumn.of("Type de carte producteur",  TemplateRow::externalCodeType),
-                ExportColumn.of("N° carte producteur",       TemplateRow::externalCode),
-                ExportColumn.of("Nom",                       TemplateRow::lastName),
-                ExportColumn.of("Prénoms",                   TemplateRow::firstName),
-                ExportColumn.of("Genre",                     TemplateRow::gender),
-                ExportColumn.of("Nature",                    TemplateRow::personType),
-                ExportColumn.of("Situation matrimoniale",    TemplateRow::maritalStatus),
-                ExportColumn.of("Date de naissance",         TemplateRow::birthDate),
-                ExportColumn.of("Lieu de naissance",         TemplateRow::birthPlace),
-                ExportColumn.of("Type de pièce",             TemplateRow::idDocType),
-                ExportColumn.of("Numéro de pièce",           TemplateRow::idDocNumber),
-                ExportColumn.of("Identifiant national",      TemplateRow::nationalIdNumber),
-                ExportColumn.of("Téléphone",                 TemplateRow::phone),
-                ExportColumn.of("Village",                   TemplateRow::village),
-                ExportColumn.of("Section",                   TemplateRow::section),
-                ExportColumn.of("Date d'adhésion",           TemplateRow::joinedAt),
-                ExportColumn.of("Parts sociales",            TemplateRow::partsSocialesAmount),
-                ExportColumn.of("Nombre de femmes",          TemplateRow::spousesCount),
-                ExportColumn.of("Nombre d'enfants",          TemplateRow::childrenCount),
-                ExportColumn.of("Filles",                    TemplateRow::girlsCount),
-                ExportColumn.of("Garçons",                   TemplateRow::boysCount),
-                ExportColumn.of("Enfants 0 à 4 ans",         TemplateRow::children0to4),
-                ExportColumn.of("Enfants 5 à 17 ans",        TemplateRow::children5to17),
-                ExportColumn.of("Enfants plus de 17 ans",    TemplateRow::childrenOver17),
-                ExportColumn.of("Enfants scolarisés",        TemplateRow::childrenSchooled),
-                ExportColumn.of("Enfants non scolarisés",    TemplateRow::childrenNotSchooled),
-                ExportColumn.of("Activité des enfants",      TemplateRow::childrenActivity),
-                ExportColumn.of("Producteur recensé",        TemplateRow::censusRegistered),
-                ExportColumn.of("Carte producteur remise",   TemplateRow::producerCardIssued),
-                ExportColumn.of("Date de collecte",          TemplateRow::dataCollectedAt)
+                ExportColumn.of(Messages.msg("m.imp-h-member-card-type"),               TemplateRow::externalCodeType),
+                ExportColumn.of(Messages.msg("m.imp-h-producer-card-number"),           TemplateRow::externalCode),
+                ExportColumn.of(Messages.msg("m.imp-h-member-last-name"),               TemplateRow::lastName),
+                ExportColumn.of(Messages.msg("m.imp-h-member-first-name"),              TemplateRow::firstName),
+                ExportColumn.of(Messages.msg("m.imp-h-member-gender"),                  TemplateRow::gender),
+                ExportColumn.of(Messages.msg("m.imp-h-member-person-type"),             TemplateRow::personType),
+                ExportColumn.of(Messages.msg("m.imp-h-member-marital-status"),          TemplateRow::maritalStatus),
+                ExportColumn.of(Messages.msg("m.imp-h-member-birth-date"),              TemplateRow::birthDate),
+                ExportColumn.of(Messages.msg("m.imp-h-member-birth-place"),             TemplateRow::birthPlace),
+                ExportColumn.of(Messages.msg("m.imp-h-member-id-doc-type"),             TemplateRow::idDocType),
+                ExportColumn.of(Messages.msg("m.imp-h-member-id-doc-number"),           TemplateRow::idDocNumber),
+                ExportColumn.of(Messages.msg("m.imp-h-member-national-id"),             TemplateRow::nationalIdNumber),
+                ExportColumn.of(Messages.msg("m.imp-h-phone"),                          TemplateRow::phone),
+                ExportColumn.of(Messages.msg("m.imp-h-member-village"),                 TemplateRow::village),
+                ExportColumn.of(Messages.msg("m.imp-h-section"),                        TemplateRow::section),
+                ExportColumn.of(Messages.msg("m.imp-h-member-joined-at"),               TemplateRow::joinedAt),
+                ExportColumn.of(Messages.msg("m.imp-h-member-shares"),                  TemplateRow::partsSocialesAmount),
+                ExportColumn.of(Messages.msg("m.imp-h-member-spouses-count"),           TemplateRow::spousesCount),
+                ExportColumn.of(Messages.msg("m.imp-h-member-children-count"),          TemplateRow::childrenCount),
+                ExportColumn.of(Messages.msg("m.imp-h-member-girls-count"),             TemplateRow::girlsCount),
+                ExportColumn.of(Messages.msg("m.imp-h-member-boys-count"),              TemplateRow::boysCount),
+                ExportColumn.of(Messages.msg("m.imp-h-member-children-0-4"),            TemplateRow::children0to4),
+                ExportColumn.of(Messages.msg("m.imp-h-member-children-5-17"),           TemplateRow::children5to17),
+                ExportColumn.of(Messages.msg("m.imp-h-member-children-over-17"),        TemplateRow::childrenOver17),
+                ExportColumn.of(Messages.msg("m.imp-h-member-children-schooled"),       TemplateRow::childrenSchooled),
+                ExportColumn.of(Messages.msg("m.imp-h-member-children-not-schooled"),   TemplateRow::childrenNotSchooled),
+                ExportColumn.of(Messages.msg("m.imp-h-member-children-activity"),       TemplateRow::childrenActivity),
+                ExportColumn.of(Messages.msg("m.imp-h-member-census-registered"),       TemplateRow::censusRegistered),
+                ExportColumn.of(Messages.msg("m.imp-h-member-card-issued"),             TemplateRow::producerCardIssued),
+                ExportColumn.of(Messages.msg("m.imp-h-member-collected-at"),            TemplateRow::dataCollectedAt)
         );
 
         List<TemplateRow> samples = List.of(

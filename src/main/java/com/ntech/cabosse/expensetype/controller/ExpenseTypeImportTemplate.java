@@ -1,6 +1,7 @@
 package com.ntech.cabosse.expensetype.controller;
 
 import com.ntech.cabosse.shared.export.ExportColumn;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.export.ExportDataset;
 
 import java.util.List;
@@ -13,11 +14,11 @@ final class ExpenseTypeImportTemplate {
 
     static ExportDataset<TemplateRow> dataset() {
         List<ExportColumn<TemplateRow>> cols = List.of(
-                ExportColumn.of("Code",             TemplateRow::code),
-                ExportColumn.of("Nom",              TemplateRow::name),
-                ExportColumn.of("Catégorie",        TemplateRow::category),
-                ExportColumn.of("Compte SYSCOHADA", TemplateRow::syscohada),
-                ExportColumn.of("Description",      TemplateRow::description)
+                ExportColumn.of(Messages.msg("m.imp-h-code"),                     TemplateRow::code),
+                ExportColumn.of(Messages.msg("m.imp-h-name"),                     TemplateRow::name),
+                ExportColumn.of(Messages.msg("m.imp-h-expense-type-category"),    TemplateRow::category),
+                ExportColumn.of(Messages.msg("m.imp-h-expense-type-account"),     TemplateRow::syscohada),
+                ExportColumn.of(Messages.msg("m.imp-h-description"),              TemplateRow::description)
         );
         List<TemplateRow> samples = List.of(
                 new TemplateRow("transport", "Transport inter-sites", "Logistique", "624", ""),

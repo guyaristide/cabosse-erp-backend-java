@@ -1,6 +1,7 @@
 package com.ntech.cabosse.agriculture.harvest.controller;
 
 import com.ntech.cabosse.shared.export.ExportColumn;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.export.ExportDataset;
 
 import java.util.List;
@@ -25,14 +26,14 @@ final class HarvestImportTemplate {
 
     static ExportDataset<TemplateRow> dataset() {
         List<ExportColumn<TemplateRow>> cols = List.of(
-                ExportColumn.of("Code plantation",     TemplateRow::parcelCode),
-                ExportColumn.of("Nom de la parcelle",  TemplateRow::parcelName),
-                ExportColumn.of("Code producteur",     TemplateRow::producerCode),
-                ExportColumn.of("Date de récolte",     TemplateRow::harvestDate),
-                ExportColumn.of("Cabosses (kg)",       TemplateRow::cabossesKg),
-                ExportColumn.of("Fèves fraîches (kg)", TemplateRow::freshBeansKg),
-                ExportColumn.of("Qualité",             TemplateRow::qualityNotes),
-                ExportColumn.of("Notes",               TemplateRow::notes)
+                ExportColumn.of(Messages.msg("m.imp-h-parcel-code"),           TemplateRow::parcelCode),
+                ExportColumn.of(Messages.msg("m.imp-h-parcel-name"),           TemplateRow::parcelName),
+                ExportColumn.of(Messages.msg("m.imp-h-producer-code"),         TemplateRow::producerCode),
+                ExportColumn.of(Messages.msg("m.imp-h-harvest-date"),          TemplateRow::harvestDate),
+                ExportColumn.of(Messages.msg("m.imp-h-harvest-pods"),          TemplateRow::cabossesKg),
+                ExportColumn.of(Messages.msg("m.imp-h-harvest-fresh-beans"),   TemplateRow::freshBeansKg),
+                ExportColumn.of(Messages.msg("m.imp-h-harvest-quality"),       TemplateRow::qualityNotes),
+                ExportColumn.of(Messages.msg("m.imp-h-notes"),                 TemplateRow::notes)
         );
 
         List<TemplateRow> samples = List.of(

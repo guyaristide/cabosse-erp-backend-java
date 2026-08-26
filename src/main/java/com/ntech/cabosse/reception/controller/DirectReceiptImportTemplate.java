@@ -1,6 +1,7 @@
 package com.ntech.cabosse.reception.controller;
 
 import com.ntech.cabosse.shared.export.ExportColumn;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.export.ExportDataset;
 
 import java.util.List;
@@ -27,13 +28,13 @@ final class DirectReceiptImportTemplate {
 
     static ExportDataset<TemplateRow> dataset() {
         List<ExportColumn<TemplateRow>> cols = List.of(
-                ExportColumn.of("Date",            TemplateRow::date),
-                ExportColumn.of("Code producteur", TemplateRow::producerCode),
-                ExportColumn.of("Nom producteur",  TemplateRow::producerName),
-                ExportColumn.of("Quantité",        TemplateRow::quantity),
-                ExportColumn.of("PU FCFA",         TemplateRow::unitPriceFcfa),
-                ExportColumn.of("N° bon livraison", TemplateRow::deliveryNoteRef),
-                ExportColumn.of("Notes",           TemplateRow::notes)
+                ExportColumn.of(Messages.msg("m.imp-h-date"),                        TemplateRow::date),
+                ExportColumn.of(Messages.msg("m.imp-h-producer-code"),               TemplateRow::producerCode),
+                ExportColumn.of(Messages.msg("m.imp-h-receipt-producer-name"),       TemplateRow::producerName),
+                ExportColumn.of(Messages.msg("m.imp-h-receipt-quantity"),            TemplateRow::quantity),
+                ExportColumn.of(Messages.msg("m.imp-h-receipt-unit-price"),          TemplateRow::unitPriceFcfa),
+                ExportColumn.of(Messages.msg("m.imp-h-receipt-delivery-note"),       TemplateRow::deliveryNoteRef),
+                ExportColumn.of(Messages.msg("m.imp-h-notes"),                       TemplateRow::notes)
         );
         List<TemplateRow> samples = List.of(
                 new TemplateRow(
