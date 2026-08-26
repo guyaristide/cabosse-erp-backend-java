@@ -4,6 +4,7 @@ import com.ntech.cabosse.settings.mail.PlatformMailerService;
 import com.ntech.cabosse.shared.config.ApplicationConfig;
 import com.ntech.cabosse.shared.events.Events;
 import com.ntech.cabosse.shared.i18n.Locales;
+import com.ntech.cabosse.shared.i18n.MailTexts;
 import com.ntech.cabosse.shared.i18n.Messages;
 import io.quarkus.qute.Location;
 import io.quarkus.qute.Template;
@@ -55,10 +56,27 @@ public class TenantInvitationListener {
                     event.invitationTokenClearValue()
             );
 
+            // Les phrases viennent du catalogue, rendues dans la langue
+            // portée par l'événement ; le gabarit ne garde que sa mise en
+            // page, qui n'a donc pas à être dupliquée par langue.
+            java.util.Locale locale = Locales.of(event.locale());
+            MailTexts texts = MailTexts.in(locale)
+                    .put("title", "m.mail-tenant-invitation-title")
+                    .put("greeting", "m.mail-tenant-invitation-greeting", event.adminFirstName())
+                    .put("provisionedBefore", "m.mail-tenant-invitation-provisioned-before")
+                    .put("provisionedAfter", "m.mail-tenant-invitation-provisioned-after")
+                    .put("activateBefore", "m.mail-tenant-invitation-activate-before")
+                    .put("validity", "m.mail-tenant-invitation-validity")
+                    .put("activateAfter", "m.mail-tenant-invitation-activate-after")
+                    .put("cta", "m.mail-tenant-invitation-cta")
+                    .put("fallbackHint", "m.mail-fallback-hint")
+                    .put("nextSteps", "m.mail-tenant-invitation-next-steps");
+
             String html = invitationTemplate
                     .data("tenantName", event.tenantName())
                     .data("firstName", event.adminFirstName())
                     .data("activationUrl", activationUrl)
+                    .data("t", texts.build())
                     .render();
 
             // Rendu dans la langue portée par l'événement : ce consommateur
@@ -66,8 +84,8 @@ public class TenantInvitationListener {
             // français quelle que soit la préférence du destinataire.
             mailer.sendHtml(
                     event.adminEmail(),
-                    Messages.msg(Locales.of(event.locale()),
-                            "m.mail-tenant-invitation-subject", event.tenantName()),
+                    Messages.msg(locale, "m.mail-tenant-invitation-subject",
+                            event.tenantName()),
                     html
             );
 

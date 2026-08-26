@@ -1,5 +1,7 @@
 package com.ntech.cabosse.tenant.service;
 
+import com.ntech.cabosse.shared.i18n.Locales;
+import com.ntech.cabosse.shared.i18n.MailTexts;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.ConflictException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
@@ -27,6 +29,7 @@ import java.time.Instant;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 
@@ -193,29 +196,61 @@ public class TenantUserService {
 
     private void sendInvitationMail(TenantEntity tenant, UserEntity user, String tokenClear) {
         String url = "%s/invitation/%s".formatted(appConfig.frontendBaseUrl(), tokenClear);
+        // Langue du destinataire, pas celle de l'administrateur qui invite :
+        // le courriel s'adresse à l'invité.
+        Locale locale = Locales.firstOf(user.locale,
+                tenant.preferences != null ? tenant.preferences.language : null);
+        MailTexts texts = MailTexts.in(locale)
+                .put("title", "m.mail-user-invitation-title", tenant.name)
+                .put("greeting", "m.mail-user-invitation-greeting", user.firstName)
+                .put("invitedBefore", "m.mail-user-invitation-invited-before")
+                .put("invitedMiddle", "m.mail-user-invitation-invited-middle")
+                .put("invitedAfter", "m.mail-user-invitation-invited-after")
+                .put("activateBefore", "m.mail-user-invitation-activate-before")
+                .put("validity", "m.mail-validity-7-days")
+                .put("activateAfter", "m.mail-activate-after")
+                .put("cta", "m.mail-user-invitation-cta")
+                .put("fallbackHint", "m.mail-fallback-hint")
+                .put("notExpected", "m.mail-user-invitation-not-expected");
         String html = invitationTemplate
                 .data("firstName", user.firstName)
                 .data("tenantName", tenant.name)
                 .data("roleLabel", humanRoleLabel(user.roles))
                 .data("activationUrl", url)
+                .data("t", texts.build())
                 .render();
         mailer.sendHtml(
                 user.email,
-                "Invitation Cabosse ERP : " + tenant.name,
+                Messages.msg(locale, "m.mail-user-invitation-subject", tenant.name),
                 html
         );
     }
 
     private void sendPasswordResetMail(TenantEntity tenant, UserEntity user, String tokenClear) {
         String url = "%s/invitation/%s".formatted(appConfig.frontendBaseUrl(), tokenClear);
+        Locale locale = Locales.firstOf(user.locale,
+                tenant.preferences != null ? tenant.preferences.language : null);
+        MailTexts texts = MailTexts.in(locale)
+                .put("title", "m.mail-password-reset-title")
+                .put("heading", "m.mail-password-reset-heading")
+                .put("greeting", "m.mail-password-reset-greeting", user.firstName)
+                .put("resetBefore", "m.mail-password-reset-before")
+                .put("resetAfter", "m.mail-password-reset-after")
+                .put("activateBefore", "m.mail-password-reset-activate-before")
+                .put("validity", "m.mail-validity-7-days")
+                .put("activateAfter", "m.mail-activate-after")
+                .put("cta", "m.mail-password-reset-cta")
+                .put("fallbackHint", "m.mail-fallback-hint")
+                .put("notYou", "m.mail-password-reset-not-you");
         String html = passwordResetTemplate
                 .data("firstName", user.firstName)
                 .data("tenantName", tenant.name)
                 .data("activationUrl", url)
+                .data("t", texts.build())
                 .render();
         mailer.sendHtml(
                 user.email,
-                "Réinitialisation du mot de passe : Cabosse ERP",
+                Messages.msg(locale, "m.mail-password-reset-subject"),
                 html
         );
     }
