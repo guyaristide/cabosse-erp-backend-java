@@ -598,7 +598,8 @@ public class MemberImportService {
         String c = FuzzyLabels.canonical(raw);
         if (c.startsWith("oui") || c.equals("o") || c.startsWith("yes") || c.equals("x")
                 || c.equals("1") || c.startsWith("vrai")) return Boolean.TRUE;
-        if (c.startsWith("non") || c.equals("n") || c.equals("0") || c.startsWith("faux")) {
+        if (c.startsWith("non") || c.equals("n") || c.equals("no") || c.equals("0")
+                || c.startsWith("faux") || c.startsWith("false")) {
             return Boolean.FALSE;
         }
         return null;

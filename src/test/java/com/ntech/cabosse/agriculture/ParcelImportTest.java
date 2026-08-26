@@ -267,6 +267,34 @@ class ParcelImportTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void an_english_export_reimports_with_its_status_and_flags() {
+        UserEntity admin = tenantAdmin();
+
+        // Le fichier revient tel qu'il est parti : si l'export a été demandé
+        // en anglais, la relecture doit reconnaître « Fallow » et « No »,
+        // qui n'ont aucune racine commune avec « jachère » et « non ».
+        givenAs(admin).contentType("application/json").body("""
+                [
+                  { "rowNumber": 1, "code": "PR-EN-1", "name": "English parcel",
+                    "surfaceHa": "3", "status": "Fallow", "mainCrop": "No" },
+                  { "rowNumber": 2, "code": "PR-EN-2", "name": "Second parcel",
+                    "surfaceHa": "2", "status": "Abandoned", "mainCrop": "Yes" }
+                ]
+                """)
+                .when().post("/api/v1/parcels/import/commit")
+                .then().statusCode(200)
+                .body("data.createdCount", equalTo(2))
+                .body("data.skippedCount", equalTo(0));
+
+        givenAs(admin).when().get("/api/v1/parcels")
+                .then().statusCode(200)
+                .body("data.items.find { it.code == 'PR-EN-1' }.status", equalTo("FALLOW"))
+                .body("data.items.find { it.code == 'PR-EN-1' }.mainCrop", equalTo(false))
+                .body("data.items.find { it.code == 'PR-EN-2' }.status", equalTo("ABANDONED"))
+                .body("data.items.find { it.code == 'PR-EN-2' }.mainCrop", equalTo(true));
+    }
+
+    @Test
     void orphan_parcels_are_created_only_when_explicitly_accepted() {
         UserEntity admin = tenantAdmin();
         String body = """

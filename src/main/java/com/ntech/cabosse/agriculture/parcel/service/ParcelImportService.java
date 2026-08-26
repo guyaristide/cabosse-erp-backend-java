@@ -482,8 +482,11 @@ public class ParcelImportService {
         String value = trim(raw);
         if (value == null) return "ACTIVE";
         String c = FuzzyLabels.canonical(value);
+        // Français et anglais : ces mots viennent d'un fichier exporté puis
+        // corrigé, qui a pu partir dans l'une ou l'autre langue. « Fallow »
+        // n'a aucune racine commune avec « jachère », il faut le nommer.
         if (c.contains("production") || c.contains("active")) return "ACTIVE";
-        if (c.contains("jachere")) return "FALLOW";
+        if (c.contains("jachere") || c.contains("fallow")) return "FALLOW";
         if (c.contains("replant")) return "REPLANTING";
         if (c.contains("abandon")) return "ABANDONED";
         issues.add(new FieldIssue("status",
@@ -496,7 +499,7 @@ public class ParcelImportService {
         if (value == null) return false;
         String c = FuzzyLabels.canonical(value);
         return c.startsWith("oui") || c.equals("o") || c.equals("x") || c.equals("1")
-                || c.startsWith("yes") || c.startsWith("vrai") || c.startsWith("principale");
+                || c.startsWith("yes") || c.startsWith("vrai") || c.startsWith("true") || c.startsWith("principale");
     }
 
     private static LocalDate parseDate(String raw, String field, List<FieldIssue> issues) {

@@ -4,6 +4,7 @@ import com.ntech.cabosse.agriculture.parcel.dto.ParcelResponseDto;
 import com.ntech.cabosse.agriculture.parcel.entity.ParcelStatus;
 import com.ntech.cabosse.shared.export.ColumnKind;
 import com.ntech.cabosse.shared.export.ExportColumn;
+import com.ntech.cabosse.shared.i18n.Messages;
 
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -54,14 +55,21 @@ final class ParcelExportColumns {
                         p.certifications() == null ? null : String.join(", ", p.certifications())));
     }
 
-    /** Libellés compris par {@code ParcelImportService.parseStatus}. */
+    /**
+     * Libellé de statut, dans la langue de la requête.
+     *
+     * <p>Ces mots repartent dans un fichier que l'utilisateur corrigera et
+     * réimportera : {@code ParcelImportService.parseStatus} doit donc
+     * reconnaître chacun d'eux, dans les deux langues. Les deux listes se
+     * lisent ensemble.</p>
+     */
     private static String statusLabel(ParcelStatus status) {
         if (status == null) return null;
         return switch (status) {
-            case ACTIVE -> "En production";
-            case FALLOW -> "En jachère";
-            case REPLANTING -> "Replantation";
-            case ABANDONED -> "Abandonnée";
+            case ACTIVE -> Messages.msg("m.imp-v-parcel-status-active");
+            case FALLOW -> Messages.msg("m.imp-v-parcel-status-fallow");
+            case REPLANTING -> Messages.msg("m.imp-v-parcel-status-replanting");
+            case ABANDONED -> Messages.msg("m.imp-v-parcel-status-abandoned");
         };
     }
 }
