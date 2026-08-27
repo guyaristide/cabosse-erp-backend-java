@@ -2,6 +2,7 @@ package com.ntech.cabosse.achats.controller;
 
 import com.ntech.cabosse.achats.dto.PurchaseOrderResponseDto;
 import com.ntech.cabosse.shared.export.ExportColumn;
+import com.ntech.cabosse.shared.i18n.Messages;
 
 import java.util.List;
 
@@ -11,22 +12,22 @@ final class PurchaseOrderExportColumns {
 
     static List<ExportColumn<PurchaseOrderResponseDto>> all() {
         return List.of(
-                ExportColumn.of("Référence",     PurchaseOrderResponseDto::ref),
-                ExportColumn.of("Statut",        b -> humanStatus(b.status() == null ? null : b.status().name())),
-                ExportColumn.of("Fournisseur",   PurchaseOrderResponseDto::supplierName),
-                ExportColumn.of("Date commande", PurchaseOrderResponseDto::orderDate),
-                ExportColumn.of("Date livraison", PurchaseOrderResponseDto::deliveryDate),
-                ExportColumn.of("N° facture",    PurchaseOrderResponseDto::invoiceNumber),
-                ExportColumn.of("Date facture",  PurchaseOrderResponseDto::invoiceDate),
-                ExportColumn.of("Lignes",        b -> b.lines() == null ? 0 : b.lines().size()),
-                ExportColumn.of("Sous-total HT", PurchaseOrderResponseDto::subtotalHtFcfa),
-                ExportColumn.of("Transport",     PurchaseOrderResponseDto::transportFcfa),
-                ExportColumn.of("TVA (%)",       PurchaseOrderResponseDto::vatRatePct),
-                ExportColumn.of("TVA (FCFA)",    PurchaseOrderResponseDto::vatFcfa),
-                ExportColumn.of("Total TTC",     PurchaseOrderResponseDto::totalTtcFcfa),
-                ExportColumn.of("Conditions",    PurchaseOrderResponseDto::paymentTerms),
-                ExportColumn.of("Créé par",      PurchaseOrderResponseDto::createdByEmail),
-                ExportColumn.of("Créé le",       PurchaseOrderResponseDto::createdAt)
+                ExportColumn.of(Messages.msg("m.imp-h-reference"),     PurchaseOrderResponseDto::ref),
+                ExportColumn.of(Messages.msg("m.imp-h-status"),        b -> humanStatus(b.status() == null ? null : b.status().name())),
+                ExportColumn.of(Messages.msg("m.imp-h-fournisseur"),   PurchaseOrderResponseDto::supplierName),
+                ExportColumn.of(Messages.msg("m.imp-h-date-commande"), PurchaseOrderResponseDto::orderDate),
+                ExportColumn.of(Messages.msg("m.imp-h-date-livraison"), PurchaseOrderResponseDto::deliveryDate),
+                ExportColumn.of(Messages.msg("m.imp-h-n-facture"),    PurchaseOrderResponseDto::invoiceNumber),
+                ExportColumn.of(Messages.msg("m.imp-h-date-facture"),  PurchaseOrderResponseDto::invoiceDate),
+                ExportColumn.of(Messages.msg("m.imp-h-lignes"),        b -> b.lines() == null ? 0 : b.lines().size()),
+                ExportColumn.of(Messages.msg("m.imp-h-sous-total-ht"), PurchaseOrderResponseDto::subtotalHtFcfa),
+                ExportColumn.of(Messages.msg("m.imp-h-transport"),     PurchaseOrderResponseDto::transportFcfa),
+                ExportColumn.of(Messages.msg("m.imp-h-article-vat-rate"),       PurchaseOrderResponseDto::vatRatePct),
+                ExportColumn.of(Messages.msg("m.imp-h-tva-fcfa"),    PurchaseOrderResponseDto::vatFcfa),
+                ExportColumn.of(Messages.msg("m.imp-h-total-ttc"),     PurchaseOrderResponseDto::totalTtcFcfa),
+                ExportColumn.of(Messages.msg("m.imp-h-conditions"),    PurchaseOrderResponseDto::paymentTerms),
+                ExportColumn.of(Messages.msg("m.imp-h-cree-par"),      PurchaseOrderResponseDto::createdByEmail),
+                ExportColumn.of(Messages.msg("m.imp-h-cree-le"),       PurchaseOrderResponseDto::createdAt)
         );
     }
 

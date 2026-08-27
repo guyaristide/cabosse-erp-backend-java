@@ -2,6 +2,7 @@ package com.ntech.cabosse.reception.controller;
 
 import com.ntech.cabosse.reception.dto.DirectReceiptResponseDto;
 import com.ntech.cabosse.shared.export.ExportColumn;
+import com.ntech.cabosse.shared.i18n.Messages;
 
 import java.util.List;
 
@@ -17,18 +18,18 @@ final class DirectReceiptExportColumns {
 
     static List<ExportColumn<DirectReceiptResponseDto>> all() {
         return List.of(
-                ExportColumn.of("Référence",     DirectReceiptResponseDto::ref),
-                ExportColumn.of("Date réception", DirectReceiptResponseDto::receivedDate),
-                ExportColumn.of("Article",       DirectReceiptResponseDto::articleName),
-                ExportColumn.of("Code article",  DirectReceiptResponseDto::articleCode),
-                ExportColumn.of("Unité",         DirectReceiptResponseDto::articleUnit),
-                ExportColumn.of("Producteurs",   r -> r.lines() == null ? 0 : r.lines().size()),
-                ExportColumn.of("Statut",        r -> humanStatus(r.status() == null ? null : r.status().name())),
-                ExportColumn.of("Total HT",      DirectReceiptResponseDto::subtotalHtFcfa),
-                ExportColumn.of("Total payé",    DirectReceiptResponseDto::totalPaidFcfa),
-                ExportColumn.of("N° BL session", DirectReceiptResponseDto::deliveryNoteRef),
-                ExportColumn.of("Réceptionné par", DirectReceiptResponseDto::receiverEmail),
-                ExportColumn.of("Créé le",       DirectReceiptResponseDto::createdAt)
+                ExportColumn.of(Messages.msg("m.imp-h-reference"),     DirectReceiptResponseDto::ref),
+                ExportColumn.of(Messages.msg("m.imp-h-date-reception"), DirectReceiptResponseDto::receivedDate),
+                ExportColumn.of(Messages.msg("m.imp-h-article"),       DirectReceiptResponseDto::articleName),
+                ExportColumn.of(Messages.msg("m.imp-h-code-article"),  DirectReceiptResponseDto::articleCode),
+                ExportColumn.of(Messages.msg("m.imp-h-article-unit"),         DirectReceiptResponseDto::articleUnit),
+                ExportColumn.of(Messages.msg("m.imp-h-producteurs"),   r -> r.lines() == null ? 0 : r.lines().size()),
+                ExportColumn.of(Messages.msg("m.imp-h-status"),        r -> humanStatus(r.status() == null ? null : r.status().name())),
+                ExportColumn.of(Messages.msg("m.imp-h-total-ht"),      DirectReceiptResponseDto::subtotalHtFcfa),
+                ExportColumn.of(Messages.msg("m.imp-h-total-paye"),    DirectReceiptResponseDto::totalPaidFcfa),
+                ExportColumn.of(Messages.msg("m.imp-h-n-bl-session"), DirectReceiptResponseDto::deliveryNoteRef),
+                ExportColumn.of(Messages.msg("m.imp-h-receptionne-par"), DirectReceiptResponseDto::receiverEmail),
+                ExportColumn.of(Messages.msg("m.imp-h-cree-le"),       DirectReceiptResponseDto::createdAt)
         );
     }
 

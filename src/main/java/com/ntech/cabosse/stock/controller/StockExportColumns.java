@@ -1,6 +1,7 @@
 package com.ntech.cabosse.stock.controller;
 
 import com.ntech.cabosse.shared.export.ExportColumn;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.stock.dto.StockItemResponseDto;
 import com.ntech.cabosse.stock.dto.StockMovementResponseDto;
 import com.ntech.cabosse.stock.entity.MovementKind;
@@ -15,37 +16,37 @@ final class StockExportColumns {
     /** Colonnes pour la situation stock (1 ligne = 1 couple article × site). */
     static List<ExportColumn<StockItemResponseDto>> stocks() {
         return List.of(
-                ExportColumn.of("Article",       StockItemResponseDto::articleName),
-                ExportColumn.of("Code",          StockItemResponseDto::articleCode),
-                ExportColumn.of("Catégorie",     r -> humanType(r.articleType() == null ? null : r.articleType().name())),
-                ExportColumn.of("Unité",         StockItemResponseDto::articleUnit),
-                ExportColumn.of("Quantité",      StockItemResponseDto::quantity),
-                ExportColumn.of("CMUP (FCFA)",   StockItemResponseDto::cmupFcfa),
-                ExportColumn.of("Valeur totale", StockItemResponseDto::totalValueFcfa),
-                ExportColumn.of("Seuil d'alerte", StockItemResponseDto::alertThreshold),
-                ExportColumn.of("Dernier mvt",   StockItemResponseDto::lastMovementAt)
+                ExportColumn.of(Messages.msg("m.imp-h-article"),       StockItemResponseDto::articleName),
+                ExportColumn.of(Messages.msg("m.imp-h-code"),          StockItemResponseDto::articleCode),
+                ExportColumn.of(Messages.msg("m.imp-h-expense-type-category"),     r -> humanType(r.articleType() == null ? null : r.articleType().name())),
+                ExportColumn.of(Messages.msg("m.imp-h-article-unit"),         StockItemResponseDto::articleUnit),
+                ExportColumn.of(Messages.msg("m.imp-h-receipt-quantity"),      StockItemResponseDto::quantity),
+                ExportColumn.of(Messages.msg("m.imp-h-cmup-fcfa"),   StockItemResponseDto::cmupFcfa),
+                ExportColumn.of(Messages.msg("m.imp-h-valeur-totale"), StockItemResponseDto::totalValueFcfa),
+                ExportColumn.of(Messages.msg("m.imp-h-seuil-d-alerte"), StockItemResponseDto::alertThreshold),
+                ExportColumn.of(Messages.msg("m.imp-h-dernier-mvt"),   StockItemResponseDto::lastMovementAt)
         );
     }
 
     /** Colonnes pour le journal des mouvements (1 ligne = 1 mouvement). */
     static List<ExportColumn<StockMovementResponseDto>> movements() {
         return List.of(
-                ExportColumn.of("Référence",      StockMovementResponseDto::ref),
-                ExportColumn.of("Date",           StockMovementResponseDto::occurredAt),
-                ExportColumn.of("Type",           r -> humanKind(r.kind())),
-                ExportColumn.of("Article",        StockMovementResponseDto::articleName),
-                ExportColumn.of("Code",           StockMovementResponseDto::articleCode),
-                ExportColumn.of("Site",           StockMovementResponseDto::siteName),
-                ExportColumn.of("Quantité",       StockMovementResponseDto::quantitySigned),
-                ExportColumn.of("Unité",          StockMovementResponseDto::articleUnit),
-                ExportColumn.of("PU (FCFA)",      StockMovementResponseDto::unitPriceFcfa),
-                ExportColumn.of("Total (FCFA)",   StockMovementResponseDto::totalFcfa),
-                ExportColumn.of("CMUP après",     StockMovementResponseDto::cmupAfterFcfa),
-                ExportColumn.of("Qté après",      StockMovementResponseDto::quantityAfter),
-                ExportColumn.of("Origine",        r -> r.sourceType() == null ? "" : r.sourceType().name()),
-                ExportColumn.of("Réf. origine",   StockMovementResponseDto::sourceRef),
-                ExportColumn.of("Motif",          StockMovementResponseDto::reason),
-                ExportColumn.of("Acteur",         StockMovementResponseDto::actorEmail)
+                ExportColumn.of(Messages.msg("m.imp-h-reference"),      StockMovementResponseDto::ref),
+                ExportColumn.of(Messages.msg("m.imp-h-date"),           StockMovementResponseDto::occurredAt),
+                ExportColumn.of(Messages.msg("m.imp-h-type"),           r -> humanKind(r.kind())),
+                ExportColumn.of(Messages.msg("m.imp-h-article"),        StockMovementResponseDto::articleName),
+                ExportColumn.of(Messages.msg("m.imp-h-code"),           StockMovementResponseDto::articleCode),
+                ExportColumn.of(Messages.msg("m.imp-h-site"),           StockMovementResponseDto::siteName),
+                ExportColumn.of(Messages.msg("m.imp-h-receipt-quantity"),       StockMovementResponseDto::quantitySigned),
+                ExportColumn.of(Messages.msg("m.imp-h-article-unit"),          StockMovementResponseDto::articleUnit),
+                ExportColumn.of(Messages.msg("m.imp-h-pu-fcfa"),      StockMovementResponseDto::unitPriceFcfa),
+                ExportColumn.of(Messages.msg("m.imp-h-total-fcfa"),   StockMovementResponseDto::totalFcfa),
+                ExportColumn.of(Messages.msg("m.imp-h-cmup-apres"),     StockMovementResponseDto::cmupAfterFcfa),
+                ExportColumn.of(Messages.msg("m.imp-h-qte-apres"),      StockMovementResponseDto::quantityAfter),
+                ExportColumn.of(Messages.msg("m.imp-h-origine"),        r -> r.sourceType() == null ? "" : r.sourceType().name()),
+                ExportColumn.of(Messages.msg("m.imp-h-ref-origine"),   StockMovementResponseDto::sourceRef),
+                ExportColumn.of(Messages.msg("m.imp-h-motif"),          StockMovementResponseDto::reason),
+                ExportColumn.of(Messages.msg("m.imp-h-acteur"),         StockMovementResponseDto::actorEmail)
         );
     }
 

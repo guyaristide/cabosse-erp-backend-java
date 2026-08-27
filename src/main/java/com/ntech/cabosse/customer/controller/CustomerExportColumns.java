@@ -2,6 +2,7 @@ package com.ntech.cabosse.customer.controller;
 
 import com.ntech.cabosse.customer.dto.CustomerResponseDto;
 import com.ntech.cabosse.shared.export.ExportColumn;
+import com.ntech.cabosse.shared.i18n.Messages;
 
 import java.util.List;
 
@@ -11,21 +12,21 @@ final class CustomerExportColumns {
 
     static List<ExportColumn<CustomerResponseDto>> all() {
         return List.of(
-                ExportColumn.of("Code",           CustomerResponseDto::code),
-                ExportColumn.of("Nom",            CustomerResponseDto::name),
-                ExportColumn.of("Type",           c -> humanType(c.type())),
-                ExportColumn.of("Canal",          c -> humanChannel(c.channelType())),
-                ExportColumn.of("Raison sociale", CustomerResponseDto::legalName),
-                ExportColumn.of("N° fiscal",      CustomerResponseDto::taxNumber),
-                ExportColumn.of("Contact",        CustomerResponseDto::contactName),
-                ExportColumn.of("E-mail",         CustomerResponseDto::email),
-                ExportColumn.of("Téléphone",      CustomerResponseDto::phone),
-                ExportColumn.of("Adresse",        CustomerResponseDto::addressLine),
-                ExportColumn.of("Ville",          CustomerResponseDto::cityName),
-                ExportColumn.of("Pays",           CustomerResponseDto::countryCode),
-                ExportColumn.of("Plafond crédit", CustomerResponseDto::creditLimit),
-                ExportColumn.of("Actif",          CustomerResponseDto::active),
-                ExportColumn.of("Notes",          CustomerResponseDto::notes)
+                ExportColumn.of(Messages.msg("m.imp-h-code"),           CustomerResponseDto::code),
+                ExportColumn.of(Messages.msg("m.imp-h-member-last-name"),            CustomerResponseDto::name),
+                ExportColumn.of(Messages.msg("m.imp-h-type"),           c -> humanType(c.type())),
+                ExportColumn.of(Messages.msg("m.imp-h-canal"),          c -> humanChannel(c.channelType())),
+                ExportColumn.of(Messages.msg("m.imp-h-legal-name"), CustomerResponseDto::legalName),
+                ExportColumn.of(Messages.msg("m.imp-h-tax-number"),      CustomerResponseDto::taxNumber),
+                ExportColumn.of(Messages.msg("m.imp-h-contact"),        CustomerResponseDto::contactName),
+                ExportColumn.of(Messages.msg("m.imp-h-email"),         CustomerResponseDto::email),
+                ExportColumn.of(Messages.msg("m.imp-h-phone"),      CustomerResponseDto::phone),
+                ExportColumn.of(Messages.msg("m.imp-h-address"),        CustomerResponseDto::addressLine),
+                ExportColumn.of(Messages.msg("m.imp-h-city"),          CustomerResponseDto::cityName),
+                ExportColumn.of(Messages.msg("m.imp-h-country"),           CustomerResponseDto::countryCode),
+                ExportColumn.of(Messages.msg("m.imp-h-customer-credit-limit"), CustomerResponseDto::creditLimit),
+                ExportColumn.of(Messages.msg("m.imp-h-actif"),          CustomerResponseDto::active),
+                ExportColumn.of(Messages.msg("m.imp-h-notes"),          CustomerResponseDto::notes)
         );
     }
 

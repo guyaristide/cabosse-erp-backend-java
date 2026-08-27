@@ -5,6 +5,7 @@ import com.ntech.cabosse.sale.entity.PaymentStatus;
 import com.ntech.cabosse.sale.entity.SaleChannel;
 import com.ntech.cabosse.sale.entity.SaleStatus;
 import com.ntech.cabosse.shared.export.ExportColumn;
+import com.ntech.cabosse.shared.i18n.Messages;
 
 import java.util.List;
 
@@ -15,26 +16,26 @@ final class SaleExportColumns {
 
     static List<ExportColumn<SaleResponseDto>> all() {
         return List.of(
-                ExportColumn.of("Référence",         SaleResponseDto::ref),
-                ExportColumn.of("Date vente",        SaleResponseDto::saleDate),
-                ExportColumn.of("Échéance",          SaleResponseDto::dueDate),
-                ExportColumn.of("Client",            SaleResponseDto::customerName),
-                ExportColumn.of("Site",              SaleResponseDto::siteName),
-                ExportColumn.of("Canal",             r -> humanChannel(r.channel())),
-                ExportColumn.of("Statut",            r -> humanStatus(r.status())),
-                ExportColumn.of("Paiement",          r -> humanPayment(r.paymentStatus())),
-                ExportColumn.of("Total HT",          SaleResponseDto::subtotalHtFcfa),
-                ExportColumn.of("Remise",            SaleResponseDto::discountFcfa),
-                ExportColumn.of("TVA",               SaleResponseDto::vatFcfa),
-                ExportColumn.of("Total TTC",         SaleResponseDto::totalTtcFcfa),
-                ExportColumn.of("Coût matière",      SaleResponseDto::totalCostFcfa),
-                ExportColumn.of("Marge brute",       SaleResponseDto::grossMarginFcfa),
-                ExportColumn.of("Total payé",        SaleResponseDto::totalPaidFcfa),
-                ExportColumn.of("Solde facture",     SaleResponseDto::balanceDueFcfa),
-                ExportColumn.of("Etat facture",      r -> invoiceState(r.paymentStatus())),
-                ExportColumn.of("N° facture",        SaleResponseDto::invoiceNumber),
-                ExportColumn.of("Créé par",          SaleResponseDto::createdByEmail),
-                ExportColumn.of("Créé le",           SaleResponseDto::createdAt)
+                ExportColumn.of(Messages.msg("m.imp-h-reference"),         SaleResponseDto::ref),
+                ExportColumn.of(Messages.msg("m.imp-h-date-vente"),        SaleResponseDto::saleDate),
+                ExportColumn.of(Messages.msg("m.imp-h-echeance"),          SaleResponseDto::dueDate),
+                ExportColumn.of(Messages.msg("m.imp-h-cacao-sale-customer"),            SaleResponseDto::customerName),
+                ExportColumn.of(Messages.msg("m.imp-h-site"),              SaleResponseDto::siteName),
+                ExportColumn.of(Messages.msg("m.imp-h-canal"),             r -> humanChannel(r.channel())),
+                ExportColumn.of(Messages.msg("m.imp-h-status"),            r -> humanStatus(r.status())),
+                ExportColumn.of(Messages.msg("m.imp-h-paiement"),          r -> humanPayment(r.paymentStatus())),
+                ExportColumn.of(Messages.msg("m.imp-h-total-ht"),          SaleResponseDto::subtotalHtFcfa),
+                ExportColumn.of(Messages.msg("m.imp-h-remise"),            SaleResponseDto::discountFcfa),
+                ExportColumn.of(Messages.msg("m.imp-h-tva"),               SaleResponseDto::vatFcfa),
+                ExportColumn.of(Messages.msg("m.imp-h-total-ttc"),         SaleResponseDto::totalTtcFcfa),
+                ExportColumn.of(Messages.msg("m.imp-h-cout-matiere"),      SaleResponseDto::totalCostFcfa),
+                ExportColumn.of(Messages.msg("m.imp-h-marge-brute"),       SaleResponseDto::grossMarginFcfa),
+                ExportColumn.of(Messages.msg("m.imp-h-total-paye"),        SaleResponseDto::totalPaidFcfa),
+                ExportColumn.of(Messages.msg("m.imp-h-solde-facture"),     SaleResponseDto::balanceDueFcfa),
+                ExportColumn.of(Messages.msg("m.imp-h-etat-facture"),      r -> invoiceState(r.paymentStatus())),
+                ExportColumn.of(Messages.msg("m.imp-h-n-facture"),        SaleResponseDto::invoiceNumber),
+                ExportColumn.of(Messages.msg("m.imp-h-cree-par"),          SaleResponseDto::createdByEmail),
+                ExportColumn.of(Messages.msg("m.imp-h-cree-le"),           SaleResponseDto::createdAt)
         );
     }
 

@@ -1,6 +1,7 @@
 package com.ntech.cabosse.supplier.controller;
 
 import com.ntech.cabosse.shared.export.ExportColumn;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.supplier.dto.SupplierResponseDto;
 
 import java.util.List;
@@ -11,19 +12,19 @@ final class SupplierExportColumns {
 
     static List<ExportColumn<SupplierResponseDto>> all() {
         return List.of(
-                ExportColumn.of("Code",                SupplierResponseDto::code),
-                ExportColumn.of("Nom",                 SupplierResponseDto::name),
-                ExportColumn.of("Raison sociale",      SupplierResponseDto::legalName),
-                ExportColumn.of("N° fiscal",           SupplierResponseDto::taxNumber),
-                ExportColumn.of("Contact",             SupplierResponseDto::contactName),
-                ExportColumn.of("E-mail",              SupplierResponseDto::email),
-                ExportColumn.of("Téléphone",           SupplierResponseDto::phone),
-                ExportColumn.of("Adresse",             SupplierResponseDto::addressLine),
-                ExportColumn.of("Ville",               SupplierResponseDto::cityName),
-                ExportColumn.of("Pays",                SupplierResponseDto::countryCode),
-                ExportColumn.of("Conditions paiement", SupplierResponseDto::paymentTerms),
-                ExportColumn.of("Actif",               SupplierResponseDto::active),
-                ExportColumn.of("Notes",               SupplierResponseDto::notes)
+                ExportColumn.of(Messages.msg("m.imp-h-code"),                SupplierResponseDto::code),
+                ExportColumn.of(Messages.msg("m.imp-h-member-last-name"),                 SupplierResponseDto::name),
+                ExportColumn.of(Messages.msg("m.imp-h-legal-name"),      SupplierResponseDto::legalName),
+                ExportColumn.of(Messages.msg("m.imp-h-tax-number"),           SupplierResponseDto::taxNumber),
+                ExportColumn.of(Messages.msg("m.imp-h-contact"),             SupplierResponseDto::contactName),
+                ExportColumn.of(Messages.msg("m.imp-h-email"),              SupplierResponseDto::email),
+                ExportColumn.of(Messages.msg("m.imp-h-phone"),           SupplierResponseDto::phone),
+                ExportColumn.of(Messages.msg("m.imp-h-address"),             SupplierResponseDto::addressLine),
+                ExportColumn.of(Messages.msg("m.imp-h-city"),               SupplierResponseDto::cityName),
+                ExportColumn.of(Messages.msg("m.imp-h-country"),                SupplierResponseDto::countryCode),
+                ExportColumn.of(Messages.msg("m.imp-h-supplier-payment-terms"), SupplierResponseDto::paymentTerms),
+                ExportColumn.of(Messages.msg("m.imp-h-actif"),               SupplierResponseDto::active),
+                ExportColumn.of(Messages.msg("m.imp-h-notes"),               SupplierResponseDto::notes)
         );
     }
 }

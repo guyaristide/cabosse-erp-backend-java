@@ -2,6 +2,7 @@ package com.ntech.cabosse.producerpayment.controller;
 
 import com.ntech.cabosse.producerpayment.dto.ProducerPaymentDtos;
 import com.ntech.cabosse.shared.export.ExportColumn;
+import com.ntech.cabosse.shared.i18n.Messages;
 
 import java.util.List;
 
@@ -12,14 +13,14 @@ final class ProducerPaymentExportColumns {
 
     static List<ExportColumn<ProducerPaymentDtos.PaymentResponseDto>> all() {
         return List.of(
-                ExportColumn.of("Règlement",        ProducerPaymentDtos.PaymentResponseDto::ref),
-                ExportColumn.of("Date",             ProducerPaymentDtos.PaymentResponseDto::date),
-                ExportColumn.of("Bénéficiaire",     ProducerPaymentDtos.PaymentResponseDto::beneficiaryName),
-                ExportColumn.of("Type",             ProducerPaymentDtos.PaymentResponseDto::beneficiaryKind),
-                ExportColumn.of("Montant (FCFA)",   ProducerPaymentDtos.PaymentResponseDto::totalAmountFcfa),
-                ExportColumn.of("Mode de paiement", ProducerPaymentDtos.PaymentResponseDto::paymentMethod),
-                ExportColumn.of("Référence paiement", ProducerPaymentDtos.PaymentResponseDto::paymentRef),
-                ExportColumn.of("Pièce comptable",  ProducerPaymentDtos.PaymentResponseDto::pieceRef),
-                ExportColumn.of("Notes",            ProducerPaymentDtos.PaymentResponseDto::notes));
+                ExportColumn.of(Messages.msg("m.imp-h-reglement"),        ProducerPaymentDtos.PaymentResponseDto::ref),
+                ExportColumn.of(Messages.msg("m.imp-h-date"),             ProducerPaymentDtos.PaymentResponseDto::date),
+                ExportColumn.of(Messages.msg("m.imp-h-beneficiaire"),     ProducerPaymentDtos.PaymentResponseDto::beneficiaryName),
+                ExportColumn.of(Messages.msg("m.imp-h-type"),             ProducerPaymentDtos.PaymentResponseDto::beneficiaryKind),
+                ExportColumn.of(Messages.msg("m.imp-h-montant-fcfa"),   ProducerPaymentDtos.PaymentResponseDto::totalAmountFcfa),
+                ExportColumn.of(Messages.msg("m.imp-h-purchase-payment-method"), ProducerPaymentDtos.PaymentResponseDto::paymentMethod),
+                ExportColumn.of(Messages.msg("m.imp-h-purchase-payment-ref"), ProducerPaymentDtos.PaymentResponseDto::paymentRef),
+                ExportColumn.of(Messages.msg("m.imp-h-piece-comptable"),  ProducerPaymentDtos.PaymentResponseDto::pieceRef),
+                ExportColumn.of(Messages.msg("m.imp-h-notes"),            ProducerPaymentDtos.PaymentResponseDto::notes));
     }
 }

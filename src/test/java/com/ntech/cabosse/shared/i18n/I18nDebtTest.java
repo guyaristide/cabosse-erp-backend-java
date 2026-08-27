@@ -60,6 +60,25 @@ class I18nDebtTest {
                     + "|UnauthorizedException|ForbiddenException|ValidationException)"
                     + "\\(\\s*\\n?\\s*(ErrorCode\\.[A-Z_]+\\s*,\\s*)?\"");
 
+    /**
+     * En-tête de colonne d'export écrit en dur.
+     *
+     * <p>Un export part chez l'utilisateur, et pour les parcelles et les
+     * récoltes il lui revient : ses en-têtes doivent donc suivre la même
+     * langue que le modèle d'import, sans quoi le fichier corrigé sur le
+     * terrain ne se relit plus. La forme migrée est
+     * {@code ExportColumn.of(Messages.msg("m.imp-h-…"), …)}, ou la même
+     * avec une clé de colonne devant.</p>
+     *
+     * <p>Le slug de clé, lui, reste un littéral : il identifie la colonne
+     * dans une sélection d'export et ne s'affiche jamais. D'où la
+     * négation qui exige une lettre accentuée, une majuscule ou une
+     * espace pour ne retenir que ce qui se lit.</p>
+     */
+    private static final Pattern INLINE_EXPORT_HEADER = Pattern.compile(
+            "ExportColumn\\.of\\(\\s*\"[a-z0-9-]+\"\\s*,\\s*\"[^\"]*[A-ZÀ-ÿ ][^\"]*\""
+                    + "|ExportColumn\\.of\\(\\s*\"[^\"]*[A-ZÀ-ÿ ][^\"]*\"\\s*,(?!\\s*\")");
+
     /** {@code new FieldIssue("champ", "message en dur")}. */
     private static final Pattern INLINE_FIELD_ISSUE = Pattern.compile(
             "new\\s+FieldIssue\\(\\s*\\n?\\s*[^,)]+,\\s*\\n?\\s*\"");
@@ -72,6 +91,14 @@ class I18nDebtTest {
         assertBudget(INLINE_MESSAGE, BUDGET,
                 "messages d'exception en dur (budget %d) — écrivez les nouveaux via "
                         + "Messages.msg(\"m.clé\") + messages(.en).properties");
+    }
+
+    @Test
+    void export_headers_come_from_the_catalog() throws IOException {
+        assertBudget(INLINE_EXPORT_HEADER, 0,
+                "en-têtes de colonnes d'export en dur (budget %d) — écrivez-les via "
+                        + "Messages.msg(\"m.imp-h-clé\"), pour que l'export et le modèle "
+                        + "d'import parlent la même langue");
     }
 
     @Test

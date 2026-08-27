@@ -2,6 +2,7 @@ package com.ntech.cabosse.article.controller;
 
 import com.ntech.cabosse.article.dto.ArticleResponseDto;
 import com.ntech.cabosse.shared.export.ExportColumn;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.export.ExportImage;
 
 import java.util.ArrayList;
@@ -30,19 +31,19 @@ final class ArticleExportColumns {
 
     static List<ExportColumn<ArticleResponseDto>> all() {
         return List.of(
-                ExportColumn.of("Code",          ArticleResponseDto::code),
-                ExportColumn.of("Nom",           ArticleResponseDto::name),
-                ExportColumn.of("Type",          a -> humanType(a.type())),
-                ExportColumn.of("Unité",         ArticleResponseDto::unit),
-                ExportColumn.of("Activité",      ArticleResponseDto::activityCode),
-                ExportColumn.of("Stockable",     ArticleResponseDto::stockable),
-                ExportColumn.of("Seuil alerte",  ArticleResponseDto::alertThreshold),
-                ExportColumn.of("Coût standard", ArticleResponseDto::standardCost),
-                ExportColumn.of("Prix de vente", ArticleResponseDto::standardSalePrice),
-                ExportColumn.of("TVA (%)",       ArticleResponseDto::vatRate),
-                ExportColumn.of("Code-barres",   ArticleResponseDto::barcode),
-                ExportColumn.of("Actif",         ArticleResponseDto::active),
-                ExportColumn.of("Description",   ArticleResponseDto::description)
+                ExportColumn.of(Messages.msg("m.imp-h-code"),          ArticleResponseDto::code),
+                ExportColumn.of(Messages.msg("m.imp-h-member-last-name"),           ArticleResponseDto::name),
+                ExportColumn.of(Messages.msg("m.imp-h-type"),          a -> humanType(a.type())),
+                ExportColumn.of(Messages.msg("m.imp-h-article-unit"),         ArticleResponseDto::unit),
+                ExportColumn.of(Messages.msg("m.imp-h-article-activity"),      ArticleResponseDto::activityCode),
+                ExportColumn.of(Messages.msg("m.imp-h-article-stockable"),     ArticleResponseDto::stockable),
+                ExportColumn.of(Messages.msg("m.imp-h-article-alert-threshold"),  ArticleResponseDto::alertThreshold),
+                ExportColumn.of(Messages.msg("m.imp-h-article-standard-cost"), ArticleResponseDto::standardCost),
+                ExportColumn.of(Messages.msg("m.imp-h-article-sale-price"), ArticleResponseDto::standardSalePrice),
+                ExportColumn.of(Messages.msg("m.imp-h-article-vat-rate"),       ArticleResponseDto::vatRate),
+                ExportColumn.of(Messages.msg("m.imp-h-article-barcode"),   ArticleResponseDto::barcode),
+                ExportColumn.of(Messages.msg("m.imp-h-actif"),         ArticleResponseDto::active),
+                ExportColumn.of(Messages.msg("m.imp-h-description"),   ArticleResponseDto::description)
         );
     }
 
@@ -56,7 +57,7 @@ final class ArticleExportColumns {
     static List<ExportColumn<ArticleResponseDto>> allWithImage(
             Function<ArticleResponseDto, ExportImage> imageLoader) {
         List<ExportColumn<ArticleResponseDto>> cols = new ArrayList<>();
-        cols.add(ExportColumn.of("Image", imageLoader::apply));
+        cols.add(ExportColumn.of(Messages.msg("m.imp-h-image"), imageLoader::apply));
         cols.addAll(all());
         return cols;
     }

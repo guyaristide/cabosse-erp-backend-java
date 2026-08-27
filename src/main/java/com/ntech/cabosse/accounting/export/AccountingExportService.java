@@ -10,6 +10,7 @@ import com.ntech.cabosse.accounting.export.AccountingExportRows.JournalRow;
 import com.ntech.cabosse.accounting.repository.ChartOfAccountsRepository;
 import com.ntech.cabosse.accounting.repository.JournalPieceRepository;
 import com.ntech.cabosse.shared.export.ExportColumn;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.export.ExportDataset;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -137,12 +138,12 @@ public class AccountingExportService {
         return new ExportDataset<>(
                 "Balance générale",
                 List.of(
-                        ExportColumn.of("Compte", BalanceRow::accountNumber),
-                        ExportColumn.of("Libellé", BalanceRow::accountLabel),
-                        ExportColumn.of("Famille", BalanceRow::family),
-                        ExportColumn.of("Total débit", BalanceRow::totalDebit),
-                        ExportColumn.of("Total crédit", BalanceRow::totalCredit),
-                        ExportColumn.of("Solde (débit − crédit)", BalanceRow::balance)
+                        ExportColumn.of(Messages.msg("m.imp-h-compte"), BalanceRow::accountNumber),
+                        ExportColumn.of(Messages.msg("m.imp-h-libelle"), BalanceRow::accountLabel),
+                        ExportColumn.of(Messages.msg("m.imp-h-famille"), BalanceRow::family),
+                        ExportColumn.of(Messages.msg("m.imp-h-total-debit"), BalanceRow::totalDebit),
+                        ExportColumn.of(Messages.msg("m.imp-h-total-credit"), BalanceRow::totalCredit),
+                        ExportColumn.of(Messages.msg("m.imp-h-solde-debit-credit"), BalanceRow::balance)
                 ),
                 rows
         );
@@ -328,9 +329,9 @@ public class AccountingExportService {
 
     private static List<ExportColumn<StatementRow>> statementColumns() {
         return List.of(
-                ExportColumn.of("Masse", StatementRow::section),
-                ExportColumn.of("Rubrique", StatementRow::rubrique),
-                ExportColumn.of("Montant (FCFA)", StatementRow::montantFcfa)
+                ExportColumn.of(Messages.msg("m.imp-h-masse"), StatementRow::section),
+                ExportColumn.of(Messages.msg("m.imp-h-rubrique"), StatementRow::rubrique),
+                ExportColumn.of(Messages.msg("m.imp-h-montant-fcfa"), StatementRow::montantFcfa)
         );
     }
 
@@ -359,13 +360,13 @@ public class AccountingExportService {
         return new ExportDataset<>(
                 title,
                 List.of(
-                        ExportColumn.of("Date", GrandLivreRow::date),
-                        ExportColumn.of("N° pièce", GrandLivreRow::pieceRef),
-                        ExportColumn.of("Source", GrandLivreRow::sourceRef),
-                        ExportColumn.of("Libellé", GrandLivreRow::libelle),
-                        ExportColumn.of("Débit", GrandLivreRow::debit),
-                        ExportColumn.of("Crédit", GrandLivreRow::credit),
-                        ExportColumn.of("Solde progressif", GrandLivreRow::runningBalance)
+                        ExportColumn.of(Messages.msg("m.imp-h-date"), GrandLivreRow::date),
+                        ExportColumn.of(Messages.msg("m.imp-h-n-piece"), GrandLivreRow::pieceRef),
+                        ExportColumn.of(Messages.msg("m.imp-h-source"), GrandLivreRow::sourceRef),
+                        ExportColumn.of(Messages.msg("m.imp-h-libelle"), GrandLivreRow::libelle),
+                        ExportColumn.of(Messages.msg("m.imp-h-debit"), GrandLivreRow::debit),
+                        ExportColumn.of(Messages.msg("m.imp-h-credit"), GrandLivreRow::credit),
+                        ExportColumn.of(Messages.msg("m.imp-h-solde-progressif"), GrandLivreRow::runningBalance)
                 ),
                 rows
         );
@@ -396,15 +397,15 @@ public class AccountingExportService {
         return new ExportDataset<>(
                 "Journal général",
                 List.of(
-                        ExportColumn.of("Date", JournalRow::date),
-                        ExportColumn.of("N° pièce", JournalRow::pieceRef),
-                        ExportColumn.of("Source", JournalRow::sourceType),
-                        ExportColumn.of("Référence source", JournalRow::sourceRef),
-                        ExportColumn.of("Libellé pièce", JournalRow::libellePiece),
-                        ExportColumn.of("Compte", JournalRow::accountNumber),
-                        ExportColumn.of("Libellé ligne", JournalRow::libelleLigne),
-                        ExportColumn.of("Débit", JournalRow::debit),
-                        ExportColumn.of("Crédit", JournalRow::credit)
+                        ExportColumn.of(Messages.msg("m.imp-h-date"), JournalRow::date),
+                        ExportColumn.of(Messages.msg("m.imp-h-n-piece"), JournalRow::pieceRef),
+                        ExportColumn.of(Messages.msg("m.imp-h-source"), JournalRow::sourceType),
+                        ExportColumn.of(Messages.msg("m.imp-h-reference-source"), JournalRow::sourceRef),
+                        ExportColumn.of(Messages.msg("m.imp-h-libelle-piece"), JournalRow::libellePiece),
+                        ExportColumn.of(Messages.msg("m.imp-h-compte"), JournalRow::accountNumber),
+                        ExportColumn.of(Messages.msg("m.imp-h-libelle-ligne"), JournalRow::libelleLigne),
+                        ExportColumn.of(Messages.msg("m.imp-h-debit"), JournalRow::debit),
+                        ExportColumn.of(Messages.msg("m.imp-h-credit"), JournalRow::credit)
                 ),
                 rows
         );

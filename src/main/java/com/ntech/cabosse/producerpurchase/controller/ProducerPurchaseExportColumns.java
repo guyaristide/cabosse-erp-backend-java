@@ -3,6 +3,7 @@ package com.ntech.cabosse.producerpurchase.controller;
 import com.ntech.cabosse.producerpurchase.dto.ProducerPurchaseResponseDto;
 import com.ntech.cabosse.shared.export.ColumnKind;
 import com.ntech.cabosse.shared.export.ExportColumn;
+import com.ntech.cabosse.shared.i18n.Messages;
 
 import java.util.List;
 
@@ -13,24 +14,24 @@ final class ProducerPurchaseExportColumns {
 
     static List<ExportColumn<ProducerPurchaseResponseDto>> all() {
         return List.of(
-                ExportColumn.of("Reçu",                 ProducerPurchaseResponseDto::ref),
-                ExportColumn.of("Date",                 ProducerPurchaseResponseDto::date),
-                ExportColumn.of("N° reçu officiel",     ProducerPurchaseResponseDto::officialReceiptRef),
-                ExportColumn.of("Producteur",           ProducerPurchaseResponseDto::producerName),
-                ExportColumn.of("Code producteur",      ProducerPurchaseResponseDto::producerCode),
-                ExportColumn.of("Section",              ProducerPurchaseResponseDto::sectionName),
-                ExportColumn.of("Village",              ProducerPurchaseResponseDto::village),
-                ExportColumn.of("Article",              ProducerPurchaseResponseDto::articleName),
-                ExportColumn.of("Nb sacs",              ProducerPurchaseResponseDto::nbSacs),
-                ExportColumn.of("poids-kg", "Poids (kg)", ColumnKind.NUMBER_QTY,           ProducerPurchaseResponseDto::weightKg),
-                ExportColumn.of("Prix/kg (FCFA)",       ProducerPurchaseResponseDto::guaranteedPricePerKgFcfa),
-                ExportColumn.of("Montant (FCFA)",       ProducerPurchaseResponseDto::amountFcfa),
-                ExportColumn.of("Payé (FCFA)",          ProducerPurchaseResponseDto::amountPaidFcfa),
-                ExportColumn.of("Retenue crédit (FCFA)", ProducerPurchaseResponseDto::creditImputedFcfa),
-                ExportColumn.of("Reste dû (FCFA)",      ProducerPurchaseResponseDto::remainderFcfa),
-                ExportColumn.of("Délégué",              ProducerPurchaseResponseDto::delegateName),
-                ExportColumn.of("Bordereau",            ProducerPurchaseResponseDto::deliveryRef),
-                ExportColumn.of("Campagne",             ProducerPurchaseResponseDto::campaignYear),
-                ExportColumn.of("Pièce comptable",      ProducerPurchaseResponseDto::pieceRef));
+                ExportColumn.of(Messages.msg("m.imp-h-recu"),                 ProducerPurchaseResponseDto::ref),
+                ExportColumn.of(Messages.msg("m.imp-h-date"),                 ProducerPurchaseResponseDto::date),
+                ExportColumn.of(Messages.msg("m.imp-h-n-recu-officiel"),     ProducerPurchaseResponseDto::officialReceiptRef),
+                ExportColumn.of(Messages.msg("m.imp-h-producteur"),           ProducerPurchaseResponseDto::producerName),
+                ExportColumn.of(Messages.msg("m.imp-h-producer-code"),      ProducerPurchaseResponseDto::producerCode),
+                ExportColumn.of(Messages.msg("m.imp-h-section"),              ProducerPurchaseResponseDto::sectionName),
+                ExportColumn.of(Messages.msg("m.imp-h-member-village"),              ProducerPurchaseResponseDto::village),
+                ExportColumn.of(Messages.msg("m.imp-h-article"),              ProducerPurchaseResponseDto::articleName),
+                ExportColumn.of(Messages.msg("m.imp-h-nb-sacs"),              ProducerPurchaseResponseDto::nbSacs),
+                ExportColumn.of("poids-kg", Messages.msg("m.imp-h-poids-kg"), ColumnKind.NUMBER_QTY,           ProducerPurchaseResponseDto::weightKg),
+                ExportColumn.of(Messages.msg("m.imp-h-prix-kg-fcfa"),       ProducerPurchaseResponseDto::guaranteedPricePerKgFcfa),
+                ExportColumn.of(Messages.msg("m.imp-h-montant-fcfa"),       ProducerPurchaseResponseDto::amountFcfa),
+                ExportColumn.of(Messages.msg("m.imp-h-paye-fcfa"),          ProducerPurchaseResponseDto::amountPaidFcfa),
+                ExportColumn.of(Messages.msg("m.imp-h-retenue-credit-fcfa"), ProducerPurchaseResponseDto::creditImputedFcfa),
+                ExportColumn.of(Messages.msg("m.imp-h-reste-du-fcfa"),      ProducerPurchaseResponseDto::remainderFcfa),
+                ExportColumn.of(Messages.msg("m.imp-h-delegue"),              ProducerPurchaseResponseDto::delegateName),
+                ExportColumn.of(Messages.msg("m.imp-h-bordereau"),            ProducerPurchaseResponseDto::deliveryRef),
+                ExportColumn.of(Messages.msg("m.imp-h-purchase-campaign"),             ProducerPurchaseResponseDto::campaignYear),
+                ExportColumn.of(Messages.msg("m.imp-h-piece-comptable"),      ProducerPurchaseResponseDto::pieceRef));
     }
 }

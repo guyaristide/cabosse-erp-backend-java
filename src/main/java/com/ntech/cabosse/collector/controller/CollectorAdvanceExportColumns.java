@@ -2,6 +2,7 @@ package com.ntech.cabosse.collector.controller;
 
 import com.ntech.cabosse.collector.dto.CollectorAdvanceResponseDto;
 import com.ntech.cabosse.shared.export.ExportColumn;
+import com.ntech.cabosse.shared.i18n.Messages;
 
 import java.util.List;
 
@@ -12,16 +13,16 @@ final class CollectorAdvanceExportColumns {
 
     static List<ExportColumn<CollectorAdvanceResponseDto>> all() {
         return List.of(
-                ExportColumn.of("Avance",           CollectorAdvanceResponseDto::ref),
-                ExportColumn.of("Délégué",          CollectorAdvanceResponseDto::delegateName),
-                ExportColumn.of("Section",          CollectorAdvanceResponseDto::sectionName),
-                ExportColumn.of("Campagne",         CollectorAdvanceResponseDto::campaignYear),
-                ExportColumn.of("Date",             CollectorAdvanceResponseDto::advanceDate),
-                ExportColumn.of("Montant (FCFA)",   CollectorAdvanceResponseDto::advanceAmountFcfa),
-                ExportColumn.of("Consommé (FCFA)",  CollectorAdvanceResponseDto::consumedAmountFcfa),
-                ExportColumn.of("Solde (FCFA)",     CollectorAdvanceResponseDto::remainingFcfa),
-                ExportColumn.of("Statut",           CollectorAdvanceResponseDto::status),
-                ExportColumn.of("Mode de paiement", CollectorAdvanceResponseDto::paymentMethod),
-                ExportColumn.of("Pièce comptable",  CollectorAdvanceResponseDto::pieceRef));
+                ExportColumn.of(Messages.msg("m.imp-h-avance"),           CollectorAdvanceResponseDto::ref),
+                ExportColumn.of(Messages.msg("m.imp-h-delegue"),          CollectorAdvanceResponseDto::delegateName),
+                ExportColumn.of(Messages.msg("m.imp-h-section"),          CollectorAdvanceResponseDto::sectionName),
+                ExportColumn.of(Messages.msg("m.imp-h-purchase-campaign"),         CollectorAdvanceResponseDto::campaignYear),
+                ExportColumn.of(Messages.msg("m.imp-h-date"),             CollectorAdvanceResponseDto::advanceDate),
+                ExportColumn.of(Messages.msg("m.imp-h-montant-fcfa"),   CollectorAdvanceResponseDto::advanceAmountFcfa),
+                ExportColumn.of(Messages.msg("m.imp-h-consomme-fcfa"),  CollectorAdvanceResponseDto::consumedAmountFcfa),
+                ExportColumn.of(Messages.msg("m.imp-h-solde-fcfa"),     CollectorAdvanceResponseDto::remainingFcfa),
+                ExportColumn.of(Messages.msg("m.imp-h-status"),           CollectorAdvanceResponseDto::status),
+                ExportColumn.of(Messages.msg("m.imp-h-purchase-payment-method"), CollectorAdvanceResponseDto::paymentMethod),
+                ExportColumn.of(Messages.msg("m.imp-h-piece-comptable"),  CollectorAdvanceResponseDto::pieceRef));
     }
 }

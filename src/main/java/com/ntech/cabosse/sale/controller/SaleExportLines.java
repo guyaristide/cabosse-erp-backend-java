@@ -5,6 +5,7 @@ import com.ntech.cabosse.sale.dto.SaleResponseDto;
 import com.ntech.cabosse.sale.entity.PaymentStatus;
 import com.ntech.cabosse.sale.entity.SaleStatus;
 import com.ntech.cabosse.shared.export.ExportColumn;
+import com.ntech.cabosse.shared.i18n.Messages;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -77,24 +78,24 @@ final class SaleExportLines {
 
     static List<ExportColumn<LineRow>> columns() {
         return List.of(
-                ExportColumn.of("Date vente",          r -> r.sale.saleDate()),
-                ExportColumn.of("Désignation article", r -> r.line.articleName()),
-                ExportColumn.of("Quantité",            r -> r.line.quantity()),
-                ExportColumn.of("Client",              r -> r.sale.customerName()),
-                ExportColumn.of("Site",                r -> r.sale.siteName()),
-                ExportColumn.of("Canal",               r -> humanChannel(r.sale.channelTypeSnapshot())),
-                ExportColumn.of("Statut",              r -> humanStatus(r.sale.status())),
-                ExportColumn.of("Paiement",            r -> latestPaymentMethod(r.sale)),
-                ExportColumn.of("Total HT",            r -> r.line.lineTotalHtFcfa()),
-                ExportColumn.of("Remise",              SaleExportLines::lineDiscount),
-                ExportColumn.of("TVA",                 SaleExportLines::lineVat),
-                ExportColumn.of("Total TTC",           SaleExportLines::lineTotalTtc),
-                ExportColumn.of("Total payé",          r -> r.sale.totalPaidFcfa()),
-                ExportColumn.of("Solde facture",       r -> r.sale.balanceDueFcfa()),
-                ExportColumn.of("N° facture",          SaleExportLines::invoiceNumber),
-                ExportColumn.of("Etat facture",        r -> invoiceState(r.sale.paymentStatus())),
-                ExportColumn.of("Créé par",            r -> r.sale.createdByEmail()),
-                ExportColumn.of("Créé le",             r -> formatCreatedAt(r.sale.createdAt()))
+                ExportColumn.of(Messages.msg("m.imp-h-date-vente"),          r -> r.sale.saleDate()),
+                ExportColumn.of(Messages.msg("m.imp-h-designation-article"), r -> r.line.articleName()),
+                ExportColumn.of(Messages.msg("m.imp-h-receipt-quantity"),            r -> r.line.quantity()),
+                ExportColumn.of(Messages.msg("m.imp-h-cacao-sale-customer"),              r -> r.sale.customerName()),
+                ExportColumn.of(Messages.msg("m.imp-h-site"),                r -> r.sale.siteName()),
+                ExportColumn.of(Messages.msg("m.imp-h-canal"),               r -> humanChannel(r.sale.channelTypeSnapshot())),
+                ExportColumn.of(Messages.msg("m.imp-h-status"),              r -> humanStatus(r.sale.status())),
+                ExportColumn.of(Messages.msg("m.imp-h-paiement"),            r -> latestPaymentMethod(r.sale)),
+                ExportColumn.of(Messages.msg("m.imp-h-total-ht"),            r -> r.line.lineTotalHtFcfa()),
+                ExportColumn.of(Messages.msg("m.imp-h-remise"),              SaleExportLines::lineDiscount),
+                ExportColumn.of(Messages.msg("m.imp-h-tva"),                 SaleExportLines::lineVat),
+                ExportColumn.of(Messages.msg("m.imp-h-total-ttc"),           SaleExportLines::lineTotalTtc),
+                ExportColumn.of(Messages.msg("m.imp-h-total-paye"),          r -> r.sale.totalPaidFcfa()),
+                ExportColumn.of(Messages.msg("m.imp-h-solde-facture"),       r -> r.sale.balanceDueFcfa()),
+                ExportColumn.of(Messages.msg("m.imp-h-n-facture"),          SaleExportLines::invoiceNumber),
+                ExportColumn.of(Messages.msg("m.imp-h-etat-facture"),        r -> invoiceState(r.sale.paymentStatus())),
+                ExportColumn.of(Messages.msg("m.imp-h-cree-par"),            r -> r.sale.createdByEmail()),
+                ExportColumn.of(Messages.msg("m.imp-h-cree-le"),             r -> formatCreatedAt(r.sale.createdAt()))
         );
     }
 
