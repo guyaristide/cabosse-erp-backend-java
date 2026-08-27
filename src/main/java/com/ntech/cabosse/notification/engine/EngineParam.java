@@ -28,9 +28,19 @@ public record EngineParam(String code, String labelKey, boolean secret,
         return Messages.msg(labelKey);
     }
 
-    /** Aide dans la langue de la requête, ou null s'il n'y en a pas. */
+    /**
+     * Aide dans la langue de la requête, ou null s'il n'y en a pas.
+     *
+     * <p>Le champ porte soit une clé, soit une phrase déjà composée par
+     * {@link #withDefault} : celle-ci cite une valeur qui n'appartient à
+     * aucune langue, elle ne peut donc pas être une simple clé. Le test
+     * explicite évite de s'en remettre au fait qu'une clé inconnue se
+     * renvoie elle-même, ce qui marche aujourd'hui mais tiendrait mal si
+     * le catalogue devenait strict.</p>
+     */
     public String help() {
-        return helpKey == null ? null : Messages.msg(helpKey);
+        if (helpKey == null) return null;
+        return helpKey.startsWith("m.") ? Messages.msg(helpKey) : helpKey;
     }
 
     /**
