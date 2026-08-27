@@ -17,7 +17,11 @@ quarkus:
       enabled: true
       origins: ${CORS_ORIGINS}
       methods: "GET,POST,PUT,DELETE,PATCH,OPTIONS"
-      headers: "Content-Type,Authorization"
+      # Idempotency-Key voyage sur les flux d'argent (reçu d'achat,
+      # règlement producteur) : sans elle dans cette liste, le
+      # navigateur refuse la requête au preflight et la saisie échoue
+      # sur « réseau indisponible », alors que le réseau va bien.
+      headers: "Content-Type,Authorization,Idempotency-Key"
 
   mongodb:
     connection-string: ${MONGO_URI}
