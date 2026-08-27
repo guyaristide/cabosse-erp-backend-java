@@ -1,6 +1,7 @@
 package com.ntech.cabosse.tracabilite.service;
 
 import com.ntech.cabosse.production.entity.ConsumptionLine;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.production.entity.ManufacturingOrderEntity;
 import com.ntech.cabosse.production.entity.OfStatus;
 import com.ntech.cabosse.production.repository.ManufacturingOrderRepository;
@@ -230,9 +231,9 @@ public class LotTraceService {
             if (s.articleName != null) materials.add(s.articleName);
         }
         List<String> details = new ArrayList<>();
-        details.add("Matières d'origine : " + String.join(", ", materials));
+        details.add(Messages.msg("m.trc-origin-materials", String.join(", ", materials)));
         if (!suppliers.isEmpty()) {
-            details.add("Pièces source : " + String.join(", ", suppliers));
+            details.add(Messages.msg("m.trc-source-documents", String.join(", ", suppliers)));
         }
         Instant earliest = upstream.sources.stream()
                 .map(UpstreamSource::when)
@@ -243,7 +244,7 @@ public class LotTraceService {
                 "origine",
                 "origine",
                 formatPosition(pos),
-                "Origine matières",
+                Messages.msg("m.trc-origin-stage"),
                 earliest != null ? LocalDate.ofInstant(earliest, ZoneOffset.UTC).toString() : "",
                 null, null,
                 details,
@@ -260,9 +261,8 @@ public class LotTraceService {
         }
         if (refs.isEmpty()) return null;
         List<String> details = new ArrayList<>();
-        details.add("Réceptions identifiées : " + String.join(", ", refs));
-        details.add("Inférence FIFO sur les " + UPSTREAM_LIMIT
-                + " dernières entrées avant démarrage OF.");
+        details.add(Messages.msg("m.trc-identified-receipts", String.join(", ", refs)));
+        details.add(Messages.msg("m.trc-fifo-inference", String.valueOf(UPSTREAM_LIMIT)));
         // pieceRef = première référence (la plus probable comme source)
         String first = refs.iterator().next();
         String href = first.startsWith("BC-") ? "/app/achats?q=" + first
@@ -277,7 +277,7 @@ public class LotTraceService {
                 "achat",
                 "achat",
                 formatPosition(pos),
-                "Réceptions fournisseur",
+                Messages.msg("m.trc-supplier-receipts"),
                 earliest != null ? LocalDate.ofInstant(earliest, ZoneOffset.UTC).toString() : "",
                 first, href,
                 details,
@@ -288,18 +288,18 @@ public class LotTraceService {
 
     private StageDto buildProductionStage(ManufacturingOrderEntity of, int pos) {
         List<String> details = new ArrayList<>();
-        if (of.recipeName != null) details.add("Recette : " + of.recipeName);
+        if (of.recipeName != null) details.add(Messages.msg("m.trc-recipe", of.recipeName));
         if (of.plannedQty != null && of.finishedProductUnit != null) {
-            details.add("Quantité planifiée : " + of.plannedQty + " " + of.finishedProductUnit);
+            details.add(Messages.msg("m.trc-planned-qty", of.plannedQty + " " + of.finishedProductUnit));
         }
         if (of.producedQty != null && of.finishedProductUnit != null) {
-            details.add("Quantité produite : " + of.producedQty + " " + of.finishedProductUnit);
+            details.add(Messages.msg("m.trc-produced-qty", of.producedQty + " " + of.finishedProductUnit));
         }
         if (of.actualDurationHours != null) {
-            details.add("Durée : " + of.actualDurationHours + " h");
+            details.add(Messages.msg("m.trc-duration", of.actualDurationHours + " h"));
         }
         if (of.operatorsCount != null) {
-            details.add("Opérateurs : " + of.operatorsCount);
+            details.add(Messages.msg("m.trc-operators", of.operatorsCount));
         }
         String status = switch (of.status) {
             case COMPLETED -> "validated";
@@ -313,7 +313,7 @@ public class LotTraceService {
                 "production",
                 "production",
                 formatPosition(pos),
-                "Atelier production",
+                Messages.msg("m.trc-production-workshop"),
                 when != null ? LocalDate.ofInstant(when, ZoneOffset.UTC).toString() : "",
                 of.ref,
                 "/app/production/" + of.id,
@@ -326,17 +326,17 @@ public class LotTraceService {
     private StageDto buildLotsFillesStage(ManufacturingOrderEntity of, int pos) {
         List<String> details = new ArrayList<>();
         if (of.finishedProductName != null) {
-            details.add("Produit fini : " + of.finishedProductName);
+            details.add(Messages.msg("m.trc-finished-product", of.finishedProductName));
         }
         BigDecimalSafe q = new BigDecimalSafe(of.producedQty != null ? of.producedQty : of.plannedQty);
         if (q.value != null && of.finishedProductUnit != null) {
-            details.add("Quantité : " + q.value + " " + of.finishedProductUnit);
+            details.add(Messages.msg("m.trc-quantity", q.value + " " + of.finishedProductUnit));
         }
         return new StageDto(
                 "lots-filles",
                 "lots-filles",
                 formatPosition(pos),
-                "Lot produit",
+                Messages.msg("m.trc-produced-lot"),
                 of.completedAt != null
                         ? LocalDate.ofInstant(of.completedAt, ZoneOffset.UTC).toString()
                         : "",
@@ -356,11 +356,10 @@ public class LotTraceService {
         }
         List<String> details = new ArrayList<>();
         details.add("Ventes consommatrices : " + String.join(", ", refs));
-        details.add("Quantité totale livrée : "
-                + outs.stream()
+        details.add(Messages.msg("m.trc-total-delivered", outs.stream()
                         .map(m -> m.quantitySigned != null ? m.quantitySigned.abs() : java.math.BigDecimal.ZERO)
                         .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add)
-                + " " + (of.finishedProductUnit != null ? of.finishedProductUnit : ""));
+                + " " + (of.finishedProductUnit != null ? of.finishedProductUnit : "")));
         Instant latest = outs.stream()
                 .map(m -> m.occurredAt)
                 .filter(java.util.Objects::nonNull)
@@ -371,7 +370,7 @@ public class LotTraceService {
                 "livraison",
                 "livraison",
                 formatPosition(pos),
-                "Livraisons clients",
+                Messages.msg("m.trc-customer-deliveries"),
                 latest != null ? LocalDate.ofInstant(latest, ZoneOffset.UTC).toString() : "",
                 first, "/app/ventes?q=" + first,
                 details,
@@ -407,9 +406,9 @@ public class LotTraceService {
         }
         if (of.siteName != null) {
             if (sb.length() > 0) sb.append(" : ");
-            sb.append("transformé à ").append(of.siteName);
+            sb.append(Messages.msg("m.trc-processed-at", of.siteName));
         }
-        return sb.length() == 0 ? "Origine indéterminée" : sb.toString();
+        return sb.length() == 0 ? Messages.msg("m.trc-origin-unknown") : sb.toString();
     }
 
     private String formatHarvestPeriod(ManufacturingOrderEntity of) {
