@@ -29,6 +29,7 @@ import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.ConflictException;
 import com.ntech.cabosse.shared.exception.ErrorCode;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.members.service.MemberFileField;
 import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.tenant.TenantContext;
@@ -447,10 +448,16 @@ public class ProducerPurchaseService {
             throw new BusinessException(ErrorCode.PRODUCER_FILE_INCOMPLETE,
                     Messages.msg("m.ppu-producer-file-expired", m.name, status.expiresAt()));
         }
-        if (!status.missingFields().isEmpty()) {
+        if (!status.missingFieldCodes().isEmpty()) {
+            // Le message était traduit mais y interpolait des intitulés
+            // français figés : en anglais, il sortait à moitié dans chaque
+            // langue. Les champs se libellent maintenant comme la phrase
+            // qui les porte.
+            String fields = status.missingFieldCodes().stream()
+                    .map(code -> Messages.msg(MemberFileField.valueOf(code).messageKey()))
+                    .collect(java.util.stream.Collectors.joining(", "));
             throw new BusinessException(ErrorCode.PRODUCER_FILE_INCOMPLETE,
-                    Messages.msg("m.ppu-producer-file-incomplete", m.name,
-                            String.join(", ", status.missingFields())));
+                    Messages.msg("m.ppu-producer-file-incomplete", m.name, fields));
         }
     }
 

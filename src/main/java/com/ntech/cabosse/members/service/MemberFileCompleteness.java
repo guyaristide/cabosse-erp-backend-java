@@ -45,53 +45,53 @@ public final class MemberFileCompleteness {
     public static MemberFileStatusDto evaluate(MemberEntity m, int validityMonths,
                                                java.util.Set<String> identityProofTypes,
                                                LocalDate asOf) {
-        List<String> missing = new ArrayList<>();
+        List<MemberFileField> missing = new ArrayList<>();
         int total = 0;
         int filled = 0;
 
         total++;
-        if (isFilled(m.lastName)) filled++; else missing.add("Nom");
+        if (isFilled(m.lastName)) filled++; else missing.add(MemberFileField.LAST_NAME);
 
         total++;
-        if (isFilled(m.firstName)) filled++; else missing.add("Prénoms");
+        if (isFilled(m.firstName)) filled++; else missing.add(MemberFileField.FIRST_NAMES);
 
         total++;
         if (m.gender != null && m.gender != MemberGender.UNKNOWN) filled++;
-        else missing.add("Genre");
+        else missing.add(MemberFileField.GENDER);
 
         total++;
         if (m.birthDate != null || m.birthYear != null) filled++;
-        else missing.add("Date de naissance");
+        else missing.add(MemberFileField.BIRTH_DATE);
 
         total++;
-        if (isFilled(m.birthPlace)) filled++; else missing.add("Lieu de naissance");
+        if (isFilled(m.birthPlace)) filled++; else missing.add(MemberFileField.BIRTH_PLACE);
 
         total++;
         if (hasIdentityDocument(m, identityProofTypes)) filled++;
-        else missing.add("Pièce d'identité");
+        else missing.add(MemberFileField.IDENTITY_DOCUMENT);
 
         total++;
-        if (isFilled(m.phone)) filled++; else missing.add("Téléphone");
+        if (isFilled(m.phone)) filled++; else missing.add(MemberFileField.PHONE);
 
         total++;
-        if (isFilled(m.village)) filled++; else missing.add("Village");
+        if (isFilled(m.village)) filled++; else missing.add(MemberFileField.VILLAGE);
 
         total++;
-        if (m.sectionId != null) filled++; else missing.add("Section");
+        if (m.sectionId != null) filled++; else missing.add(MemberFileField.SECTION);
 
         total++;
-        if (m.parcels != null && !m.parcels.isEmpty()) filled++; else missing.add("Parcelle");
+        if (m.parcels != null && !m.parcels.isEmpty()) filled++; else missing.add(MemberFileField.PARCEL);
 
         total++;
-        if (hasHousehold(m.household)) filled++; else missing.add("Composition du ménage");
+        if (hasHousehold(m.household)) filled++; else missing.add(MemberFileField.HOUSEHOLD);
 
         total++;
         if (m.enrolment != null && m.enrolment.censusRegistered != null) filled++;
-        else missing.add("Recensement");
+        else missing.add(MemberFileField.CENSUS);
 
         total++;
         if (m.enrolment != null && m.enrolment.dataCollectedAt != null) filled++;
-        else missing.add("Date de collecte");
+        else missing.add(MemberFileField.COLLECTION_DATE);
 
         // Personne morale : l'existence légale et le représentant s'ajoutent
         // aux critères, puisque c'est ce qu'il faut vérifier avant de payer
@@ -99,11 +99,11 @@ public final class MemberFileCompleteness {
         if (m.personType == MemberPersonType.LEGAL_ENTITY) {
             total++;
             if (m.legalIdentity != null && isFilled(m.legalIdentity.registrationNumber)) filled++;
-            else missing.add("Registre du commerce");
+            else missing.add(MemberFileField.TRADE_REGISTER);
 
             total++;
             if (m.legalIdentity != null && isFilled(m.legalIdentity.representativeName)) filled++;
-            else missing.add("Représentant légal");
+            else missing.add(MemberFileField.LEGAL_REPRESENTATIVE);
         }
 
         int pct = total == 0 ? 100 : Math.round((filled * 100f) / total);
@@ -114,14 +114,14 @@ public final class MemberFileCompleteness {
                 : null;
         boolean expired = expiresAt != null && expiresAt.isBefore(asOf != null ? asOf : LocalDate.now());
 
-        return new MemberFileStatusDto(pct, List.copyOf(missing), expiresAt, expired);
+        return MemberFileStatusDto.of(pct, List.copyOf(missing), expiresAt, expired);
     }
 
     /** Dossier exploitable pour un paiement : complet et non périmé. */
     public static boolean isUsable(MemberEntity m, int validityMonths,
                                    java.util.Set<String> identityProofTypes) {
         MemberFileStatusDto status = evaluate(m, validityMonths, identityProofTypes);
-        return status.missingFields().isEmpty() && !status.expired();
+        return status.missingFieldCodes().isEmpty() && !status.expired();
     }
 
     private static boolean hasIdentityDocument(MemberEntity m,
