@@ -3,6 +3,7 @@ package com.ntech.cabosse.agriculture.harvest.controller;
 import com.ntech.cabosse.agriculture.harvest.dto.HarvestResponseDto;
 import com.ntech.cabosse.shared.export.ColumnKind;
 import com.ntech.cabosse.shared.export.ExportColumn;
+import com.ntech.cabosse.shared.i18n.Messages;
 
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -24,16 +25,16 @@ final class HarvestExportColumns {
 
     static List<ExportColumn<HarvestResponseDto>> all() {
         return List.of(
-                ExportColumn.of("Code récolte",       HarvestResponseDto::code),
-                ExportColumn.of("Date de récolte", h ->
+                ExportColumn.of(Messages.msg("m.imp-h-harvest-code"), HarvestResponseDto::code),
+                ExportColumn.of(Messages.msg("m.imp-h-harvest-date"), h ->
                         h.harvestDate() == null ? null : h.harvestDate().format(FR_DATE)),
-                ExportColumn.of("Code plantation",    HarvestResponseDto::parcelCode),
-                ExportColumn.of("Nom de la parcelle", HarvestResponseDto::parcelName),
-                ExportColumn.of("Nom du producteur",  HarvestResponseDto::memberName),
-                ExportColumn.of("Campagne",           HarvestResponseDto::campaignLabel),
-                ExportColumn.of("cabosses-kg", "Cabosses (kg)", ColumnKind.NUMBER_QTY,      HarvestResponseDto::cabossesKg),
-                ExportColumn.of("feves-fraiches-kg", "Fèves fraîches (kg)", ColumnKind.NUMBER_QTY, HarvestResponseDto::freshBeansKg),
-                ExportColumn.of("Qualité",            HarvestResponseDto::qualityNotes),
-                ExportColumn.of("Notes",              HarvestResponseDto::notes));
+                ExportColumn.of(Messages.msg("m.imp-h-parcel-code"), HarvestResponseDto::parcelCode),
+                ExportColumn.of(Messages.msg("m.imp-h-parcel-name"), HarvestResponseDto::parcelName),
+                ExportColumn.of(Messages.msg("m.imp-h-producer-name"), HarvestResponseDto::memberName),
+                ExportColumn.of(Messages.msg("m.imp-h-campaign"), HarvestResponseDto::campaignLabel),
+                ExportColumn.of("cabosses-kg", Messages.msg("m.imp-h-harvest-pods"), ColumnKind.NUMBER_QTY, HarvestResponseDto::cabossesKg),
+                ExportColumn.of("feves-fraiches-kg", Messages.msg("m.imp-h-harvest-fresh-beans"), ColumnKind.NUMBER_QTY, HarvestResponseDto::freshBeansKg),
+                ExportColumn.of(Messages.msg("m.imp-h-harvest-quality"), HarvestResponseDto::qualityNotes),
+                ExportColumn.of(Messages.msg("m.imp-h-notes"), HarvestResponseDto::notes));
     }
 }

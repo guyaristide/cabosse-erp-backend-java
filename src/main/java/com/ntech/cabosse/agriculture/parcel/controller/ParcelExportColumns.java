@@ -30,28 +30,28 @@ final class ParcelExportColumns {
     /** @param memberCodeById code producteur par membre, résolu à l'export */
     static List<ExportColumn<ParcelResponseDto>> all(Map<UUID, String> memberCodeById) {
         return List.of(
-                ExportColumn.of("Code plantation",    ParcelResponseDto::code),
-                ExportColumn.of("Nom de la parcelle", ParcelResponseDto::name),
-                ExportColumn.of("Code producteur", p ->
+                ExportColumn.of(Messages.msg("m.imp-h-parcel-code"), ParcelResponseDto::code),
+                ExportColumn.of(Messages.msg("m.imp-h-parcel-name"), ParcelResponseDto::name),
+                ExportColumn.of(Messages.msg("m.imp-h-producer-code"), p ->
                         p.memberId() == null ? null : memberCodeById.get(p.memberId())),
-                ExportColumn.of("Nom du producteur",  ParcelResponseDto::memberName),
-                ExportColumn.of("surface-ha", "Superficie (ha)", ColumnKind.NUMBER_QTY,    ParcelResponseDto::surfaceHa),
-                ExportColumn.of("latitude", "Latitude", ColumnKind.NUMBER_PRECISE, p ->
+                ExportColumn.of(Messages.msg("m.imp-h-producer-name"), ParcelResponseDto::memberName),
+                ExportColumn.of("surface-ha", Messages.msg("m.imp-h-parcel-surface"), ColumnKind.NUMBER_QTY, ParcelResponseDto::surfaceHa),
+                ExportColumn.of("latitude", Messages.msg("m.imp-h-latitude"), ColumnKind.NUMBER_PRECISE, p ->
                         p.gpsCenter() == null || p.gpsCenter().size() < 2 ? null : p.gpsCenter().get(1)),
-                ExportColumn.of("longitude", "Longitude", ColumnKind.NUMBER_PRECISE, p ->
+                ExportColumn.of("longitude", Messages.msg("m.imp-h-longitude"), ColumnKind.NUMBER_PRECISE, p ->
                         p.gpsCenter() == null || p.gpsCenter().size() < 2 ? null : p.gpsCenter().get(0)),
-                ExportColumn.of("Culture",            ParcelResponseDto::cropCode),
-                ExportColumn.of("Culture principale", p -> p.mainCrop() ? "Oui" : "Non"),
-                ExportColumn.of("Variété",            ParcelResponseDto::variety),
-                ExportColumn.of("Date de plantation", p ->
+                ExportColumn.of(Messages.msg("m.imp-h-parcel-crop"), ParcelResponseDto::cropCode),
+                ExportColumn.of(Messages.msg("m.imp-h-parcel-main-crop"), p -> yesNo(p.mainCrop())),
+                ExportColumn.of(Messages.msg("m.imp-h-parcel-variety"), ParcelResponseDto::variety),
+                ExportColumn.of(Messages.msg("m.imp-h-parcel-planting-date"), p ->
                         p.plantingDate() == null ? null : p.plantingDate().format(FR_DATE)),
-                ExportColumn.of("Année de plantation", ParcelResponseDto::plantingYear),
-                ExportColumn.of("Région",             ParcelResponseDto::regionCode),
-                ExportColumn.of("Département",        ParcelResponseDto::departmentCode),
-                ExportColumn.of("Statut", p -> statusLabel(p.status())),
-                ExportColumn.of("Notes",              ParcelResponseDto::notes),
+                ExportColumn.of(Messages.msg("m.imp-h-parcel-planting-year"), ParcelResponseDto::plantingYear),
+                ExportColumn.of(Messages.msg("m.imp-h-region"), ParcelResponseDto::regionCode),
+                ExportColumn.of(Messages.msg("m.imp-h-department"), ParcelResponseDto::departmentCode),
+                ExportColumn.of(Messages.msg("m.imp-h-status"), p -> statusLabel(p.status())),
+                ExportColumn.of(Messages.msg("m.imp-h-notes"), ParcelResponseDto::notes),
                 // Ignorée au réimport, mais la liste sert aussi d'état de synthèse.
-                ExportColumn.of("Certifications", p ->
+                ExportColumn.of(Messages.msg("m.imp-h-certifications"), p ->
                         p.certifications() == null ? null : String.join(", ", p.certifications())));
     }
 
@@ -63,6 +63,18 @@ final class ParcelExportColumns {
      * reconnaître chacun d'eux, dans les deux langues. Les deux listes se
      * lisent ensemble.</p>
      */
+    /**
+     * Oui / non dans la langue de la requête.
+     *
+     * <p>Sans danger pour le circuit exporter, corriger, réimporter : le
+     * lecteur d'import reconnaît les deux formes, « oui » comme « yes ».
+     * C'est la précaution qui manquait la première fois qu'un export a été
+     * traduit, et le fichier revenait alors avec une colonne muette.</p>
+     */
+    private static String yesNo(boolean value) {
+        return Messages.msg(value ? "m.imp-v-yes" : "m.imp-v-no");
+    }
+
     private static String statusLabel(ParcelStatus status) {
         if (status == null) return null;
         return switch (status) {
