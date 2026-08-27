@@ -65,6 +65,17 @@ import java.util.UUID;
 @ApplicationScoped
 public class MemberImportService {
 
+    /**
+     * Toutes les espaces, y compris les insécables.
+     *
+     * <p>{@code \s} ne couvre que l'espace ordinaire. Or un tableur
+     * sépare les milliers par une espace fine insécable (U+202F) ou
+     * insécable (U+00A0) : un fichier exporté puis redéposé revenait
+     * alors avec « 2 003 » jugé illisible, alors que c'est nous qui
+     * l'avions écrit ainsi. {@code \p{Zs}} les prend toutes.</p>
+     */
+    private static final String BLANKS = "[\\s\\p{Zs}]";
+
     private static final DateTimeFormatter ISO = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final List<DateTimeFormatter> DATE_FORMATS = List.of(
             DateTimeFormatter.ISO_LOCAL_DATE,
@@ -622,7 +633,7 @@ public class MemberImportService {
     private static Integer parseInt(String raw, String field, List<FieldIssue> issues) {
         if (raw == null || raw.isBlank()) return null;
         try {
-            return Integer.valueOf(raw.trim().replaceAll("[\\s ]", ""));
+            return Integer.valueOf(raw.trim().replaceAll(BLANKS, ""));
         } catch (NumberFormatException e) {
             issues.add(new FieldIssue(field, Messages.msg("m.imp-number-unreadable", raw)));
             return null;
@@ -632,7 +643,7 @@ public class MemberImportService {
     private static BigDecimal parseDecimal(String raw, String field, List<FieldIssue> issues) {
         if (raw == null || raw.isBlank()) return null;
         try {
-            return new BigDecimal(raw.trim().replaceAll("[\\s ]", "").replace(',', '.'));
+            return new BigDecimal(raw.trim().replaceAll(BLANKS, "").replace(',', '.'));
         } catch (NumberFormatException e) {
             issues.add(new FieldIssue(field, Messages.msg("m.imp-amount-unreadable", raw)));
             return null;

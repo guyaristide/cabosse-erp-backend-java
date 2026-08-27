@@ -47,6 +47,17 @@ import java.util.UUID;
 @ApplicationScoped
 public class HarvestImportService {
 
+    /**
+     * Toutes les espaces, y compris les insécables.
+     *
+     * <p>{@code \s} ne couvre que l'espace ordinaire. Or un tableur
+     * sépare les milliers par une espace fine insécable (U+202F) ou
+     * insécable (U+00A0) : un fichier exporté puis redéposé revenait
+     * alors avec « 2 003 » jugé illisible, alors que c'est nous qui
+     * l'avions écrit ainsi. {@code \p{Zs}} les prend toutes.</p>
+     */
+    private static final String BLANKS = "[\\s\\p{Zs}]";
+
     private static final DateTimeFormatter ISO = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final List<DateTimeFormatter> DATE_FORMATS = List.of(
             DateTimeFormatter.ISO_LOCAL_DATE,
@@ -286,7 +297,7 @@ public class HarvestImportService {
         String value = trim(raw);
         if (value == null) return null;
         try {
-            return new BigDecimal(value.replaceAll("[\\s ]", "").replace(',', '.'));
+            return new BigDecimal(value.replaceAll(BLANKS, "").replace(',', '.'));
         } catch (NumberFormatException e) {
             issues.add(new FieldIssue(field, Messages.msg("m.imp-quantity-unreadable", raw)));
             return null;

@@ -184,6 +184,7 @@ public final class Exporters {
             CellStyle moneyStyle = buildBodyStyle(wb, fmt, ColumnKind.NUMBER_MONEY);
             CellStyle qtyStyle   = buildBodyStyle(wb, fmt, ColumnKind.NUMBER_QTY);
             CellStyle preciseStyle = buildBodyStyle(wb, fmt, ColumnKind.NUMBER_PRECISE);
+            CellStyle intStyle   = buildBodyStyle(wb, fmt, ColumnKind.NUMBER_INT);
             CellStyle pctStyle   = buildBodyStyle(wb, fmt, ColumnKind.NUMBER_PCT);
             CellStyle dateStyle  = buildBodyStyle(wb, fmt, ColumnKind.DATE);
 
@@ -224,6 +225,7 @@ public final class Exporters {
                             case NUMBER_MONEY   -> moneyStyle;
                             case NUMBER_QTY     -> qtyStyle;
                             case NUMBER_PRECISE -> preciseStyle;
+                            case NUMBER_INT     -> intStyle;
                             case NUMBER_PCT     -> pctStyle;
                             case DATE           -> dateStyle;
                             case TEXT           -> textStyle;
@@ -426,6 +428,12 @@ public final class Exporters {
                 // Assez de décimales pour une coordonnée : trois seulement
                 // situent une parcelle à une centaine de mètres près.
                 s.setDataFormat(fmt.getFormat("0.######"));
+                s.setAlignment(HorizontalAlignment.RIGHT);
+            }
+            case NUMBER_INT -> {
+                // Sans séparateur : une année séparée en milliers ne se
+                // relit plus quand le fichier revient.
+                s.setDataFormat(fmt.getFormat("0"));
                 s.setAlignment(HorizontalAlignment.RIGHT);
             }
             case NUMBER_PCT -> {
@@ -648,6 +656,11 @@ public final class Exporters {
             nf.setMaximumFractionDigits(6);
         } else if (kind == ColumnKind.NUMBER_QTY || kind == ColumnKind.NUMBER_PCT) {
             nf.setMaximumFractionDigits(3);
+        } else if (kind == ColumnKind.NUMBER_INT) {
+            // Ni décimale ni séparateur : le texte produit doit pouvoir être
+            // relu tel quel par l'import.
+            nf.setMaximumFractionDigits(0);
+            nf.setGroupingUsed(false);
         }
         return nf;
     }
@@ -665,7 +678,9 @@ public final class Exporters {
      * cette distinction, le formateur par défaut coupait à trois décimales
      * et une coordonnée perdait une centaine de mètres à chaque export.</p>
      */
-    private static String formatForText(Object v, ColumnKind kind) {
+    // Visible pour le test : c'est le texte réellement écrit dans un CSV,
+    // donc ce qu'un import relira. Le vérifier vaut mieux que le déduire.
+    static String formatForText(Object v, ColumnKind kind) {
         if (v == null) return "";
         if (v instanceof BigDecimal || v instanceof Number) {
             return numberFormatFor(kind).format(v);

@@ -45,7 +45,7 @@ final class ParcelExportColumns {
                 ExportColumn.of(Messages.msg("m.imp-h-parcel-variety"), ParcelResponseDto::variety),
                 ExportColumn.of(Messages.msg("m.imp-h-parcel-planting-date"), p ->
                         p.plantingDate() == null ? null : p.plantingDate().format(FR_DATE)),
-                ExportColumn.of(Messages.msg("m.imp-h-parcel-planting-year"), ParcelResponseDto::plantingYear),
+                ExportColumn.of("planting-year", Messages.msg("m.imp-h-parcel-planting-year"), ColumnKind.NUMBER_INT, ParcelResponseDto::plantingYear),
                 ExportColumn.of(Messages.msg("m.imp-h-region"), ParcelResponseDto::regionCode),
                 ExportColumn.of(Messages.msg("m.imp-h-department"), ParcelResponseDto::departmentCode),
                 ExportColumn.of(Messages.msg("m.imp-h-status"), p -> statusLabel(p.status())),

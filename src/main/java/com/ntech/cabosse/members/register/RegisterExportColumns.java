@@ -34,7 +34,7 @@ final class RegisterExportColumns {
                 ExportColumn.of("rendement", Messages.msg("m.imp-h-rendement-de-la-parcelle"), ColumnKind.NUMBER_QTY, RegisterRow::yieldPerHa),
                 ExportColumn.of(Messages.msg("m.imp-h-estimation-production-parcelle-pour-la-campagn"), RegisterRow::estimateKg),
                 ExportColumn.of("latitude", Messages.msg("m.imp-h-latitude"), ColumnKind.NUMBER_PRECISE, RegisterRow::latitude),
-                ExportColumn.of("longitude", "longitude", ColumnKind.NUMBER_PRECISE, RegisterRow::longitude),
+                ExportColumn.of("longitude", Messages.msg("m.imp-h-longitude"), ColumnKind.NUMBER_PRECISE, RegisterRow::longitude),
                 ExportColumn.of(Messages.msg("m.imp-h-department"), RegisterRow::department),
                 ExportColumn.of(Messages.msg("m.imp-h-regions"), RegisterRow::region),
                 ExportColumn.of(Messages.msg("m.imp-h-noms-prenoms-agent-charge-du-suivi-du-producte"),

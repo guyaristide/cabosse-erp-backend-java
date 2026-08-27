@@ -71,12 +71,18 @@ class I18nDebtTest {
      * avec une clé de colonne devant.</p>
      *
      * <p>Le slug de clé, lui, reste un littéral : il identifie la colonne
-     * dans une sélection d'export et ne s'affiche jamais. D'où la
-     * négation qui exige une lettre accentuée, une majuscule ou une
-     * espace pour ne retenir que ce qui se lit.</p>
+     * dans une sélection d'export et ne s'affiche jamais. La forme à deux
+     * arguments exige donc une majuscule, un accent ou une espace pour
+     * distinguer l'en-tête du slug.</p>
+     *
+     * <p>La forme à quatre arguments n'a pas besoin de cette précaution :
+     * le second littéral y est toujours un en-tête. La distinction avait
+     * son importance, un « longitude » tout en minuscules est passé pour
+     * un slug et est resté en dur dans le registre des producteurs, à
+     * côté d'un « Latitude » correctement traduit.</p>
      */
     private static final Pattern INLINE_EXPORT_HEADER = Pattern.compile(
-            "ExportColumn\\.of\\(\\s*\"[a-z0-9-]+\"\\s*,\\s*\"[^\"]*[A-ZÀ-ÿ ][^\"]*\""
+            "ExportColumn\\.of\\(\\s*\"[a-z0-9-]+\"\\s*,\\s*\"[^\"]+\""
                     + "|ExportColumn\\.of\\(\\s*\"[^\"]*[A-ZÀ-ÿ ][^\"]*\"\\s*,(?!\\s*\")");
 
     /** {@code new FieldIssue("champ", "message en dur")}. */

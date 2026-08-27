@@ -41,6 +41,18 @@ public enum ColumnKind {
      */
     NUMBER_PRECISE,
 
+    /**
+     * Entier qui se lit comme un identifiant, non comme une quantité :
+     * année, numéro d'ordre, effectif. Écrit sans séparateur de milliers.
+     *
+     * <p>Une année de plantation sortait « 2 003 », séparée comme un
+     * montant. Redéposé, le fichier revenait avec un nombre jugé
+     * illisible : nous cassions nous-mêmes l'aller-retour que l'export
+     * est censé permettre. Le séparateur convient à une somme, jamais à
+     * un millésime.</p>
+     */
+    NUMBER_INT,
+
     /** Date, typée comme telle dans le classeur. */
     DATE
 }
