@@ -8,6 +8,8 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.ArrayList;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TreeSet;
@@ -102,5 +104,41 @@ class MessageCatalogTest {
             });
         }
         assertThat(missing).as("clés référencées sans entrée au catalogue").isEmpty();
+    }
+
+    /**
+     * Apostrophes des messages paramétrés.
+     *
+     * <p>{@link java.text.MessageFormat} traite l'apostrophe comme un
+     * caractère d'échappement <b>dès qu'un message porte un paramètre</b> :
+     * « Matières d'origine : {0} » sort « Matières dorigine : {0} », sans
+     * l'apostrophe et surtout sans jamais remplacer le paramètre. Rien ne
+     * lève, la phrase s'affiche simplement fausse.</p>
+     *
+     * <p>Le piège ne se voit qu'à l'exécution et seulement sur les
+     * messages paramétrés : dans un message sans paramètre, l'apostrophe
+     * simple est correcte et la doubler afficherait deux apostrophes.
+     * D'où ce contrôle, plutôt qu'une règle uniforme.</p>
+     */
+    @Test
+    void parameterised_messages_double_their_apostrophes() throws IOException {
+        Pattern parameterised = Pattern.compile("\\{\\d+}");
+        Pattern loneApostrophe = Pattern.compile("(?<!')'(?!')");
+        List<String> offenders = new ArrayList<>();
+
+        for (String bundle : List.of("messages.properties", "messages_en.properties")) {
+            Properties props = load(bundle);
+            for (String key : props.stringPropertyNames()) {
+                String value = props.getProperty(key);
+                if (parameterised.matcher(value).find()
+                        && loneApostrophe.matcher(value).find()) {
+                    offenders.add(bundle + " : " + key + " = " + value);
+                }
+            }
+        }
+        assertThat(offenders)
+                .as("apostrophe simple dans un message paramétré : doublez-la ('') "
+                        + "sinon MessageFormat mange le texte et n'insère plus la valeur")
+                .isEmpty();
     }
 }
