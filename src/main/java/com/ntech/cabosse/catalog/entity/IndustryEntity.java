@@ -23,7 +23,22 @@ public class IndustryEntity extends PanacheMongoEntityBase {
 
     public String label;
 
+    /**
+     * Libellé anglais, saisi au back-office. Une filière est une donnée,
+     * pas un état : son intitulé ne se déduit pas d'un code, quelqu'un
+     * l'écrit. D'où un champ par langue sur l'entité plutôt qu'une clé de
+     * catalogue, exactement comme le référentiel des pays.
+     *
+     * <p>Vide, la lecture retombe sur {@link #label} : une filière créée
+     * avant l'anglais reste lisible, et rien n'oblige à tout ressaisir
+     * avant de servir la première réponse.</p>
+     */
+    public String labelEn;
+
     public String description;
+
+    /** Description anglaise. Même règle de repli que {@link #labelEn}. */
+    public String descriptionEn;
 
     public boolean isActive;
 

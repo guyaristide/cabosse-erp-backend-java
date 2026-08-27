@@ -22,8 +22,16 @@ public record IndustryUpsertDto(
         @Size(min = 2, max = 80, message = "{v.libelle-entre-2-et-80-caracteres}")
         String label,
 
+        @Size(min = 2, max = 80, message = "{v.libelle-entre-2-et-80-caracteres}")
+        @Schema(description = "Libellé anglais. Facultatif : à défaut, la lecture "
+                + "en anglais retombe sur le libellé français.")
+        String labelEn,
+
         @Size(max = 300, message = "{v.description-trop-longue}")
         String description,
+
+        @Size(max = 300, message = "{v.description-trop-longue}")
+        String descriptionEn,
 
         boolean isActive,
 

@@ -85,7 +85,7 @@ public class CatalogResource {
                     + "d'un tenant n'accepte que des codes présents ici.")
     public Response listIndustries() {
         List<IndustryResponseDto> body = industries.findAllActive().stream()
-                .map(e -> new IndustryResponseDto(e.code, e.label, e.description))
+                .map(IndustryResponseDto::from)
                 .toList();
         return Response.ok(ApiResponse.ok(body)).build();
     }

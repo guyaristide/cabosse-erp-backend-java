@@ -374,7 +374,11 @@ public class CatalogAdminResource {
 
     private static void applyIndustry(IndustryEntity entity, IndustryUpsertDto p) {
         entity.label = p.label().trim();
-        entity.description = p.description() != null ? p.description().trim() : null;
+        // Vide reste vide : la lecture en anglais retombera sur le français
+        // plutôt que d'afficher une chaîne blanche.
+        entity.labelEn = blankToNull(p.labelEn());
+        entity.description = blankToNull(p.description());
+        entity.descriptionEn = blankToNull(p.descriptionEn());
         entity.isActive = p.isActive();
         // Validation : chaque code activates[] doit être une valeur valide de
         // TenantCapability ; sinon le calcul de capacités l'ignore mais on
@@ -399,9 +403,13 @@ public class CatalogAdminResource {
 
     private static IndustryAdminDto toIndustryDto(IndustryEntity i) {
         return new IndustryAdminDto(
-                i.code, i.label, i.description, i.isActive,
+                i.code, i.label, i.labelEn, i.description, i.descriptionEn, i.isActive,
                 i.activates != null ? List.copyOf(i.activates) : List.of()
         );
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     // ─── Modèles d'organisation ──────────────────────────────────────

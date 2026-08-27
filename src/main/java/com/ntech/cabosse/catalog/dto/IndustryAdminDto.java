@@ -16,7 +16,9 @@ import java.util.List;
 public record IndustryAdminDto(
         String code,
         String label,
+        String labelEn,
         String description,
+        String descriptionEn,
         boolean isActive,
         List<String> activates
 ) {}
