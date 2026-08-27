@@ -1,6 +1,7 @@
 package com.ntech.cabosse.notification.engine;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.ntech.cabosse.notification.entity.NotificationChannel;
@@ -36,11 +37,10 @@ public class BrevoApiEngine implements ProviderEnginePort {
     @Override
     public List<EngineParam> declaredParams() {
         return List.of(
-                EngineParam.secret("apiKey", "Clé d'API"),
-                EngineParam.required("senderEmail", "Adresse d'expédition"),
-                EngineParam.optional("senderName", "Nom d'expéditeur"),
-                new EngineParam("endpoint", "Point d'entrée", false, false,
-                        "Par défaut " + DEFAULT_ENDPOINT)
+                EngineParam.secret("apiKey", "m.ntf-p-api-key"),
+                EngineParam.required("senderEmail", "m.ntf-p-sender-email"),
+                EngineParam.optional("senderName", "m.ntf-p-sender-name"),
+                EngineParam.optional("endpoint", "m.ntf-p-base-url").withDefault(DEFAULT_ENDPOINT)
         );
     }
 
@@ -49,7 +49,7 @@ public class BrevoApiEngine implements ProviderEnginePort {
         String apiKey = params.get("apiKey");
         String senderEmail = params.get("senderEmail");
         if (apiKey == null || apiKey.isBlank() || senderEmail == null || senderEmail.isBlank()) {
-            return SendOutcome.failed("Clé d'API ou adresse d'expédition manquante.");
+            return SendOutcome.failed(Messages.msg("m.ntf-e-brevo-missing"));
         }
         String endpoint = params.getOrDefault("endpoint", "");
         if (endpoint.isBlank()) endpoint = DEFAULT_ENDPOINT;

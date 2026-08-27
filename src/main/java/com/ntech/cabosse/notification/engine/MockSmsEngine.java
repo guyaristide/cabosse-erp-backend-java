@@ -40,8 +40,8 @@ public class MockSmsEngine implements ProviderEnginePort {
 
     @Override
     public List<EngineParam> declaredParams() {
-        return List.of(new EngineParam("senderName", "Nom d'émetteur affiché", false, false,
-                "Sans effet : aucun message n'est réellement émis."));
+        return List.of(new EngineParam("senderName", "m.ntf-p-mock-sender-name", false, false,
+                "m.ntf-p-mock-sender-name-help"));
     }
 
     @Override

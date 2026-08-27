@@ -39,13 +39,13 @@ public class SmtpEngine implements ProviderEnginePort {
     @Override
     public List<EngineParam> declaredParams() {
         return List.of(
-                EngineParam.required("host", "Hôte"),
-                EngineParam.required("port", "Port"),
-                EngineParam.required("from", "Adresse d'expédition"),
-                EngineParam.optional("username", "Identifiant"),
-                EngineParam.secret("password", "Mot de passe"),
-                new EngineParam("startTls", "STARTTLS", false, false,
-                        "REQUIRED, OPTIONAL ou DISABLED. Par défaut REQUIRED.")
+                EngineParam.required("host", "m.ntf-p-host"),
+                EngineParam.required("port", "m.ntf-p-port"),
+                EngineParam.required("from", "m.ntf-p-sender-email"),
+                EngineParam.optional("username", "m.ntf-p-username"),
+                EngineParam.secret("password", "m.ntf-p-password"),
+                new EngineParam("startTls", "m.ntf-p-start-tls", false, false,
+                        "m.ntf-p-start-tls-help")
         );
     }
 
