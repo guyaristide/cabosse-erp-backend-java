@@ -76,7 +76,11 @@ public class TenantPreferencesService {
                 p.producerReferenceCodeType,
                 p.memberCreditApprovalThresholdFcfa(),
                 p.memberCreditAccount(),
-                p.cashDiscrepancyAccount()
+                p.cashDiscrepancyAccount(),
+                p.productionPotentialBasis(),
+                p.showPotentialOnHarvest(),
+                p.capturePodsWeight(),
+                p.campaignAssignmentMode()
         );
     }
 
@@ -350,6 +354,40 @@ public class TenantPreferencesService {
                     "from", t.preferences.cashDiscrepancyAccount(),
                     "to", payload.cashDiscrepancyAccount()));
             t.preferences.cashDiscrepancyAccount = payload.cashDiscrepancyAccount().trim();
+        }
+
+        if (payload.productionPotentialBasis() != null
+                && !payload.productionPotentialBasis().isBlank()
+                && !payload.productionPotentialBasis().equals(t.preferences.productionPotentialBasis())) {
+            diffs.put("productionPotentialBasis", Map.of(
+                    "from", t.preferences.productionPotentialBasis(),
+                    "to", payload.productionPotentialBasis()));
+            t.preferences.productionPotentialBasis = payload.productionPotentialBasis().trim();
+        }
+
+        if (payload.showPotentialOnHarvest() != null
+                && payload.showPotentialOnHarvest() != t.preferences.showPotentialOnHarvest()) {
+            diffs.put("showPotentialOnHarvest", Map.of(
+                    "from", t.preferences.showPotentialOnHarvest(),
+                    "to", payload.showPotentialOnHarvest()));
+            t.preferences.showPotentialOnHarvest = payload.showPotentialOnHarvest();
+        }
+
+        if (payload.capturePodsWeight() != null
+                && payload.capturePodsWeight() != t.preferences.capturePodsWeight()) {
+            diffs.put("capturePodsWeight", Map.of(
+                    "from", t.preferences.capturePodsWeight(),
+                    "to", payload.capturePodsWeight()));
+            t.preferences.capturePodsWeight = payload.capturePodsWeight();
+        }
+
+        if (payload.campaignAssignmentMode() != null
+                && !payload.campaignAssignmentMode().isBlank()
+                && !payload.campaignAssignmentMode().equals(t.preferences.campaignAssignmentMode())) {
+            diffs.put("campaignAssignmentMode", Map.of(
+                    "from", t.preferences.campaignAssignmentMode(),
+                    "to", payload.campaignAssignmentMode()));
+            t.preferences.campaignAssignmentMode = payload.campaignAssignmentMode().trim();
         }
 
         if (!diffs.isEmpty()) {

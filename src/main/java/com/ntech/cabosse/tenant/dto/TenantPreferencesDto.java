@@ -140,6 +140,25 @@ public record TenantPreferencesDto(
 
         @Schema(description = "Compte où se constate un écart de trésorerie (manquant de transport "
                 + "ou de caisse).", example = "658800", defaultValue = "658800")
-        String cashDiscrepancyAccount
+        String cashDiscrepancyAccount,
+
+        @Schema(description = "Ce que désigne le potentiel d'une parcelle : CAMPAIGN (estimation "
+                + "par campagne, défaut) ou PARCEL (capacité stable de la parcelle).",
+                example = "CAMPAIGN", defaultValue = "CAMPAIGN")
+        String productionPotentialBasis,
+
+        @Schema(description = "Rappelle le potentiel attendu à côté de la saisie d'une récolte. "
+                + "C'est un rappel en lecture, jamais un champ à remplir.",
+                defaultValue = "true")
+        boolean showPotentialOnHarvest,
+
+        @Schema(description = "Saisir le poids de cabosses en plus des fèves fraîches. Les deux "
+                + "donnent le rendement cabosses vers fèves.", defaultValue = "true")
+        boolean capturePodsWeight,
+
+        @Schema(description = "Comment une opération rejoint une campagne : DATE (déduite de la "
+                + "date, défaut) ou MANUAL (choisie à la saisie).",
+                example = "DATE", defaultValue = "DATE")
+        String campaignAssignmentMode
 
 ) {}

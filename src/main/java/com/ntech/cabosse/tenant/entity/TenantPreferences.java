@@ -515,5 +515,70 @@ public class TenantPreferences {
                 ? cacaoHumidityRejectionPct : new java.math.BigDecimal("10");
     }
 
+    // ─── Récolte et potentiel de production (remarques expert 26/08) ───
+
+    /**
+     * Ce que désigne le « potentiel » d'une parcelle.
+     *
+     * <p>{@code CAMPAIGN} (défaut) : une estimation par campagne, qui se
+     * ressaisit chaque année. {@code PARCEL} : une capacité stable de la
+     * parcelle, qui ne bouge qu'en cas de replantation.</p>
+     *
+     * <p>La question s'est posée parce que le même mot désigne les deux dans
+     * les fichiers du terrain. Elle se règle ici plutôt que par un choix
+     * imposé : une coopérative qui replante peu tient une capacité stable,
+     * une autre réestime à chaque campagne.</p>
+     */
+    public String productionPotentialBasis;
+
+    public String productionPotentialBasis() {
+        return productionPotentialBasis == null || productionPotentialBasis.isBlank()
+                ? "CAMPAIGN" : productionPotentialBasis;
+    }
+
+    /**
+     * Rappeler le potentiel attendu sur l'écran de saisie d'une récolte.
+     *
+     * <p>Par défaut vrai : l'agent voit ce qui était attendu de la parcelle
+     * en face de ce qu'il saisit. C'est un rappel, jamais un champ à
+     * remplir : le potentiel se renseigne sur la parcelle.</p>
+     */
+    public Boolean showPotentialOnHarvest;
+
+    public boolean showPotentialOnHarvest() {
+        return showPotentialOnHarvest == null || showPotentialOnHarvest;
+    }
+
+    /**
+     * Saisir le poids de cabosses en plus des fèves fraîches.
+     *
+     * <p>Par défaut vrai. Les deux poids donnent le rendement cabosses vers
+     * fèves, indicateur de qualité ; une structure qui ne pèse que les fèves
+     * peut masquer le champ, sans que cela touche à la fermentation, qui
+     * consomme les fèves fraîches et elles seules.</p>
+     */
+    public Boolean capturePodsWeight;
+
+    public boolean capturePodsWeight() {
+        return capturePodsWeight == null || capturePodsWeight;
+    }
+
+    // ─── Rattachement d'une opération à sa campagne ───
+
+    /**
+     * Comment une opération rejoint une campagne.
+     *
+     * <p>{@code DATE} (défaut) : déduite de la date de l'opération, rien à
+     * saisir et aucune erreur possible, y compris sur les opérations
+     * passées. {@code MANUAL} : choisie à la saisie, la campagne courante
+     * étant proposée.</p>
+     */
+    public String campaignAssignmentMode;
+
+    public String campaignAssignmentMode() {
+        return campaignAssignmentMode == null || campaignAssignmentMode.isBlank()
+                ? "DATE" : campaignAssignmentMode;
+    }
+
     public TenantPreferences() {}
 }

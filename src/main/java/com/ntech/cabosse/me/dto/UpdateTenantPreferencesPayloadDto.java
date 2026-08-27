@@ -157,6 +157,22 @@ public record UpdateTenantPreferencesPayloadDto(
         @jakarta.validation.constraints.Pattern(regexp = "^$|^[0-9]{2,8}$",
                 message = "{v.compte-d-ecart-de-tresorerie-2-a-8-chiffres}")
         @Schema(description = "Compte où se constate un écart de trésorerie.")
-        String cashDiscrepancyAccount
+        String cashDiscrepancyAccount,
+
+        @jakarta.validation.constraints.Pattern(regexp = "^$|^(CAMPAIGN|PARCEL)$",
+                message = "{v.base-du-potentiel-campaign-ou-parcel}")
+        @Schema(description = "Ce que désigne le potentiel d'une parcelle : CAMPAIGN ou PARCEL.")
+        String productionPotentialBasis,
+
+        @Schema(description = "Rappeler le potentiel attendu à la saisie d'une récolte.")
+        Boolean showPotentialOnHarvest,
+
+        @Schema(description = "Saisir le poids de cabosses en plus des fèves fraîches.")
+        Boolean capturePodsWeight,
+
+        @jakarta.validation.constraints.Pattern(regexp = "^$|^(DATE|MANUAL)$",
+                message = "{v.rattachement-campagne-date-ou-manual}")
+        @Schema(description = "Comment une opération rejoint une campagne : DATE ou MANUAL.")
+        String campaignAssignmentMode
 
 ) {}

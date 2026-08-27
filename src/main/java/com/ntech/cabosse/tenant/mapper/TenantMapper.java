@@ -171,7 +171,11 @@ public final class TenantMapper {
                 entity.preferences.producerReferenceCodeType,
                 entity.preferences.memberCreditApprovalThresholdFcfa(),
                 entity.preferences.memberCreditAccount(),
-                entity.preferences.cashDiscrepancyAccount()
+                entity.preferences.cashDiscrepancyAccount(),
+                entity.preferences.productionPotentialBasis(),
+                entity.preferences.showPotentialOnHarvest(),
+                entity.preferences.capturePodsWeight(),
+                entity.preferences.campaignAssignmentMode()
         );
     }
 
