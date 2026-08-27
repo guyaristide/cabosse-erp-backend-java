@@ -1,6 +1,7 @@
 package com.ntech.cabosse.expense.controller;
 
 import com.ntech.cabosse.permission.entity.Permission;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.permission.service.RequiresPermission;
 import com.ntech.cabosse.expense.dto.CreateDirectExpenseDto;
 import com.ntech.cabosse.expense.dto.DirectExpenseResponseDto;
@@ -67,7 +68,7 @@ public class DirectExpenseResource {
         ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
         java.util.List<com.ntech.cabosse.expense.dto.DirectExpenseResponseDto> rows = service.search(kind, 0, Integer.MAX_VALUE);
         ExportDataset<com.ntech.cabosse.expense.dto.DirectExpenseResponseDto> dataset =
-                new ExportDataset<>("Dépenses directes", DirectExpenseExportColumns.all(), rows);
+                new ExportDataset<>(Messages.msg("m.exp-t-depenses-directes"), DirectExpenseExportColumns.all(), rows);
         exportAudit.record("depenses-directes", "Dépenses directes", format, rows.size());
         return ExportResponses.build("depenses-directes", format, dataset);
     }

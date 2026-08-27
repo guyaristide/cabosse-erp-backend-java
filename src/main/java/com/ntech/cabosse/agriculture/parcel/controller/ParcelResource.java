@@ -85,7 +85,7 @@ public class ParcelResource {
         ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
         java.util.List<com.ntech.cabosse.agriculture.parcel.dto.ParcelResponseDto> rows = service.listForExport(q, parseStatus(statusRaw), parseUuid(memberIdRaw));
         ExportDataset<com.ntech.cabosse.agriculture.parcel.dto.ParcelResponseDto> dataset =
-                new ExportDataset<>("Parcellaire", ParcelExportColumns.all(service.memberCodesById()), rows);
+                new ExportDataset<>(Messages.msg("m.exp-t-parcellaire"), ParcelExportColumns.all(service.memberCodesById()), rows);
         exportAudit.record("parcelles", "Parcellaire", format, rows.size());
         return ExportResponses.build("parcelles", format, dataset);
     }

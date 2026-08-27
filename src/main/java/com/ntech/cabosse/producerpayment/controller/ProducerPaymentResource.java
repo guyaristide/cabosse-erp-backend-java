@@ -1,6 +1,7 @@
 package com.ntech.cabosse.producerpayment.controller;
 
 import com.ntech.cabosse.producerpayment.dto.ProducerPaymentDtos;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.producerpayment.service.ProducerPaymentService;
 import com.ntech.cabosse.shared.api.ApiResponse;
 import com.ntech.cabosse.shared.api.PageRequest;
@@ -66,7 +67,7 @@ public class ProducerPaymentResource {
         ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
         java.util.List<com.ntech.cabosse.producerpayment.dto.ProducerPaymentDtos.PaymentResponseDto> rows = service.listForExport(parseDate(from), parseDate(to), memberId, delegateSupplierId);
         ExportDataset<com.ntech.cabosse.producerpayment.dto.ProducerPaymentDtos.PaymentResponseDto> dataset =
-                new ExportDataset<>("Règlements producteurs", ProducerPaymentExportColumns.all(), rows);
+                new ExportDataset<>(Messages.msg("m.exp-t-reglements-producteurs"), ProducerPaymentExportColumns.all(), rows);
         exportAudit.record("reglements-producteurs", "Règlements producteurs", format, rows.size());
         return ExportResponses.build("reglements-producteurs", format, dataset);
     }

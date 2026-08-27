@@ -86,6 +86,6 @@ final class CacaoSaleImportTemplate {
                         "Standard", "G1", "Accepté", "44640000"
                 )
         );
-        return new ExportDataset<>("Modèle d'import ventes cacao", cols, samples);
+        return new ExportDataset<>(Messages.msg("m.exp-t-modele-d-import-ventes-cacao"), cols, samples);
     }
 }

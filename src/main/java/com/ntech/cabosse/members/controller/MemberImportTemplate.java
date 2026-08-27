@@ -72,20 +72,23 @@ final class MemberImportTemplate {
 
         List<TemplateRow> samples = List.of(
                 new TemplateRow(
-                        "", "Carte producteur", "CCC-2021-183667",
-                        "N'Guessan", "Konan", "Homme", "Personne physique",
-                        "Marié(e)", "19/10/1962", "Sakassou",
-                        "Carte nationale d'identité", "CI60013389083", "863794026542",
+                        "", Messages.msg("m.imp-v-producer-card"), "CCC-2021-183667",
+                        "N'Guessan", "Konan", Messages.msg("m.imp-v-male"), Messages.msg("m.imp-v-natural-person"),
+                        Messages.msg("m.imp-v-married"), "19/10/1962", "Sakassou",
+                        Messages.msg("m.imp-v-national-id"), "CI60013389083", "863794026542",
                         "0551161559", "Méagui", "Section Méagui",
                         "01/03/2020", "25000",
                         "1", "7", "1", "6",
                         "6", "0", "1",
                         "0", "0", "Aucune activité",
-                        "Oui", "Oui", "25/01/2026"),
+                        Messages.msg("m.imp-v-yes"), Messages.msg("m.imp-v-yes"), "25/01/2026"),
                 new TemplateRow(
                         "MB-2026-0002", "", "",
-                        "Doumbia", "Seydou", "Homme", "",
-                        "Célibataire", "1985", "Soubré",
+                        "Doumbia", "Seydou", Messages.msg("m.imp-v-male"), "",
+                        // Une date complète : le lecteur n'accepte pas l'année seule, et un
+                        // modèle qui montre une valeur que son propre import refuse fait
+                        // douter l'utilisateur de sa saisie plutôt que de l'exemple.
+                        Messages.msg("m.imp-v-single"), "12/06/1985", "Soubré",
                         "CNI", "CI70011122334", "",
                         "0707080910", "Soubré", "Section Soubré",
                         "", "",
@@ -94,6 +97,6 @@ final class MemberImportTemplate {
                         "", "", "",
                         "Non", "Non", "")
         );
-        return new ExportDataset<>("Modèle d'import membres-producteurs", cols, samples);
+        return new ExportDataset<>(Messages.msg("m.exp-t-modele-d-import-membres-producteurs"), cols, samples);
     }
 }

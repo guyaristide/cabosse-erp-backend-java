@@ -55,6 +55,6 @@ final class ArticleImportTemplate {
                         "", ""
                 )
         );
-        return new ExportDataset<>("Modèle d'import articles", cols, samples);
+        return new ExportDataset<>(Messages.msg("m.exp-t-modele-d-import-articles"), cols, samples);
     }
 }

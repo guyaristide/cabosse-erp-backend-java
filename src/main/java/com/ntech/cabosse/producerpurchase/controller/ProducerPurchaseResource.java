@@ -83,7 +83,7 @@ public class ProducerPurchaseResource {
         ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
         java.util.List<com.ntech.cabosse.producerpurchase.dto.ProducerPurchaseResponseDto> rows = service.listForExport(q, campaignId, memberId);
         ExportDataset<com.ntech.cabosse.producerpurchase.dto.ProducerPurchaseResponseDto> dataset =
-                new ExportDataset<>("Reçus d'achat producteur", ProducerPurchaseExportColumns.all(), rows);
+                new ExportDataset<>(Messages.msg("m.exp-t-recus-d-achat-producteur"), ProducerPurchaseExportColumns.all(), rows);
         exportAudit.record("recus-achat-producteur", "Reçus d'achat producteur", format, rows.size());
         return ExportResponses.build("recus-achat-producteur", format, dataset);
     }

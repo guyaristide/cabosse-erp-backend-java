@@ -38,10 +38,10 @@ final class HarvestImportTemplate {
 
         List<TemplateRow> samples = List.of(
                 new TemplateRow("PR-2026-0001", "", "",
-                        "12/11/2025", "1250", "480", "Bonne maturité", ""),
+                        "12/11/2025", "1250", "480", Messages.msg("m.imp-v-sample-ripeness"), ""),
                 new TemplateRow("", "Parcelle route Méagui", "MB-2026-0002",
-                        "18/11/2025", "", "310", "", "Passage après pluie")
+                        "18/11/2025", "", "310", "", Messages.msg("m.imp-v-sample-after-rain"))
         );
-        return new ExportDataset<>("Modèle d'import récoltes", cols, samples);
+        return new ExportDataset<>(Messages.msg("m.exp-t-modele-d-import-recoltes"), cols, samples);
     }
 }

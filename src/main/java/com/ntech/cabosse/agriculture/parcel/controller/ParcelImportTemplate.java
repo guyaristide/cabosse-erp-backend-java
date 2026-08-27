@@ -61,6 +61,6 @@ final class ParcelImportTemplate {
                         "2015", "Nawa", "Méagui",
                         "En jachère", "", "", "Replantation prévue")
         );
-        return new ExportDataset<>("Modèle d'import parcelles", cols, samples);
+        return new ExportDataset<>(Messages.msg("m.exp-t-modele-d-import-parcelles"), cols, samples);
     }
 }

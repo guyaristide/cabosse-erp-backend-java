@@ -74,7 +74,7 @@ public class HarvestResource {
         ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
         java.util.List<com.ntech.cabosse.agriculture.harvest.dto.HarvestResponseDto> rows = service.listForExport(parcelId, memberId, campaignId, q);
         ExportDataset<com.ntech.cabosse.agriculture.harvest.dto.HarvestResponseDto> dataset =
-                new ExportDataset<>("Récoltes", HarvestExportColumns.all(), rows);
+                new ExportDataset<>(Messages.msg("m.exp-t-recoltes"), HarvestExportColumns.all(), rows);
         exportAudit.record("recoltes", "Récoltes", format, rows.size());
         return ExportResponses.build("recoltes", format, dataset);
     }

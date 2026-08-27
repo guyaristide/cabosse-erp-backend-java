@@ -47,6 +47,6 @@ final class CustomerImportTemplate {
                         "", "", ""
                 )
         );
-        return new ExportDataset<>("Modèle d'import clients", cols, samples);
+        return new ExportDataset<>(Messages.msg("m.exp-t-modele-d-import-clients"), cols, samples);
     }
 }

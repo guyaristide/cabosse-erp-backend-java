@@ -586,21 +586,32 @@ public class MemberImportService {
         return null;
     }
 
+    /** Personne physique ou morale, dans les deux langues servies. */
     private static String parsePersonType(String raw) {
         if (raw == null || raw.isBlank()) return "NATURAL_PERSON";
         String c = FuzzyLabels.canonical(raw);
         return c.contains("moral") || c.contains("societe") || c.contains("groupement")
+                || c.contains("legal") || c.contains("compan") || c.contains("entity")
                 ? "LEGAL_ENTITY" : "NATURAL_PERSON";
     }
 
+    /**
+     * Situation matrimoniale, lue dans les deux langues servies.
+     *
+     * <p>Le modèle d'import s'affiche dans la langue de l'utilisateur : un
+     * anglophone y recopie « Married », et sans les formes anglaises ici la
+     * colonne revenait vide, sans erreur. Traduire ce qui s'affiche oblige à
+     * élargir ce qui se relit, sous peine de casser le circuit en silence.</p>
+     */
     private static String parseMaritalStatus(String raw) {
         if (raw == null || raw.isBlank()) return null;
         String c = FuzzyLabels.canonical(raw);
-        if (c.startsWith("marie")) return "MARRIED";
-        if (c.startsWith("celibataire")) return "SINGLE";
-        if (c.startsWith("veu")) return "WIDOWED";
+        if (c.startsWith("marie") || c.startsWith("married")) return "MARRIED";
+        if (c.startsWith("celibataire") || c.startsWith("single")) return "SINGLE";
+        if (c.startsWith("veu") || c.startsWith("widow")) return "WIDOWED";
         if (c.startsWith("divorce")) return "DIVORCED";
-        if (c.contains("libre") || c.contains("concubin")) return "COHABITING";
+        if (c.contains("libre") || c.contains("concubin")
+                || c.contains("cohabit") || c.contains("partner")) return "COHABITING";
         return null;
     }
 

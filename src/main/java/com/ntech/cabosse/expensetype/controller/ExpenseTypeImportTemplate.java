@@ -25,6 +25,6 @@ final class ExpenseTypeImportTemplate {
                 new TemplateRow("", "Électricité", "Services", "606", "Courant CIE atelier"),
                 new TemplateRow("", "Frais bancaires", "Financier", "627", "")
         );
-        return new ExportDataset<>("Modèle d'import types de dépense", cols, samples);
+        return new ExportDataset<>(Messages.msg("m.exp-t-modele-d-import-types-de-depense"), cols, samples);
     }
 }

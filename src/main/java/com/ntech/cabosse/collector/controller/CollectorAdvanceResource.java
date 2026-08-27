@@ -1,6 +1,7 @@
 package com.ntech.cabosse.collector.controller;
 
 import com.ntech.cabosse.collector.dto.CollectorAdvanceResponseDto;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.collector.dto.CreateAdvanceDto;
 import com.ntech.cabosse.collector.service.CollectorAdvanceService;
 import com.ntech.cabosse.collector.service.DelegateAccountService;
@@ -72,7 +73,7 @@ public class CollectorAdvanceResource {
         ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
         java.util.List<com.ntech.cabosse.collector.dto.CollectorAdvanceResponseDto> rows = service.search(status, 0, Integer.MAX_VALUE);
         ExportDataset<com.ntech.cabosse.collector.dto.CollectorAdvanceResponseDto> dataset =
-                new ExportDataset<>("Avances aux délégués", CollectorAdvanceExportColumns.all(), rows);
+                new ExportDataset<>(Messages.msg("m.exp-t-avances-aux-delegues"), CollectorAdvanceExportColumns.all(), rows);
         exportAudit.record("avances-delegues", "Avances aux délégués", format, rows.size());
         return ExportResponses.build("avances-delegues", format, dataset);
     }

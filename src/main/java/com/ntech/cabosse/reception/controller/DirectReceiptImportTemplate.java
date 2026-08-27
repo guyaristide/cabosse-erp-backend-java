@@ -50,6 +50,6 @@ final class DirectReceiptImportTemplate {
                         "1 200", "1800", "BL-S-05", "Pesage usine"
                 )
         );
-        return new ExportDataset<>("Modèle d'import réceptions directes", cols, samples);
+        return new ExportDataset<>(Messages.msg("m.exp-t-modele-d-import-receptions-directes"), cols, samples);
     }
 }

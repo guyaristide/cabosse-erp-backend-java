@@ -45,6 +45,6 @@ final class SupplierImportTemplate {
                         "", "Comptant", ""
                 )
         );
-        return new ExportDataset<>("Modèle d'import fournisseurs", cols, samples);
+        return new ExportDataset<>(Messages.msg("m.exp-t-modele-d-import-fournisseurs"), cols, samples);
     }
 }

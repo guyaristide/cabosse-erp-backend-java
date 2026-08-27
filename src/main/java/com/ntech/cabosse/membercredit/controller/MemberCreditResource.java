@@ -89,7 +89,7 @@ public class MemberCreditResource {
         ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
         java.util.List<com.ntech.cabosse.membercredit.dto.MemberCreditResponseDto> rows = service.listForExport(memberId, status, campaignId);
         ExportDataset<com.ntech.cabosse.membercredit.dto.MemberCreditResponseDto> dataset =
-                new ExportDataset<>("Crédits et avances producteurs", MemberCreditExportColumns.all(), rows);
+                new ExportDataset<>(Messages.msg("m.exp-t-credits-et-avances-producteurs"), MemberCreditExportColumns.all(), rows);
         exportAudit.record("credits-producteurs", "Crédits et avances producteurs", format, rows.size());
         return ExportResponses.build("credits-producteurs", format, dataset);
     }

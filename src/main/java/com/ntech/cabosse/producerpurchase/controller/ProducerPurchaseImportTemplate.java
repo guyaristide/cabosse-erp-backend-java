@@ -99,7 +99,7 @@ public class ProducerPurchaseImportTemplate {
                         "DEL-001", "KONE Adama"
                 )
         );
-        return new ExportDataset<>("Modèle d'import reçus d'achat producteur", cols, samples);
+        return new ExportDataset<>(Messages.msg("m.exp-t-modele-d-import-recus-d-achat-producteur"), cols, samples);
     }
 
     private record Buyer(String name, String agrement, String city, String phone) {}

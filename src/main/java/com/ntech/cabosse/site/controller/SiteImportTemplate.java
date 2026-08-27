@@ -49,6 +49,6 @@ final class SiteImportTemplate {
                         "+225 27 21 22 33", "", "", "Lun-Sam 9h-19h", ""
                 )
         );
-        return new ExportDataset<>("Modèle d'import sites", cols, samples);
+        return new ExportDataset<>(Messages.msg("m.exp-t-modele-d-import-sites"), cols, samples);
     }
 }
