@@ -1,5 +1,6 @@
 package com.ntech.cabosse.permission.entity;
 
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.tenant.capability.TenantCapability;
 
 import java.util.Arrays;
@@ -26,82 +27,82 @@ import java.util.Set;
 public enum Permission {
 
     // ─── Référentiels ───────────────────────────────────────────────
-    REFERENTIAL_READ(Domain.REFERENTIAL, "Consulter les référentiels"),
-    REFERENTIAL_WRITE(Domain.REFERENTIAL, "Créer et modifier les référentiels"),
+    REFERENTIAL_READ(Domain.REFERENTIAL, "m.per-referential-read"),
+    REFERENTIAL_WRITE(Domain.REFERENTIAL, "m.per-referential-write"),
 
     // ─── Achats de biens et services ────────────────────────────────
-    PURCHASE_READ(Domain.PURCHASE, "Consulter les achats"),
-    PURCHASE_WRITE(Domain.PURCHASE, "Saisir bons de commande et réceptions"),
-    PURCHASE_APPROVE(Domain.PURCHASE, "Approuver les demandes d'achat"),
-    EXPENSE_WRITE(Domain.PURCHASE, "Enregistrer les dépenses directes"),
+    PURCHASE_READ(Domain.PURCHASE, "m.per-purchase-read"),
+    PURCHASE_WRITE(Domain.PURCHASE, "m.per-purchase-write"),
+    PURCHASE_APPROVE(Domain.PURCHASE, "m.per-purchase-approve"),
+    EXPENSE_WRITE(Domain.PURCHASE, "m.per-expense-write"),
 
     // ─── Collecte de matière première ───────────────────────────────
-    COLLECTION_READ(Domain.COLLECTION, "Consulter la collecte",
+    COLLECTION_READ(Domain.COLLECTION, "m.per-collection-read",
             TenantCapability.HAS_COMMODITY_TRADE),
-    COLLECTION_RECEIPT_WRITE(Domain.COLLECTION, "Enregistrer un reçu d'achat producteur",
+    COLLECTION_RECEIPT_WRITE(Domain.COLLECTION, "m.per-collection-receipt-write",
             TenantCapability.HAS_COMMODITY_TRADE),
-    COLLECTION_ADVANCE_WRITE(Domain.COLLECTION, "Consentir une avance à un délégué",
+    COLLECTION_ADVANCE_WRITE(Domain.COLLECTION, "m.per-collection-advance-write",
             TenantCapability.HAS_COMMODITY_TRADE),
-    COLLECTION_PAYMENT_WRITE(Domain.COLLECTION, "Régler les livraisons",
+    COLLECTION_PAYMENT_WRITE(Domain.COLLECTION, "m.per-collection-payment-write",
             TenantCapability.HAS_COMMODITY_TRADE),
 
     // ─── Producteurs membres ────────────────────────────────────────
-    MEMBER_READ(Domain.MEMBER, "Consulter les producteurs", TenantCapability.HAS_MEMBERS),
-    MEMBER_WRITE(Domain.MEMBER, "Créer et modifier les producteurs", TenantCapability.HAS_MEMBERS),
-    MEMBER_CREDIT_REQUEST(Domain.MEMBER, "Demander un crédit ou une avance",
+    MEMBER_READ(Domain.MEMBER, "m.per-member-read", TenantCapability.HAS_MEMBERS),
+    MEMBER_WRITE(Domain.MEMBER, "m.per-member-write", TenantCapability.HAS_MEMBERS),
+    MEMBER_CREDIT_REQUEST(Domain.MEMBER, "m.per-member-credit-request",
             TenantCapability.HAS_MEMBERS),
-    MEMBER_CREDIT_APPROVE(Domain.MEMBER, "Approuver un crédit ou une avance",
+    MEMBER_CREDIT_APPROVE(Domain.MEMBER, "m.per-member-credit-approve",
             TenantCapability.HAS_MEMBERS),
     // Au-dessus du seuil du tenant, l'approbation ordinaire ne suffit
     // plus : ce droit distinct matérialise l'échelon de gouvernance.
-    MEMBER_CREDIT_APPROVE_GOVERNANCE(Domain.MEMBER, "Approuver un crédit soumis au conseil",
+    MEMBER_CREDIT_APPROVE_GOVERNANCE(Domain.MEMBER, "m.per-member-credit-approve-governance",
             TenantCapability.HAS_MEMBERS),
-    MEMBER_CREDIT_DISBURSE(Domain.MEMBER, "Décaisser un crédit approuvé",
+    MEMBER_CREDIT_DISBURSE(Domain.MEMBER, "m.per-member-credit-disburse",
             TenantCapability.HAS_MEMBERS),
 
     // ─── Amont agricole ─────────────────────────────────────────────
-    PARCEL_READ(Domain.AGRICULTURE, "Consulter les parcelles", TenantCapability.HAS_PARCELS),
-    PARCEL_WRITE(Domain.AGRICULTURE, "Créer et modifier les parcelles", TenantCapability.HAS_PARCELS),
-    HARVEST_WRITE(Domain.AGRICULTURE, "Enregistrer les récoltes", TenantCapability.HAS_PARCELS),
+    PARCEL_READ(Domain.AGRICULTURE, "m.per-parcel-read", TenantCapability.HAS_PARCELS),
+    PARCEL_WRITE(Domain.AGRICULTURE, "m.per-parcel-write", TenantCapability.HAS_PARCELS),
+    HARVEST_WRITE(Domain.AGRICULTURE, "m.per-harvest-write", TenantCapability.HAS_PARCELS),
 
     // ─── Transformation ─────────────────────────────────────────────
-    PROCESSING_READ(Domain.PROCESSING, "Consulter la transformation"),
-    PRODUCTION_WRITE(Domain.PROCESSING, "Lancer et clôturer les ordres de fabrication"),
-    FERMENTATION_WRITE(Domain.PROCESSING, "Suivre la fermentation",
+    PROCESSING_READ(Domain.PROCESSING, "m.per-processing-read"),
+    PRODUCTION_WRITE(Domain.PROCESSING, "m.per-production-write"),
+    FERMENTATION_WRITE(Domain.PROCESSING, "m.per-fermentation-write",
             TenantCapability.HAS_FERMENTATION),
-    DRYING_WRITE(Domain.PROCESSING, "Suivre le séchage", TenantCapability.HAS_DRYING),
+    DRYING_WRITE(Domain.PROCESSING, "m.per-drying-write", TenantCapability.HAS_DRYING),
 
     // ─── Stocks ─────────────────────────────────────────────────────
-    STOCK_READ(Domain.STOCK, "Consulter les stocks"),
-    STOCK_MOVE(Domain.STOCK, "Enregistrer les mouvements de stock"),
-    STOCK_INVENTORY(Domain.STOCK, "Conduire un inventaire physique"),
+    STOCK_READ(Domain.STOCK, "m.per-stock-read"),
+    STOCK_MOVE(Domain.STOCK, "m.per-stock-move"),
+    STOCK_INVENTORY(Domain.STOCK, "m.per-stock-inventory"),
 
     // ─── Ventes ─────────────────────────────────────────────────────
-    SALE_READ(Domain.SALE, "Consulter les ventes"),
-    SALE_WRITE(Domain.SALE, "Saisir devis, ventes et livraisons"),
-    SALE_PAYMENT(Domain.SALE, "Encaisser les règlements clients"),
+    SALE_READ(Domain.SALE, "m.per-sale-read"),
+    SALE_WRITE(Domain.SALE, "m.per-sale-write"),
+    SALE_PAYMENT(Domain.SALE, "m.per-sale-payment"),
 
     // ─── Comptabilité et trésorerie ─────────────────────────────────
-    ACCOUNTING_READ(Domain.ACCOUNTING, "Consulter la comptabilité"),
-    ACCOUNTING_WRITE(Domain.ACCOUNTING, "Saisir les opérations diverses"),
-    ACCOUNTING_CLOSE(Domain.ACCOUNTING, "Clôturer périodes et exercices"),
-    TREASURY_WRITE(Domain.ACCOUNTING, "Transporter des fonds et tenir la caisse"),
+    ACCOUNTING_READ(Domain.ACCOUNTING, "m.per-accounting-read"),
+    ACCOUNTING_WRITE(Domain.ACCOUNTING, "m.per-accounting-write"),
+    ACCOUNTING_CLOSE(Domain.ACCOUNTING, "m.per-accounting-close"),
+    TREASURY_WRITE(Domain.ACCOUNTING, "m.per-treasury-write"),
 
     // ─── Conformité ─────────────────────────────────────────────────
-    EUDR_READ(Domain.COMPLIANCE, "Consulter la conformité",
+    EUDR_READ(Domain.COMPLIANCE, "m.per-eudr-read",
             TenantCapability.HAS_EUDR_COMPLIANCE),
-    EUDR_WRITE(Domain.COMPLIANCE, "Constituer les dossiers de conformité",
+    EUDR_WRITE(Domain.COMPLIANCE, "m.per-eudr-write",
             TenantCapability.HAS_EUDR_COMPLIANCE),
-    TRACEABILITY_READ(Domain.COMPLIANCE, "Consulter la traçabilité"),
+    TRACEABILITY_READ(Domain.COMPLIANCE, "m.per-traceability-read"),
 
     // ─── Pilotage ───────────────────────────────────────────────────
-    REPORTING_READ(Domain.STEERING, "Consulter les rapports"),
-    EXECUTIVE_READ(Domain.STEERING, "Consulter le tableau de bord de direction"),
+    REPORTING_READ(Domain.STEERING, "m.per-reporting-read"),
+    EXECUTIVE_READ(Domain.STEERING, "m.per-executive-read"),
 
     // ─── Administration du tenant ───────────────────────────────────
-    SETTINGS_READ(Domain.ADMIN, "Consulter les paramètres"),
-    SETTINGS_WRITE(Domain.ADMIN, "Modifier les paramètres"),
-    USER_MANAGE(Domain.ADMIN, "Gérer les utilisateurs et les profils");
+    SETTINGS_READ(Domain.ADMIN, "m.per-settings-read"),
+    SETTINGS_WRITE(Domain.ADMIN, "m.per-settings-write"),
+    USER_MANAGE(Domain.ADMIN, "m.per-user-manage");
 
     /** Regroupement d'affichage, pour composer un profil sans se perdre. */
     public enum Domain {
@@ -110,19 +111,31 @@ public enum Permission {
     }
 
     private final Domain domain;
-    private final String label;
+    private final String messageKey;
     private final Set<TenantCapability> requires;
 
-    Permission(Domain domain, String label, TenantCapability... requires) {
+    Permission(Domain domain, String messageKey, TenantCapability... requires) {
         this.domain = domain;
-        this.label = label;
+        this.messageKey = messageKey;
         this.requires = requires.length == 0
                 ? Set.of() : new LinkedHashSet<>(Arrays.asList(requires));
     }
 
     public Domain domain() { return domain; }
 
-    public String label() { return label; }
+    /** Clé de catalogue portant l'intitulé du droit. */
+    public String messageKey() { return messageKey; }
+
+    /**
+     * Intitulé du droit dans la langue de la requête en cours.
+     *
+     * <p>Il était écrit en dur ici. L'administrateur d'une structure
+     * anglophone cochait donc des cases françaises pour composer ses
+     * profils, et le refus d'accès qui nomme le droit manquant sortait à
+     * moitié dans chaque langue : la phrase venait du catalogue, le nom du
+     * droit non.</p>
+     */
+    public String label() { return Messages.msg(messageKey); }
 
     /** Capacités sans lesquelles cette permission n'a pas d'objet. */
     public Set<TenantCapability> requires() { return requires; }

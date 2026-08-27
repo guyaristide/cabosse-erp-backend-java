@@ -53,7 +53,11 @@ public class RequiresPermissionInterceptor {
         if (required.length == 1) {
             return Messages.msg("m.per-permission-required", required[0].label());
         }
-        String list = Arrays.stream(required).map(p -> "« " + p.label() + " »")
+        // Les guillemets appartiennent à la langue : le français encadre de
+        // chevrons, l'anglais de doubles droits. Écrits ici, ils partaient
+        // en chevrons dans une phrase anglaise.
+        String list = Arrays.stream(required)
+                .map(p -> Messages.msg("m.per-quoted-right", p.label()))
                 .reduce((a, b) -> a + ", " + b).orElse("");
         return Messages.msg("m.per-one-of-permissions-required", list);
     }
