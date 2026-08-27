@@ -14,6 +14,7 @@ import com.ntech.cabosse.members.entity.MemberStatus;
 import com.ntech.cabosse.members.repository.MemberRepository;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
+import com.ntech.cabosse.shared.i18n.Locales;
 import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.tenant.entity.TenantEntity;
@@ -37,7 +38,13 @@ import java.util.UUID;
 @ApplicationScoped
 public class MemberCardService {
 
-    private static final DateTimeFormatter FR_DATE =
+    /**
+     * Format de date de la carte. Le jour avant le mois vaut pour les deux
+     * langues servies : l'anglais britannique, usage de l'Afrique de l'Ouest
+     * anglophone, l'écrit comme le français. Basculer sur le format
+     * américain rendrait 03/04 ambigu d'un porteur de carte à l'autre.
+     */
+    private static final DateTimeFormatter CARD_DATE =
             DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale.FRANCE);
 
     @Inject MemberRepository members;
@@ -55,6 +62,11 @@ public class MemberCardService {
         }
         TenantEntity tenant = tenants.findById(tenantContext.tenantId());
         String organization = tenant != null ? tenant.name : "";
+        // La carte est remise au coopérateur, pas à l'agent qui l'imprime :
+        // elle suit la langue de la structure, comme un courriel suit celle
+        // de son destinataire.
+        Locale locale = Locales.of(tenant != null && tenant.preferences != null
+                ? tenant.preferences.language : null);
 
         try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             // A6 paysage : 148 × 105 mm.
@@ -81,12 +93,14 @@ public class MemberCardService {
 
             PdfPTable table = new PdfPTable(new float[]{1, 1});
             table.setWidthPercentage(100);
-            addField(table, "Numéro d'adhésion", m.code, labelFont, valueFont);
-            addField(table, "Village / localité", m.village != null ? m.village : "-",
+            addField(table, Messages.msg(locale, "m.mbr-card-number"), m.code, labelFont, valueFont);
+            addField(table, Messages.msg(locale, "m.mbr-card-village"),
+                    m.village != null ? m.village : "-",
                     labelFont, valueFont);
-            addField(table, "Date d'adhésion",
-                    m.joinedAt != null ? FR_DATE.format(m.joinedAt) : "-", labelFont, valueFont);
-            addField(table, "Carte émise le", FR_DATE.format(LocalDate.now()), labelFont, valueFont);
+            addField(table, Messages.msg(locale, "m.mbr-card-joined"),
+                    m.joinedAt != null ? CARD_DATE.format(m.joinedAt) : "-", labelFont, valueFont);
+            addField(table, Messages.msg(locale, "m.mbr-card-issued"),
+                    CARD_DATE.format(LocalDate.now()), labelFont, valueFont);
             doc.add(table);
 
             doc.close();

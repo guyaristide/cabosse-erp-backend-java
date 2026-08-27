@@ -58,6 +58,18 @@ import java.util.UUID;
  * <p>Les mentions propres à un organisme de filière sont formulées de
  * manière neutre (« carte producteur » plutôt que le nom d'un conseil
  * national) : la plateforme sert plusieurs filières et plusieurs pays.</p>
+ *
+ * <p><b>Les intitulés restent en français, volontairement.</b> Ce document
+ * n'est pas un écran, c'est le fac-similé d'un imprimé qui circule déjà
+ * sur le terrain : l'agent lit la fiche à côté du formulaire papier et
+ * dicte « le 23 », « le 47 ». Traduire les intitulés désalignerait les
+ * deux, et le numéro ne suffirait plus à désigner la même case. Le jour
+ * où un client fournira son modèle dans une autre langue, c'est une
+ * variante du gabarit qu'il faudra, pas une traduction de celui-ci.</p>
+ *
+ * <p>La carte de membre, elle, est un document que la plateforme conçoit :
+ * ses libellés suivent la langue de la structure, comme un courriel suit
+ * celle de son destinataire.</p>
  */
 @ApplicationScoped
 public class MemberProfileSheetService {
