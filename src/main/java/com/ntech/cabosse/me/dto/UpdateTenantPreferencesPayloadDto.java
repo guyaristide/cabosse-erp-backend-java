@@ -173,6 +173,31 @@ public record UpdateTenantPreferencesPayloadDto(
         @jakarta.validation.constraints.Pattern(regexp = "^$|^(DATE|MANUAL)$",
                 message = "{v.rattachement-campagne-date-ou-manual}")
         @Schema(description = "Comment une opération rejoint une campagne : DATE ou MANUAL.")
-        String campaignAssignmentMode
+        String campaignAssignmentMode,
+
+        @jakarta.validation.constraints.Pattern(
+                regexp = "^$|^(QUARANTINE|POST_TO_OPEN_PERIOD|REFUSE)$",
+                message = "{v.periode-close-quarantaine-report-ou-refus}")
+        @Schema(description = "Écriture arrivée après la clôture de sa période : QUARANTINE, "
+                + "POST_TO_OPEN_PERIOD ou REFUSE.")
+        String closedPeriodPolicy,
+
+        @jakarta.validation.constraints.Pattern(regexp = "^$|^(CAMPAIGN|MANUAL)$",
+                message = "{v.prix-producteur-campagne-ou-manuel}")
+        @Schema(description = "Prix garanti au reçu : CAMPAIGN ou MANUAL.")
+        String producerPriceSource,
+
+        @jakarta.validation.constraints.Pattern(regexp = "^$|^(COMPUTED|MANUAL)$",
+                message = "{v.montant-recu-calcule-ou-manuel}")
+        @Schema(description = "Montant du reçu : COMPUTED ou MANUAL.")
+        String producerAmountMode,
+
+        @jakarta.validation.constraints.Pattern(regexp = "^$|^(WEIGHED|FROM_BAGS)$",
+                message = "{v.poids-pese-ou-au-sac}")
+        @Schema(description = "Poids du reçu : WEIGHED ou FROM_BAGS.")
+        String producerWeightMode,
+
+        @Schema(description = "Site imposé au reçu producteur.")
+        Boolean producerPurchaseSiteRequired
 
 ) {}

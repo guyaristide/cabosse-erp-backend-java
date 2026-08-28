@@ -159,6 +159,27 @@ public record TenantPreferencesDto(
         @Schema(description = "Comment une opération rejoint une campagne : DATE (déduite de la "
                 + "date, défaut) ou MANUAL (choisie à la saisie).",
                 example = "DATE", defaultValue = "DATE")
-        String campaignAssignmentMode
+        String campaignAssignmentMode,
+
+        @Schema(description = "Écriture dont la période s'est fermée avant qu'elle n'arrive : "
+                + "QUARANTINE (retenue, défaut), POST_TO_OPEN_PERIOD (reportée), REFUSE.",
+                example = "QUARANTINE", defaultValue = "QUARANTINE")
+        String closedPeriodPolicy,
+
+        @Schema(description = "Prix garanti au reçu producteur : CAMPAIGN (pré-rempli depuis la "
+                + "campagne, défaut) ou MANUAL.", example = "CAMPAIGN", defaultValue = "CAMPAIGN")
+        String producerPriceSource,
+
+        @Schema(description = "Montant du reçu : COMPUTED (poids x prix, défaut) ou MANUAL.",
+                example = "COMPUTED", defaultValue = "COMPUTED")
+        String producerAmountMode,
+
+        @Schema(description = "Détermination du poids : WEIGHED (pesée, défaut) ou FROM_BAGS "
+                + "(nombre de sacs x poids standard).", example = "WEIGHED", defaultValue = "WEIGHED")
+        String producerWeightMode,
+
+        @Schema(description = "Site imposé au reçu producteur plutôt que déduit du site actif.",
+                defaultValue = "false")
+        boolean producerPurchaseSiteRequired
 
 ) {}

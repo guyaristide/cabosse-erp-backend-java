@@ -175,7 +175,12 @@ public final class TenantMapper {
                 entity.preferences.productionPotentialBasis(),
                 entity.preferences.showPotentialOnHarvest(),
                 entity.preferences.capturePodsWeight(),
-                entity.preferences.campaignAssignmentMode()
+                entity.preferences.campaignAssignmentMode(),
+                entity.preferences.closedPeriodPolicy(),
+                entity.preferences.producerPriceSource(),
+                entity.preferences.producerAmountMode(),
+                entity.preferences.producerWeightMode(),
+                entity.preferences.producerPurchaseSiteRequired()
         );
     }
 

@@ -80,7 +80,12 @@ public class TenantPreferencesService {
                 p.productionPotentialBasis(),
                 p.showPotentialOnHarvest(),
                 p.capturePodsWeight(),
-                p.campaignAssignmentMode()
+                p.campaignAssignmentMode(),
+                p.closedPeriodPolicy(),
+                p.producerPriceSource(),
+                p.producerAmountMode(),
+                p.producerWeightMode(),
+                p.producerPurchaseSiteRequired()
         );
     }
 
@@ -379,6 +384,49 @@ public class TenantPreferencesService {
                     "from", t.preferences.capturePodsWeight(),
                     "to", payload.capturePodsWeight()));
             t.preferences.capturePodsWeight = payload.capturePodsWeight();
+        }
+
+        if (payload.closedPeriodPolicy() != null
+                && !payload.closedPeriodPolicy().isBlank()
+                && !payload.closedPeriodPolicy().equals(t.preferences.closedPeriodPolicy())) {
+            diffs.put("closedPeriodPolicy", Map.of(
+                    "from", t.preferences.closedPeriodPolicy(),
+                    "to", payload.closedPeriodPolicy()));
+            t.preferences.closedPeriodPolicy = payload.closedPeriodPolicy().trim();
+        }
+
+        if (payload.producerPriceSource() != null
+                && !payload.producerPriceSource().isBlank()
+                && !payload.producerPriceSource().equals(t.preferences.producerPriceSource())) {
+            diffs.put("producerPriceSource", Map.of(
+                    "from", t.preferences.producerPriceSource(),
+                    "to", payload.producerPriceSource()));
+            t.preferences.producerPriceSource = payload.producerPriceSource().trim();
+        }
+
+        if (payload.producerAmountMode() != null
+                && !payload.producerAmountMode().isBlank()
+                && !payload.producerAmountMode().equals(t.preferences.producerAmountMode())) {
+            diffs.put("producerAmountMode", Map.of(
+                    "from", t.preferences.producerAmountMode(),
+                    "to", payload.producerAmountMode()));
+            t.preferences.producerAmountMode = payload.producerAmountMode().trim();
+        }
+
+        if (payload.producerWeightMode() != null
+                && !payload.producerWeightMode().isBlank()
+                && !payload.producerWeightMode().equals(t.preferences.producerWeightMode())) {
+            diffs.put("producerWeightMode", Map.of(
+                    "from", t.preferences.producerWeightMode(),
+                    "to", payload.producerWeightMode()));
+            t.preferences.producerWeightMode = payload.producerWeightMode().trim();
+        }
+
+        if (payload.producerPurchaseSiteRequired() != null && payload.producerPurchaseSiteRequired() != t.preferences.producerPurchaseSiteRequired()) {
+            diffs.put("producerPurchaseSiteRequired", Map.of(
+                    "from", t.preferences.producerPurchaseSiteRequired(),
+                    "to", payload.producerPurchaseSiteRequired()));
+            t.preferences.producerPurchaseSiteRequired = payload.producerPurchaseSiteRequired();
         }
 
         if (payload.campaignAssignmentMode() != null
