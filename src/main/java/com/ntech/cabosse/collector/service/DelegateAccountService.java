@@ -179,6 +179,166 @@ public class DelegateAccountService {
                 .orElse(false);
     }
 
+    /**
+     * État des délégués sur une ou plusieurs campagnes.
+     *
+     * <p>Une ligne par délégué, avec la mise en compte et la marge exprimées
+     * au kilo (ce qui a été convenu) et en montant (ce que les livraisons
+     * ont produit). Les trois états demandés par l'expert, mise en compte
+     * seule, marge seule, les deux, se lisent dans ce relevé : ils ne
+     * diffèrent que par les colonnes affichées.</p>
+     *
+     * <p>Un délégué sans livraison sur la période reste dans l'état, à zéro.
+     * Le faire disparaître donnerait un relevé où l'inactivité ressemble à
+     * l'absence, alors que c'est justement ce qu'un responsable cherche.</p>
+     */
+    public com.ntech.cabosse.collector.dto.DelegateStatementDto statement(List<UUID> campaignIds) {
+        List<UUID> scope = campaignIds == null ? List.of()
+                : campaignIds.stream().filter(java.util.Objects::nonNull).distinct().toList();
+        var prefs = preferences.current();
+
+        List<com.ntech.cabosse.collector.dto.DelegateStatementDto.Row> rows = new ArrayList<>();
+        BigDecimal totalRetention = BigDecimal.ZERO;
+        BigDecimal totalMargin = BigDecimal.ZERO;
+        BigDecimal totalWeight = BigDecimal.ZERO;
+        BigDecimal totalDelivered = BigDecimal.ZERO;
+
+        for (SupplierEntity delegate : suppliers.listAll()) {
+            if (!delegate.collector) continue;
+
+            BigDecimal retention = BigDecimal.ZERO;
+            BigDecimal margin = BigDecimal.ZERO;
+            BigDecimal weight = BigDecimal.ZERO;
+            BigDecimal delivered = BigDecimal.ZERO;
+            for (ProducerPurchaseEntity r : receiptsOver(delegate.id, scope)) {
+                retention = retention.add(nz(r.delegateRetentionFcfa));
+                margin = margin.add(nz(r.delegateMarginFcfa));
+                weight = weight.add(nz(r.weightKg));
+                delivered = delivered.add(nz(r.amountFcfa));
+            }
+
+            var resolved = marginResolver.resolve(prefs, delegate);
+            rows.add(new com.ntech.cabosse.collector.dto.DelegateStatementDto.Row(
+                    delegate.id, delegate.code, delegate.name,
+                    delegate.sectionId != null
+                            ? sections.findById(delegate.sectionId).map(sec -> sec.name).orElse(null) : null,
+                    delegate.collectorRetentionPerKgFcfa, retention,
+                    resolved.isPerKg() ? resolved.rate() : null, margin,
+                    weight, delivered));
+
+            totalRetention = totalRetention.add(retention);
+            totalMargin = totalMargin.add(margin);
+            totalWeight = totalWeight.add(weight);
+            totalDelivered = totalDelivered.add(delivered);
+        }
+
+        rows.sort(java.util.Comparator.comparing(
+                com.ntech.cabosse.collector.dto.DelegateStatementDto.Row::delegateCode,
+                java.util.Comparator.nullsLast(String::compareToIgnoreCase)));
+
+        return new com.ntech.cabosse.collector.dto.DelegateStatementDto(
+                scope, rows,
+                new com.ntech.cabosse.collector.dto.DelegateStatementDto.Totals(
+                        totalRetention, totalMargin, totalWeight, totalDelivered, rows.size()));
+    }
+
+    /**
+     * Suivi détaillé d'un délégué, opération par opération.
+     *
+     * <p>Les avances versées et les bordereaux livrés sont remis dans
+     * l'ordre du temps, puis les grandeurs A à I sont cumulées ligne à
+     * ligne. Lue de haut en bas, la table raconte la campagne : ce qui a
+     * été avancé, ce qui est redescendu du terrain, et à quel moment le
+     * délégué est repassé du bon côté.</p>
+     */
+    public com.ntech.cabosse.collector.dto.DelegateLedgerDto ledger(UUID delegateSupplierId, UUID campaignId) {
+        SupplierEntity delegate = suppliers.findById(delegateSupplierId).orElseThrow(
+                () -> new NotFoundException(Messages.msg("m.col-delegate-not-found", delegateSupplierId)));
+        if (!delegate.collector) {
+            throw new BusinessException(Messages.msg("m.col-not-a-delegate", delegate.name));
+        }
+        CampaignEntity campaign = campaignId != null ? campaigns.findById(campaignId).orElse(null) : null;
+        BigDecimal previous = campaignId != null ? previousBalance(delegateSupplierId, campaignId) : BigDecimal.ZERO;
+
+        record Op(LocalDate date,
+                  com.ntech.cabosse.collector.dto.DelegateLedgerDto.Operation kind,
+                  String ref, String fieldNoteRef,
+                  BigDecimal amount, BigDecimal weight, BigDecimal retention) {}
+
+        List<Op> ops = new ArrayList<>();
+        for (CollectorAdvanceEntity a : advances.listByDelegate(delegateSupplierId)) {
+            if (campaignId != null && !campaignId.equals(a.campaignId)) continue;
+            ops.add(new Op(a.advanceDate,
+                    com.ntech.cabosse.collector.dto.DelegateLedgerDto.Operation.ADVANCE,
+                    a.ref, null, nz(a.advanceAmountFcfa), BigDecimal.ZERO, BigDecimal.ZERO));
+        }
+        for (var note : groupByDeliveryNote(purchases.listByDelegate(delegateSupplierId, campaignId))) {
+            ops.add(new Op(note.date(),
+                    com.ntech.cabosse.collector.dto.DelegateLedgerDto.Operation.DELIVERY,
+                    note.deliveryRef(), note.deliveryRef(),
+                    note.amountFcfa(), note.weightKg(), note.retentionFcfa()));
+        }
+        for (var p : payments.listForDelegate(delegateSupplierId, campaignId)) {
+            ops.add(new Op(p.date,
+                    com.ntech.cabosse.collector.dto.DelegateLedgerDto.Operation.SETTLEMENT,
+                    p.ref, null, nz(p.totalAmountFcfa), BigDecimal.ZERO, BigDecimal.ZERO));
+        }
+        // Une date manquante ne doit pas faire disparaître l'opération :
+        // elle passe en tête, où elle se voit.
+        ops.sort(java.util.Comparator.comparing(Op::date, java.util.Comparator.nullsFirst(LocalDate::compareTo)));
+
+        List<com.ntech.cabosse.collector.dto.DelegateLedgerDto.Line> lines = new ArrayList<>();
+        BigDecimal advanced = BigDecimal.ZERO;
+        BigDecimal delivered = BigDecimal.ZERO;
+        BigDecimal retention = BigDecimal.ZERO;
+        BigDecimal weight = BigDecimal.ZERO;
+        for (Op op : ops) {
+            switch (op.kind()) {
+                // Un règlement sort des fonds vers le délégué, exactement
+                // comme une avance : il gonfle ce qu'il a en main.
+                case ADVANCE, SETTLEMENT -> advanced = advanced.add(op.amount());
+                case DELIVERY -> {
+                    delivered = delivered.add(op.amount());
+                    retention = retention.add(op.retention());
+                    weight = weight.add(op.weight());
+                }
+            }
+            BigDecimal gross = previous.add(advanced);
+            BigDecimal net = gross.subtract(delivered.add(retention));
+            lines.add(new com.ntech.cabosse.collector.dto.DelegateLedgerDto.Line(
+                    op.date(), op.kind(), op.ref(), op.fieldNoteRef(),
+                    advanced, gross, weight,
+                    weight.signum() > 0 ? delivered.divide(weight, 2, RoundingMode.HALF_UP) : null,
+                    delivered, retention, net,
+                    gross.signum() != 0 ? net.multiply(HUNDRED).divide(gross, 1, RoundingMode.HALF_UP) : null,
+                    op.amount()));
+        }
+
+        return new com.ntech.cabosse.collector.dto.DelegateLedgerDto(
+                delegate.id, delegate.code, delegate.name,
+                delegate.sectionId != null
+                        ? sections.findById(delegate.sectionId).map(sec -> sec.name).orElse(null) : null,
+                campaign != null ? campaign.id : null,
+                campaign != null ? campaign.label : null,
+                previous, lines,
+                new com.ntech.cabosse.collector.dto.DelegateLedgerDto.Totals(
+                        advanced, delivered, retention, weight,
+                        previous.add(advanced).subtract(delivered.add(retention))));
+    }
+
+    /**
+     * Reçus d'un délégué sur un ensemble de campagnes.
+     *
+     * <p>Sans campagne demandée, le compte se lit depuis l'origine : c'est
+     * la même convention que le compte courant.</p>
+     */
+    private List<ProducerPurchaseEntity> receiptsOver(UUID delegateSupplierId, List<UUID> campaignIds) {
+        if (campaignIds.isEmpty()) return purchases.listByDelegate(delegateSupplierId, null);
+        List<ProducerPurchaseEntity> all = new ArrayList<>();
+        for (UUID id : campaignIds) all.addAll(purchases.listByDelegate(delegateSupplierId, id));
+        return all;
+    }
+
     private static DelegateAccountDto.AdvanceLine advanceLine(CollectorAdvanceEntity a) {
         return new DelegateAccountDto.AdvanceLine(
                 a.id, a.ref, a.advanceDate, nz(a.advanceAmountFcfa), nz(a.remainingFcfa),

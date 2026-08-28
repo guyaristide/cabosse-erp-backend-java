@@ -124,6 +124,54 @@ public class CollectorAdvanceResource {
         return Response.ok(ApiResponse.ok(accountService.account(supplierId, campaignId))).build();
     }
 
+    /**
+     * État des délégués sur une ou plusieurs campagnes.
+     *
+     * <p>Un seul relevé sert les trois lectures demandées : la mise en
+     * compte, la marge, ou les deux. Passer plusieurs campagnes couvre une
+     * saison entière ; n'en passer aucune lit le compte depuis l'origine.</p>
+     */
+    @GET
+    @Path("/delegates/statement")
+    public Response delegateStatement(@QueryParam("campaignId") java.util.List<UUID> campaignIds) {
+        return Response.ok(ApiResponse.ok(accountService.statement(campaignIds))).build();
+    }
+
+    @GET
+    @Path("/delegates/statement/export")
+    @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/pdf" })
+    public Response delegateStatementExport(@QueryParam("campaignId") java.util.List<UUID> campaignIds,
+                                            @QueryParam("format") String formatRaw) {
+        ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
+        var rows = accountService.statement(campaignIds).rows();
+        var dataset = new ExportDataset<>(
+                Messages.msg("m.exp-t-etat-delegues"), DelegateStatementExportColumns.all(), rows);
+        exportAudit.record("etat-delegues", "État des délégués", format, rows.size());
+        return ExportResponses.build("etat-delegues", format, dataset);
+    }
+
+    /** Suivi détaillé d'un délégué, opération par opération. */
+    @GET
+    @Path("/delegates/{supplierId}/ledger")
+    public Response delegateLedger(@PathParam("supplierId") UUID supplierId,
+                                   @QueryParam("campaignId") UUID campaignId) {
+        return Response.ok(ApiResponse.ok(accountService.ledger(supplierId, campaignId))).build();
+    }
+
+    @GET
+    @Path("/delegates/{supplierId}/ledger/export")
+    @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/pdf" })
+    public Response delegateLedgerExport(@PathParam("supplierId") UUID supplierId,
+                                         @QueryParam("campaignId") UUID campaignId,
+                                         @QueryParam("format") String formatRaw) {
+        ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
+        var ledger = accountService.ledger(supplierId, campaignId);
+        var dataset = new ExportDataset<>(
+                Messages.msg("m.exp-t-suivi-delegue"), DelegateLedgerExportColumns.all(), ledger.lines());
+        exportAudit.record("suivi-delegue", "Suivi détaillé d'un délégué", format, ledger.lines().size());
+        return ExportResponses.build("suivi-delegue", format, dataset);
+    }
+
     public record ClosePayload(String note) {}
 
     // ─── Pièces jointes ─────────────────────────────────────────────
