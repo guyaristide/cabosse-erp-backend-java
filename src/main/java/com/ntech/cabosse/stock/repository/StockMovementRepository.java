@@ -2,6 +2,7 @@ package com.ntech.cabosse.stock.repository;
 
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Filters;
+import com.mongodb.client.model.Updates;
 import com.ntech.cabosse.shared.persistence.TenantMongoDatabaseProvider;
 import com.ntech.cabosse.stock.entity.StockMovementEntity;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -139,6 +140,20 @@ public class StockMovementRepository {
      * (RD, BC, OF, vente). Sert à la contre-passation et à la
      * traçabilité côté écran de détail.
      */
+    /**
+     * Sort une paire de mouvements de la valorisation, sans les effacer.
+     *
+     * <p>Le journal est append-only : une contre-passation ne supprime
+     * rien, elle neutralise. Les deux mouvements restent lisibles, avec
+     * leur horodatage et leur origine.</p>
+     */
+    public void excludeFromValuation(java.util.List<UUID> movementIds) {
+        if (movementIds == null || movementIds.isEmpty()) return;
+        coll().updateMany(
+                Filters.in("_id", movementIds),
+                Updates.set("excludedFromValuation", Boolean.TRUE));
+    }
+
     public List<StockMovementEntity> listBySourceEntity(UUID sourceEntityId) {
         return coll().find(Filters.eq("sourceEntityId", sourceEntityId))
                 .sort(new Document("occurredAt", 1))

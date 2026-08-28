@@ -127,6 +127,24 @@ public class ProducerPurchaseEntity {
     public String pieceRef;
 
     // ─── Audit ───
+    /**
+     * ACTIVE par défaut. Les documents antérieurs à ce champ le portent
+     * après la migration de reprise ; un null se lit donc comme ACTIVE.
+     */
+    public ProducerPurchaseStatus status = ProducerPurchaseStatus.ACTIVE;
+
+    /** Renseigné à l'annulation, null sinon. */
+    public ProducerPurchaseCancellation cancellation;
+
+    /** Le statut, en tolérant les documents d'avant le champ. */
+    public ProducerPurchaseStatus statusOrActive() {
+        return status == null ? ProducerPurchaseStatus.ACTIVE : status;
+    }
+
+    public boolean isCancelled() {
+        return statusOrActive() == ProducerPurchaseStatus.CANCELLED;
+    }
+
     public Instant createdAt;
     public Instant updatedAt;
     public UUID createdBy;

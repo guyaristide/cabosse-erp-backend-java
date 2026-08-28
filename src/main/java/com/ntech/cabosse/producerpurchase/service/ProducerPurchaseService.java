@@ -19,6 +19,11 @@ import com.ntech.cabosse.membercredit.entity.MemberCreditEntity;
 import com.ntech.cabosse.membercredit.service.MemberCreditService;
 import com.ntech.cabosse.producerpurchase.dto.ProducerPurchaseResponseDto;
 import com.ntech.cabosse.producerpurchase.dto.ProducerPurchaseUpsertDto;
+import com.ntech.cabosse.producerpurchase.entity.ProducerPurchaseCancellation;
+import com.ntech.cabosse.producerpurchase.entity.ProducerPurchaseStatus;
+import com.ntech.cabosse.producerpayment.entity.ProducerPaymentEntity;
+import com.ntech.cabosse.accounting.entity.PostingSourceType;
+import com.ntech.cabosse.stock.entity.StockMovementEntity;
 import com.ntech.cabosse.producerpurchase.entity.ProducerPurchaseEntity;
 import com.ntech.cabosse.producerpurchase.repository.ProducerPurchaseRepository;
 import com.ntech.cabosse.shared.api.PageRequest;
@@ -81,6 +86,9 @@ public class ProducerPurchaseService {
     @Inject AuditService audit;
     @Inject IdGenerator idGenerator;
     @Inject JsonWebToken jwt;
+    @Inject com.ntech.cabosse.producerpayment.repository.ProducerPaymentRepository producerPayments;
+    @Inject com.ntech.cabosse.stock.repository.StockItemRepository stockItems;
+    @Inject com.ntech.cabosse.stock.repository.StockMovementRepository stockMovements;
 
     // ─── Lecture ────────────────────────────────────────────────────
 
@@ -532,6 +540,124 @@ public class ProducerPurchaseService {
                     String.valueOf(paid), String.valueOf(payable)));
         }
         return paid;
+    }
+
+
+    // ─── Annulation (contre-passation) ─────────────────────────────
+
+    /**
+     * Contre-passe un reçu d'achat producteur.
+     *
+     * <p>Le reçu ne se modifie pas : il est déjà entré en stock, a fixé le
+     * coût moyen et produit une écriture. On l'annule, et on ressaisit.
+     * C'est aussi ce que l'aide en ligne promet depuis toujours.</p>
+     *
+     * <p>Trois refus plutôt qu'un forçage. Un reçu déjà réglé, une matière
+     * déjà sortie du stock, une annulation déjà faite : dans les trois cas
+     * l'annulation est refusée avec un motif lisible, au lieu de laisser
+     * un stock négatif ou un règlement orphelin. Sur la seule voie
+     * d'entrée matière d'une coopérative, un stock négatif silencieux
+     * n'est pas défendable.</p>
+     *
+     * <p>Ordre : le statut d'abord, en écriture conditionnelle, pour que le
+     * perdant d'une double annulation soit arrêté avant tout effet de
+     * bord. Puis stock, avance, retenues, comptabilité.</p>
+     */
+    public ProducerPurchaseResponseDto cancel(UUID id, String reason) {
+        ProducerPurchaseEntity e = loadOrFail(id);
+        if (e.isCancelled()) {
+            throw new BusinessException(Messages.msg("m.ppu-already-cancelled", e.ref));
+        }
+
+        List<ProducerPaymentEntity> payments = producerPayments.listForPurchase(id);
+        if (!payments.isEmpty()) {
+            throw new BusinessException(Messages.msg("m.ppu-cancel-settled", e.ref,
+                    payments.get(0).ref));
+        }
+
+        BigDecimal weight = nz(e.weightKg);
+        if (e.articleId != null && e.siteId != null && weight.signum() > 0) {
+            BigDecimal available = stockItems.findByArticleAndSite(e.articleId, e.siteId)
+                    .map(item -> item.quantity == null ? BigDecimal.ZERO : item.quantity)
+                    .orElse(BigDecimal.ZERO);
+            if (available.compareTo(weight) < 0) {
+                throw new BusinessException(Messages.msg("m.ppu-cancel-stock-consumed",
+                        e.ref, weight, available));
+            }
+        }
+
+        if (!repo.tryCancel(id)) {
+            throw new BusinessException(Messages.msg("m.ppu-already-cancelled", e.ref));
+        }
+
+        ProducerPurchaseCancellation c = new ProducerPurchaseCancellation();
+        c.reason = reason == null ? "" : reason.trim();
+        c.cancelledByEmail = actor();
+        c.cancelledAt = Instant.now();
+
+        // 1. Stock : sortie miroir, paire neutralisée, coût moyen recalculé.
+        if (e.articleId != null && e.siteId != null && weight.signum() > 0) {
+            StockMovementEntity original = stockMovements.listBySourceEntity(e.id).stream()
+                    .filter(m -> m.kind == MovementKind.IN)
+                    .findFirst()
+                    .orElse(null);
+            BigDecimal unitCost = nz(e.amountFcfa).divide(weight, 6, RoundingMode.HALF_UP);
+            MovementInput compensation = new MovementInput(
+                    e.articleId, e.siteId, MovementKind.OUT, weight, unitCost,
+                    MovementSource.PRODUCER_PURCHASE, e.ref, e.id, null,
+                    null, "Contre-passation " + e.ref + " : " + c.reason,
+                    Instant.now(), false, null, false);
+            if (original != null) {
+                stockService.reverseEntry(original.id, compensation);
+            } else {
+                stockService.applyMovement(compensation);
+            }
+        }
+
+        // 2. Avance du délégué : le montant imputé lui revient.
+        if (e.collectorAdvanceId != null) {
+            BigDecimal imputed = nz(e.amountFcfa).add(nz(e.delegateMarginFcfa));
+            advances.creditBack(e.collectorAdvanceId, imputed);
+            c.advanceCreditedBackFcfa = imputed;
+        }
+
+        // 3. Retenues sur crédits membres : le solde revient au membre et la
+        //    ligne quitte le journal du crédit.
+        BigDecimal restored = BigDecimal.ZERO;
+        for (MemberCreditEntity credit : memberCredits.findImputedByPurchase(e.id)) {
+            BigDecimal amount = credit.imputations == null ? BigDecimal.ZERO
+                    : credit.imputations.stream()
+                            .filter(i -> e.id.equals(i.purchaseId))
+                            .map(i -> nz(i.amountFcfa))
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
+            if (amount.signum() > 0) {
+                memberCredits.reverseImputation(credit.id, e.id, amount);
+                restored = restored.add(amount);
+            }
+        }
+        if (restored.signum() > 0) c.creditRestoredFcfa = restored;
+
+        // 4. Comptabilité : contre-passation idempotente, no-op si la pièce
+        //    d'origine était partie en quarantaine.
+        accounting.reverseFrom(PostingSourceType.PRODUCER_PURCHASE, e.id, c.reason)
+                .ifPresent(piece -> c.reversalPieceRef = piece.ref);
+
+        e.status = ProducerPurchaseStatus.CANCELLED;
+        e.cancellation = c;
+        e.updatedAt = Instant.now();
+        repo.replace(e);
+
+        audit.event(AuditEventType.PRODUCER_PURCHASE_CANCELLED)
+                .actorEmail(actor())
+                .target("producer_purchase", e.id.toString(), e.ref)
+                .tenant(tenantContext.tenantId(), null)
+                .description("Contre-passation de " + e.ref + " : " + c.reason)
+                .record();
+        return ProducerPurchaseResponseDto.from(e);
+    }
+
+    private static BigDecimal nz(BigDecimal v) {
+        return v == null ? BigDecimal.ZERO : v;
     }
 
     private static String blankToNull(String s) {

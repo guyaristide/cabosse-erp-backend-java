@@ -1,6 +1,7 @@
 package com.ntech.cabosse.producerpurchase.dto;
 
 import com.ntech.cabosse.producerpurchase.entity.ProducerPurchaseEntity;
+import com.ntech.cabosse.producerpurchase.entity.ProducerPurchaseStatus;
 import com.ntech.cabosse.reception.entity.PaymentMethod;
 
 import java.math.BigDecimal;
@@ -51,9 +52,23 @@ public record ProducerPurchaseResponseDto(
         UUID collectorAdvanceId,
         String movementRef,
         String pieceRef,
+        /** ACTIVE ou CANCELLED. Un reçu annulé reste lisible. */
+        ProducerPurchaseStatus status,
+        /** Renseigné quand le reçu a été contre-passé. */
+        CancellationView cancellation,
         Instant createdAt,
         Instant updatedAt
 ) {
+
+    /** Ce que la contre-passation a défait, pour un contrôle sans requête. */
+    public record CancellationView(
+            String reason,
+            String cancelledByEmail,
+            Instant cancelledAt,
+            String reversalPieceRef,
+            BigDecimal advanceCreditedBackFcfa,
+            BigDecimal creditRestoredFcfa
+    ) {}
     public static ProducerPurchaseResponseDto from(ProducerPurchaseEntity e) {
         return new ProducerPurchaseResponseDto(
                 e.id, e.ref, e.date, e.officialReceiptRef,
@@ -67,8 +82,21 @@ public record ProducerPurchaseResponseDto(
                 e.delegateSupplierId, e.delegateName, e.delegateMarginFcfa,
                 e.supplierCategoryId, e.supplierCategoryName,
                 e.deliveryRef, e.collectorAdvanceId,
-                e.movementRef, e.pieceRef, e.createdAt, e.updatedAt
+                e.movementRef, e.pieceRef,
+                e.statusOrActive(), cancellationOf(e),
+                e.createdAt, e.updatedAt
         );
+    }
+
+    private static CancellationView cancellationOf(ProducerPurchaseEntity e) {
+        if (e.cancellation == null) return null;
+        return new CancellationView(
+                e.cancellation.reason,
+                e.cancellation.cancelledByEmail,
+                e.cancellation.cancelledAt,
+                e.cancellation.reversalPieceRef,
+                e.cancellation.advanceCreditedBackFcfa,
+                e.cancellation.creditRestoredFcfa);
     }
 
     /** Reçus antérieurs au paiement partiel : payé = dû. */

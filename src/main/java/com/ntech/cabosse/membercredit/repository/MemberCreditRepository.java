@@ -59,6 +59,12 @@ public class MemberCreditRepository {
      * plus ancien au plus récent : c'est l'ordre dans lequel un gérant
      * propose naturellement de retenir.
      */
+    /** Crédits portant une retenue au titre d'un reçu donné. */
+    public List<MemberCreditEntity> findImputedByPurchase(UUID purchaseId) {
+        return coll().find(Filters.eq("imputations.purchaseId", purchaseId))
+                .into(new ArrayList<>());
+    }
+
     public List<MemberCreditEntity> outstandingForMember(UUID memberId) {
         return coll().find(Filters.and(
                         Filters.eq("memberId", memberId),
@@ -126,6 +132,28 @@ public class MemberCreditRepository {
         coll().updateOne(Filters.eq("_id", id), Updates.combine(
                 Updates.pull("attachments", new Document("fileId", fileId)),
                 Updates.set("updatedAt", Instant.now())));
+    }
+
+    /**
+     * Retire la retenue liée à un reçu annulé et rouvre le crédit.
+     *
+     * <p>Le solde est recrédité à part, par {@link #creditBack}. Ici on
+     * retire la ligne du journal et, si le crédit avait été soldé par
+     * cette retenue, on le rouvre : un crédit soldé par une opération qui
+     * n'existe plus ne l'est pas.</p>
+     */
+    public void removeImputationForPurchase(UUID id, UUID purchaseId) {
+        coll().updateOne(
+                Filters.eq("_id", id),
+                Updates.combine(
+                        Updates.pull("imputations", new Document("purchaseId", purchaseId)),
+                        Updates.set("updatedAt", Instant.now())));
+        coll().updateOne(
+                Filters.and(Filters.eq("_id", id), Filters.eq("status", "SETTLED")),
+                Updates.combine(
+                        Updates.set("status", "DISBURSED"),
+                        Updates.unset("settledAt"),
+                        Updates.set("updatedAt", Instant.now())));
     }
 
     /** Enregistre la retenue dans le journal du crédit et solde s'il y a lieu. */

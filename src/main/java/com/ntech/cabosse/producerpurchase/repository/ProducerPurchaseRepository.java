@@ -55,9 +55,24 @@ public class ProducerPurchaseRepository {
 
     /** Tous les reçus filtrés (registre / état de synthèse, NEG-01). */
     /** Reçus portés par le compte courant d'un délégué, du plus ancien au plus récent. */
+    /**
+     * Écarte les reçus contre-passés.
+     *
+     * <p>Un reçu annulé reste au registre — on ne supprime rien — mais il
+     * ne doit peser sur aucun cumul : ni compte courant du délégué, ni
+     * reste à payer, ni rapport. Les documents antérieurs au champ n'ont
+     * pas de statut : ils sont actifs.</p>
+     */
+    private static Bson notCancelled() {
+        return Filters.or(
+                Filters.eq("status", "ACTIVE"),
+                Filters.exists("status", false));
+    }
+
     public List<ProducerPurchaseEntity> listByDelegate(UUID delegateSupplierId, UUID campaignId) {
         List<Bson> filters = new ArrayList<>();
         filters.add(Filters.eq("delegateSupplierId", delegateSupplierId));
+        filters.add(notCancelled());
         if (campaignId != null) filters.add(Filters.eq("campaignId", campaignId));
         return coll().find(Filters.and(filters))
                 .sort(new Document("date", 1).append("ref", 1))
@@ -65,7 +80,7 @@ public class ProducerPurchaseRepository {
     }
 
     public List<ProducerPurchaseEntity> listAll(UUID campaignId) {
-        return coll().find(searchFilter(null, campaignId, null))
+        return coll().find(Filters.and(searchFilter(null, campaignId, null), notCancelled()))
                 .sort(new Document("date", 1)).into(new ArrayList<>());
     }
 
@@ -93,6 +108,7 @@ public class ProducerPurchaseRepository {
     public List<ProducerPurchaseEntity> listUnpaid(UUID memberId, UUID delegateId) {
         List<Bson> filters = new ArrayList<>();
         filters.add(unpaidExpr());
+        filters.add(notCancelled());
         if (memberId != null) filters.add(Filters.eq("memberId", memberId));
         if (delegateId != null) filters.add(Filters.eq("delegateSupplierId", delegateId));
         // Un reçu porté par un délégué se règle au délégué, pas au
@@ -108,7 +124,7 @@ public class ProducerPurchaseRepository {
 
     /** Toutes les livraisons non soldées, tous bénéficiaires confondus. */
     public List<ProducerPurchaseEntity> listAllUnpaid() {
-        return coll().find(unpaidExpr())
+        return coll().find(Filters.and(unpaidExpr(), notCancelled()))
                 .sort(new Document("date", 1).append("ref", 1))
                 .into(new ArrayList<>());
     }
@@ -159,6 +175,27 @@ public class ProducerPurchaseRepository {
     }
 
     public void insert(ProducerPurchaseEntity e) { coll().insertOne(e); }
+
+    /**
+     * Passe le reçu à CANCELLED, une seule fois.
+     *
+     * <p>Écriture conditionnée sur l'état d'avant : deux annulations
+     * simultanées ne peuvent pas défaire deux fois le stock et l'avance.
+     * Un document antérieur au champ n'a pas de statut, d'où le
+     * {@code exists false} accepté.</p>
+     */
+    public boolean tryCancel(UUID id) {
+        var result = coll().updateOne(
+                Filters.and(
+                        Filters.eq("_id", id),
+                        Filters.or(
+                                Filters.eq("status", "ACTIVE"),
+                                Filters.exists("status", false))),
+                com.mongodb.client.model.Updates.combine(
+                        com.mongodb.client.model.Updates.set("status", "CANCELLED"),
+                        com.mongodb.client.model.Updates.set("updatedAt", java.time.Instant.now())));
+        return result.getModifiedCount() > 0;
+    }
 
     public void replace(ProducerPurchaseEntity e) { coll().replaceOne(Filters.eq("_id", e.id), e); }
 

@@ -79,6 +79,20 @@ public class StockMovementEntity {
      */
     public Boolean replacesCmup;
 
+    /**
+     * Mouvement neutralisé par une contre-passation, avec son miroir.
+     *
+     * <p>Une entrée annulée et sa sortie compensatoire forment une paire :
+     * elles restent au journal, pour la piste d'audit, mais sortent de la
+     * valorisation. Une simple sortie compensatoire retirait bien la
+     * quantité, mais laissait le coût moyen pollué par le prix de
+     * l'opération annulée — et en mode « par lot », où l'entrée écrase le
+     * CMUP au lieu de le pondérer, ce prix restait purement et simplement
+     * en place. En excluant la paire, le rejeu chronologique retrouve
+     * exactement l'état d'avant l'opération.</p>
+     */
+    public Boolean excludedFromValuation;
+
     /** Quantité du {@link StockItemEntity} APRÈS application du mouvement. */
     public BigDecimal quantityAfter;
 

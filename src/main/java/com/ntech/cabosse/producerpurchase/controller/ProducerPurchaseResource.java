@@ -3,6 +3,7 @@ package com.ntech.cabosse.producerpurchase.controller;
 import com.ntech.cabosse.producerpurchase.service.ProducerPurchaseImportService;
 import com.ntech.cabosse.producerpurchase.service.ProducerPurchaseService;
 import com.ntech.cabosse.producerpurchase.dto.ProducerPurchaseImportRowDto;
+import com.ntech.cabosse.producerpurchase.dto.CancelProducerPurchaseDto;
 import com.ntech.cabosse.producerpurchase.dto.ProducerPurchaseUpsertDto;
 import com.ntech.cabosse.shared.api.ApiResponse;
 import com.ntech.cabosse.shared.api.PageRequest;
@@ -105,6 +106,21 @@ public class ProducerPurchaseResource {
         ensureCapability();
         return Response.status(Response.Status.CREATED)
                 .entity(ApiResponse.created(service.create(payload))).build();
+    }
+
+    /**
+     * Contre-passation d'un reçu. Le reçu n'est ni modifiable ni
+     * supprimable : il est déjà entré en stock, a fixé le coût moyen et
+     * produit une écriture. On annule, puis on ressaisit.
+     */
+    @POST
+    @Path("/{id}/cancel")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    @RequiresPermission(Permission.COLLECTION_RECEIPT_WRITE)
+    public Response cancel(@PathParam("id") UUID id,
+                           @Valid CancelProducerPurchaseDto payload) {
+        ensureCapability();
+        return Response.ok(ApiResponse.ok(service.cancel(id, payload.reason()))).build();
     }
 
     // ─── Import de masse (NEG-01) ───────────────────────────────────

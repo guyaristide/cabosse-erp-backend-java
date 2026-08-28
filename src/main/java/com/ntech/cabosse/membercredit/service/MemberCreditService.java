@@ -329,6 +329,27 @@ public class MemberCreditService {
                 "Retenue de " + amount + " sur " + purchaseRef + " au titre de " + credit.ref);
     }
 
+    /** Crédits portant une retenue au titre d'un reçu, pour la défaire. */
+    public java.util.List<MemberCreditEntity> findImputedByPurchase(UUID purchaseId) {
+        return repo.findImputedByPurchase(purchaseId);
+    }
+
+    /**
+     * Défait une retenue au titre d'un reçu annulé : le solde revient au
+     * membre, la ligne quitte le journal du crédit, et un crédit soldé par
+     * cette seule retenue se rouvre.
+     */
+    public void reverseImputation(UUID creditId, UUID purchaseId, BigDecimal amount) {
+        if (creditId == null || amount == null || amount.signum() <= 0) return;
+        repo.creditBack(creditId, amount);
+        repo.removeImputationForPurchase(creditId, purchaseId);
+        MemberCreditEntity credit = repo.findById(creditId).orElse(null);
+        if (credit != null) {
+            audit(credit, AuditEventType.MEMBER_CREDIT_IMPUTED,
+                    "Retenue de " + amount + " annulée : le reçu a été contre-passé");
+        }
+    }
+
     public void creditBack(UUID creditId, BigDecimal amount) {
         repo.creditBack(creditId, amount);
     }

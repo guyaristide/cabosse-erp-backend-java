@@ -300,6 +300,37 @@ public class StockService {
      *         être écrite après plusieurs tentatives (le journal, lui,
      *         reste correct : un rejeu ultérieur du couple répare tout)
      */
+    /**
+     * Contre-passe une entrée de stock : sortie miroir, puis neutralisation
+     * de la paire et recalcul de la valorisation.
+     *
+     * <p>Une simple sortie compensatoire ne suffit pas. Elle retire la
+     * quantité, mais le coût moyen reste celui qu'a laissé l'entrée
+     * annulée : une sortie ne touche jamais au CMUP. En mode « par lot »,
+     * où l'entrée écrase le CMUP au lieu de le pondérer, le prix de
+     * l'opération annulée resterait purement et simplement en place.</p>
+     *
+     * <p>Les deux mouvements restent au journal — rien ne s'efface — mais
+     * sortent de la valorisation, et le rejeu chronologique retrouve alors
+     * exactement l'état d'avant l'opération.</p>
+     *
+     * @param originalMovementId le mouvement d'entrée à neutraliser
+     * @param compensation la sortie miroir à poser
+     */
+    public void reverseEntry(UUID originalMovementId, MovementInput compensation) {
+        applyMovement(compensation);
+        StockMovementEntity posted = movements.listBySourceEntity(compensation.sourceEntityId())
+                .stream()
+                .filter(m -> m.kind == MovementKind.OUT)
+                .reduce((first, second) -> second)
+                .orElse(null);
+        List<UUID> pair = new ArrayList<>();
+        pair.add(originalMovementId);
+        if (posted != null) pair.add(posted.id);
+        movements.excludeFromValuation(pair);
+        recomputeChronologically(compensation.articleId(), compensation.siteId());
+    }
+
     private StockItemEntity recomputeChronologically(UUID articleId, UUID siteId) {
         for (int attempt = 0; attempt < 8; attempt++) {
             StockItemEntity item = stockItems.findByArticleAndSite(articleId, siteId)
@@ -314,6 +345,10 @@ public class StockService {
             BigDecimal cmup = BigDecimal.ZERO;
             List<StockMovementRepository.ReplayPatch> patches = new ArrayList<>();
             for (StockMovementEntity m : journal) {
+                // Une paire contre-passée reste au journal mais ne pèse ni
+                // sur la quantité ni sur le coût moyen : le rejeu doit
+                // retrouver l'état d'avant l'opération annulée.
+                if (Boolean.TRUE.equals(m.excludedFromValuation)) continue;
                 BigDecimal signed = m.quantitySigned != null ? m.quantitySigned : BigDecimal.ZERO;
                 BigDecimal newQty = qty.add(signed);
                 boolean isOut = m.kind == MovementKind.OUT || m.kind == MovementKind.TRANSFER_OUT;

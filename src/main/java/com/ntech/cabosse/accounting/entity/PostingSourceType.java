@@ -80,6 +80,9 @@ public enum PostingSourceType {
     DIRECT_EXPENSE_REVERSAL,
     /** Achat de matière première au producteur membre (reçu, backlog NEG-01). */
     PRODUCER_PURCHASE,
+
+    /** Contre-passation d'un reçu d'achat producteur annulé. */
+    PRODUCER_PURCHASE_REVERSAL,
     /** Vente de cacao en gros / export (backlog NEG-02). */
     CACAO_SALE,
     /** Règlement versé à un fournisseur au titre de ses livraisons. */

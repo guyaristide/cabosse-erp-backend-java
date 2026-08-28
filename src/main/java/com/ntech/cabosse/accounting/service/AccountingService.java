@@ -800,6 +800,7 @@ public class AccountingService {
             case MEMBER_CAPITAL_LIBERATION -> PostingSourceType.MEMBER_CAPITAL_LIBERATION_REVERSAL;
             case COLLECTOR_ADVANCE -> PostingSourceType.COLLECTOR_ADVANCE_REVERSAL;
             case DIRECT_EXPENSE -> PostingSourceType.DIRECT_EXPENSE_REVERSAL;
+            case PRODUCER_PURCHASE -> PostingSourceType.PRODUCER_PURCHASE_REVERSAL;
             default -> throw new BusinessException(
                     Messages.msg("m.acc-piece-already-reversed", t));
         };
