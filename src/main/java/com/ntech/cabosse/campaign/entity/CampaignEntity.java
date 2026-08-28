@@ -41,6 +41,15 @@ public class CampaignEntity {
     public String label;
 
     /**
+     * Principale ou intermédiaire.
+     *
+     * <p>La distinction n'était portée que par le libellé, donc par
+     * personne : aucun état ne pouvait trier là-dessus, et rien
+     * n'empêchait deux principales sur la même année.</p>
+     */
+    public CampaignKind kind = CampaignKind.MAIN;
+
+    /**
      * Année agricole de référence, <strong>déduite de {@link #startDate}
      * et jamais saisie</strong>. Sert de clé de tri dénormalisée sur les
      * flux rattachés à la campagne ; elle n'identifie rien à elle seule,

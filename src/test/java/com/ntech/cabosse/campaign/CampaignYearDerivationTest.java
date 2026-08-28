@@ -71,11 +71,21 @@ class CampaignYearDerivationTest extends AbstractIntegrationTest {
     }
 
     private String createCampaign(UserEntity admin, String label, String start, String end) {
+        return createCampaign(admin, label, "MAIN", start, end);
+    }
+
+    /**
+     * @param kind principale ou intermédiaire. Une année n'a qu'une
+     *             principale : deux campagnes d'une même saison doivent
+     *             donc se qualifier.
+     */
+    private String createCampaign(UserEntity admin, String label, String kind,
+                                  String start, String end) {
         return givenAs(admin).contentType("application/json")
                 .body("""
-                        { "label": "%s", "startDate": "%s", "endDate": "%s",
+                        { "label": "%s", "kind": "%s", "startDate": "%s", "endDate": "%s",
                           "basePricePerKgFcfa": 1500 }
-                        """.formatted(label, start, end))
+                        """.formatted(label, kind, start, end))
                 .when().post("/api/v1/campaigns")
                 .then().statusCode(201)
                 .extract().path("data.id");
@@ -118,7 +128,7 @@ class CampaignYearDerivationTest extends AbstractIntegrationTest {
         // Principale terminée, intermédiaire en cours : les deux ouvertes.
         createCampaign(admin, "Principale",
                 today.minusMonths(11).toString(), today.minusMonths(5).toString());
-        String intermediaire = createCampaign(admin, "Intermédiaire",
+        String intermediaire = createCampaign(admin, "Intermédiaire", "INTERMEDIATE",
                 today.minusMonths(4).toString(), today.plusMonths(1).toString());
 
         givenAs(admin).when().get("/api/v1/campaigns")
@@ -178,7 +188,8 @@ class CampaignYearDerivationTest extends AbstractIntegrationTest {
         String principale = createCampaign(admin, "Principale", "2026-01-05", "2026-04-30");
         createHarvest(admin, parcelId, principale, "2026-02-10");
 
-        String intermediaire = createCampaign(admin, "Intermédiaire", "2026-05-02", "2026-08-31");
+        String intermediaire = createCampaign(admin, "Intermédiaire", "INTERMEDIATE",
+                "2026-05-02", "2026-08-31");
         createHarvest(admin, parcelId, intermediaire, "2026-06-15");
 
         givenAs(admin).when().get("/api/v1/members/" + memberId + "/contributions")

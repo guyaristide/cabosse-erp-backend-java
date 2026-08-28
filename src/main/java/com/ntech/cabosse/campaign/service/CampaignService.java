@@ -3,6 +3,7 @@ package com.ntech.cabosse.campaign.service;
 import com.github.f4b6a3.uuid.UuidCreator;
 import com.ntech.cabosse.campaign.dto.CampaignUpsertDto;
 import com.ntech.cabosse.campaign.entity.CampaignEntity;
+import com.ntech.cabosse.campaign.entity.CampaignKind;
 import com.ntech.cabosse.campaign.entity.CampaignStatus;
 import com.ntech.cabosse.campaign.entity.QualityPremium;
 import com.ntech.cabosse.campaign.repository.CampaignRepository;
@@ -18,6 +19,7 @@ import org.eclipse.microprofile.jwt.JsonWebToken;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -86,6 +88,8 @@ public class CampaignService {
     public CampaignEntity create(CampaignUpsertDto payload) {
         ensureCapability();
         validateDates(payload);
+        ensureNoOverlap(payload, null);
+        ensureSingleMain(payload, null);
 
         Instant now = Instant.now();
         CampaignEntity e = new CampaignEntity();
@@ -118,6 +122,8 @@ public class CampaignService {
             throw new BusinessException(Messages.msg("m.cmp-closed-not-editable"));
         }
         validateDates(payload);
+        ensureNoOverlap(payload, id);
+        ensureSingleMain(payload, id);
         if (tariffDiffers(e, payload)) {
             throw new BusinessException(Messages.msg("m.cmp-tariff-locked"));
         }
@@ -240,6 +246,62 @@ public class CampaignService {
         return e;
     }
 
+    /**
+     * Deux campagnes ne se chevauchent pas.
+     *
+     * <p>Une date couverte par deux campagnes n'a pas de bonne réponse :
+     * le rattachement d'une opération retiendrait la plus récemment
+     * démarrée, en silence, et la collecte d'une saison irait grossir
+     * l'autre. La saison se joue en périodes consécutives ; le logiciel
+     * refuse ce qu'il ne saurait pas trancher.</p>
+     *
+     * <p>Les campagnes closes comptent : une opération saisie
+     * rétroactivement se rattache à sa période, close ou non.</p>
+     */
+    private void ensureNoOverlap(CampaignUpsertDto p, UUID excludeId) {
+        LocalDate start = p.startDate();
+        LocalDate end = p.endDate();
+        for (CampaignEntity other : repo.listAll()) {
+            if (excludeId != null && excludeId.equals(other.id)) continue;
+            if (overlaps(start, end, other.startDate, other.endDate)) {
+                throw new BusinessException(Messages.msg("m.cmp-overlap", other.label));
+            }
+        }
+    }
+
+    /**
+     * Deux périodes se recouvrent-elles ?
+     *
+     * <p>Une fin absente vaut « pour l'instant sans terme » : elle recouvre
+     * tout ce qui commence après. C'est le cas d'une campagne ouverte dont
+     * la date de clôture n'est pas encore fixée.</p>
+     */
+    private static boolean overlaps(LocalDate aStart, LocalDate aEnd, LocalDate bStart, LocalDate bEnd) {
+        if (aStart == null || bStart == null) return false;
+        boolean aBeforeB = aEnd != null && aEnd.isBefore(bStart);
+        boolean bBeforeA = bEnd != null && bEnd.isBefore(aStart);
+        return !aBeforeB && !bBeforeA;
+    }
+
+    /**
+     * Une seule campagne principale par année.
+     *
+     * <p>Plusieurs intermédiaires sont attendues ; deux principales sur une
+     * même année ne veulent rien dire, et rendraient indécidable ce qu'un
+     * état « campagne principale » doit montrer.</p>
+     */
+    private void ensureSingleMain(CampaignUpsertDto p, UUID excludeId) {
+        CampaignKind kind = p.kind() != null ? p.kind() : CampaignKind.MAIN;
+        if (kind != CampaignKind.MAIN) return;
+        int year = p.startDate().getYear();
+        for (CampaignEntity other : repo.listAll()) {
+            if (excludeId != null && excludeId.equals(other.id)) continue;
+            if (other.kind == CampaignKind.MAIN && other.campaignYear == year) {
+                throw new BusinessException(Messages.msg("m.cmp-main-exists", year, other.label));
+            }
+        }
+    }
+
     private static void validateDates(CampaignUpsertDto p) {
         if (p.startDate() == null) {
             throw new BusinessException(Messages.msg("m.cmp-start-date-required"));
@@ -264,6 +326,7 @@ public class CampaignService {
         // ouverture. Le code de référence, lui, reste celui émis à la
         // création même si la date de début est corrigée ensuite.
         e.campaignYear = p.startDate().getYear();
+        e.kind = p.kind() != null ? p.kind() : CampaignKind.MAIN;
         e.startDate = p.startDate();
         e.endDate = p.endDate();
         e.basePricePerKgFcfa = p.basePricePerKgFcfa();

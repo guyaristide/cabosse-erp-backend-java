@@ -22,6 +22,7 @@ public record CampaignResponseDto(
         UUID id,
         String code,
         String label,
+        com.ntech.cabosse.campaign.entity.CampaignKind kind,
         int campaignYear,
         LocalDate startDate,
         LocalDate endDate,
@@ -80,7 +81,7 @@ public record CampaignResponseDto(
                 ? List.of()
                 : e.qualityPremiums.stream().map(QualityPremiumDto::from).toList();
         return new CampaignResponseDto(
-                e.id, e.code, e.label, e.campaignYear,
+                e.id, e.code, e.label, e.kind, e.campaignYear,
                 e.startDate, e.endDate,
                 e.basePricePerKgFcfa, premiums,
                 e.ristournePct, e.defaultPaymentMethod, e.notes,

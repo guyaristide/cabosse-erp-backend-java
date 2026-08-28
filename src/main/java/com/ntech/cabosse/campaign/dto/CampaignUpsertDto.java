@@ -31,6 +31,12 @@ public record CampaignUpsertDto(
         @Size(min = 3, max = 120, message = "{v.libelle-entre-3-et-120-caracteres}")
         String label,
 
+        /**
+         * Principale ou intermédiaire. Principale par défaut : c'est la
+         * campagne qu'on ouvre en premier.
+         */
+        com.ntech.cabosse.campaign.entity.CampaignKind kind,
+
         @NotNull(message = "{v.date-d-ouverture-requise}")
         LocalDate startDate,
 
