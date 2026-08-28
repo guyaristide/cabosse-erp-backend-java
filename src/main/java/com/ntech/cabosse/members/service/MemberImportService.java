@@ -1,5 +1,8 @@
 package com.ntech.cabosse.members.service;
 
+import com.ntech.cabosse.agriculture.parcel.entity.ParcelStatus;
+import com.ntech.cabosse.agriculture.parcel.dto.ParcelResponseDto;
+import com.ntech.cabosse.agriculture.parcel.dto.ParcelUpsertDto;
 import com.ntech.cabosse.collector.entity.SectionEntity;
 import com.ntech.cabosse.collector.repository.SectionRepository;
 import com.ntech.cabosse.iddocument.entity.IdDocumentTypeEntity;
@@ -91,6 +94,8 @@ public class MemberImportService {
     @Inject SectionRepository sections;
     @Inject IdDocumentTypeRepository idDocumentTypes;
     @Inject IdGenerator idGenerator;
+    @Inject com.ntech.cabosse.agriculture.parcel.repository.ParcelRepository parcels;
+    @Inject com.ntech.cabosse.agriculture.parcel.service.ParcelService parcelService;
 
     // ─── Aperçu ─────────────────────────────────────────────────────
 
@@ -229,6 +234,77 @@ public class MemberImportService {
                 additionalParcel, parcelsToCreate, parcelsToUpdate, rows);
     }
 
+
+    // ─── Parcelle portée par la ligne ───────────────────────────────
+
+    /**
+     * Lit la parcelle d'une ligne de producteur, ou rend null si la ligne
+     * n'en porte pas.
+     *
+     * <p>Une parcelle demande au minimum un nom et un point GPS : sans
+     * position, elle ne sert ni la traçabilité ni la conformité, et une
+     * ligne à moitié remplie vaut mieux ignorée que créée creuse.</p>
+     *
+     * <p>Un code déjà connu rattache la ligne à la parcelle existante, qui
+     * sera mise à jour. C'est ce qui empêche un réimport de doubler la
+     * superficie de la coopérative.</p>
+     */
+    private MemberImportPreviewDto.Parcel parseParcel(MemberImportRowDto raw,
+                                                      Map<String, UUID> knownParcels,
+                                                      List<FieldIssue> issues) {
+        String name = trim(raw.parcelName());
+        String code = trim(raw.parcelCode());
+        Double lat = parseCoordinate(raw.parcelLatitude(), "parcelLatitude", -90, 90, issues);
+        Double lon = parseCoordinate(raw.parcelLongitude(), "parcelLongitude", -180, 180, issues);
+        BigDecimal surface = parseDecimal(raw.parcelSurfaceHa(), "parcelSurfaceHa", issues);
+        BigDecimal potential = parseDecimal(raw.parcelPotentialKg(), "parcelPotentialKg", issues);
+        String crop = trim(raw.parcelCrop());
+        String variety = trim(raw.parcelVariety());
+        Integer plantingYear = parseInt(raw.parcelPlantingYear(), "parcelPlantingYear", issues);
+
+        boolean anything = name != null || code != null || lat != null || lon != null
+                || surface != null || potential != null || crop != null || variety != null
+                || plantingYear != null || trim(raw.parcelRegion()) != null
+                || trim(raw.parcelDepartment()) != null || trim(raw.parcelCertifications()) != null;
+        if (!anything) return null;
+
+        UUID matched = code != null ? knownParcels.get(code.toUpperCase(Locale.ROOT)) : null;
+
+        // Une parcelle nouvelle exige sa position ; une parcelle reconnue
+        // par son code garde la sienne si la ligne n'en donne pas.
+        if (matched == null && (lat == null || lon == null)) {
+            issues.add(new FieldIssue("parcelLatitude", Messages.msg("m.imp-parcel-position-required")));
+            return null;
+        }
+        if (name == null && matched == null) {
+            issues.add(new FieldIssue("parcelName", Messages.msg("m.imp-parcel-name-required")));
+            return null;
+        }
+
+        List<String> certifications = trim(raw.parcelCertifications()) == null
+                ? List.of()
+                : java.util.Arrays.stream(raw.parcelCertifications().split("[,;/]"))
+                        .map(String::trim).filter(x -> !x.isEmpty()).toList();
+
+        return new MemberImportPreviewDto.Parcel(
+                code, name, surface, potential, crop, variety, plantingYear,
+                lat, lon, trim(raw.parcelRegion()), trim(raw.parcelDepartment()),
+                trim(raw.parcelStatus()), certifications, matched);
+    }
+
+    /** Coordonnée décimale, virgule ou point, bornée à son intervalle. */
+    private Double parseCoordinate(String raw, String field, double min, double max,
+                                   List<FieldIssue> issues) {
+        BigDecimal value = parseDecimal(raw, field, issues);
+        if (value == null) return null;
+        double d = value.doubleValue();
+        if (d < min || d > max) {
+            issues.add(new FieldIssue(field, Messages.msg("m.imp-coordinate-out-of-range", field)));
+            return null;
+        }
+        return d;
+    }
+
     // ─── Application ────────────────────────────────────────────────
 
     /**
@@ -256,10 +332,18 @@ public class MemberImportService {
         LinkedHashSet<String> createdSections = new LinkedHashSet<>();
         LinkedHashSet<String> createdDocTypes = new LinkedHashSet<>();
         int householdsSkipped = 0;
+        int parcelsCreated = 0;
+        int parcelsUpdated = 0;
+
+        // Le producteur d'une ligne supplémentaire est celui qu'une ligne
+        // précédente a créé : sans cette mémoire, sa deuxième parcelle
+        // n'aurait personne à qui appartenir.
+        Map<String, UUID> memberByKey = new HashMap<>();
 
         for (Row row : preview.rows()) {
             boolean applicable = row.status() == Status.READY
                     || row.status() == Status.UPDATE
+                    || row.status() == Status.ADDITIONAL_PARCEL
                     || (row.status() == Status.WARNING && includeWarnings);
             if (!applicable || row.normalized() == null) {
                 skipped.add(row);
@@ -278,16 +362,33 @@ public class MemberImportService {
                 ensureIdDocumentType(n.idDocType(), createdDocTypes);
                 ensureIdDocumentType(externalCodeType(n), createdDocTypes, false, true);
 
-                if (row.matchedMemberId() != null) {
+                UUID memberId;
+                if (row.status() == Status.ADDITIONAL_PARCEL) {
+                    // La ligne n'apporte que sa parcelle : le producteur a
+                    // été traité plus haut, on ne le réécrit pas.
+                    memberId = memberByKey.get(dedupKey(n));
+                    if (memberId == null) {
+                        throw new IllegalStateException(Messages.msg("m.imp-parcel-owner-missing"));
+                    }
+                } else if (row.matchedMemberId() != null) {
                     MemberEntity cur = members.findById(row.matchedMemberId()).orElse(null);
                     MemberUpsertDto payload = cur != null
                             ? mergedUpsert(cur, n, sectionId)
                             : toUpsert(n, sectionId);
                     MemberResponseDto dto = memberService.update(row.matchedMemberId(), payload);
                     updated.add(dto.id());
+                    memberId = dto.id();
                 } else {
                     MemberResponseDto dto = memberService.create(toUpsert(n, sectionId));
                     created.add(dto.id());
+                    memberId = dto.id();
+                }
+                String key = dedupKey(n);
+                if (key != null) memberByKey.putIfAbsent(key, memberId);
+
+                if (n.parcel() != null) {
+                    if (applyParcel(n.parcel(), memberId)) parcelsCreated++;
+                    else parcelsUpdated++;
                 }
             } catch (RuntimeException e) {
                 List<FieldIssue> issues = new ArrayList<>(row.issues());
@@ -301,8 +402,72 @@ public class MemberImportService {
                 preview.totalRows(), created.size(), updated.size(), skipped.size(),
                 created, updated,
                 List.copyOf(createdSections), List.copyOf(createdDocTypes),
-                householdsSkipped,
+                householdsSkipped, parcelsCreated, parcelsUpdated,
                 skipped);
+    }
+
+
+    /**
+     * Crée ou met à jour la parcelle d'une ligne, et la rattache à son
+     * producteur.
+     *
+     * @return {@code true} si la parcelle a été créée, {@code false} si
+     *         elle existait et a été mise à jour
+     */
+    private boolean applyParcel(MemberImportPreviewDto.Parcel p, UUID memberId) {
+        List<Double> center = p.longitude() != null && p.latitude() != null
+                ? List.of(p.longitude(), p.latitude())
+                : null;
+        ParcelStatus status = parseParcelStatus(p.status());
+
+        if (p.matchedParcelId() != null) {
+            // La fiche existante est relue en DTO, comme le fait l'import
+            // des parcelles : le contour GeoJSON n'a pas la même forme en
+            // base et au contrat, et seul le DTO en donne la lecture.
+            ParcelResponseDto current = parcelService.getById(p.matchedParcelId());
+            // La ligne ne redit pas tout : ce qu'elle tait garde sa valeur.
+            ParcelUpsertDto payload = new ParcelUpsertDto(
+                    current.code(),
+                    p.name() != null ? p.name() : current.name(),
+                    p.surfaceHa() != null ? p.surfaceHa() : current.surfaceHa(),
+                    current.gpsPolygonCoordinates(),
+                    center != null ? center : current.gpsCenter(),
+                    p.variety() != null ? p.variety() : current.variety(),
+                    p.cropCode() != null ? p.cropCode() : current.cropCode(),
+                    current.mainCrop(),
+                    current.plantingDate(),
+                    p.plantingYear() != null ? p.plantingYear() : current.plantingYear(),
+                    p.regionCode() != null ? p.regionCode() : current.regionCode(),
+                    p.departmentCode() != null ? p.departmentCode() : current.departmentCode(),
+                    !p.certifications().isEmpty() ? p.certifications() : current.certifications(),
+                    memberId,
+                    null,
+                    status != null ? status : current.status(),
+                    current.notes());
+            parcelService.update(p.matchedParcelId(), payload);
+            return false;
+        }
+
+        parcelService.create(new ParcelUpsertDto(
+                p.code(), p.name(), p.surfaceHa(), null, center,
+                p.variety(), p.cropCode(), null, null, p.plantingYear(),
+                p.regionCode(), p.departmentCode(), p.certifications(),
+                memberId, List.of(),
+                status != null ? status : ParcelStatus.ACTIVE, null));
+        return true;
+    }
+
+    /** Statut de parcelle, tolérant : une valeur inconnue laisse le défaut. */
+    private static ParcelStatus parseParcelStatus(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        String v = raw.trim().toUpperCase(Locale.ROOT);
+        for (ParcelStatus s : ParcelStatus.values()) {
+            if (s.name().equals(v)) return s;
+        }
+        return switch (v) {
+            case "ACTIVE", "ACTIF", "ACTIVA" -> ParcelStatus.ACTIVE;
+            default -> null;
+        };
     }
 
     /** Reprend la ligne sans son ménage : le producteur entre, ses compteurs non. */
@@ -318,7 +483,7 @@ public class MemberImportService {
                 n.paymentMethod(), n.mobileMoneyNumber(),
                 null, null, null, null, null, null, null, null, null, null,
                 n.censusRegistered(), n.producerCardIssued(), n.dataCollectedAt(),
-                n.notes());
+                n.notes(), n.parcel(), n.delegateCode());
     }
 
     // ─── Rapprochement ──────────────────────────────────────────────

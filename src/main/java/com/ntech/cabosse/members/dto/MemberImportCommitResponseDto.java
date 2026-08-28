@@ -20,5 +20,9 @@ public record MemberImportCommitResponseDto(
         List<UUID> createdIds, List<UUID> updatedIds,
         List<String> createdSections, List<String> createdIdDocTypes,
         int householdsSkipped,
+        /** Parcelles créées par le fichier, toutes lignes confondues. */
+        int parcelsCreated,
+        /** Parcelles mises à jour, reconnues par leur code. */
+        int parcelsUpdated,
         List<MemberImportPreviewDto.Row> skippedRows
 ) {}

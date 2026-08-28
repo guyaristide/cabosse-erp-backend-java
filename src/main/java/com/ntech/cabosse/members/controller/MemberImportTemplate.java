@@ -28,7 +28,15 @@ final class MemberImportTemplate {
             String spousesCount, String childrenCount, String girlsCount, String boysCount,
             String children0to4, String children5to17, String childrenOver17,
             String childrenSchooled, String childrenNotSchooled, String childrenActivity,
-            String censusRegistered, String producerCardIssued, String dataCollectedAt
+            String censusRegistered, String producerCardIssued, String dataCollectedAt,
+            // Parcelle portée par la ligne : un producteur qui en exploite
+            // plusieurs est déclaré sur plusieurs lignes de même code.
+            String parcelCode, String parcelName, String parcelSurfaceHa,
+            String parcelPotentialKg, String parcelCrop, String parcelVariety,
+            String parcelPlantingYear, String parcelLatitude, String parcelLongitude,
+            String parcelRegion, String parcelDepartment, String parcelStatus,
+            String parcelCertifications,
+            String delegateCode
     ) {}
 
     static ExportDataset<TemplateRow> dataset() {
@@ -67,7 +75,24 @@ final class MemberImportTemplate {
                 ExportColumn.of(Messages.msg("m.imp-h-member-children-activity"),       TemplateRow::childrenActivity),
                 ExportColumn.of(Messages.msg("m.imp-h-member-census-registered"),       TemplateRow::censusRegistered),
                 ExportColumn.of(Messages.msg("m.imp-h-member-card-issued"),             TemplateRow::producerCardIssued),
-                ExportColumn.of(Messages.msg("m.imp-h-member-collected-at"),            TemplateRow::dataCollectedAt)
+                ExportColumn.of(Messages.msg("m.imp-h-member-collected-at"),            TemplateRow::dataCollectedAt),
+                // ─── Parcelle ─── Laisser « Code plantation » vide à la création : il
+                // est rendu par l'export, et le remplir aux imports suivants évite
+                // qu'une parcelle soit créée une seconde fois.
+                ExportColumn.of(Messages.msg("m.imp-h-parcel-code"),                    TemplateRow::parcelCode),
+                ExportColumn.of(Messages.msg("m.imp-h-parcel-name"),                    TemplateRow::parcelName),
+                ExportColumn.of(Messages.msg("m.imp-h-parcel-surface"),                 TemplateRow::parcelSurfaceHa),
+                ExportColumn.of(Messages.msg("m.imp-h-parcel-potential"),               TemplateRow::parcelPotentialKg),
+                ExportColumn.of(Messages.msg("m.imp-h-parcel-crop"),                    TemplateRow::parcelCrop),
+                ExportColumn.of(Messages.msg("m.imp-h-parcel-variety"),                 TemplateRow::parcelVariety),
+                ExportColumn.of(Messages.msg("m.imp-h-parcel-planting-year"),           TemplateRow::parcelPlantingYear),
+                ExportColumn.of(Messages.msg("m.imp-h-latitude"),                       TemplateRow::parcelLatitude),
+                ExportColumn.of(Messages.msg("m.imp-h-longitude"),                      TemplateRow::parcelLongitude),
+                ExportColumn.of(Messages.msg("m.imp-h-region"),                         TemplateRow::parcelRegion),
+                ExportColumn.of(Messages.msg("m.imp-h-department"),                     TemplateRow::parcelDepartment),
+                ExportColumn.of(Messages.msg("m.imp-h-status"),                         TemplateRow::parcelStatus),
+                ExportColumn.of(Messages.msg("m.imp-h-parcel-certifications"),          TemplateRow::parcelCertifications),
+                ExportColumn.of(Messages.msg("m.imp-h-delegate-code"),                  TemplateRow::delegateCode)
         );
 
         List<TemplateRow> samples = List.of(
@@ -81,7 +106,13 @@ final class MemberImportTemplate {
                         "1", "7", "1", "6",
                         "6", "0", "1",
                         "0", "0", "Aucune activité",
-                        Messages.msg("m.imp-v-yes"), Messages.msg("m.imp-v-yes"), "25/01/2026"),
+                        Messages.msg("m.imp-v-yes"), Messages.msg("m.imp-v-yes"), "25/01/2026",
+                        // Code plantation vide : la parcelle sera créée. Aux
+                        // imports suivants, reprendre celui que l'export rend.
+                        "", "Parcelle Sud", "4,5", "3200", "Cacao", "Mercedes",
+                        "2012", "5,2361", "-6,6094", "Nawa", "Soubré",
+                        Messages.msg("m.imp-v-active"), "Rainforest Alliance",
+                        "DEL-001"),
                 new TemplateRow(
                         "MB-2026-0002", "", "",
                         "Doumbia", "Seydou", Messages.msg("m.imp-v-male"), "",
@@ -95,7 +126,26 @@ final class MemberImportTemplate {
                         "", "", "", "",
                         "", "", "",
                         "", "", "",
-                        "Non", "Non", "")
+                        "Non", "Non", "",
+                        "", "", "", "", "", "", "", "", "", "", "", "", "", ""),
+                // Troisième ligne : la SECONDE parcelle du premier producteur.
+                // Un producteur qui exploite plusieurs parcelles se déclare
+                // sur plusieurs lignes portant le même code producteur : il
+                // est créé une fois, chaque ligne ajoute sa parcelle. Seules
+                // les colonnes de parcelle changent.
+                new TemplateRow(
+                        "", Messages.msg("m.imp-v-producer-card"), "CCC-2021-183667",
+                        "N'Guessan", "Konan", "", "", "", "", "",
+                        "", "", "", "", "", "",
+                        "", "",
+                        "", "", "", "",
+                        "", "", "",
+                        "", "", "",
+                        "", "", "",
+                        "", "Parcelle Nord", "2,8", "1900", "Cacao", "Forastero",
+                        "2016", "5,2504", "-6,5981", "Nawa", "Soubré",
+                        Messages.msg("m.imp-v-active"), "",
+                        "DEL-001")
         );
         return new ExportDataset<>(Messages.msg("m.exp-t-modele-d-import-membres-producteurs"), cols, samples);
     }
