@@ -43,6 +43,24 @@ public final class Messages {
 
     private Messages() {}
 
+    /**
+     * Résolution sans repli sur la langue de la machine.
+     *
+     * <p>Sans cela, {@link ResourceBundle#getBundle} se rabat sur
+     * {@link Locale#getDefault()} avant d'atteindre le catalogue de base.
+     * Le français vit dans {@code messages.properties}, sans suffixe :
+     * demander le français ne trouve donc pas de {@code messages_fr}, et
+     * une machine dont la langue est l'anglais servait
+     * {@code messages_en} — du français demandé, de l'anglais rendu.</p>
+     *
+     * <p>Le défaut était invisible en développement sur un poste en
+     * français, et systématique en production, où le conteneur n'a pas de
+     * langue. Il touchait tout ce que le serveur écrit : messages
+     * d'erreur, en-têtes d'export, modèles d'import.</p>
+     */
+    private static final ResourceBundle.Control NO_FALLBACK =
+            ResourceBundle.Control.getNoFallbackControl(ResourceBundle.Control.FORMAT_PROPERTIES);
+
     /** Rend dans la langue de la requête en cours. */
     public static String msg(String key, Object... args) {
         return msg(current(), key, args);
@@ -54,7 +72,7 @@ public final class Messages {
      * déclenché par un événement, document produit pour un tiers.
      */
     public static String msg(Locale locale, String key, Object... args) {
-        ResourceBundle bundle = ResourceBundle.getBundle("messages", locale);
+        ResourceBundle bundle = ResourceBundle.getBundle("messages", locale, NO_FALLBACK);
         String template = bundle.containsKey(key) ? bundle.getString(key) : key;
         return args.length == 0 ? template : MessageFormat.format(template, args);
     }
