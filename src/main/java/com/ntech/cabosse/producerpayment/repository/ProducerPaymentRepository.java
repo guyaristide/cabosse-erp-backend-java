@@ -60,7 +60,22 @@ public class ProducerPaymentRepository {
 
     /** Règlements versés à un délégué, pour son compte courant. */
     public List<ProducerPaymentEntity> listForDelegate(UUID delegateSupplierId) {
-        return coll().find(Filters.eq("delegateSupplierId", delegateSupplierId))
+        return listForDelegate(delegateSupplierId, null);
+    }
+
+    /**
+     * Règlements d'un délégué sur une campagne.
+     *
+     * <p>Le filtre manquait, alors que les avances et les reçus le
+     * respectaient : un compte courant de campagne comptait donc tous les
+     * règlements jamais versés, et son solde était faux dès la deuxième
+     * campagne.</p>
+     */
+    public List<ProducerPaymentEntity> listForDelegate(UUID delegateSupplierId, UUID campaignId) {
+        List<Bson> filters = new ArrayList<>();
+        filters.add(Filters.eq("delegateSupplierId", delegateSupplierId));
+        if (campaignId != null) filters.add(Filters.eq("campaignId", campaignId));
+        return coll().find(Filters.and(filters))
                 .sort(new Document("date", 1))
                 .into(new ArrayList<>());
     }

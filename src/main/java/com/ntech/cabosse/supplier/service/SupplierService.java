@@ -160,6 +160,7 @@ public class SupplierService {
         e.collector = p.collector() != null && p.collector();
         e.sectionId = e.collector ? p.sectionId() : null;
         e.collectorMarginRate = e.collector ? p.collectorMarginRate() : null;
+        e.collectorRetentionPerKgFcfa = e.collector ? p.collectorRetentionPerKgFcfa() : null;
         // La catégorie classe le fournisseur quelle que soit sa qualité :
         // un planteur qui livre en direct en a une comme un délégué.
         if (p.categoryId() != null && categories.findById(p.categoryId()).isEmpty()) {

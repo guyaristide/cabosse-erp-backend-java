@@ -14,6 +14,7 @@ public record SupplierResponseDto(
         String addressLine, String cityName, String countryCode,
         String contactName, String paymentTerms, String notes,
         boolean collector, UUID sectionId, java.math.BigDecimal collectorMarginRate,
+        java.math.BigDecimal collectorRetentionPerKgFcfa,
         UUID categoryId, String categoryName,
         boolean active, Instant createdAt, Instant updatedAt
 ) {
@@ -28,6 +29,7 @@ public record SupplierResponseDto(
                 e.email, e.phone, e.addressLine, e.cityName, e.countryCode,
                 e.contactName, e.paymentTerms, e.notes,
                 e.collector, e.sectionId, e.collectorMarginRate,
+                e.collectorRetentionPerKgFcfa,
                 e.categoryId, categoryName,
                 e.active, e.createdAt, e.updatedAt
         );

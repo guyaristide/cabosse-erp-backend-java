@@ -37,6 +37,14 @@ public record SupplierUpsertDto(
         /** Taux de rémunération propre au délégué. Vide : taux du tenant. */
         @jakarta.validation.constraints.DecimalMin(value = "0", message = "{v.taux-negatif-interdit}")
         java.math.BigDecimal collectorMarginRate,
+
+        /**
+         * Mise en compte : retenue en FCFA/kg sur chaque livraison. Usage
+         * courant entre 10 et 35 FCFA/kg, sans borne dure : une entente
+         * hors fourchette reste une entente.
+         */
+        @jakarta.validation.constraints.DecimalMin(value = "0", message = "{v.mise-en-compte-negative-interdite}")
+        java.math.BigDecimal collectorRetentionPerKgFcfa,
         /** Catégorie de reprise (backlog ACH-07). Vide : aucune. */
         java.util.UUID categoryId
 ) {}

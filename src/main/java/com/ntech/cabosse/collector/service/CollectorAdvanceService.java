@@ -48,6 +48,7 @@ import java.util.UUID;
 public class CollectorAdvanceService {
 
     @Inject CollectorAdvanceRepository repo;
+    @Inject DelegateAccountService delegateAccount;
     @Inject CollectorAdvanceRefService refService;
     @Inject SupplierRepository suppliers;
     @Inject CampaignResolver campaignResolver;
@@ -97,6 +98,18 @@ public class CollectorAdvanceService {
                 campaignResolver.resolveOptionalForDate(p.advanceDate(), p.campaignId());
         e.campaignId = campaign != null ? campaign.id : null;
         e.campaignYear = campaign != null ? campaign.campaignYear : null;
+        // Le délégué apure sa dette avant tout nouveau financement. Quand
+        // la coopérative le refinance malgré un solde antérieur, elle exige
+        // en contrepartie une mise en compte : une retenue par kilo livré,
+        // convenue sur sa fiche. Sans elle, l'avance est refusée.
+        if (campaign != null && nz(delegate.collectorRetentionPerKgFcfa).signum() <= 0) {
+            BigDecimal previous = delegateAccount.previousBalance(delegate.id, campaign.id);
+            if (previous.signum() > 0) {
+                throw new BusinessException(Messages.msg(
+                        "m.col-retention-required-on-prior-debt", delegate.name, previous));
+            }
+        }
+
         e.siteId = siteId;
         e.advanceDate = p.advanceDate();
         e.advanceAmountFcfa = p.advanceAmountFcfa();
@@ -205,4 +218,9 @@ public class CollectorAdvanceService {
 
     private String actor() { try { return jwt.getName(); } catch (Exception e) { return null; } }
     private UUID safeUserId() { try { return tenantContext.userId(); } catch (Exception e) { return null; } }
+
+    private static BigDecimal nz(BigDecimal v) {
+        return v == null ? BigDecimal.ZERO : v;
+    }
+
 }

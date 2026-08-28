@@ -183,6 +183,13 @@ public class ProducerPurchaseService {
         BigDecimal margin = delegate != null
                 ? marginResolver.resolve(prefs, delegate, categoryOfCarrier).on(weight, amount)
                 : BigDecimal.ZERO;
+        // Mise en compte : ce que la coopérative retient au délégué, par
+        // kilo livré. Symétrique de la marge, qu'elle lui verse. Le taux
+        // est celui de sa fiche, figé ici pour que les états d'une
+        // campagne close ne bougent plus.
+        BigDecimal retention = delegate != null && delegate.collectorRetentionPerKgFcfa != null
+                ? delegate.collectorRetentionPerKgFcfa.multiply(weight).setScale(2, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
         // Retenues décidées sur les crédits du producteur. Une retenue
         // n'est pas un impayé : la livraison est intégralement soldée, une
         // part en espèces, l'autre en remboursement de dette. Elle réduit
@@ -241,6 +248,7 @@ public class ProducerPurchaseService {
             e.delegateSupplierId = delegate.id;
             e.delegateName = delegate.name;
             e.delegateMarginFcfa = margin;
+            e.delegateRetentionFcfa = retention;
             e.payerName = delegate.name;
         } else if (p.payerMemberId() != null) {
             e.payerMemberId = p.payerMemberId();

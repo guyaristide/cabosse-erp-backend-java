@@ -104,6 +104,15 @@ public class ProducerPurchaseEntity {
     public BigDecimal delegateMarginFcfa;
 
     /**
+     * Mise en compte retenue au délégué sur cette livraison, en FCFA.
+     *
+     * <p>Figée au reçu, comme la marge et la catégorie : le taux se
+     * renégocie d'une campagne à l'autre, et un état de campagne passée
+     * recalculé avec le taux du jour serait faux.</p>
+     */
+    public BigDecimal delegateRetentionFcfa;
+
+    /**
      * Catégorie de reprise de l'apporteur, figée au reçu : le délégué s'il
      * y en a un, sinon le producteur lui-même. Figée, parce qu'un
      * fournisseur qui change de catégorie en cours de campagne ne doit pas

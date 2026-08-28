@@ -32,6 +32,16 @@ public class SupplierMarginResolver {
                     || rate == null || rate.signum() <= 0;
         }
 
+        /**
+         * La marge s'exprime-t-elle en FCFA par kilo ?
+         *
+         * <p>Seul ce mode permet de composer un prix barème avec le prix
+         * bord champ : un pourcentage ne s'ajoute pas à un prix unitaire.</p>
+         */
+        public boolean isPerKg() {
+            return !none() && TenantPreferences.DELEGATE_MARGIN_PER_KG.equals(mode);
+        }
+
         /** Rémunération due sur un apport, dans le mode retenu. */
         public BigDecimal on(BigDecimal weightKg, BigDecimal amountFcfa) {
             if (none()) return BigDecimal.ZERO;

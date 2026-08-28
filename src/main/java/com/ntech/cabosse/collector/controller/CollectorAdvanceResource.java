@@ -105,6 +105,18 @@ public class CollectorAdvanceResource {
      * livraison et le solde qui en résulte. C'est la vue que le gérant
      * suit pendant la campagne.
      */
+    /**
+     * Fiche technique d'un délégué : ce qu'il traîne, ce qui a été convenu
+     * avec lui, et ce qu'il faudrait avancer pour un volume donné.
+     */
+    @GET
+    @Path("/delegates/{supplierId}/terms")
+    public Response delegateTerms(@PathParam("supplierId") UUID supplierId,
+                                  @QueryParam("campaignId") UUID campaignId,
+                                  @QueryParam("volumeKg") java.math.BigDecimal volumeKg) {
+        return Response.ok(ApiResponse.ok(accountService.terms(supplierId, campaignId, volumeKg))).build();
+    }
+
     @GET
     @Path("/delegates/{supplierId}")
     public Response delegateAccount(@PathParam("supplierId") UUID supplierId,

@@ -54,6 +54,22 @@ public class SupplierEntity {
     public java.math.BigDecimal collectorMarginRate;
 
     /**
+     * Mise en compte : retenue en FCFA par kilo convenue sur chaque
+     * livraison du délégué.
+     *
+     * <p>À ne pas confondre avec la marge de fonctionnement, qui est ce
+     * qu'on lui verse. La mise en compte est ce qu'on lui retient, et elle
+     * vient en apurement de sa dette au même titre que la marchandise
+     * livrée. Elle se négocie délégué par délégué, usuellement entre 10 et
+     * 35 FCFA/kg.</p>
+     *
+     * <p>Elle devient obligatoire dès que le délégué porte une dette
+     * antérieure non apurée : c'est la contrepartie qu'exige la
+     * coopérative pour le refinancer malgré son solde.</p>
+     */
+    public java.math.BigDecimal collectorRetentionPerKgFcfa;
+
+    /**
      * Catégorie de reprise du fournisseur (backlog ACH-07). {@code null} :
      * le fournisseur n'est rattaché à aucune catégorie et suit le réglage
      * du tenant.

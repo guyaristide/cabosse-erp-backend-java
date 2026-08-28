@@ -171,6 +171,7 @@ public class PurchaseOrderImportService {
                 /* collector */ null,
                 /* sectionId */ null,
                 /* collectorMarginRate */ null,
+                /* collectorRetentionPerKgFcfa */ null,
                 /* categoryId */ null
         );
         var created = supplierService.create(create);
