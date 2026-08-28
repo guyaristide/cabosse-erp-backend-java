@@ -640,10 +640,10 @@ public class AccountingResource {
     }
 
     @GET
-    @Path("/export/compte-resultat")
+    @Path("/export/income-statement")
     @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 "application/pdf" })
-    public Response exportCompteResultat(@QueryParam("from") String fromRaw,
+    public Response exportIncomeStatement(@QueryParam("from") String fromRaw,
                                          @QueryParam("to") String toRaw,
                                          @QueryParam("campaignId") UUID campaignId,
                                          @QueryParam("format") String formatRaw) {
@@ -664,15 +664,43 @@ public class AccountingResource {
     }
 
     @GET
-    @Path("/export/bilan")
+    @Path("/export/balance-sheet")
     @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 "application/pdf" })
-    public Response exportBilan(@QueryParam("asOf") String asOfRaw,
+    public Response exportBalanceSheet(@QueryParam("asOf") String asOfRaw,
                                 @QueryParam("format") String formatRaw) {
         ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
         var dataset = exports.buildBilan(parseDate(asOfRaw));
         exportAudit.record("accounting", "Bilan", format, dataset.rows().size());
         return ExportResponses.build("bilan", format, dataset);
+    }
+
+
+    /**
+     * Anciens chemins français, conservés le temps que les liens et les
+     * scripts en circulation s'éteignent. Une URL est une interface
+     * publique : on la renomme en la doublant, jamais en la coupant.
+     */
+    @GET
+    @Path("/export/compte-resultat")
+    @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "application/pdf" })
+    @Deprecated(since = "2026-08-28")
+    public Response exportCompteResultatLegacy(@QueryParam("from") String fromRaw,
+                                               @QueryParam("to") String toRaw,
+                                               @QueryParam("campaignId") UUID campaignId,
+                                               @QueryParam("format") String formatRaw) {
+        return exportIncomeStatement(fromRaw, toRaw, campaignId, formatRaw);
+    }
+
+    @GET
+    @Path("/export/bilan")
+    @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "application/pdf" })
+    @Deprecated(since = "2026-08-28")
+    public Response exportBilanLegacy(@QueryParam("asOf") String asOfRaw,
+                                      @QueryParam("format") String formatRaw) {
+        return exportBalanceSheet(asOfRaw, formatRaw);
     }
 
     @GET
