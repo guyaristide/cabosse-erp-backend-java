@@ -1,5 +1,10 @@
 package com.ntech.cabosse.cacao.controller;
 
+import com.ntech.cabosse.shared.exception.BusinessException;
+import com.ntech.cabosse.shared.i18n.Messages;
+import com.ntech.cabosse.shared.tenant.TenantContext;
+import com.ntech.cabosse.tenant.capability.TenantCapability;
+import com.ntech.cabosse.tenant.capability.TenantCapabilityService;
 import com.ntech.cabosse.permission.entity.Permission;
 import com.ntech.cabosse.permission.service.RequiresPermission;
 import com.ntech.cabosse.cacao.dto.SalesContractUpsertDto;
@@ -35,15 +40,34 @@ public class SalesContractResource {
 
     @Inject SalesContractService service;
 
+    @Inject TenantCapabilityService capabilities;
+    @Inject TenantContext tenantContext;
+
+    /**
+     * Le négoce de commodité n'est pas la vente de produits finis.
+     *
+     * <p>Le front gardait déjà ces écrans, le serveur non : un tenant qui
+     * vend des produits finis, donc porteur du droit de vente, atteignait
+     * les treize points d'entrée du négoce. Le contrôle qui fait foi est
+     * celui de l'API, pas l'écran qu'on cache.</p>
+     */
+    private void ensureCapability() {
+        if (!capabilities.has(tenantContext.tenantId(), TenantCapability.HAS_COMMODITY_TRADE)) {
+            throw new BusinessException(Messages.msg("m.cco-trade-capability-required"));
+        }
+    }
+
     @GET
     public Response list(@QueryParam("campaignId") UUID campaignId,
                          @QueryParam("customerId") UUID customerId) {
+        ensureCapability();
         return Response.ok(ApiResponse.ok(service.list(campaignId, customerId))).build();
     }
 
     @GET
     @Path("/{id}")
     public Response getById(@PathParam("id") UUID id) {
+        ensureCapability();
         return Response.ok(ApiResponse.ok(service.getById(id))).build();
     }
 
@@ -51,6 +75,7 @@ public class SalesContractResource {
     @RequiresPermission(Permission.SALE_WRITE)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response create(@Valid SalesContractUpsertDto p) {
+        ensureCapability();
         return Response.status(Response.Status.CREATED)
                 .entity(ApiResponse.created(service.create(p))).build();
     }
@@ -60,6 +85,7 @@ public class SalesContractResource {
     @Path("/{id}")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response update(@PathParam("id") UUID id, @Valid SalesContractUpsertDto p) {
+        ensureCapability();
         return Response.ok(ApiResponse.ok(service.update(id, p))).build();
     }
 
@@ -68,6 +94,7 @@ public class SalesContractResource {
     @Path("/{id}/active")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
     public Response setActive(@PathParam("id") UUID id, @QueryParam("value") boolean value) {
+        ensureCapability();
         return Response.ok(ApiResponse.ok(service.setActive(id, value))).build();
     }
 }

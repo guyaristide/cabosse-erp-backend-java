@@ -81,10 +81,20 @@ public class BeanQualityCheckService {
         return BeanQualityCheckResponseDto.from(loadOrFail(id));
     }
 
+    /**
+     * Enregistre un contrôle qualité.
+     *
+     * <p>Le lot de séchage est facultatif : un contrôle porte sur de la
+     * matière, qui n'est pas toujours sortie d'un séchoir. L'exiger
+     * enfermait le contrôle dans la chaîne cacao, où il n'a pourtant rien
+     * de spécifique.</p>
+     *
+     * <p>Quand un lot est donné, il ne peut porter qu'un seul contrôle :
+     * deux verdicts sur la même matière ne se départagent pas.</p>
+     */
     public BeanQualityCheckResponseDto create(BeanQualityCheckUpsertDto payload) {
-        DryingBatchEntity drying = dryings.findById(payload.dryingBatchId())
-                .orElseThrow(() -> new NotFoundException(Messages.msg("m.agr-drying-not-found", payload.dryingBatchId())));
-        if (qcs.findByDryingBatch(drying.id).isPresent()) {
+        DryingBatchEntity drying = resolveDrying(payload.dryingBatchId());
+        if (drying != null && qcs.findByDryingBatch(drying.id).isPresent()) {
             throw new BusinessException(Messages.msg("m.agr-qc-already-exists"));
         }
 
@@ -106,8 +116,7 @@ public class BeanQualityCheckService {
         if (e.stockMovementCreated) {
             throw new BusinessException(Messages.msg("m.agr-qc-locked-stock-entry"));
         }
-        DryingBatchEntity drying = dryings.findById(payload.dryingBatchId())
-                .orElseThrow(() -> new NotFoundException(Messages.msg("m.agr-drying-not-found", payload.dryingBatchId())));
+        DryingBatchEntity drying = resolveDrying(payload.dryingBatchId());
         applyPayload(e, payload, drying);
         e.updatedAt = Instant.now();
         qcs.replace(e);
@@ -171,9 +180,22 @@ public class BeanQualityCheckService {
                 .orElseThrow(() -> new NotFoundException(Messages.msg("m.agr-qc-not-found", id)));
     }
 
+    /**
+     * Le lot de séchage désigné, ou null s'il n'y en a pas.
+     *
+     * <p>Absent, le contrôle est autonome. Renseigné mais inconnu, c'est
+     * une erreur de saisie et non une absence : on refuse plutôt que de
+     * détacher silencieusement le contrôle.</p>
+     */
+    private DryingBatchEntity resolveDrying(UUID dryingBatchId) {
+        if (dryingBatchId == null) return null;
+        return dryings.findById(dryingBatchId).orElseThrow(
+                () -> new NotFoundException(Messages.msg("m.agr-drying-not-found", dryingBatchId)));
+    }
+
     private void applyPayload(BeanQualityCheckEntity e, BeanQualityCheckUpsertDto p, DryingBatchEntity drying) {
-        e.dryingBatchId = drying.id;
-        e.dryingBatchRef = drying.ref;
+        e.dryingBatchId = drying != null ? drying.id : null;
+        e.dryingBatchRef = drying != null ? drying.ref : null;
         e.cutTestSampleCount = p.cutTestSampleCount();
         e.wellFermentedPct = p.wellFermentedPct();
         e.humidityPct = p.humidityPct();

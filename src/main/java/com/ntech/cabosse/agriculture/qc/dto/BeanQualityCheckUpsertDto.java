@@ -9,7 +9,13 @@ import java.math.BigDecimal;
 import java.util.UUID;
 
 public record BeanQualityCheckUpsertDto(
-        @NotNull UUID dryingBatchId,
+        /**
+         * Lot de séchage contrôlé. <strong>Facultatif</strong> : un contrôle
+         * qualité porte sur de la matière, qui n'est pas toujours sortie
+         * d'un séchoir. L'exiger enfermait le contrôle dans la chaîne
+         * cacao.
+         */
+        UUID dryingBatchId,
         Integer cutTestSampleCount,
         @DecimalMin("0.0") @DecimalMax("100.0") BigDecimal wellFermentedPct,
         @DecimalMin("0.0") @DecimalMax("100.0") BigDecimal humidityPct,

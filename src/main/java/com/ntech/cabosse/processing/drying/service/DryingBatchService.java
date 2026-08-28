@@ -63,15 +63,26 @@ public class DryingBatchService {
         return DryingBatchResponseDto.from(loadOrFail(id));
     }
 
+    /**
+     * Ouvre un lot de séchage.
+     *
+     * <p>Les bacs de fermentation sont facultatifs : une filière qui ne
+     * fermente pas sèche de la matière qui n'est passée par aucun bac.
+     * Quand des bacs sont donnés, ils doivent tous exister — un
+     * identifiant inconnu est une erreur de saisie, pas une absence.</p>
+     */
     public DryingBatchResponseDto create(DryingBatchUpsertDto payload) {
-        List<FermentationBatchEntity> ferms = fermentations.findByIds(payload.fermentationBatchIds());
-        if (ferms.size() != payload.fermentationBatchIds().size()) {
+        List<UUID> requested = payload.fermentationBatchIds() != null
+                ? payload.fermentationBatchIds() : List.of();
+        List<FermentationBatchEntity> ferms = requested.isEmpty()
+                ? List.of() : fermentations.findByIds(requested);
+        if (ferms.size() != requested.size()) {
             throw new BusinessException(Messages.msg("m.prc-fermentation-batches-not-found"));
         }
         DryingBatchEntity e = new DryingBatchEntity();
         e.id = idGenerator.newId();
         e.ref = refService.next();
-        e.fermentationBatchIds = new ArrayList<>(payload.fermentationBatchIds());
+        e.fermentationBatchIds = new ArrayList<>(requested);
         e.fermentationBatchRefs = ferms.stream().map(f -> f.ref).toList();
         e.method = payload.method();
         e.weightInKg = payload.weightInKg();

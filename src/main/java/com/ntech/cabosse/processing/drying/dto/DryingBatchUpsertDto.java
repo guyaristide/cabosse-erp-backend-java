@@ -11,7 +11,13 @@ import java.util.List;
 import java.util.UUID;
 
 public record DryingBatchUpsertDto(
-        @NotEmpty(message = "{v.au-moins-un-bac-fermentation-a-secher}") List<UUID> fermentationBatchIds,
+        /**
+         * Bacs de fermentation à sécher. <strong>Facultatif</strong> : une
+         * filière qui ne fermente pas (manioc, maïs, riz, anacarde, fruits,
+         * café) sèche de la matière qui n'est passée par aucun bac. L'exiger
+         * fermait le module à six filières sur sept.
+         */
+        List<UUID> fermentationBatchIds,
         @NotNull DryingMethod method,
         @DecimalMin("0.0") BigDecimal weightInKg,
         @Size(max = 500) String notes

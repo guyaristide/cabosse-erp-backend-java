@@ -72,15 +72,24 @@ public class FermentationBatchService {
         return FermentationBatchResponseDto.from(loadOrFail(id));
     }
 
+    /**
+     * Ouvre un bac de fermentation.
+     *
+     * <p>Les récoltes sont facultatives : une structure qui achète sa
+     * matière au lieu de la récolter charge un bac sans récolte à lui
+     * rattacher. Quand des récoltes sont données, elles doivent toutes
+     * exister.</p>
+     */
     public FermentationBatchResponseDto create(FermentationBatchUpsertDto payload) {
-        List<HarvestEntity> hList = harvests.findByIds(payload.harvestIds());
-        if (hList.size() != payload.harvestIds().size()) {
+        List<UUID> requested = payload.harvestIds() != null ? payload.harvestIds() : List.of();
+        List<HarvestEntity> hList = requested.isEmpty() ? List.of() : harvests.findByIds(requested);
+        if (hList.size() != requested.size()) {
             throw new BusinessException(Messages.msg("m.prc-harvests-not-found"));
         }
         FermentationBatchEntity e = new FermentationBatchEntity();
         e.id = idGenerator.newId();
         e.ref = refService.next();
-        e.harvestIds = new ArrayList<>(payload.harvestIds());
+        e.harvestIds = new ArrayList<>(requested);
         e.harvestCodes = hList.stream().map(h -> h.code).toList();
         e.weightInKg = payload.weightInKg();
         e.status = FermentationBatchStatus.PREPARING;
