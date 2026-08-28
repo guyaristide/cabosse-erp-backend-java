@@ -118,4 +118,34 @@ public class CampaignRepository {
     public void replace(CampaignEntity e) {
         coll().replaceOne(Filters.eq("_id", e.id), e);
     }
+
+    /**
+     * Applique un nouveau barème et empile son historique, gardé par le
+     * prix observé à la lecture.
+     *
+     * <p>Deux personnes qui changent le prix en même temps ne doivent pas
+     * en voir une écraser l'autre en silence : la seconde ne retrouve plus
+     * le prix qu'elle avait sous les yeux et repart bredouille. Jamais de
+     * read-modify-replace ici, c'est un {@code updateOne} conditionnel.</p>
+     *
+     * @return false si le barème a bougé entre la lecture et l'écriture
+     */
+    public boolean applyTariff(UUID id, java.math.BigDecimal expectedBasePrice,
+                               java.math.BigDecimal newBasePrice,
+                               java.math.BigDecimal newRistournePct,
+                               List<com.ntech.cabosse.campaign.entity.QualityPremium> newPremiums,
+                               com.ntech.cabosse.campaign.entity.TariffChange change,
+                               java.time.Instant updatedAt) {
+        return coll().updateOne(
+                Filters.and(
+                        Filters.eq("_id", id),
+                        Filters.eq("basePricePerKgFcfa", expectedBasePrice)),
+                com.mongodb.client.model.Updates.combine(
+                        com.mongodb.client.model.Updates.set("basePricePerKgFcfa", newBasePrice),
+                        com.mongodb.client.model.Updates.set("ristournePct", newRistournePct),
+                        com.mongodb.client.model.Updates.set("qualityPremiums", newPremiums),
+                        com.mongodb.client.model.Updates.set("updatedAt", updatedAt),
+                        com.mongodb.client.model.Updates.push("tariffHistory", change))
+        ).getModifiedCount() == 1;
+    }
 }

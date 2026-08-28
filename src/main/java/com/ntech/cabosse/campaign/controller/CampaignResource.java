@@ -82,6 +82,24 @@ public class CampaignResource {
         return Response.ok(ApiResponse.ok(CampaignResponseDto.from(updated))).build();
     }
 
+    /**
+     * Change le barème d'une campagne.
+     *
+     * <p>Droit distinct de l'écriture des référentiels : c'est le prix payé
+     * au producteur, et la structure décide qui le détient en composant ses
+     * profils. Le motif est exigé, et le changement laisse sa trace sur la
+     * campagne.</p>
+     */
+    @PUT
+    @RequiresPermission(Permission.CAMPAIGN_PRICE_WRITE)
+    @Path("/{id}/tariff")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    public Response changeTariff(@PathParam("id") UUID id,
+                                 @Valid com.ntech.cabosse.campaign.dto.CampaignTariffDto payload) {
+        var updated = service.changeTariff(id, payload);
+        return Response.ok(ApiResponse.ok(CampaignResponseDto.from(updated))).build();
+    }
+
     @POST
     @RequiresPermission(Permission.REFERENTIAL_WRITE)
     @Path("/{id}/close")

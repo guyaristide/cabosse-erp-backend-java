@@ -60,6 +60,12 @@ public class CampaignEntity {
     /**
      * Prix de base par kg de matière brute livrée, en devise tenant.
      * S'applique avant primes qualité et ristourne.
+     *
+     * <p><strong>Verrouillé.</strong> Il ne se modifie pas par la mise à
+     * jour ordinaire de la campagne mais par un geste dédié, réservé au
+     * droit {@code CAMPAIGN_PRICE_WRITE} et motivé. C'est le prix payé au
+     * producteur : le laisser librement éditable ouvrait la porte à un
+     * changement discret entre deux pesées.</p>
      */
     public BigDecimal basePricePerKgFcfa = BigDecimal.ZERO;
 
@@ -92,6 +98,16 @@ public class CampaignEntity {
     public Instant closedAt;
     public UUID closedBy;
     public String closedByEmail;
+
+    /**
+     * Historique des changements de barème, du plus ancien au plus récent.
+     *
+     * <p>Un prix qui change sans trace ne se conteste pas : chaque
+     * modification garde le barème d'avant, celui d'après, son motif et son
+     * auteur. C'est ce qui permet, une campagne finie, de rapprocher un reçu
+     * du prix en vigueur le jour où il a été établi.</p>
+     */
+    public List<TariffChange> tariffHistory = new ArrayList<>();
 
     public Instant createdAt;
     public Instant updatedAt;

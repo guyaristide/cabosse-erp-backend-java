@@ -29,6 +29,11 @@ public enum Permission {
     // ─── Référentiels ───────────────────────────────────────────────
     REFERENTIAL_READ(Domain.REFERENTIAL, "m.per-referential-read"),
     REFERENTIAL_WRITE(Domain.REFERENTIAL, "m.per-referential-write"),
+    // Le barème d'une campagne est le prix payé au producteur : il ne se
+    // modifie pas au même titre qu'un libellé de référentiel. Le droit est
+    // distinct pour que la structure décide qui le détient, direction ou
+    // conseil, sans que le logiciel en tranche à sa place.
+    CAMPAIGN_PRICE_WRITE(Domain.REFERENTIAL, "m.per-campaign-price-write"),
 
     // ─── Achats de biens et services ────────────────────────────────
     PURCHASE_READ(Domain.PURCHASE, "m.per-purchase-read"),

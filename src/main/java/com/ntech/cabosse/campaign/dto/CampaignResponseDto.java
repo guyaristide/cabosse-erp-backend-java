@@ -36,8 +36,38 @@ public record CampaignResponseDto(
         String closedByEmail,
         Instant createdAt,
         Instant updatedAt,
-        String createdByEmail
+        String createdByEmail,
+        /**
+         * Changements de barème, du plus ancien au plus récent. Vide tant
+         * que le barème posé à la création n'a pas bougé.
+         */
+        List<TariffChangeDto> tariffHistory
 ) {
+
+    @Schema(description = "Changement de barème d'une campagne")
+    public record TariffChangeDto(
+            BigDecimal previousBasePricePerKgFcfa,
+            BigDecimal newBasePricePerKgFcfa,
+            BigDecimal previousRistournePct,
+            BigDecimal newRistournePct,
+            List<QualityPremiumDto> previousQualityPremiums,
+            List<QualityPremiumDto> newQualityPremiums,
+            String reason,
+            Instant changedAt,
+            String changedByEmail) {
+
+        static TariffChangeDto from(com.ntech.cabosse.campaign.entity.TariffChange c) {
+            return new TariffChangeDto(
+                    c.previousBasePricePerKgFcfa, c.newBasePricePerKgFcfa,
+                    c.previousRistournePct, c.newRistournePct,
+                    premiums(c.previousQualityPremiums), premiums(c.newQualityPremiums),
+                    c.reason, c.changedAt, c.changedByEmail);
+        }
+
+        private static List<QualityPremiumDto> premiums(List<QualityPremium> raw) {
+            return raw == null ? List.of() : raw.stream().map(QualityPremiumDto::from).toList();
+        }
+    }
 
     @Schema(description = "Prime qualité par grade")
     public record QualityPremiumDto(BeanGrade grade, BigDecimal premiumPerKg) {
@@ -56,7 +86,10 @@ public record CampaignResponseDto(
                 e.basePricePerKgFcfa, premiums,
                 e.ristournePct, e.defaultPaymentMethod, e.notes,
                 e.status, e.closedAt, e.closedByEmail,
-                e.createdAt, e.updatedAt, e.createdByEmail
+                e.createdAt, e.updatedAt, e.createdByEmail,
+                e.tariffHistory == null
+                        ? List.of()
+                        : e.tariffHistory.stream().map(TariffChangeDto::from).toList()
         );
     }
 }

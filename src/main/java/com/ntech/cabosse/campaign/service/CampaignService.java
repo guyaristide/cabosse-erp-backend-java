@@ -100,6 +100,16 @@ public class CampaignService {
         return e;
     }
 
+    /**
+     * Mise à jour ordinaire d'une campagne : sa période, son libellé, ses
+     * notes. <strong>Pas son barème.</strong>
+     *
+     * <p>Le prix bord champ, les primes qualité et la ristourne sont ce que
+     * la structure paie au producteur. Les laisser dans le même formulaire
+     * que le libellé aurait permis de les déplacer en corrigeant une date,
+     * sans droit particulier ni trace. Une tentative est refusée et nomme le
+     * geste dédié.</p>
+     */
     public CampaignEntity update(UUID id, CampaignUpsertDto payload) {
         ensureCapability();
         CampaignEntity e = get(id);
@@ -107,10 +117,103 @@ public class CampaignService {
             throw new BusinessException(Messages.msg("m.cmp-closed-not-editable"));
         }
         validateDates(payload);
+        if (tariffDiffers(e, payload)) {
+            throw new BusinessException(Messages.msg("m.cmp-tariff-locked"));
+        }
         applyPayload(e, payload);
         e.updatedAt = Instant.now();
         repo.replace(e);
         return e;
+    }
+
+    /**
+     * Change le barème d'une campagne ouverte, avec motif et trace.
+     *
+     * <p>Ce qui a déjà été acheté ne bouge pas : le reçu fige son prix au
+     * kilo à l'enregistrement. Un changement vaut donc pour la suite, et
+     * l'historique permet de rapprocher un ancien reçu du prix en vigueur
+     * le jour où il a été établi.</p>
+     */
+    public CampaignEntity changeTariff(UUID id, com.ntech.cabosse.campaign.dto.CampaignTariffDto payload) {
+        ensureCapability();
+        CampaignEntity e = get(id);
+        if (e.status != CampaignStatus.OPEN) {
+            throw new BusinessException(Messages.msg("m.cmp-closed-not-editable"));
+        }
+
+        BigDecimal newBase = payload.basePricePerKgFcfa();
+        BigDecimal newRistourne = payload.ristournePct() != null ? payload.ristournePct() : BigDecimal.ZERO;
+        List<QualityPremium> newPremiums = premiumsOf(payload.qualityPremiums());
+
+        // Un barème inchangé n'est pas un changement : l'écrire polluerait
+        // l'historique de lignes sans décision derrière.
+        if (sameAmount(e.basePricePerKgFcfa, newBase)
+                && sameAmount(e.ristournePct, newRistourne)
+                && samePremiums(e.qualityPremiums, newPremiums)) {
+            throw new BusinessException(Messages.msg("m.cmp-tariff-unchanged"));
+        }
+
+        Instant now = Instant.now();
+        com.ntech.cabosse.campaign.entity.TariffChange change =
+                new com.ntech.cabosse.campaign.entity.TariffChange();
+        change.previousBasePricePerKgFcfa = e.basePricePerKgFcfa;
+        change.newBasePricePerKgFcfa = newBase;
+        change.previousRistournePct = e.ristournePct;
+        change.newRistournePct = newRistourne;
+        change.previousQualityPremiums = new ArrayList<>(
+                e.qualityPremiums != null ? e.qualityPremiums : List.of());
+        change.newQualityPremiums = new ArrayList<>(newPremiums);
+        change.reason = payload.reason().trim();
+        change.changedAt = now;
+        change.changedBy = tenantContext.userId();
+        change.changedByEmail = currentEmail();
+
+        boolean applied = repo.applyTariff(
+                id, e.basePricePerKgFcfa, newBase, newRistourne, newPremiums, change, now);
+        if (!applied) {
+            // Le barème a bougé entre la lecture et l'écriture : refuser
+            // plutôt qu'écraser en silence la décision de quelqu'un d'autre.
+            throw new BusinessException(Messages.msg("m.cmp-tariff-changed-meanwhile"));
+        }
+        return get(id);
+    }
+
+    /** Le payload touche-t-il au barème déjà enregistré ? */
+    private static boolean tariffDiffers(CampaignEntity e, CampaignUpsertDto p) {
+        BigDecimal ristourne = p.ristournePct() != null ? p.ristournePct() : BigDecimal.ZERO;
+        return !sameAmount(e.basePricePerKgFcfa, p.basePricePerKgFcfa())
+                || !sameAmount(e.ristournePct, ristourne)
+                || !samePremiums(e.qualityPremiums, premiumsOf(p.qualityPremiums()));
+    }
+
+    private static List<QualityPremium> premiumsOf(List<CampaignUpsertDto.QualityPremiumPayload> raw) {
+        List<QualityPremium> out = new ArrayList<>();
+        if (raw == null) return out;
+        for (var qp : raw) {
+            if (qp == null || qp.grade() == null) continue;
+            out.add(new QualityPremium(qp.grade(),
+                    qp.premiumPerKg() != null ? qp.premiumPerKg() : BigDecimal.ZERO));
+        }
+        return out;
+    }
+
+    /** Compare des montants, pas leur écriture : 900 et 900.00 sont un seul prix. */
+    private static boolean sameAmount(BigDecimal a, BigDecimal b) {
+        BigDecimal x = a != null ? a : BigDecimal.ZERO;
+        BigDecimal y = b != null ? b : BigDecimal.ZERO;
+        return x.compareTo(y) == 0;
+    }
+
+    private static boolean samePremiums(List<QualityPremium> a, List<QualityPremium> b) {
+        List<QualityPremium> x = a != null ? a : List.of();
+        List<QualityPremium> y = b != null ? b : List.of();
+        if (x.size() != y.size()) return false;
+        for (QualityPremium left : x) {
+            boolean found = y.stream().anyMatch(right ->
+                    right.grade == left.grade && sameAmount(left.premiumPerKg, right.premiumPerKg));
+            if (!found) return false;
+        }
+        return true;
     }
 
     public CampaignEntity close(UUID id) {
