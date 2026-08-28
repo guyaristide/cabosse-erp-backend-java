@@ -2,7 +2,12 @@ package com.ntech.cabosse.collector.service;
 
 import com.github.f4b6a3.uuid.UuidCreator;
 import com.ntech.cabosse.collector.dto.SectionResponseDto;
+import com.ntech.cabosse.collector.dto.SectionCoverageDto;
 import com.ntech.cabosse.collector.dto.SectionUpsertDto;
+import com.ntech.cabosse.locality.entity.LocalityEntity;
+import com.ntech.cabosse.locality.repository.LocalityRepository;
+import com.ntech.cabosse.supplier.entity.SupplierEntity;
+import com.ntech.cabosse.supplier.repository.SupplierRepository;
 import com.ntech.cabosse.collector.entity.SectionEntity;
 import com.ntech.cabosse.collector.repository.SectionRepository;
 import com.ntech.cabosse.shared.audit.AuditEventType;
@@ -17,8 +22,12 @@ import org.eclipse.microprofile.jwt.JsonWebToken;
 
 import java.text.Normalizer;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 
 /** Référentiel des sections de collecte du tenant (backlog ACH-02). */
@@ -26,6 +35,8 @@ import java.util.UUID;
 public class SectionService {
 
     @Inject SectionRepository repo;
+    @Inject LocalityRepository localityRepo;
+    @Inject SupplierRepository supplierRepo;
     @Inject TenantContext tenantContext;
     @Inject AuditService audit;
     @Inject JsonWebToken jwt;
@@ -73,6 +84,64 @@ public class SectionService {
         e.updatedAt = Instant.now();
         audit(e, active ? "Réactivation" : "Désactivation");
         return SectionResponseDto.from(e);
+    }
+
+    /**
+     * Couverture des sections par leurs délégués.
+     *
+     * <p>Rend vérifiable ce que le rattachement à la section n'exprimait
+     * pas : quelles localités n'ont personne, et quelles sections reposent
+     * sur un seul délégué.</p>
+     */
+    public SectionCoverageDto coverage() {
+        var localities = localityRepo.listAll();
+        var delegates = supplierRepo.listAll().stream().filter(sup -> sup.collector).toList();
+
+        // Quel délégué couvre quelle localité. Une localité n'en a qu'un :
+        // la règle est tenue à l'écriture, on peut donc indexer sans risque.
+        Map<UUID, SupplierEntity> holderByLocality = new HashMap<>();
+        for (SupplierEntity sup : delegates) {
+            if (sup.localityIds == null) continue;
+            for (UUID lid : sup.localityIds) holderByLocality.putIfAbsent(lid, sup);
+        }
+
+        List<SectionCoverageDto.Section> out = new ArrayList<>();
+        for (SectionEntity sec : repo.listAll()) {
+            var own = localities.stream().filter(l -> sec.id.equals(l.sectionId)).toList();
+            List<SectionCoverageDto.Locality> uncovered = own.stream()
+                    .filter(l -> !holderByLocality.containsKey(l.id))
+                    .map(SectionService::localityOf)
+                    .toList();
+
+            Map<UUID, Integer> countByDelegate = new LinkedHashMap<>();
+            for (var l : own) {
+                SupplierEntity holder = holderByLocality.get(l.id);
+                if (holder != null) countByDelegate.merge(holder.id, 1, Integer::sum);
+            }
+            List<SectionCoverageDto.Delegate> lines = new ArrayList<>();
+            for (var entry : countByDelegate.entrySet()) {
+                delegates.stream().filter(d -> d.id.equals(entry.getKey())).findFirst().ifPresent(sup ->
+                        lines.add(new SectionCoverageDto.Delegate(
+                                sup.id, sup.code, sup.name, entry.getValue())));
+            }
+
+            // Une section vide ou entièrement découverte n'est pas « tenue
+            // par un seul » : elle n'est tenue par personne, ce que dit déjà
+            // la liste des localités sans délégué.
+            boolean single = !own.isEmpty() && uncovered.isEmpty() && lines.size() == 1;
+            out.add(new SectionCoverageDto.Section(
+                    sec.id, sec.code, sec.name, own.size(), uncovered, lines, single));
+        }
+
+        List<SectionCoverageDto.Locality> orphans = localities.stream()
+                .filter(l -> l.sectionId == null)
+                .map(SectionService::localityOf)
+                .toList();
+        return new SectionCoverageDto(out, orphans);
+    }
+
+    private static SectionCoverageDto.Locality localityOf(LocalityEntity l) {
+        return new SectionCoverageDto.Locality(l.id, l.code, l.name);
     }
 
     private void apply(SectionEntity e, SectionUpsertDto p) {

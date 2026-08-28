@@ -22,6 +22,7 @@ import java.text.Normalizer;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.UUID;
 
 @ApplicationScoped
@@ -30,6 +31,7 @@ public class SupplierService {
     @Inject com.ntech.cabosse.members.repository.MemberRepository members;
 
     @Inject SupplierRepository repo;
+    @Inject com.ntech.cabosse.locality.repository.LocalityRepository localities;
     @Inject TenantContext tenantContext;
     @Inject AuditService audit;
     @Inject com.ntech.cabosse.suppliercategory.repository.SupplierCategoryRepository categories;
@@ -158,7 +160,14 @@ public class SupplierService {
         e.paymentTerms = blank(p.paymentTerms());
         e.notes = blank(p.notes());
         e.collector = p.collector() != null && p.collector();
-        e.sectionId = e.collector ? p.sectionId() : null;
+        e.localityIds = e.collector ? distinctIds(p.localityIds()) : new java.util.ArrayList<>();
+        ensureLocalitiesAreFree(e);
+        // La section se dérive des localités dès qu'il y en a : c'est la
+        // localité qui porte le rattachement, la section n'en étant que le
+        // regroupement. Sans localité, on garde la section saisie, pour les
+        // structures qui n'ont pas encore rangé leurs villages.
+        UUID derived = derivedSection(e.localityIds);
+        e.sectionId = e.collector ? (derived != null ? derived : p.sectionId()) : null;
         e.collectorMarginRate = e.collector ? p.collectorMarginRate() : null;
         e.collectorRetentionPerKgFcfa = e.collector ? p.collectorRetentionPerKgFcfa() : null;
         // La catégorie classe le fournisseur quelle que soit sa qualité :
@@ -167,6 +176,51 @@ public class SupplierService {
             throw new NotFoundException(Messages.msg("m.suc-not-found", p.categoryId()));
         }
         e.categoryId = p.categoryId();
+    }
+
+    private static java.util.List<UUID> distinctIds(java.util.List<UUID> raw) {
+        if (raw == null) return new java.util.ArrayList<>();
+        return raw.stream().filter(java.util.Objects::nonNull).distinct()
+                .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
+    }
+
+    /**
+     * La section commune aux localités du délégué.
+     *
+     * <p>Null si elles relèvent de sections différentes ou d'aucune : un
+     * délégué qui travaille de part et d'autre d'une frontière de section
+     * n'appartient à aucune, et forcer l'une des deux mentirait sur les
+     * états qui trient par section.</p>
+     */
+    private UUID derivedSection(java.util.List<UUID> localityIds) {
+        if (localityIds == null || localityIds.isEmpty()) return null;
+        java.util.Set<UUID> found = new java.util.HashSet<>();
+        for (UUID id : localityIds) {
+            localities.findById(id).ifPresent(l -> {
+                if (l.sectionId != null) found.add(l.sectionId);
+            });
+        }
+        return found.size() == 1 ? found.iterator().next() : null;
+    }
+
+    /**
+     * Une localité est gérée par un seul délégué.
+     *
+     * <p>Deux délégués sur le même village compteraient deux fois la même
+     * collecte et rendraient indécidable à qui rattacher un producteur.</p>
+     */
+    private void ensureLocalitiesAreFree(SupplierEntity e) {
+        if (e.localityIds == null || e.localityIds.isEmpty()) return;
+        var conflicts = repo.findCoveringAnyLocality(e.localityIds, e.id);
+        if (conflicts.isEmpty()) return;
+        SupplierEntity other = conflicts.get(0);
+        String village = e.localityIds.stream()
+                .filter(id -> other.localityIds != null && other.localityIds.contains(id))
+                .findFirst()
+                .flatMap(localities::findById)
+                .map(l -> l.name)
+                .orElse("?");
+        throw new ConflictException(Messages.msg("m.sup-locality-taken", village, other.name));
     }
 
     private void auditEvt(SupplierEntity e, String action) {

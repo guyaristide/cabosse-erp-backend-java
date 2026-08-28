@@ -134,7 +134,10 @@ public class SupplierImportService {
                 SupplierUpsertDto payload = new SupplierUpsertDto(
                         n.code(), n.name(), n.legalName(), n.taxNumber(),
                         n.email(), n.phone(), n.addressLine(), n.cityName(), n.countryCode(),
-                        n.contactName(), n.paymentTerms(), n.notes(), null, null, null, null, null
+                        n.contactName(), n.paymentTerms(), n.notes(),
+                        /* collector */ null, /* sectionId */ null, /* localityIds */ null,
+                        /* collectorMarginRate */ null, /* collectorRetentionPerKgFcfa */ null,
+                        /* categoryId */ null
                 );
                 SupplierResponseDto created = supplierService.create(payload);
                 createdIds.add(created.id());

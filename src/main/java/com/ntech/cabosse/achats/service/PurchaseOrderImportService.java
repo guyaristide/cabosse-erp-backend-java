@@ -170,6 +170,7 @@ public class PurchaseOrderImportService {
                 /* notes */ null,
                 /* collector */ null,
                 /* sectionId */ null,
+                /* localityIds */ null,
                 /* collectorMarginRate */ null,
                 /* collectorRetentionPerKgFcfa */ null,
                 /* categoryId */ null

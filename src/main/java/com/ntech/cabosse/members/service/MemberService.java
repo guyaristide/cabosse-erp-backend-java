@@ -504,6 +504,10 @@ public class MemberService {
      * <p>La section du délégué est celle du producteur : c'est la même zone
      * de collecte, et la redemander ouvrirait la porte à deux réponses
      * différentes pour une seule réalité.</p>
+     *
+     * <p>Sauf si le délégué s'est vu attribuer des <strong>localités</strong> :
+     * sa section en découle alors, et la réécrire depuis la fiche du
+     * producteur remettrait la valeur d'avant à chaque enregistrement.</p>
      */
     private void syncMirrorSupplier(MemberEntity e) {
         if (e.supplierId == null) return;
@@ -513,7 +517,11 @@ public class MemberService {
             s.email = e.email;
             s.cityName = e.village;
             s.collector = e.collector;
-            s.sectionId = e.collector ? e.sectionId : null;
+            boolean derivedFromLocalities = s.localityIds != null && !s.localityIds.isEmpty();
+            if (!derivedFromLocalities) {
+                s.sectionId = e.collector ? e.sectionId : null;
+            }
+            if (!e.collector) s.localityIds = new java.util.ArrayList<>();
             s.collectorMarginRate = e.collector ? e.collectorMarginRate : null;
             s.updatedAt = Instant.now();
             suppliers.replace(s);

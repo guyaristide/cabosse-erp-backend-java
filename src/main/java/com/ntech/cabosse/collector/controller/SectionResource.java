@@ -35,6 +35,19 @@ public class SectionResource {
 
     @Inject SectionService service;
 
+    /**
+     * Couverture des sections par leurs délégués.
+     *
+     * <p>Un contrôle, pas un refus : la règle « un délégué ne gère pas seul
+     * une section » ne peut pas être opposée à la saisie sans rendre la mise
+     * en place du référentiel impossible.</p>
+     */
+    @GET
+    @Path("/coverage")
+    public Response coverage() {
+        return Response.ok(ApiResponse.ok(service.coverage())).build();
+    }
+
     @GET
     public Response list() { return Response.ok(ApiResponse.ok(service.list())).build(); }
 

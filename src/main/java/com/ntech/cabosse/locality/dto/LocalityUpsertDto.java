@@ -12,5 +12,11 @@ public record LocalityUpsertDto(
         String code,
 
         @NotBlank @Size(min = 1, max = 120)
-        String name
+        String name,
+
+        /**
+         * Section dont relève la localité. Facultatif : une structure peut
+         * lister ses villages avant d'avoir découpé ses sections.
+         */
+        java.util.UUID sectionId
 ) {}

@@ -19,7 +19,9 @@ import java.text.Normalizer;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @ApplicationScoped
 public class LocalityService {
@@ -27,12 +29,28 @@ public class LocalityService {
     @Inject LocalityRepository repo;
     @Inject TenantContext tenantContext;
     @Inject AuditService audit;
+    @Inject com.ntech.cabosse.collector.repository.SectionRepository sections;
     @Inject JsonWebToken jwt;
 
     private String actor() { try { return jwt.getName(); } catch (Exception e) { return null; } }
 
     public List<LocalityResponseDto> list() {
-        return repo.listAll().stream().map(LocalityResponseDto::from).toList();
+        // Les libellés de section sont résolus en une fois : une requête par
+        // localité aurait fait autant d'allers-retours que de villages.
+        Map<UUID, String> sectionNames = sections.listAll().stream()
+                .collect(Collectors.toMap(sec -> sec.id, sec -> sec.name, (a, b) -> a));
+        return repo.listAll().stream()
+                .map(e -> LocalityResponseDto.from(e, e.sectionId != null ? sectionNames.get(e.sectionId) : null))
+                .toList();
+    }
+
+    /** Localités d'une section, pour dériver la couverture d'un délégué. */
+    public List<UUID> idsOfSection(UUID sectionId) {
+        if (sectionId == null) return List.of();
+        return repo.listAll().stream()
+                .filter(e -> sectionId.equals(e.sectionId))
+                .map(e -> e.id)
+                .toList();
     }
 
     public LocalityResponseDto create(LocalityUpsertDto p) {
@@ -44,6 +62,7 @@ public class LocalityService {
         e.id = UuidCreator.getTimeOrderedEpoch();
         e.code = code;
         e.name = p.name().trim();
+        e.sectionId = p.sectionId();
         e.active = true;
         e.createdAt = Instant.now();
         e.updatedAt = e.createdAt;
@@ -57,6 +76,7 @@ public class LocalityService {
         LocalityEntity e = repo.findById(id).orElseThrow(
                 () -> new NotFoundException(Messages.msg("m.loc-not-found", id)));
         e.name = p.name().trim();
+        e.sectionId = p.sectionId();
         e.updatedAt = Instant.now();
         repo.replace(e);
         auditEvt(e, "Modification");

@@ -24,6 +24,16 @@ public class LocalityEntity {
     /** Nom affiché et stocké (ex. {@code "Méagui"}). */
     public String name;
 
+    /**
+     * Section de collecte dont relève la localité.
+     *
+     * <p>Une section regroupe plusieurs localités ; c'est ce lien qui permet
+     * de dériver la couverture d'un délégué, rattaché à des localités, vers
+     * la section qu'il touche. Null tant que la structure n'a pas rangé ses
+     * localités : le rattachement ne s'invente pas.</p>
+     */
+    public UUID sectionId;
+
     public boolean active = true;
 
     public Instant createdAt;

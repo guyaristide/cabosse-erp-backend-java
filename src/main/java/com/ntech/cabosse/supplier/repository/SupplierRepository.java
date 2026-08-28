@@ -70,6 +70,23 @@ public class SupplierRepository {
                 coll().find(Filters.regex("name", regex, "i")).first());
     }
 
+    /**
+     * Délégués couvrant au moins une des localités données, hors celui qu'on
+     * est en train d'écrire.
+     *
+     * <p>Sert la règle « une localité est gérée par un seul délégué » : sans
+     * elle, deux délégués pourraient revendiquer le même village et la
+     * collecte d'un producteur serait comptée deux fois.</p>
+     */
+    public List<SupplierEntity> findCoveringAnyLocality(List<UUID> localityIds, UUID excludeSupplierId) {
+        if (localityIds == null || localityIds.isEmpty()) return List.of();
+        var filter = Filters.in("localityIds", localityIds);
+        if (excludeSupplierId != null) {
+            filter = Filters.and(filter, Filters.ne("_id", excludeSupplierId));
+        }
+        return coll().find(filter).into(new java.util.ArrayList<>());
+    }
+
     public void insert(SupplierEntity e) { coll().insertOne(e); }
     public void replace(SupplierEntity e) { coll().replaceOne(Filters.eq("_id", e.id), e); }
 

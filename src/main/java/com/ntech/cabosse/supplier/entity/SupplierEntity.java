@@ -41,8 +41,26 @@ public class SupplierEntity {
      */
     public boolean collector = false;
 
-    /** Section de collecte rattachée au délégué. {@code null} si non délégué. */
+    /**
+     * Section de collecte du délégué. {@code null} si non délégué.
+     *
+     * <p><strong>Dérivée</strong> de {@link #localityIds} dès que celles-ci
+     * sont renseignées : c'est la localité qui porte le rattachement, la
+     * section n'en étant que le regroupement. Le champ reste écrit pour les
+     * lectures qui l'utilisent déjà (compte courant, avances, états) et pour
+     * les structures qui n'ont pas encore rangé leurs localités.</p>
+     */
     public UUID sectionId;
+
+    /**
+     * Localités où le délégué collecte. Vide si non délégué.
+     *
+     * <p>Règle de l'expert : une localité est gérée par <strong>un seul</strong>
+     * délégué, un délégué intervient dans plusieurs localités. Le rattachement
+     * porte donc ici, au niveau atomique. Rattaché à une section, on ne savait
+     * pas qui collecte dans un village donné.</p>
+     */
+    public java.util.List<UUID> localityIds = new java.util.ArrayList<>();
 
     /**
      * Rémunération du délégué sur les reçus qui lui sont rattachés, dans

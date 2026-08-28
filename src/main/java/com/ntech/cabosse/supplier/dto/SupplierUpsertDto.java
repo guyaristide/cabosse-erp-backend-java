@@ -32,8 +32,17 @@ public record SupplierUpsertDto(
 
         /** Délégué collecteur (backlog ACH-02). */
         Boolean collector,
-        /** Section rattachée au délégué. */
+        /**
+         * Section rattachée au délégué.
+         *
+         * <p>Conservée pour les structures qui n'ont pas encore rangé leurs
+         * localités. Dès que {@code localityIds} est renseigné, la section
+         * en est dérivée et cette valeur est ignorée.</p>
+         */
         java.util.UUID sectionId,
+
+        /** Localités où le délégué collecte. Une localité n'a qu'un délégué. */
+        java.util.List<java.util.UUID> localityIds,
         /** Taux de rémunération propre au délégué. Vide : taux du tenant. */
         @jakarta.validation.constraints.DecimalMin(value = "0", message = "{v.taux-negatif-interdit}")
         java.math.BigDecimal collectorMarginRate,

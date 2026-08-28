@@ -13,7 +13,8 @@ public record SupplierResponseDto(
         String email, String phone,
         String addressLine, String cityName, String countryCode,
         String contactName, String paymentTerms, String notes,
-        boolean collector, UUID sectionId, java.math.BigDecimal collectorMarginRate,
+        boolean collector, UUID sectionId, java.util.List<UUID> localityIds,
+        java.math.BigDecimal collectorMarginRate,
         java.math.BigDecimal collectorRetentionPerKgFcfa,
         UUID categoryId, String categoryName,
         boolean active, Instant createdAt, Instant updatedAt
@@ -28,7 +29,9 @@ public record SupplierResponseDto(
                 e.id, e.code, e.name, e.legalName, e.taxNumber,
                 e.email, e.phone, e.addressLine, e.cityName, e.countryCode,
                 e.contactName, e.paymentTerms, e.notes,
-                e.collector, e.sectionId, e.collectorMarginRate,
+                e.collector, e.sectionId,
+                e.localityIds != null ? e.localityIds : java.util.List.of(),
+                e.collectorMarginRate,
                 e.collectorRetentionPerKgFcfa,
                 e.categoryId, categoryName,
                 e.active, e.createdAt, e.updatedAt
