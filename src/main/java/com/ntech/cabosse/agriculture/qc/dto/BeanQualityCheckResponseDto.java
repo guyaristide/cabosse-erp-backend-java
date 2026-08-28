@@ -1,6 +1,5 @@
 package com.ntech.cabosse.agriculture.qc.dto;
 
-import com.ntech.cabosse.agriculture.qc.entity.BeanGrade;
 import com.ntech.cabosse.agriculture.qc.entity.BeanQualityCheckEntity;
 
 import java.math.BigDecimal;
@@ -16,7 +15,7 @@ public record BeanQualityCheckResponseDto(
         BigDecimal wellFermentedPct,
         BigDecimal humidityPct,
         BigDecimal defectsPct,
-        BeanGrade grade,
+        String grade,
         boolean conformOverall,
         BigDecimal acceptedKg,
         UUID beanArticleId,

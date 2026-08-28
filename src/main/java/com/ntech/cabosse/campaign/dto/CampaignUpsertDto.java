@@ -1,6 +1,5 @@
 package com.ntech.cabosse.campaign.dto;
 
-import com.ntech.cabosse.agriculture.qc.entity.BeanGrade;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
@@ -54,7 +53,7 @@ public record CampaignUpsertDto(
 
     @Schema(description = "Prime qualité par grade de fèves")
     public record QualityPremiumPayload(
-            @NotNull BeanGrade grade,
+            @NotNull String grade,
             @NotNull @DecimalMin(value = "0", message = "{v.valeur-negative-interdite}") BigDecimal premiumPerKg
     ) {}
 }

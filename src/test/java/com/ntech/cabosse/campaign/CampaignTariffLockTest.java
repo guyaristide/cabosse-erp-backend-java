@@ -219,6 +219,11 @@ class CampaignTariffLockTest extends AbstractIntegrationTest {
         UserEntity a = admin();
         String id = createCampaign(a, 900);
         LocalDate today = LocalDate.now();
+        // Le grade appartient au référentiel du tenant, qui démarre vide :
+        // une prime ne s'attache qu'à un grade que la structure a nommé.
+        givenAs(a).contentType("application/json")
+                .body("{\"code\":\"GR1\",\"label\":\"Premier grade\"}")
+                .when().post("/api/v1/quality-grades").then().statusCode(201);
 
         // Le prix de base ne bouge pas, la prime qualité si : c'est autant
         // d'argent déplacé. Le geste ordinaire doit le refuser aussi.

@@ -1,6 +1,5 @@
 package com.ntech.cabosse.campaign.entity;
 
-import com.ntech.cabosse.agriculture.qc.entity.BeanGrade;
 
 import java.math.BigDecimal;
 
@@ -14,7 +13,8 @@ import java.math.BigDecimal;
  */
 public class QualityPremium {
 
-    public BeanGrade grade;
+    /** Code du grade au référentiel du tenant. */
+    public String grade;
 
     /**
      * Prime en devise tenant, par kg. Peut être négative (pénalité).
@@ -24,7 +24,7 @@ public class QualityPremium {
 
     public QualityPremium() {}
 
-    public QualityPremium(BeanGrade grade, BigDecimal premiumPerKg) {
+    public QualityPremium(String grade, BigDecimal premiumPerKg) {
         this.grade = grade;
         this.premiumPerKg = premiumPerKg;
     }

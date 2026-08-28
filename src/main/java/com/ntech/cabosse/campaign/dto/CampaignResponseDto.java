@@ -1,6 +1,5 @@
 package com.ntech.cabosse.campaign.dto;
 
-import com.ntech.cabosse.agriculture.qc.entity.BeanGrade;
 import com.ntech.cabosse.campaign.entity.CampaignEntity;
 import com.ntech.cabosse.campaign.entity.CampaignStatus;
 import com.ntech.cabosse.campaign.entity.QualityPremium;
@@ -70,7 +69,7 @@ public record CampaignResponseDto(
     }
 
     @Schema(description = "Prime qualité par grade")
-    public record QualityPremiumDto(BeanGrade grade, BigDecimal premiumPerKg) {
+    public record QualityPremiumDto(String grade, BigDecimal premiumPerKg) {
         static QualityPremiumDto from(QualityPremium qp) {
             return new QualityPremiumDto(qp.grade, qp.premiumPerKg);
         }

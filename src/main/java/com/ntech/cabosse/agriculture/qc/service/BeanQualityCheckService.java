@@ -46,6 +46,7 @@ import java.util.UUID;
 public class BeanQualityCheckService {
 
     @Inject BeanQualityCheckRepository qcs;
+    @Inject com.ntech.cabosse.qualitygrade.service.QualityGradeService qualityGrades;
     @Inject BeanQcRefService refService;
     @Inject DryingBatchRepository dryings;
     @Inject ArticleRepository articles;
@@ -177,7 +178,10 @@ public class BeanQualityCheckService {
         e.wellFermentedPct = p.wellFermentedPct();
         e.humidityPct = p.humidityPct();
         e.defectsPct = p.defectsPct();
-        e.grade = p.grade();
+        // Le grade doit figurer au référentiel du tenant : un code inconnu
+        // passait sans bruit, et la prime de campagne attachée ne trouvait
+        // jamais son grade.
+        e.grade = qualityGrades.requireCode(p.grade());
         e.conformOverall = p.conformOverall();
         e.acceptedKg = p.acceptedKg();
         if (p.beanArticleId() != null) {

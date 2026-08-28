@@ -131,7 +131,8 @@ public class TenantTechnicalService {
             new MigrationDescriptor("link_campaign_on_operations", "067", "neiba"),
             new MigrationDescriptor("producer_purchase_status", "068", "neiba"),
             new MigrationDescriptor("delegate_covers_localities", "069", "neiba"),
-            new MigrationDescriptor("link_member_locality", "070", "neiba")
+            new MigrationDescriptor("link_member_locality", "070", "neiba"),
+            new MigrationDescriptor("create_quality_grades", "071", "neiba")
     );
 
     /** Fréquence de backup par plan tarifaire (cf. plans.json catalogue). */

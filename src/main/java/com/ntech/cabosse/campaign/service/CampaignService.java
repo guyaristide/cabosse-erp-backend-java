@@ -49,6 +49,7 @@ public class CampaignService {
     @Inject TenantContext tenantContext;
     @Inject TenantCapabilityService capabilityService;
     @Inject JsonWebToken jwt;
+    @Inject com.ntech.cabosse.qualitygrade.service.QualityGradeService qualityGrades;
 
     /**
      * La campagne est un référentiel <strong>partagé</strong> : elle date les
@@ -179,19 +180,26 @@ public class CampaignService {
     }
 
     /** Le payload touche-t-il au barème déjà enregistré ? */
-    private static boolean tariffDiffers(CampaignEntity e, CampaignUpsertDto p) {
+    private boolean tariffDiffers(CampaignEntity e, CampaignUpsertDto p) {
         BigDecimal ristourne = p.ristournePct() != null ? p.ristournePct() : BigDecimal.ZERO;
         return !sameAmount(e.basePricePerKgFcfa, p.basePricePerKgFcfa())
                 || !sameAmount(e.ristournePct, ristourne)
                 || !samePremiums(e.qualityPremiums, premiumsOf(p.qualityPremiums()));
     }
 
-    private static List<QualityPremium> premiumsOf(List<CampaignUpsertDto.QualityPremiumPayload> raw) {
+    /**
+     * Les primes du payload, grades vérifiés contre le référentiel.
+     *
+     * <p>Une prime attachée à un grade qui n'existe pas ne se verse
+     * jamais : autant le refuser à la saisie plutôt que de le découvrir
+     * au moment de payer un producteur.</p>
+     */
+    private List<QualityPremium> premiumsOf(List<CampaignUpsertDto.QualityPremiumPayload> raw) {
         List<QualityPremium> out = new ArrayList<>();
         if (raw == null) return out;
         for (var qp : raw) {
             if (qp == null || qp.grade() == null) continue;
-            out.add(new QualityPremium(qp.grade(),
+            out.add(new QualityPremium(qualityGrades.requireCode(qp.grade()),
                     qp.premiumPerKg() != null ? qp.premiumPerKg() : BigDecimal.ZERO));
         }
         return out;
@@ -250,7 +258,7 @@ public class CampaignService {
         }
     }
 
-    private static void applyPayload(CampaignEntity e, CampaignUpsertDto p) {
+    private void applyPayload(CampaignEntity e, CampaignUpsertDto p) {
         e.label = p.label().trim();
         // Déduite, jamais saisie : l'année d'une saison est celle de son
         // ouverture. Le code de référence, lui, reste celui émis à la
@@ -262,16 +270,10 @@ public class CampaignService {
         e.ristournePct = p.ristournePct() != null ? p.ristournePct() : BigDecimal.ZERO;
         e.defaultPaymentMethod = trimOrNull(p.defaultPaymentMethod());
         e.notes = trimOrNull(p.notes());
-        e.qualityPremiums = new ArrayList<>();
-        if (p.qualityPremiums() != null) {
-            for (var qp : p.qualityPremiums()) {
-                if (qp == null || qp.grade() == null) continue;
-                e.qualityPremiums.add(new QualityPremium(
-                        qp.grade(),
-                        qp.premiumPerKg() != null ? qp.premiumPerKg() : BigDecimal.ZERO
-                ));
-            }
-        }
+        // Une seule façon de lire les primes du payload, grades vérifiés :
+        // la recopier ici aurait laissé une porte où un grade inconnu
+        // passe.
+        e.qualityPremiums = premiumsOf(p.qualityPremiums());
     }
 
     private static String trimOrNull(String s) {

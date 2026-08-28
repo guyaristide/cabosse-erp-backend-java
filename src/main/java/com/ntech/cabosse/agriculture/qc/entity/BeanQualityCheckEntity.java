@@ -44,7 +44,15 @@ public class BeanQualityCheckEntity {
     /** % de fèves défectueuses (moisies, plates, germées, etc.). */
     public BigDecimal defectsPct;
 
-    public BeanGrade grade;
+    /**
+     * Code du grade attribué, tel qu'il figure au référentiel des
+     * grades de qualité du tenant.
+     *
+     * <p>Un enum figé imposait la nomenclature cacao (GR1, GR2, hors
+     * grade) à toutes les filières. Mongo stockait déjà le nom de la
+     * constante : la valeur en base ne change pas.</p>
+     */
+    public String grade;
 
     /**
      * Décision globale du contrôle :
