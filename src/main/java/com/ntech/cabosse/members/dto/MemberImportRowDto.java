@@ -68,5 +68,15 @@ public record MemberImportRowDto(
 
         // ─── Rattachement au délégué collecteur ───
         /** Code du délégué qui collecte chez ce producteur. */
-        String delegateCode
+        String delegateCode,
+
+        /**
+         * Localité choisie pour cette ligne, quand son village ressemble à
+         * un ou plusieurs villages connus sans être identique à aucun.
+         *
+         * <p>Vide, l'aperçu propose ; renseignée, il applique. C'est la
+         * réponse de l'utilisateur à ce que le serveur ne peut pas
+         * trancher : une fusion de villages ne se défait pas.</p>
+         */
+        String localityId
 ) {}

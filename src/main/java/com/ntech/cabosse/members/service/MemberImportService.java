@@ -16,6 +16,8 @@ import com.ntech.cabosse.members.dto.MemberImportCommitResponseDto;
 import com.ntech.cabosse.members.dto.MemberLegalIdentityDto;
 import com.ntech.cabosse.members.dto.MemberImportPreviewDto;
 import com.ntech.cabosse.members.dto.MemberImportPreviewDto.FieldIssue;
+import com.ntech.cabosse.members.dto.MemberImportPreviewDto.LocalityMatch;
+import com.ntech.cabosse.members.dto.MemberImportPreviewDto.LocalityMatchStatus;
 import com.ntech.cabosse.members.dto.MemberImportPreviewDto.Normalized;
 import com.ntech.cabosse.members.dto.MemberImportPreviewDto.Row;
 import com.ntech.cabosse.members.dto.MemberImportPreviewDto.Status;
@@ -92,6 +94,8 @@ public class MemberImportService {
     @Inject com.ntech.cabosse.plan.service.PlanLimitService planLimits;
     @Inject MemberService memberService;
     @Inject SectionRepository sections;
+    @Inject com.ntech.cabosse.locality.repository.LocalityRepository localities;
+    @Inject com.ntech.cabosse.locality.service.LocalityService localityService;
     @Inject IdDocumentTypeRepository idDocumentTypes;
     @Inject IdGenerator idGenerator;
     @Inject com.ntech.cabosse.agriculture.parcel.repository.ParcelRepository parcels;
@@ -114,6 +118,11 @@ public class MemberImportService {
             if (p.code != null && !p.code.isBlank()) knownParcels.put(p.code.trim().toUpperCase(Locale.ROOT), p.id);
         }
         List<String> knownDocTypes = idDocumentTypes.listAll().stream().map(t -> t.name).toList();
+        // Le référentiel des villages, chargé une fois : le rapprochement se
+        // fait ligne à ligne, sur des centaines de lignes.
+        List<com.ntech.cabosse.locality.entity.LocalityEntity> knownLocalities = localities.listAll();
+        Map<UUID, String> sectionNameById = sections.listAll().stream()
+                .collect(java.util.stream.Collectors.toMap(sec -> sec.id, sec -> sec.name, (a, b) -> a));
 
         List<Row> rows = new ArrayList<>(input.size());
         int ready = 0, update = 0, warning = 0, invalid = 0, duplicate = 0;
@@ -181,6 +190,19 @@ public class MemberImportService {
                     parseParcel(raw, knownParcels, issues),
                     trim(raw.delegateCode()));
 
+            // Le village face au référentiel. Une ressemblance n'est jamais
+            // appliquée d'office : une fusion ne se défait pas.
+            LocalityMatch localityMatch = resolveLocality(
+                    normalized.village(), trim(raw.localityId()), knownLocalities, sectionNameById);
+            if (localityMatch != null
+                    && localityMatch.status() == LocalityMatchStatus.SIMILAR) {
+                issues.add(new FieldIssue("village", Messages.msg("m.mem-import-locality-ambiguous",
+                        normalized.village(),
+                        localityMatch.candidates().stream()
+                                .map(LocalityMatch.Candidate::name)
+                                .collect(java.util.stream.Collectors.joining(" » ou « ")))));
+            }
+
             String key = dedupKey(normalized);
             MemberEntity match = findExisting(existing, normalized);
 
@@ -227,7 +249,8 @@ public class MemberImportService {
                 else parcelsToCreate++;
             }
 
-            rows.add(new Row(raw.rowNumber(), status, normalized, matchedId, matchedOn, issues));
+            rows.add(new Row(raw.rowNumber(), status, normalized, matchedId, matchedOn,
+                    localityMatch, issues));
         }
 
         return new MemberImportPreviewDto(input.size(), ready, update, warning, invalid, duplicate,
@@ -330,6 +353,7 @@ public class MemberImportService {
         List<UUID> updated = new ArrayList<>();
         List<Row> skipped = new ArrayList<>();
         LinkedHashSet<String> createdSections = new LinkedHashSet<>();
+        LinkedHashSet<String> createdLocalities = new LinkedHashSet<>();
         LinkedHashSet<String> createdDocTypes = new LinkedHashSet<>();
         int householdsSkipped = 0;
         int parcelsCreated = 0;
@@ -359,6 +383,10 @@ public class MemberImportService {
                     householdsSkipped++;
                 }
                 UUID sectionId = resolveSection(n.sectionName(), createdSections);
+                // Le village : rattaché s'il existe, créé s'il n'existe pas.
+                // Les lignes ambiguës ne sont jamais arrivées jusqu'ici, la
+                // ressemblance non tranchée les ayant écartées à l'aperçu.
+                UUID localityId = resolveLocalityForCommit(row.localityMatch(), createdLocalities);
                 ensureIdDocumentType(n.idDocType(), createdDocTypes);
                 ensureIdDocumentType(externalCodeType(n), createdDocTypes, false, true);
 
@@ -373,13 +401,13 @@ public class MemberImportService {
                 } else if (row.matchedMemberId() != null) {
                     MemberEntity cur = members.findById(row.matchedMemberId()).orElse(null);
                     MemberUpsertDto payload = cur != null
-                            ? mergedUpsert(cur, n, sectionId)
-                            : toUpsert(n, sectionId);
+                            ? mergedUpsert(cur, n, sectionId, localityId)
+                            : toUpsert(n, sectionId, localityId);
                     MemberResponseDto dto = memberService.update(row.matchedMemberId(), payload);
                     updated.add(dto.id());
                     memberId = dto.id();
                 } else {
-                    MemberResponseDto dto = memberService.create(toUpsert(n, sectionId));
+                    MemberResponseDto dto = memberService.create(toUpsert(n, sectionId, localityId));
                     created.add(dto.id());
                     memberId = dto.id();
                 }
@@ -394,7 +422,7 @@ public class MemberImportService {
                 List<FieldIssue> issues = new ArrayList<>(row.issues());
                 issues.add(new FieldIssue("server", e.getMessage()));
                 skipped.add(new Row(row.rowNumber(), Status.INVALID, row.normalized(),
-                        row.matchedMemberId(), row.matchedOn(), issues));
+                        row.matchedMemberId(), row.matchedOn(), row.localityMatch(), issues));
             }
         }
 
@@ -595,7 +623,8 @@ public class MemberImportService {
      * Corollaire : un import ne peut pas vider un champ, cela se fait à
      * l'écran.
      */
-    private static MemberUpsertDto mergedUpsert(MemberEntity cur, Normalized n, UUID sectionId) {
+    private static MemberUpsertDto mergedUpsert(MemberEntity cur, Normalized n, UUID sectionId,
+                                                UUID localityId) {
         // Pièces : celle du fichier remplace la pièce du même type quand le
         // numéro change ; sinon l'existante (scan, échéance) est conservée,
         // ainsi que toutes les pièces de types absents du fichier.
@@ -663,6 +692,7 @@ public class MemberImportService {
                 cur.deliveredArticleIds != null ? cur.deliveredArticleIds : List.of(),
                 List.of(),
                 n.village() != null ? n.village() : cur.village,
+                localityId != null ? localityId : cur.localityId,
                 n.phone() != null ? n.phone() : cur.phone,
                 n.email() != null ? n.email() : cur.email,
                 n.joinedAt() != null ? LocalDate.parse(n.joinedAt()) : cur.joinedAt,
@@ -672,6 +702,87 @@ public class MemberImportService {
                 n.mobileMoneyNumber() != null ? n.mobileMoneyNumber() : cur.mobileMoneyNumber,
                 cur.mobileMoneyHolderName, cur.mobileMoneyMandateOnFile,
                 n.notes() != null ? n.notes() : cur.notes);
+    }
+
+    /**
+     * La localité d'une ligne au moment d'appliquer.
+     *
+     * <p>Rattachée si elle existe, créée si le village est nouveau. Le cas
+     * ambigu n'arrive pas ici : la ressemblance non tranchée a écarté la
+     * ligne à l'aperçu, où l'utilisateur a répondu.</p>
+     */
+    private UUID resolveLocalityForCommit(LocalityMatch match, java.util.Set<String> createdLocalities) {
+        if (match == null) return null;
+        if (match.localityId() != null) return match.localityId();
+        if (match.status() != LocalityMatchStatus.NEW || match.localityName() == null) return null;
+
+        // Une ligne plus haut a pu créer le même village : on le retrouve
+        // plutôt que d'en créer un second.
+        String existing = FuzzyLabels.exactMatch(match.localityName(),
+                localities.listAll().stream().map(l -> l.name).toList());
+        if (existing != null) {
+            return localities.listAll().stream()
+                    .filter(l -> existing.equals(l.name)).findFirst().map(l -> l.id).orElse(null);
+        }
+        var created = localityService.create(
+                new com.ntech.cabosse.locality.dto.LocalityUpsertDto(null, match.localityName(), null));
+        createdLocalities.add(created.name());
+        return created.id();
+    }
+
+    /**
+     * Ce que devient le village d'une ligne face au référentiel.
+     *
+     * <p>Trois cas, et surtout pas deux. Identique, on rattache. Aucun ne
+     * ressemble, on créera. Un ou plusieurs ressemblent, <strong>on ne
+     * tranche pas</strong> : rattacher au plus proche fusionnerait deux
+     * villages voisins sans que personne ne l'ait voulu, et une fusion ne
+     * se défait pas. La ligne porte alors ses candidats et attend un
+     * choix.</p>
+     *
+     * @param chosenId localité déjà choisie pour cette ligne, le cas échéant
+     */
+    private LocalityMatch resolveLocality(
+            String village, String chosenId,
+            List<com.ntech.cabosse.locality.entity.LocalityEntity> known,
+            Map<UUID, String> sectionNameById) {
+        if (village == null || village.isBlank()) return null;
+
+        // Un choix explicite clôt la question : c'est la réponse de
+        // l'utilisateur à ce que le serveur ne pouvait pas trancher.
+        if (chosenId != null && !chosenId.isBlank()) {
+            UUID id = parseUuid(chosenId);
+            var picked = id == null ? null
+                    : known.stream().filter(l -> l.id.equals(id)).findFirst().orElse(null);
+            if (picked != null) {
+                return new LocalityMatch(LocalityMatchStatus.EXACT, picked.id, picked.name, List.of());
+            }
+        }
+
+        List<String> names = known.stream().map(l -> l.name).toList();
+        String exact = FuzzyLabels.exactMatch(village, names);
+        if (exact != null) {
+            var found = known.stream().filter(l -> exact.equals(l.name)).findFirst().orElse(null);
+            return new LocalityMatch(LocalityMatchStatus.EXACT,
+                    found != null ? found.id : null, exact, List.of());
+        }
+
+        List<String> near = FuzzyLabels.nearMatches(village, names, 3);
+        if (!near.isEmpty()) {
+            List<LocalityMatch.Candidate> candidates = new ArrayList<>();
+            for (String name : near) {
+                known.stream().filter(l -> name.equals(l.name)).findFirst().ifPresent(l ->
+                        candidates.add(new LocalityMatch.Candidate(l.id, l.name,
+                                l.sectionId != null ? sectionNameById.get(l.sectionId) : null)));
+            }
+            return new LocalityMatch(LocalityMatchStatus.SIMILAR, null, null, candidates);
+        }
+
+        return new LocalityMatch(LocalityMatchStatus.NEW, null, village.trim(), List.of());
+    }
+
+    private static UUID parseUuid(String raw) {
+        try { return UUID.fromString(raw.trim()); } catch (RuntimeException e) { return null; }
     }
 
     /** Remplace la pièce du même type, sauf si le numéro est identique. */
@@ -688,7 +799,7 @@ public class MemberImportService {
         docs.add(incoming);
     }
 
-    private static MemberUpsertDto toUpsert(Normalized n, UUID sectionId) {
+    private static MemberUpsertDto toUpsert(Normalized n, UUID sectionId, UUID localityId) {
         List<MemberIdentityDocumentDto> docs = new ArrayList<>();
         if (n.idDocNumber() != null) {
             docs.add(new MemberIdentityDocumentDto(
@@ -735,7 +846,7 @@ public class MemberImportService {
                 household, enrolment,
                 sectionId, null, /* collector */ null, /* collectorMarginRate */ null,
                 List.of(), externals,
-                n.village(), n.phone(), n.email(),
+                n.village(), localityId, n.phone(), n.email(),
                 n.joinedAt() != null ? LocalDate.parse(n.joinedAt()) : null,
                 n.partsSocialesAmount(),
                 MemberStatus.ACTIVE,

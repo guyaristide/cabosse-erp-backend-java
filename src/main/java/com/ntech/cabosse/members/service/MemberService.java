@@ -60,6 +60,7 @@ public class MemberService {
     @Inject com.ntech.cabosse.plan.service.PlanLimitService planLimits;
     @Inject MemberRefService refService;
     @Inject SupplierRepository suppliers;
+    @Inject com.ntech.cabosse.locality.repository.LocalityRepository localities;
     @Inject IdGenerator idGenerator;
     @Inject ProducerRefKeyService producerRefKeys;
     @Inject TenantContext tenantContext;
@@ -95,7 +96,19 @@ public class MemberService {
     }
 
     public MemberResponseDto getById(UUID id) {
-        return MemberResponseDto.from(loadOrFail(id), fileValidityMonths(), producerRefKeys.identityProofTypeNames());
+        MemberEntity e = loadOrFail(id);
+        // Le délégué du producteur se déduit de sa localité : une localité
+        // est gérée par un seul délégué. Le stocker sur la fiche ouvrirait
+        // la porte à deux réponses pour une seule réalité.
+        SupplierEntity delegate = e.localityId == null ? null
+                : suppliers.listAll().stream()
+                        .filter(s -> s.collector && s.localityIds != null
+                                && s.localityIds.contains(e.localityId))
+                        .findFirst().orElse(null);
+        return MemberResponseDto.from(e, fileValidityMonths(),
+                producerRefKeys.identityProofTypeNames(),
+                delegate != null ? delegate.id : null,
+                delegate != null ? delegate.name : null);
     }
 
     // ─── Création ───────────────────────────────────────────────────
@@ -387,7 +400,14 @@ public class MemberService {
                 : p.deliveredArticleIds().stream()
                         .filter(java.util.Objects::nonNull)
                         .distinct().collect(Collectors.toList());
+        // Le village se rattache au référentiel quand il y figure. Son nom
+        // reste dénormalisé sur la fiche : le lire ne doit pas coûter une
+        // requête sur chaque ligne de registre.
+        e.localityId = p.localityId();
         e.village = blankToNull(p.village());
+        if (e.localityId != null) {
+            localities.findById(e.localityId).ifPresent(l -> e.village = l.name);
+        }
         e.phone = blankToNull(p.phone());
         e.email = blankToNull(p.email());
         e.joinedAt = p.joinedAt();

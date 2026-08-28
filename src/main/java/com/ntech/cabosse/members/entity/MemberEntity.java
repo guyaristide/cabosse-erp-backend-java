@@ -170,8 +170,28 @@ public class MemberEntity {
      */
     public List<String> producerRefKeys = new ArrayList<>();
 
-    /** Village / localité d'origine. Saisie libre. */
+    /**
+     * Nom du village d'origine, tel qu'il s'affiche.
+     *
+     * <p>Dénormalisé depuis {@link #localityId} quand celui-ci est connu.
+     * Reste renseigné seul pour les fiches d'avant le rattachement, et pour
+     * un village qu'aucune structure n'a encore inscrit à son
+     * référentiel.</p>
+     */
     public String village;
+
+    /**
+     * Localité du référentiel où vit le producteur.
+     *
+     * <p>C'est ce lien qui permet de savoir quel délégué collecte chez lui :
+     * une localité est gérée par un seul délégué. Tant que le village n'est
+     * qu'une chaîne saisie, le rattachement producteur → délégué doit être
+     * ressaisi à la main, avec une occasion de plus de se contredire.</p>
+     *
+     * <p>Null tant que le rapprochement n'a pas été fait : il ne s'invente
+     * pas, deux villages homonymes existant dans deux sections.</p>
+     */
+    public UUID localityId;
 
     /** Téléphone principal (format libre, idéalement international). */
     public String phone;

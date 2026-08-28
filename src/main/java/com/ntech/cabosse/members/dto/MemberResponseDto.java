@@ -42,6 +42,15 @@ public record MemberResponseDto(
         List<UUID> deliveredArticleIds,
         List<MemberExternalCodeDto> externalProducerCodes,
         String village,
+        /** Localité du référentiel, null si le village n'y est pas rattaché. */
+        UUID localityId,
+        /**
+         * Délégué qui collecte chez ce producteur, <strong>déduit</strong>
+         * de sa localité. Une localité est gérée par un seul délégué : le
+         * lien ne se saisit donc pas, il se lit.
+         */
+        UUID delegateSupplierId,
+        String delegateName,
         String phone,
         String email,
         LocalDate joinedAt,
@@ -76,6 +85,20 @@ public record MemberResponseDto(
 
     public static MemberResponseDto from(MemberEntity e, int fileValidityMonths,
                                          java.util.Set<String> identityProofTypes) {
+        return from(e, fileValidityMonths, identityProofTypes, null, null);
+    }
+
+    /**
+     * @param delegateSupplierId délégué <strong>déduit</strong> de la localité
+     *                           du producteur, résolu par l'appelant. Une
+     *                           localité est gérée par un seul délégué : le
+     *                           lien se lit, il ne se saisit pas. La liste ne
+     *                           le résout pas, pour ne pas payer une requête
+     *                           par ligne.
+     */
+    public static MemberResponseDto from(MemberEntity e, int fileValidityMonths,
+                                         java.util.Set<String> identityProofTypes,
+                                         UUID delegateSupplierId, String delegateName) {
         return new MemberResponseDto(
                 e.id, e.code, e.name, e.firstName, e.lastName, e.civilStatus,
                 e.gender, e.personType, e.maritalStatus, e.birthPlace,
@@ -90,7 +113,7 @@ public record MemberResponseDto(
                 e.deliveredArticleIds != null ? List.copyOf(e.deliveredArticleIds) : List.of(),
                 e.externalProducerCodes == null ? List.of() : e.externalProducerCodes.stream()
                         .map(MemberExternalCodeDto::from).toList(),
-                e.village, e.phone, e.email,
+                e.village, e.localityId, delegateSupplierId, delegateName, e.phone, e.email,
                 e.joinedAt, e.partsSocialesAmount, e.status,
                 e.supplierId,
                 e.parcels != null ? List.copyOf(e.parcels) : List.of(),

@@ -72,6 +72,9 @@ public record MemberUpsertDto(
         List<@Valid MemberExternalCodeDto> externalProducerCodes,
 
         @Size(max = 80) String village,
+
+        /** Localité du référentiel. Null si le village n'y figure pas encore. */
+        java.util.UUID localityId,
         @Size(max = 30) String phone,
         @Email @Size(max = 120) String email,
         LocalDate joinedAt,

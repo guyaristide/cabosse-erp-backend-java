@@ -80,6 +80,51 @@ public final class FuzzyLabels {
         return best;
     }
 
+    /**
+     * Le candidat <strong>identique</strong> au libellé saisi, aux accents,
+     * à la casse et à la ponctuation près. Null s'il n'y en a pas.
+     *
+     * <p>Distinguer l'identique du ressemblant n'est pas un détail : sur
+     * l'identique on peut rattacher sans rien demander, sur le ressemblant
+     * il faut proposer. Confondre les deux, c'est fusionner « Kouibly » et
+     * « Kouibli » sans que personne ne l'ait décidé.</p>
+     */
+    public static String exactMatch(String raw, Collection<String> candidates) {
+        String canonicalRaw = canonical(raw);
+        if (canonicalRaw.isEmpty()) return null;
+        for (String candidate : candidates) {
+            if (canonical(candidate).equals(canonicalRaw)) return candidate;
+        }
+        return null;
+    }
+
+    /**
+     * Candidats <strong>ressemblants</strong>, du plus proche au plus
+     * lointain, à proposer sans les appliquer.
+     *
+     * <p>Exclut l'identique, qui n'a pas à être proposé : il se rattache
+     * tout seul.</p>
+     *
+     * @param limit nombre maximal de propositions
+     */
+    public static java.util.List<String> nearMatches(String raw, Collection<String> candidates, int limit) {
+        String canonicalRaw = canonical(raw);
+        if (canonicalRaw.isEmpty()) return java.util.List.of();
+        record Scored(String value, int distance) {}
+        java.util.List<Scored> found = new java.util.ArrayList<>();
+        for (String candidate : candidates) {
+            String cc = canonical(candidate);
+            if (cc.isEmpty() || cc.equals(canonicalRaw)) continue;
+            int allowed = allowedEdits(Math.max(canonicalRaw.length(), cc.length()));
+            if (allowed == 0) continue;
+            int d = distance(canonicalRaw, cc);
+            if (d <= allowed) found.add(new Scored(candidate, d));
+        }
+        found.sort(java.util.Comparator.comparingInt(Scored::distance)
+                .thenComparing(Scored::value, String.CASE_INSENSITIVE_ORDER));
+        return found.stream().limit(Math.max(0, limit)).map(Scored::value).toList();
+    }
+
     /** Distance de Levenshtein, sur deux lignes de travail seulement. */
     public static int distance(String a, String b) {
         int[] previous = new int[b.length() + 1];

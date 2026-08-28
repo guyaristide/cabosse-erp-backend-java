@@ -46,8 +46,42 @@ public record MemberImportPreviewDto(
     public record Row(
             int rowNumber, Status status, Normalized normalized,
             UUID matchedMemberId, String matchedOn,
+            /** Ce que devient le village de la ligne. Null si elle n'en porte pas. */
+            LocalityMatch localityMatch,
             List<FieldIssue> issues
     ) {}
+
+    /**
+     * Sort du village d'une ligne, face au référentiel des localités.
+     *
+     * <p>Le village était jusqu'ici une chaîne recopiée telle quelle, si
+     * bien qu'on ne savait pas quel délégué collecte chez un producteur.
+     * Le rapprocher demande de distinguer trois cas, et surtout de ne pas
+     * les confondre :</p>
+     *
+     * <ul>
+     *   <li>{@code EXACT} : le village existe, aux accents et à la casse
+     *       près. Il se rattache sans rien demander.</li>
+     *   <li>{@code SIMILAR} : un ou plusieurs villages lui ressemblent.
+     *       <strong>Rien n'est décidé</strong> : rattacher au plus proche
+     *       fusionnerait « Kouibly » et « Kouibli » sans que personne ne
+     *       l'ait voulu, et la fusion ne se défait pas. La ligne attend un
+     *       choix.</li>
+     *   <li>{@code NEW} : aucun ne ressemble. La localité sera créée.</li>
+     * </ul>
+     */
+    public enum LocalityMatchStatus { EXACT, SIMILAR, NEW }
+
+    public record LocalityMatch(
+            LocalityMatchStatus status,
+            /** Localité retenue. Renseignée sur EXACT, ou sur un choix explicite. */
+            UUID localityId,
+            String localityName,
+            /** Villages ressemblants proposés, du plus proche au plus lointain. */
+            List<Candidate> candidates) {
+
+        public record Candidate(UUID id, String name, String sectionName) {}
+    }
 
     public record Normalized(
             String code, String name, String firstName, String lastName,
