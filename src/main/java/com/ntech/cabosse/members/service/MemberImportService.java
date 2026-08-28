@@ -96,16 +96,23 @@ public class MemberImportService {
 
     public MemberImportPreviewDto preview(List<MemberImportRowDto> input) {
         if (input == null || input.isEmpty()) {
-            return new MemberImportPreviewDto(0, 0, 0, 0, 0, 0, List.of());
+            return new MemberImportPreviewDto(0, 0, 0, 0, 0, 0, 0, 0, 0, List.of());
         }
 
         List<MemberEntity> existing = members.listAll();
         Map<Integer, String> keysSeen = new HashMap<>();
         List<String> knownSections = sections.listAll().stream().map(s -> s.name).toList();
+        // Les parcelles déjà connues, pour reconnaître un code au réimport :
+        // sans cela, chaque passage doublerait la superficie du tenant.
+        Map<String, UUID> knownParcels = new HashMap<>();
+        for (var p : parcels.listAll()) {
+            if (p.code != null && !p.code.isBlank()) knownParcels.put(p.code.trim().toUpperCase(Locale.ROOT), p.id);
+        }
         List<String> knownDocTypes = idDocumentTypes.listAll().stream().map(t -> t.name).toList();
 
         List<Row> rows = new ArrayList<>(input.size());
         int ready = 0, update = 0, warning = 0, invalid = 0, duplicate = 0;
+        int additionalParcel = 0, parcelsToCreate = 0, parcelsToUpdate = 0;
 
         for (MemberImportRowDto raw : input) {
             List<FieldIssue> issues = new ArrayList<>();
@@ -165,7 +172,9 @@ public class MemberImportService {
                     schooled, notSchooled, trim(raw.childrenActivity()),
                     parseBoolean(raw.censusRegistered()), parseBoolean(raw.producerCardIssued()),
                     collectedAt != null ? collectedAt.format(ISO) : null,
-                    trim(raw.notes()));
+                    trim(raw.notes()),
+                    parseParcel(raw, knownParcels, issues),
+                    trim(raw.delegateCode()));
 
             String key = dedupKey(normalized);
             MemberEntity match = findExisting(existing, normalized);
@@ -181,9 +190,17 @@ public class MemberImportService {
                 status = Status.DUPLICATE_IN_FILE;
                 duplicate++;
             } else if (key != null && keysSeen.containsValue(key)) {
-                issues.add(new FieldIssue("code", Messages.msg("m.imp-producer-duplicate-in-file")));
-                status = Status.DUPLICATE_IN_FILE;
-                duplicate++;
+                // Le même producteur, une deuxième fois. Avec une parcelle,
+                // c'est la façon dont il déclare ses plantations ; sans
+                // parcelle, la ligne n'apporte rien et reste un doublon.
+                if (normalized.parcel() != null) {
+                    status = Status.ADDITIONAL_PARCEL;
+                    additionalParcel++;
+                } else {
+                    issues.add(new FieldIssue("code", Messages.msg("m.imp-producer-duplicate-in-file")));
+                    status = Status.DUPLICATE_IN_FILE;
+                    duplicate++;
+                }
             } else if (!householdIssues.isEmpty()) {
                 issues.addAll(householdIssues);
                 status = Status.WARNING;
@@ -195,12 +212,21 @@ public class MemberImportService {
                 status = Status.READY;
                 ready++;
             }
-            if (key != null && status != Status.DUPLICATE_IN_FILE) keysSeen.put(raw.rowNumber(), key);
+            if (key != null && status != Status.DUPLICATE_IN_FILE
+                    && status != Status.ADDITIONAL_PARCEL) {
+                keysSeen.put(raw.rowNumber(), key);
+            }
+            if (normalized.parcel() != null && status != Status.INVALID
+                    && status != Status.DUPLICATE_IN_FILE) {
+                if (normalized.parcel().matchedParcelId() != null) parcelsToUpdate++;
+                else parcelsToCreate++;
+            }
 
             rows.add(new Row(raw.rowNumber(), status, normalized, matchedId, matchedOn, issues));
         }
 
-        return new MemberImportPreviewDto(input.size(), ready, update, warning, invalid, duplicate, rows);
+        return new MemberImportPreviewDto(input.size(), ready, update, warning, invalid, duplicate,
+                additionalParcel, parcelsToCreate, parcelsToUpdate, rows);
     }
 
     // ─── Application ────────────────────────────────────────────────

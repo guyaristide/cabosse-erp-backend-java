@@ -45,5 +45,28 @@ public record MemberImportRowDto(
         String censusRegistered,
         String producerCardIssued,
         String dataCollectedAt,
-        String notes
+        String notes,
+
+        // ─── Parcelle portée par la ligne (import 3-en-1) ───
+        // Un producteur qui exploite plusieurs parcelles est déclaré sur
+        // plusieurs lignes portant le même code : il est créé une fois, et
+        // chaque ligne ajoute sa parcelle.
+        /** Vide à la création, rempli aux imports suivants pour retrouver la parcelle. */
+        String parcelCode,
+        String parcelName,
+        String parcelSurfaceHa,
+        String parcelPotentialKg,
+        String parcelCrop,
+        String parcelVariety,
+        String parcelPlantingYear,
+        String parcelLatitude,
+        String parcelLongitude,
+        String parcelRegion,
+        String parcelDepartment,
+        String parcelStatus,
+        String parcelCertifications,
+
+        // ─── Rattachement au délégué collecteur ───
+        /** Code du délégué qui collecte chez ce producteur. */
+        String delegateCode
 ) {}
