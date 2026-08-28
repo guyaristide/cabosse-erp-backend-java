@@ -170,6 +170,9 @@ public record UpdateTenantPreferencesPayloadDto(
         @Schema(description = "Saisir le poids de cabosses en plus des fèves fraîches.")
         Boolean capturePodsWeight,
 
+        @Schema(description = "Saisir le poids de fèves fraîches à la récolte.")
+        Boolean captureFreshBeansWeight,
+
         @jakarta.validation.constraints.Pattern(regexp = "^$|^(DATE|MANUAL)$",
                 message = "{v.rattachement-campagne-date-ou-manual}")
         @Schema(description = "Comment une opération rejoint une campagne : DATE ou MANUAL.")

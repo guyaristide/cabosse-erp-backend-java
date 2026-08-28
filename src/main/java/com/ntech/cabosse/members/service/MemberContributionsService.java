@@ -29,6 +29,7 @@ import java.util.UUID;
 public class MemberContributionsService {
 
     @Inject MemberRepository members;
+    @Inject com.ntech.cabosse.producerpurchase.repository.ProducerPurchaseRepository purchases;
     @Inject HarvestRepository harvests;
     @Inject ParcelRepository parcels;
 
@@ -49,6 +50,16 @@ public class MemberContributionsService {
             byCampaign.computeIfAbsent(h.campaignId, k -> new ArrayList<>()).add(h);
         }
 
+        // Ce que le producteur a réellement livré, par campagne : c'est au
+        // reçu d'achat que la fève sèche est pesée et payée.
+        Map<UUID, BigDecimal> deliveredByCampaign = new LinkedHashMap<>();
+        for (var receipt : purchases.listByMember(memberId)) {
+            deliveredByCampaign.merge(
+                    receipt.campaignId,
+                    receipt.weightKg != null ? receipt.weightKg : BigDecimal.ZERO,
+                    BigDecimal::add);
+        }
+
         List<MemberContributionsDto.CampaignContribution> campaigns = new ArrayList<>();
         for (Map.Entry<UUID, List<HarvestEntity>> en : byCampaign.entrySet()) {
             BigDecimal cabosses = BigDecimal.ZERO;
@@ -62,7 +73,20 @@ public class MemberContributionsService {
                     : null;
             campaigns.add(new MemberContributionsDto.CampaignContribution(
                     en.getKey(), campaignLabel(en.getKey(), en.getValue()),
-                    en.getValue().size(), cabosses, freshBeans, yield));
+                    en.getValue().size(), cabosses, freshBeans,
+                    deliveredByCampaign.getOrDefault(en.getKey(), BigDecimal.ZERO), yield));
+        }
+
+        // Une campagne où le producteur a livré sans qu'aucune récolte
+        // n'ait été déclarée existe : c'est même le cas courant d'une
+        // coopérative d'achat, qui ne saisit pas de récolte.
+        for (Map.Entry<UUID, BigDecimal> en : deliveredByCampaign.entrySet()) {
+            boolean known = campaigns.stream().anyMatch(c -> java.util.Objects.equals(c.campaignId(), en.getKey()));
+            if (!known) {
+                campaigns.add(new MemberContributionsDto.CampaignContribution(
+                        en.getKey(), en.getKey() != null ? "Campagne" : "Hors campagne",
+                        0, BigDecimal.ZERO, BigDecimal.ZERO, en.getValue(), null));
+            }
         }
 
         return new MemberContributionsDto(memberId, memberParcels.size(), totalSurface, campaigns);

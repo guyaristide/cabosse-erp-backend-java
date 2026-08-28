@@ -21,6 +21,17 @@ public record MemberContributionsDto(
             int harvestCount,
             BigDecimal cabossesKg,
             BigDecimal freshBeansKg,
+            /**
+             * Production réelle : le poids effectivement livré et payé,
+             * somme des reçus d'achat de la campagne.
+             *
+             * <p>C'est la seule quantité que la coopérative pèse
+             * réellement. Les cabosses et les fèves fraîches ne sont
+             * mesurées que par les structures qui fermentent elles-mêmes ;
+             * ailleurs, le producteur sèche sa récolte et c'est la fève
+             * sèche qui arrive à la bascule.</p>
+             */
+            BigDecimal deliveredKg,
             /** Fèves fraîches par hectare, sur la surface totale du membre. */
             BigDecimal yieldKgPerHa
     ) {}

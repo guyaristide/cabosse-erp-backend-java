@@ -156,6 +156,11 @@ public record TenantPreferencesDto(
                 + "donnent le rendement cabosses vers fèves.", defaultValue = "true")
         boolean capturePodsWeight,
 
+        @Schema(description = "Saisir le poids de fèves fraîches à la récolte. Une coopérative "
+                + "d'achat ne pèse rien au champ : c'est la fève sèche qui est pesée au reçu.",
+                defaultValue = "true")
+        boolean captureFreshBeansWeight,
+
         @Schema(description = "Comment une opération rejoint une campagne : DATE (déduite de la "
                 + "date, défaut) ou MANUAL (choisie à la saisie).",
                 example = "DATE", defaultValue = "DATE")

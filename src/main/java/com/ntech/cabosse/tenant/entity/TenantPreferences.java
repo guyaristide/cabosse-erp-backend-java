@@ -563,6 +563,24 @@ public class TenantPreferences {
         return capturePodsWeight == null || capturePodsWeight;
     }
 
+    /**
+     * Saisir le poids de fèves fraîches à la récolte.
+     *
+     * <p>Une coopérative d'achat ne pèse rien au champ : le producteur
+     * fermente et sèche lui-même, et c'est la fève sèche qui est pesée et
+     * payée, au reçu d'achat. Demander un poids que personne ne mesure
+     * n'apporte qu'une saisie inventée.</p>
+     *
+     * <p>Une structure qui fermente elle-même, en revanche, a besoin de ce
+     * poids : c'est lui qui part au bac. Le réglage vaut donc pour le
+     * modèle d'organisation, pas pour la filière.</p>
+     */
+    public Boolean captureFreshBeansWeight;
+
+    public boolean captureFreshBeansWeight() {
+        return captureFreshBeansWeight == null || captureFreshBeansWeight;
+    }
+
     // ─── Rattachement d'une opération à sa campagne ───
 
     /**

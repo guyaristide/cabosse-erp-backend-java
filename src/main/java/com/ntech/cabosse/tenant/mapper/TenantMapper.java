@@ -175,6 +175,7 @@ public final class TenantMapper {
                 entity.preferences.productionPotentialBasis(),
                 entity.preferences.showPotentialOnHarvest(),
                 entity.preferences.capturePodsWeight(),
+                entity.preferences.captureFreshBeansWeight(),
                 entity.preferences.campaignAssignmentMode(),
                 entity.preferences.closedPeriodPolicy(),
                 entity.preferences.producerPriceSource(),

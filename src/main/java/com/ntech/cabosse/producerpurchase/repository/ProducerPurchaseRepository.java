@@ -79,6 +79,14 @@ public class ProducerPurchaseRepository {
                 .into(new ArrayList<>());
     }
 
+    /** Reçus actifs d'un producteur, toutes campagnes, pour ses cumuls. */
+    public List<ProducerPurchaseEntity> listByMember(UUID memberId) {
+        return coll()
+                .find(Filters.and(Filters.eq("memberId", memberId), notCancelled()))
+                .sort(new Document("date", 1))
+                .into(new ArrayList<>());
+    }
+
     public List<ProducerPurchaseEntity> listAll(UUID campaignId) {
         return coll().find(Filters.and(searchFilter(null, campaignId, null), notCancelled()))
                 .sort(new Document("date", 1)).into(new ArrayList<>());

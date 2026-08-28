@@ -80,6 +80,7 @@ public class TenantPreferencesService {
                 p.productionPotentialBasis(),
                 p.showPotentialOnHarvest(),
                 p.capturePodsWeight(),
+                p.captureFreshBeansWeight(),
                 p.campaignAssignmentMode(),
                 p.closedPeriodPolicy(),
                 p.producerPriceSource(),
@@ -427,6 +428,14 @@ public class TenantPreferencesService {
                     "from", t.preferences.producerPurchaseSiteRequired(),
                     "to", payload.producerPurchaseSiteRequired()));
             t.preferences.producerPurchaseSiteRequired = payload.producerPurchaseSiteRequired();
+        }
+
+        if (payload.captureFreshBeansWeight() != null
+                && payload.captureFreshBeansWeight() != t.preferences.captureFreshBeansWeight()) {
+            diffs.put("captureFreshBeansWeight", Map.of(
+                    "from", t.preferences.captureFreshBeansWeight(),
+                    "to", payload.captureFreshBeansWeight()));
+            t.preferences.captureFreshBeansWeight = payload.captureFreshBeansWeight();
         }
 
         if (payload.campaignAssignmentMode() != null
