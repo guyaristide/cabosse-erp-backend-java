@@ -231,4 +231,24 @@ class DelegateCoversLocalitiesTest extends AbstractIntegrationTest {
         org.junit.jupiter.api.Assertions.assertEquals(section, found.getString(path + ".sectionId"));
         org.junit.jupiter.api.Assertions.assertEquals(0, found.getList(path + ".localityIds").size());
     }
+
+    @Test
+    void a_deactivated_section_is_not_reported_as_uncovered() {
+        UserEntity a = admin();
+        String section = createSection(a, "Section abandonnée");
+        createLocality(a, "Village abandonné", section);
+
+        givenAs(a).when().get("/api/v1/sections/coverage")
+                .then().statusCode(200)
+                .body("data.sections", hasSize(1));
+
+        givenAs(a).when().patch("/api/v1/sections/" + section + "/active?value=false")
+                .then().statusCode(200);
+
+        // Reprocher à la structure d'avoir rangé ce qu'elle n'utilise plus
+        // remplirait le contrôle de bruit, et le rendrait illisible.
+        givenAs(a).when().get("/api/v1/sections/coverage")
+                .then().statusCode(200)
+                .body("data.sections", hasSize(0));
+    }
 }

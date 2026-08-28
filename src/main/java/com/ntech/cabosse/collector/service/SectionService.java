@@ -94,8 +94,13 @@ public class SectionService {
      * sur un seul délégué.</p>
      */
     public SectionCoverageDto coverage() {
-        var localities = localityRepo.listAll();
-        var delegates = supplierRepo.listAll().stream().filter(sup -> sup.collector).toList();
+        // Une section ou un village désactivés ne sont plus exploités : les
+        // signaler à découvert reprocherait à la structure d'avoir rangé
+        // ce qu'elle n'utilise plus.
+        var localities = localityRepo.listAll().stream().filter(l -> l.active).toList();
+        var delegates = supplierRepo.listAll().stream()
+                .filter(sup -> sup.collector && sup.active)
+                .toList();
 
         // Quel délégué couvre quelle localité. Une localité n'en a qu'un :
         // la règle est tenue à l'écriture, on peut donc indexer sans risque.
@@ -107,6 +112,7 @@ public class SectionService {
 
         List<SectionCoverageDto.Section> out = new ArrayList<>();
         for (SectionEntity sec : repo.listAll()) {
+            if (!sec.active) continue;
             var own = localities.stream().filter(l -> sec.id.equals(l.sectionId)).toList();
             List<SectionCoverageDto.Locality> uncovered = own.stream()
                     .filter(l -> !holderByLocality.containsKey(l.id))
