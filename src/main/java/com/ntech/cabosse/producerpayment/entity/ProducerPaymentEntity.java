@@ -54,6 +54,15 @@ public class ProducerPaymentEntity {
     public String pieceRef;
 
     public String notes;
+    /**
+     * Campagne de rattachement, déduite de {@link #date}. Nulle quand aucune
+     * campagne ne couvre la date et qu'aucune n'est ouverte.
+     */
+    public UUID campaignId;
+
+    /** Année de la campagne, dénormalisée pour les regroupements. */
+    public Integer campaignYear;
+
     public Instant createdAt;
     public Instant updatedAt;
     public UUID createdBy;

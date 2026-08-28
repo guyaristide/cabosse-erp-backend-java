@@ -9,7 +9,11 @@ import com.ntech.cabosse.tenant.service.TenantPreferencesLookup;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
+import java.time.DateTimeException;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.UUID;
 
 /**
@@ -110,5 +114,32 @@ public class CampaignResolver {
         }
         return repo.findForDate(operationDate)
                 .orElseGet(() -> repo.findCurrent().orElse(null));
+    }
+
+    /**
+     * Même règle pour une opération horodatée plutôt que datée.
+     *
+     * <p>Un mouvement de stock ou une session d'inventaire portent un
+     * instant, pas une date. Le jour se lit dans le fuseau de la
+     * structure : à Abidjan, un mouvement de 23 h 30 est du jour même,
+     * alors qu'en UTC il le serait aussi, mais un tenant à l'est ou à
+     * l'ouest verrait sa journée décalée et une opération de fin de
+     * campagne basculer dans la suivante.</p>
+     */
+    public CampaignEntity resolveOptionalForInstant(Instant at, UUID campaignId) {
+        return resolveOptionalForDate(at == null ? null : LocalDate.ofInstant(at, tenantZone()), campaignId);
+    }
+
+    /** Fuseau de la structure, UTC si le réglage est absent ou invalide. */
+    private ZoneId tenantZone() {
+        String configured = preferences.current().timezone;
+        if (configured == null || configured.isBlank()) {
+            return ZoneOffset.UTC;
+        }
+        try {
+            return ZoneId.of(configured.trim());
+        } catch (DateTimeException invalid) {
+            return ZoneOffset.UTC;
+        }
     }
 }

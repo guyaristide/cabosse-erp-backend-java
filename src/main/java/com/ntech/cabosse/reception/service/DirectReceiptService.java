@@ -1,6 +1,7 @@
 package com.ntech.cabosse.reception.service;
 
 import com.github.f4b6a3.uuid.UuidCreator;
+import com.ntech.cabosse.campaign.entity.CampaignEntity;
 import com.ntech.cabosse.accounting.entity.PostingSourceType;
 import com.ntech.cabosse.accounting.service.AccountingService;
 import com.ntech.cabosse.article.entity.ArticleEntity;
@@ -74,6 +75,7 @@ public class DirectReceiptService {
     private static final int UNIT_COST_SCALE = 4;
 
     @Inject DirectReceiptRepository receipts;
+    @Inject com.ntech.cabosse.campaign.service.CampaignResolver campaignResolver;
     @Inject DirectReceiptRefService refService;
     @Inject ArticleRepository articles;
     @Inject SupplierRepository suppliers;
@@ -151,6 +153,7 @@ public class DirectReceiptService {
         e.ref = refService.next();
         e.siteId = siteId;
         e.receivedDate = payload.receivedDate();
+        stampCampaign(e);
         e.receiverEmail = actor();
         e.articleId = article.id;
         e.articleCode = article.code;
@@ -251,6 +254,7 @@ public class DirectReceiptService {
         e.articleName = article.name;
         e.articleUnit = article.unit;
         e.receivedDate = payload.receivedDate();
+        stampCampaign(e);
         e.deliveryNoteRef = blankToNull(payload.deliveryNoteRef());
         e.notes = blankToNull(payload.notes());
         e.vatRatePct = nz(payload.vatRatePct());
@@ -496,4 +500,18 @@ public class DirectReceiptService {
     private UUID safeUserId() {
         try { return tenantContext.userId(); } catch (Exception e) { return null; }
     }
+
+    /**
+     * Rattache l'opération à la campagne de sa date métier.
+     *
+     * <p>Appelé aussi à la modification : corriger la date d'une opération
+     * doit déplacer son rattachement, sinon un correctif la laisse comptée
+     * dans la campagne d'origine.</p>
+     */
+    private void stampCampaign(DirectReceiptEntity e) {
+        CampaignEntity campaign = campaignResolver.resolveOptionalForDate(e.receivedDate, null);
+        e.campaignId = campaign != null ? campaign.id : null;
+        e.campaignYear = campaign != null ? campaign.campaignYear : null;
+    }
+
 }

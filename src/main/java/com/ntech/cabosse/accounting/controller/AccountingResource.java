@@ -1,5 +1,6 @@
 package com.ntech.cabosse.accounting.controller;
 
+import com.ntech.cabosse.campaign.entity.CampaignEntity;
 import com.ntech.cabosse.permission.entity.Permission;
 import com.ntech.cabosse.permission.service.RequiresPermission;
 import com.ntech.cabosse.accounting.dto.AccountingDashboardDto;
@@ -73,6 +74,7 @@ import java.util.UUID;
 public class AccountingResource {
 
     @Inject AccountingQueryService query;
+    @Inject com.ntech.cabosse.campaign.service.CampaignResolver campaignResolver;
     @Inject com.ntech.cabosse.accounting.service.QuarantineService quarantine;
     @Inject AccountingPeriodService periodService;
     @Inject com.ntech.cabosse.accounting.service.OdEntryService odService;
@@ -116,18 +118,20 @@ public class AccountingResource {
     public Response listJournal(@QueryParam("from") String fromRaw,
                                 @QueryParam("to") String toRaw,
                                 @QueryParam("account") String account,
+                                @QueryParam("campaignId") UUID campaignId,
                                 @QueryParam("page") @DefaultValue("0") int page,
                                 @QueryParam("perPage") @DefaultValue("50") int perPage) {
         LocalDate from = parseDate(fromRaw);
         LocalDate to = parseDate(toRaw);
         PageRequest pr = PageRequest.of(page, perPage);
         List<JournalPieceResponseDto> pieces =
-                query.listJournal(from, to, account, pr.page(), pr.perPage());
-        long total = query.countJournal(from, to, account);
+                query.listJournal(from, to, account, campaignId, pr.page(), pr.perPage());
+        long total = query.countJournal(from, to, account, campaignId);
         Map<String, String> filters = new java.util.HashMap<>();
         if (fromRaw != null && !fromRaw.isBlank()) filters.put("from", fromRaw);
         if (toRaw != null && !toRaw.isBlank()) filters.put("to", toRaw);
         if (account != null && !account.isBlank()) filters.put("account", account);
+        if (campaignId != null) filters.put("campaignId", campaignId.toString());
         // Enveloppe standard comme toutes les autres listes : le journal
         // rendait auparavant une carte maison sans totalOfPages ni bornes de
         // navigation, ce qui interdisait d'y brancher les contrôles communs.
@@ -641,9 +645,20 @@ public class AccountingResource {
                 "application/pdf" })
     public Response exportCompteResultat(@QueryParam("from") String fromRaw,
                                          @QueryParam("to") String toRaw,
+                                         @QueryParam("campaignId") UUID campaignId,
                                          @QueryParam("format") String formatRaw) {
         ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
-        var dataset = exports.buildCompteResultat(parseDate(fromRaw), parseDate(toRaw));
+        // Une campagne donne ses propres bornes : c'est la période dans
+        // laquelle une coopérative lit son résultat, et elle est à cheval
+        // sur deux années civiles.
+        LocalDate from = parseDate(fromRaw);
+        LocalDate to = parseDate(toRaw);
+        if (campaignId != null) {
+            CampaignEntity campaign = campaignResolver.resolve(campaignId);
+            from = campaign.startDate;
+            to = campaign.endDate;
+        }
+        var dataset = exports.buildCompteResultat(from, to);
         exportAudit.record("accounting", "Compte de résultat", format, dataset.rows().size());
         return ExportResponses.build("compte-de-resultat", format, dataset);
     }

@@ -1,5 +1,6 @@
 package com.ntech.cabosse.stock.service;
 
+import com.ntech.cabosse.campaign.entity.CampaignEntity;
 import com.ntech.cabosse.accounting.entity.JournalPieceEntity;
 import com.ntech.cabosse.accounting.service.AccountingService;
 import com.ntech.cabosse.article.entity.ArticleType;
@@ -49,6 +50,7 @@ import java.util.UUID;
 public class InventorySessionService {
 
     @Inject InventorySessionRepository sessions;
+    @Inject com.ntech.cabosse.campaign.service.CampaignResolver campaignResolver;
     @Inject InventoryRefService refService;
     @Inject StockItemRepository stockItems;
     @Inject StockService stockService;
@@ -111,6 +113,11 @@ public class InventorySessionService {
             return line;
         }).toList();
         e.openedAt = Instant.now();
+        // Figé à l'ouverture : un inventaire ouvert le 31 août et validé
+        // le 2 septembre compte dans la campagne qu'il clôt.
+        CampaignEntity campaign = campaignResolver.resolveOptionalForInstant(e.openedAt, null);
+        e.campaignId = campaign != null ? campaign.id : null;
+        e.campaignYear = campaign != null ? campaign.campaignYear : null;
         e.openedBy = safeUserId();
         sessions.insert(e);
 

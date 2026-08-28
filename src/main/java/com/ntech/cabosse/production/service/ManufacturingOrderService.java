@@ -1,6 +1,7 @@
 package com.ntech.cabosse.production.service;
 
 import com.github.f4b6a3.uuid.UuidCreator;
+import com.ntech.cabosse.campaign.entity.CampaignEntity;
 import com.ntech.cabosse.article.entity.ArticleEntity;
 import com.ntech.cabosse.article.entity.ArticleType;
 import com.ntech.cabosse.article.repository.ArticleRepository;
@@ -64,6 +65,7 @@ import java.util.UUID;
 public class ManufacturingOrderService {
 
     @Inject ManufacturingOrderRepository orders;
+    @Inject com.ntech.cabosse.campaign.service.CampaignResolver campaignResolver;
     @Inject ManufacturingOrderRefService refService;
     @Inject RecipeRepository recipes;
     @Inject ArticleRepository articles;
@@ -143,6 +145,7 @@ public class ManufacturingOrderService {
 
         e.plannedQty = payload.plannedQty();
         e.scheduledDate = payload.scheduledDate();
+        stampCampaign(e);
         e.lotRef = payload.lotRef() != null && !payload.lotRef().isBlank()
                 ? payload.lotRef().trim()
                 : refService.nextLotRef();
@@ -179,6 +182,7 @@ public class ManufacturingOrderService {
         BigDecimal ratio = payload.plannedQty().divide(recipe.yieldQty, 6, RoundingMode.HALF_UP);
         e.plannedQty = payload.plannedQty();
         e.scheduledDate = payload.scheduledDate();
+        stampCampaign(e);
         if (payload.lotRef() != null && !payload.lotRef().isBlank()) {
             e.lotRef = payload.lotRef().trim();
         }
@@ -482,6 +486,7 @@ public class ManufacturingOrderService {
 
         e.plannedQty = plannedQty;
         e.scheduledDate = scheduledDate;
+        stampCampaign(e);
         e.lotRef = (lotRef != null && !lotRef.isBlank())
                 ? lotRef.trim()
                 : refService.nextLotRef();
@@ -617,4 +622,18 @@ public class ManufacturingOrderService {
     private static String blankToNull(String s) {
         return (s == null || s.isBlank()) ? null : s.trim();
     }
+
+    /**
+     * Rattache l'opération à la campagne de sa date métier.
+     *
+     * <p>Appelé aussi à la modification : corriger la date d'une opération
+     * doit déplacer son rattachement, sinon un correctif la laisse comptée
+     * dans la campagne d'origine.</p>
+     */
+    private void stampCampaign(ManufacturingOrderEntity e) {
+        CampaignEntity campaign = campaignResolver.resolveOptionalForDate(e.scheduledDate, null);
+        e.campaignId = campaign != null ? campaign.id : null;
+        e.campaignYear = campaign != null ? campaign.campaignYear : null;
+    }
+
 }

@@ -1,5 +1,6 @@
 package com.ntech.cabosse.treasury.service;
 
+import com.ntech.cabosse.campaign.entity.CampaignEntity;
 import com.ntech.cabosse.accounting.entity.BankAccountEntity;
 import com.ntech.cabosse.accounting.entity.JournalEntry;
 import com.ntech.cabosse.accounting.entity.JournalPieceEntity;
@@ -48,6 +49,7 @@ import java.util.UUID;
 public class TreasuryService {
 
     @Inject TreasuryTransferRepository transfers;
+    @Inject com.ntech.cabosse.campaign.service.CampaignResolver campaignResolver;
     @Inject CashCountRepository counts;
     @Inject TreasuryRefService refService;
     @Inject BankAccountRepository accounts;
@@ -104,6 +106,9 @@ public class TreasuryService {
         e.toSyscohadaAccount = to.syscohadaAccount;
         e.amountSentFcfa = p.amountFcfa();
         e.sentAt = p.sentAt() != null ? p.sentAt() : LocalDate.now();
+        CampaignEntity transferCampaign = campaignResolver.resolveOptionalForDate(e.sentAt, null);
+        e.campaignId = transferCampaign != null ? transferCampaign.id : null;
+        e.campaignYear = transferCampaign != null ? transferCampaign.campaignYear : null;
         e.carrierName = blankToNull(p.carrierName());
         e.notes = blankToNull(p.notes());
         e.status = TreasuryTransferStatus.IN_TRANSIT;
@@ -244,6 +249,9 @@ public class TreasuryService {
         e.accountLabel = label(account);
         e.syscohadaAccount = account.syscohadaAccount;
         e.countedAt = date;
+        CampaignEntity countCampaign = campaignResolver.resolveOptionalForDate(e.countedAt, null);
+        e.campaignId = countCampaign != null ? countCampaign.id : null;
+        e.campaignYear = countCampaign != null ? countCampaign.campaignYear : null;
         e.theoreticalFcfa = balanceAt(account.syscohadaAccount, date);
         e.countedFcfa = p.countedFcfa();
         e.discrepancyFcfa = e.countedFcfa.subtract(e.theoreticalFcfa);

@@ -66,6 +66,15 @@ public class OdDraftEntity {
         public Instant uploadedAt;
     }
 
+    /**
+     * Campagne de rattachement, déduite de {@link #date}. Nulle quand aucune
+     * campagne ne couvre la date et qu'aucune n'est ouverte.
+     */
+    public UUID campaignId;
+
+    /** Année de la campagne, dénormalisée pour les regroupements. */
+    public Integer campaignYear;
+
     public Instant createdAt;
     public UUID createdBy;
     public String createdByEmail;

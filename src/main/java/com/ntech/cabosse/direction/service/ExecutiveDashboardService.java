@@ -1,5 +1,6 @@
 package com.ntech.cabosse.direction.service;
 
+import com.ntech.cabosse.campaign.entity.CampaignEntity;
 import com.ntech.cabosse.accounting.entity.SyscohadaAccounts;
 import com.ntech.cabosse.accounting.repository.BankAccountRepository;
 import com.ntech.cabosse.accounting.repository.JournalPieceRepository;
@@ -46,16 +47,35 @@ public class ExecutiveDashboardService {
     private static final int MAX_ALERTS = 6;
 
     @Inject SaleRepository sales;
+    @Inject com.ntech.cabosse.campaign.repository.CampaignRepository campaigns;
     @Inject StockItemRepository stockItems;
     @Inject JournalPieceRepository pieces;
     @Inject BankAccountRepository banks;
     @Inject com.ntech.cabosse.shared.tenant.TenantContext tenantContext;
     @Inject com.ntech.cabosse.shared.money.MoneyFormatter money;
 
+    /** Période « campagne » : ses bornes viennent du référentiel, pas du calendrier. */
+    private static final String CAMPAIGN_PERIOD = "campaign";
+
+    /** Ancien code français, encore porté par les liens en circulation. */
+    private static final String CAMPAIGN_PERIOD_LEGACY = "campagne";
+
     public ExecutiveDashboardDto build(String periodRaw) {
+        // La campagne n'est pas une période de calendrier : elle a ses
+        // propres bornes, souvent à cheval sur deux années civiles. C'est
+        // pourtant la période dans laquelle une coopérative raisonne.
+        if (CAMPAIGN_PERIOD.equalsIgnoreCase(periodRaw)
+                || CAMPAIGN_PERIOD_LEGACY.equalsIgnoreCase(periodRaw)) {
+            CampaignRange campaigns = campaignRanges();
+            if (campaigns != null) {
+                return buildFor(CAMPAIGN_PERIOD, campaigns.current(), campaigns.previous());
+            }
+        }
         Period period = Period.parseOrDefault(periodRaw);
-        PeriodRange current = period.currentRange();
-        PeriodRange previous = period.previousRange();
+        return buildFor(period.code(), period.currentRange(), period.previousRange());
+    }
+
+    private ExecutiveDashboardDto buildFor(String periodCode, PeriodRange current, PeriodRange previous) {
 
         SaleStats currentSales = sumSales(sales.listConfirmedInRange(current.from, current.to));
         SaleStats previousSales = sumSales(sales.listConfirmedInRange(previous.from, previous.to));
@@ -82,7 +102,7 @@ public class ExecutiveDashboardService {
 
         List<ExecutiveAlertDto> alerts = buildAlerts(cashNow);
 
-        return new ExecutiveDashboardDto(period.code(), kpis, alerts);
+        return new ExecutiveDashboardDto(periodCode, kpis, alerts);
     }
 
     // ════════════════════════════════════════════════════════════════
@@ -219,44 +239,65 @@ public class ExecutiveDashboardService {
      * "courante" et "précédente" comparables (year-to-date / month-to-date).
      */
     private enum Period {
-        MOIS, TRIMESTRE, ANNEE;
+        MONTH("month", "mois"),
+        QUARTER("quarter", "trimestre"),
+        YEAR("year", "annee");
 
-        String code() { return name().toLowerCase(); }
+        private final String code;
+        private final String legacyCode;
 
+        Period(String code, String legacyCode) {
+            this.code = code;
+            this.legacyCode = legacyCode;
+        }
+
+        String code() { return code; }
+
+        /**
+         * Accepte le code anglais et l'ancien code français.
+         *
+         * <p>Les valeurs de l'API étaient en français, ce que la règle de
+         * nommage interdit. Le client bascule sur l'anglais, mais un
+         * signet ou un onglet ouvert porte encore l'ancien : les deux sont
+         * lus, le temps que les liens en circulation s'éteignent.</p>
+         */
         static Period parseOrDefault(String raw) {
-            if (raw == null) return MOIS;
-            try { return Period.valueOf(raw.toUpperCase()); }
-            catch (IllegalArgumentException e) { return MOIS; }
+            if (raw == null) return MONTH;
+            String needle = raw.trim().toLowerCase();
+            for (Period p : values()) {
+                if (p.code.equals(needle) || p.legacyCode.equals(needle)) return p;
+            }
+            return MONTH;
         }
 
         PeriodRange currentRange() {
             LocalDate today = LocalDate.now();
             return switch (this) {
-                case MOIS -> new PeriodRange(today.withDayOfMonth(1), today);
-                case TRIMESTRE -> {
+                case MONTH -> new PeriodRange(today.withDayOfMonth(1), today);
+                case QUARTER -> {
                     int firstMonthOfQuarter = ((today.getMonthValue() - 1) / 3) * 3 + 1;
                     yield new PeriodRange(LocalDate.of(today.getYear(), firstMonthOfQuarter, 1), today);
                 }
-                case ANNEE -> new PeriodRange(LocalDate.of(today.getYear(), 1, 1), today);
+                case YEAR -> new PeriodRange(LocalDate.of(today.getYear(), 1, 1), today);
             };
         }
 
         PeriodRange previousRange() {
             LocalDate today = LocalDate.now();
             return switch (this) {
-                case MOIS -> {
+                case MONTH -> {
                     YearMonth prev = YearMonth.from(today).minusMonths(1);
                     LocalDate to = prev.atDay(Math.min(today.getDayOfMonth(), prev.lengthOfMonth()));
                     yield new PeriodRange(prev.atDay(1), to);
                 }
-                case TRIMESTRE -> {
+                case QUARTER -> {
                     int firstMonthOfQuarter = ((today.getMonthValue() - 1) / 3) * 3 + 1;
                     LocalDate currentStart = LocalDate.of(today.getYear(), firstMonthOfQuarter, 1);
                     LocalDate prevStart = currentStart.minusMonths(3);
                     long offset = java.time.temporal.ChronoUnit.DAYS.between(currentStart, today);
                     yield new PeriodRange(prevStart, prevStart.plusDays(offset));
                 }
-                case ANNEE -> {
+                case YEAR -> {
                     LocalDate prevStart = LocalDate.of(today.getYear() - 1, 1, 1);
                     LocalDate prevTo;
                     try {
@@ -272,4 +313,44 @@ public class ExecutiveDashboardService {
     }
 
     private record PeriodRange(LocalDate from, LocalDate to) {}
+
+    // ════════════════════════════════════════════════════════════════
+    //  Bornes de campagne
+    // ════════════════════════════════════════════════════════════════
+
+    private record CampaignRange(PeriodRange current, PeriodRange previous) {}
+
+    /**
+     * Campagne en cours et celle qui la précède, en plages de dates.
+     *
+     * <p>Renvoie null quand la structure n'a pas de campagne : le tableau
+     * de bord retombe alors sur le mois, plutôt que d'afficher des
+     * indicateurs vides sans dire pourquoi.</p>
+     *
+     * <p>La campagne en cours est bornée à aujourd'hui : comparer une
+     * campagne entamée à une campagne entière ferait chuter tous les
+     * indicateurs sans qu'il se soit rien passé. La précédente est bornée
+     * au même avancement, comme le fait déjà le mois à date.</p>
+     */
+    private CampaignRange campaignRanges() {
+        CampaignEntity current = campaigns.findCurrent().orElse(null);
+        if (current == null || current.startDate == null) return null;
+
+        LocalDate today = LocalDate.now();
+        LocalDate currentTo = current.endDate != null && current.endDate.isBefore(today)
+                ? current.endDate
+                : today;
+        long elapsed = java.time.temporal.ChronoUnit.DAYS.between(current.startDate, currentTo);
+
+        CampaignEntity previous = campaigns.listAll().stream()
+                .filter(c -> c.startDate != null && c.startDate.isBefore(current.startDate))
+                .findFirst()
+                .orElse(null);
+        PeriodRange previousRange = previous == null
+                ? new PeriodRange(current.startDate, current.startDate)
+                : new PeriodRange(previous.startDate, previous.startDate.plusDays(elapsed));
+
+        return new CampaignRange(new PeriodRange(current.startDate, currentTo), previousRange);
+    }
+
 }

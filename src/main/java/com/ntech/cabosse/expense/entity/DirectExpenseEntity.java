@@ -72,6 +72,15 @@ public class DirectExpenseEntity {
 
     public String notes;
 
+    /**
+     * Campagne de rattachement, déduite de {@link #expenseDate}. Nulle quand aucune
+     * campagne ne couvre la date et qu'aucune n'est ouverte.
+     */
+    public UUID campaignId;
+
+    /** Année de la campagne, dénormalisée pour les regroupements. */
+    public Integer campaignYear;
+
     public Instant createdAt;
     public UUID createdBy;
     public String actorEmail;

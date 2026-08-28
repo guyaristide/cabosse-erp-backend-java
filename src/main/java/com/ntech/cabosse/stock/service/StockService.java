@@ -4,6 +4,7 @@ import com.github.f4b6a3.uuid.UuidCreator;
 import com.mongodb.client.model.FindOneAndUpdateOptions;
 import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.ReturnDocument;
+import com.ntech.cabosse.campaign.entity.CampaignEntity;
 import com.ntech.cabosse.article.entity.ArticleEntity;
 import com.ntech.cabosse.article.entity.ArticleType;
 import com.ntech.cabosse.article.repository.ArticleRepository;
@@ -85,6 +86,7 @@ public class StockService {
     @Inject SiteRepository sites;
     @Inject StockItemRepository stockItems;
     @Inject StockMovementRepository movements;
+    @Inject com.ntech.cabosse.campaign.service.CampaignResolver campaignResolver;
     @Inject StockMovementRefService refService;
     @Inject AuditService audit;
     @Inject com.ntech.cabosse.accounting.service.AccountingService accounting;
@@ -254,6 +256,12 @@ public class StockService {
         mvt.notes = input.notes();
         mvt.actorEmail = actor();
         mvt.occurredAt = input.occurredAt() != null ? input.occurredAt() : Instant.now();
+        // Tout le stock passe ici. Le rattachement suit la date d'effet, pas
+        // celle de la saisie : un amorçage ou un inventaire rétroactif
+        // appartient à la campagne de son effet.
+        CampaignEntity campaign = campaignResolver.resolveOptionalForInstant(mvt.occurredAt, null);
+        mvt.campaignId = campaign != null ? campaign.id : null;
+        mvt.campaignYear = campaign != null ? campaign.campaignYear : null;
         mvt.createdAt = Instant.now();
         // Persisté pour que le rejeu chronologique reproduise la
         // valorisation « par lot » à sa date, pas à son ordre d'arrivée.

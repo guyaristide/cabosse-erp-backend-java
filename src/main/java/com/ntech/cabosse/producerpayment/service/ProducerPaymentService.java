@@ -1,5 +1,6 @@
 package com.ntech.cabosse.producerpayment.service;
 
+import com.ntech.cabosse.campaign.entity.CampaignEntity;
 import com.ntech.cabosse.accounting.service.AccountingService;
 import com.ntech.cabosse.members.repository.MemberRepository;
 import com.ntech.cabosse.producerpayment.dto.ProducerPaymentDtos;
@@ -47,6 +48,7 @@ import java.util.UUID;
 public class ProducerPaymentService {
 
     @Inject ProducerPaymentRepository repo;
+    @Inject com.ntech.cabosse.campaign.service.CampaignResolver campaignResolver;
     @Inject ProducerPaymentRefService refService;
     @Inject ProducerPurchaseRepository purchases;
     @Inject MemberRepository members;
@@ -165,6 +167,7 @@ public class ProducerPaymentService {
         e.id = idGenerator.newId();
         e.ref = refService.next();
         e.date = date;
+        stampCampaign(e);
         e.beneficiaryKind = toDelegate
                 ? ProducerPaymentBeneficiary.DELEGATE : ProducerPaymentBeneficiary.MEMBER;
         e.memberId = toDelegate ? null : p.memberId();
@@ -299,4 +302,18 @@ public class ProducerPaymentService {
             return null;
         }
     }
+
+    /**
+     * Rattache l'opération à la campagne de sa date métier.
+     *
+     * <p>Appelé aussi à la modification : corriger la date d'une opération
+     * doit déplacer son rattachement, sinon un correctif la laisse comptée
+     * dans la campagne d'origine.</p>
+     */
+    private void stampCampaign(ProducerPaymentEntity e) {
+        CampaignEntity campaign = campaignResolver.resolveOptionalForDate(e.date, null);
+        e.campaignId = campaign != null ? campaign.id : null;
+        e.campaignYear = campaign != null ? campaign.campaignYear : null;
+    }
+
 }

@@ -51,6 +51,15 @@ public class JournalPieceEntity {
     /** Libellé de la pièce ("Livraison BC-2026-0001 — SARL Cocoa Trade"). */
     public String libelle;
 
+
+    /**
+     * Campagne de rattachement, déduite de {@link #date}. Nulle quand aucune
+     * campagne ne couvre la date et qu'aucune n'est ouverte.
+     */
+    public UUID campaignId;
+
+    /** Année de la campagne, dénormalisée pour les regroupements. */
+    public Integer campaignYear;
     public List<JournalEntry> entries = new ArrayList<>();
 
     /** Somme des débits. Recalculé à chaque save (en pratique : une seule fois, immuable). */

@@ -17,6 +17,7 @@ import com.ntech.cabosse.sale.entity.SalePayment;
 import com.ntech.cabosse.accounting.entity.QuarantineStatus;
 import com.ntech.cabosse.accounting.entity.QuarantinedPostingEntity;
 import com.ntech.cabosse.tenant.entity.TenantPreferences;
+import com.ntech.cabosse.campaign.entity.CampaignEntity;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
@@ -72,6 +73,7 @@ public class AccountingService {
     @Inject JournalPieceRefService refService;
     @Inject AccountingPeriodService periodService;
     @Inject IdGenerator idGenerator;
+    @Inject com.ntech.cabosse.campaign.service.CampaignResolver campaignResolver;
     @Inject TenantContext tenantContext;
     @Inject com.ntech.cabosse.tenant.service.TenantPreferencesLookup preferencesLookup;
     @Inject com.ntech.cabosse.article.repository.ArticleRepository articles;
@@ -256,6 +258,12 @@ public class AccountingService {
         piece.id = idGenerator.newId();
         piece.ref = refService.next();
         piece.date = request.date() != null ? request.date() : LocalDate.now();
+        // Toute la comptabilité passe ici : c'est le point où l'axe campagne
+        // devient exploitable, et sans lui aucun compte d'exploitation de
+        // campagne n'est possible.
+        CampaignEntity campaign = campaignResolver.resolveOptionalForDate(piece.date, null);
+        piece.campaignId = campaign != null ? campaign.id : null;
+        piece.campaignYear = campaign != null ? campaign.campaignYear : null;
         piece.sourceType = request.sourceType();
         piece.sourceId = request.sourceId();
         piece.sourceRef = request.sourceRef();

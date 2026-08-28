@@ -42,6 +42,15 @@ public class InventorySessionEntity {
 
     public List<Line> lines;
 
+    /**
+     * Campagne de rattachement, déduite de {@link #openedAt}. Nulle quand aucune
+     * campagne ne couvre la date et qu'aucune n'est ouverte.
+     */
+    public UUID campaignId;
+
+    /** Année de la campagne, dénormalisée pour les regroupements. */
+    public Integer campaignYear;
+
     public Instant openedAt;
     public UUID openedBy;
     public Instant submittedAt;

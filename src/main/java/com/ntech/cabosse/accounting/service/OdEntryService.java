@@ -1,5 +1,6 @@
 package com.ntech.cabosse.accounting.service;
 
+import com.ntech.cabosse.campaign.entity.CampaignEntity;
 import com.ntech.cabosse.accounting.entity.ChartOfAccountsEntity;
 import com.ntech.cabosse.accounting.entity.JournalEntry;
 import com.ntech.cabosse.accounting.entity.JournalPieceEntity;
@@ -40,6 +41,7 @@ import java.util.stream.Collectors;
 public class OdEntryService {
 
     @Inject OdDraftRepository drafts;
+    @Inject com.ntech.cabosse.campaign.service.CampaignResolver campaignResolver;
     @Inject ChartOfAccountsRepository chart;
     @Inject AccountingService accounting;
     @Inject IdGenerator idGenerator;
@@ -75,6 +77,9 @@ public class OdEntryService {
         OdDraftEntity e = new OdDraftEntity();
         e.id = idGenerator.newId();
         e.date = date;
+        CampaignEntity campaign = campaignResolver.resolveOptionalForDate(e.date, null);
+        e.campaignId = campaign != null ? campaign.id : null;
+        e.campaignYear = campaign != null ? campaign.campaignYear : null;
         e.libelle = libelle.trim();
         e.entries = toEntries(lines);
         e.status = OdDraftEntity.STATUS_DRAFT;
@@ -91,6 +96,9 @@ public class OdEntryService {
         requireDraft(e, "m.acc-od-draft-edit-only");
         requireHeader(date, libelle);
         e.date = date;
+        CampaignEntity campaign = campaignResolver.resolveOptionalForDate(e.date, null);
+        e.campaignId = campaign != null ? campaign.id : null;
+        e.campaignYear = campaign != null ? campaign.campaignYear : null;
         e.libelle = libelle.trim();
         e.entries = toEntries(lines);
         e.updatedAt = Instant.now();

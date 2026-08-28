@@ -1,6 +1,7 @@
 package com.ntech.cabosse.sale.service;
 
 import com.github.f4b6a3.uuid.UuidCreator;
+import com.ntech.cabosse.campaign.entity.CampaignEntity;
 import com.ntech.cabosse.article.entity.ArticleEntity;
 import com.ntech.cabosse.article.entity.ArticleType;
 import com.ntech.cabosse.article.repository.ArticleRepository;
@@ -59,6 +60,7 @@ import java.util.UUID;
 public class SaleService {
 
     @Inject SaleRepository sales;
+    @Inject com.ntech.cabosse.campaign.service.CampaignResolver campaignResolver;
     @Inject SaleRefService refService;
     @Inject CustomerRepository customers;
     @Inject ArticleRepository articles;
@@ -140,6 +142,8 @@ public class SaleService {
         e.channelTypeSnapshot = customer.channelType;
 
         e.saleDate = payload.saleDate() != null ? payload.saleDate() : LocalDate.now();
+
+        stampCampaign(e);
         e.dueDate = payload.dueDate();
         e.deliveryDate = payload.deliveryDate();
         e.invoiceNumber = blankToNull(payload.invoiceNumber());
@@ -184,6 +188,7 @@ public class SaleService {
         e.channelTypeSnapshot = customer.channelType;
         e.channel = payload.channel();
         e.saleDate = payload.saleDate() != null ? payload.saleDate() : e.saleDate;
+        stampCampaign(e);
         e.dueDate = payload.dueDate();
         e.deliveryDate = payload.deliveryDate();
         e.invoiceNumber = blankToNull(payload.invoiceNumber());
@@ -486,4 +491,18 @@ public class SaleService {
     private static BigDecimal nz(BigDecimal v) {
         return v == null ? BigDecimal.ZERO : v;
     }
+
+    /**
+     * Rattache l'opération à la campagne de sa date métier.
+     *
+     * <p>Appelé aussi à la modification : corriger la date d'une opération
+     * doit déplacer son rattachement, sinon un correctif la laisse comptée
+     * dans la campagne d'origine.</p>
+     */
+    private void stampCampaign(SaleEntity e) {
+        CampaignEntity campaign = campaignResolver.resolveOptionalForDate(e.saleDate, null);
+        e.campaignId = campaign != null ? campaign.id : null;
+        e.campaignYear = campaign != null ? campaign.campaignYear : null;
+    }
+
 }

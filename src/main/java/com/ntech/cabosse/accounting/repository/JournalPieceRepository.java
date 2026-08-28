@@ -55,19 +55,26 @@ public class JournalPieceRepository {
                 .into(new ArrayList<>());
     }
 
-    /**
-     * Liste paginée des pièces sur une période, optionnellement filtrée
-     * par compte (impacte le grand-livre).
-     */
+    /** Sans filtre de campagne : les exports et rapprochements l'ignorent. */
     public List<JournalPieceEntity> list(LocalDate from, LocalDate to,
                                          String syscohadaAccount,
                                          int skip, int limit) {
-        List<Bson> filters = new ArrayList<>();
-        if (from != null) filters.add(Filters.gte("date", from));
-        if (to != null) filters.add(Filters.lte("date", to));
-        if (syscohadaAccount != null && !syscohadaAccount.isBlank()) {
-            filters.add(Filters.eq("entries.syscohadaAccount", syscohadaAccount));
-        }
+        return list(from, to, syscohadaAccount, null, skip, limit);
+    }
+
+    public long count(LocalDate from, LocalDate to, String syscohadaAccount) {
+        return count(from, to, syscohadaAccount, null);
+    }
+
+    /**
+     * Liste paginée des pièces sur une période, optionnellement filtrée
+     * par compte (impacte le grand-livre) et par campagne.
+     */
+    public List<JournalPieceEntity> list(LocalDate from, LocalDate to,
+                                         String syscohadaAccount,
+                                         UUID campaignId,
+                                         int skip, int limit) {
+        List<Bson> filters = journalFilters(from, to, syscohadaAccount, campaignId);
         Bson filter = filters.isEmpty() ? new Document() : Filters.and(filters);
         return coll().find(filter)
                 .sort(new Document("date", -1).append("createdAt", -1))
@@ -76,14 +83,28 @@ public class JournalPieceRepository {
                 .into(new ArrayList<>());
     }
 
-    public long count(LocalDate from, LocalDate to, String syscohadaAccount) {
+    public long count(LocalDate from, LocalDate to, String syscohadaAccount, UUID campaignId) {
+        List<Bson> filters = journalFilters(from, to, syscohadaAccount, campaignId);
+        return coll().countDocuments(filters.isEmpty() ? new Document() : Filters.and(filters));
+    }
+
+    /**
+     * Filtres communs à la liste et au comptage.
+     *
+     * <p>Le filtre campagne porte sur le rattachement enregistré, pas sur
+     * les bornes de la campagne : une pièce que l'on a rattachée à la main
+     * doit suivre son rattachement, pas sa date.</p>
+     */
+    private static List<Bson> journalFilters(LocalDate from, LocalDate to,
+                                             String syscohadaAccount, UUID campaignId) {
         List<Bson> filters = new ArrayList<>();
         if (from != null) filters.add(Filters.gte("date", from));
         if (to != null) filters.add(Filters.lte("date", to));
         if (syscohadaAccount != null && !syscohadaAccount.isBlank()) {
             filters.add(Filters.eq("entries.syscohadaAccount", syscohadaAccount));
         }
-        return coll().countDocuments(filters.isEmpty() ? new Document() : Filters.and(filters));
+        if (campaignId != null) filters.add(Filters.eq("campaignId", campaignId));
+        return filters;
     }
 
     public void insert(JournalPieceEntity e) {

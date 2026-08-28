@@ -1,6 +1,7 @@
 package com.ntech.cabosse.purchaserequest.service;
 
 import com.github.f4b6a3.uuid.UuidCreator;
+import com.ntech.cabosse.campaign.entity.CampaignEntity;
 import com.ntech.cabosse.achats.dto.PurchaseOrderLineDto;
 import com.ntech.cabosse.achats.dto.PurchaseOrderResponseDto;
 import com.ntech.cabosse.achats.dto.PurchaseOrderUpsertDto;
@@ -41,6 +42,7 @@ import java.util.UUID;
 public class PurchaseRequestService {
 
     @Inject PurchaseRequestRepository repo;
+    @Inject com.ntech.cabosse.campaign.service.CampaignResolver campaignResolver;
     @Inject PurchaseRequestRefService refService;
     @Inject ArticleRepository articles;
     @Inject SupplierRepository suppliers;
@@ -180,6 +182,7 @@ public class PurchaseRequestService {
 
     private void apply(PurchaseRequestEntity e, PurchaseRequestUpsertDto p) {
         e.requestDate = p.requestDate();
+        stampCampaign(e);
         e.justification = (p.justification() == null || p.justification().isBlank())
                 ? null : p.justification().trim();
         if (p.supplierId() != null) {
@@ -237,4 +240,18 @@ public class PurchaseRequestService {
 
     private String actor() { try { return jwt.getName(); } catch (Exception e) { return null; } }
     private UUID safeUserId() { try { return tenantContext.userId(); } catch (Exception e) { return null; } }
+
+    /**
+     * Rattache l'opération à la campagne de sa date métier.
+     *
+     * <p>Appelé aussi à la modification : corriger la date d'une opération
+     * doit déplacer son rattachement, sinon un correctif la laisse comptée
+     * dans la campagne d'origine.</p>
+     */
+    private void stampCampaign(PurchaseRequestEntity e) {
+        CampaignEntity campaign = campaignResolver.resolveOptionalForDate(e.requestDate, null);
+        e.campaignId = campaign != null ? campaign.id : null;
+        e.campaignYear = campaign != null ? campaign.campaignYear : null;
+    }
+
 }

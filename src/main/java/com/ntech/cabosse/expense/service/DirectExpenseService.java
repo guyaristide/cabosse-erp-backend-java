@@ -1,6 +1,7 @@
 package com.ntech.cabosse.expense.service;
 
 import com.github.f4b6a3.uuid.UuidCreator;
+import com.ntech.cabosse.campaign.entity.CampaignEntity;
 import com.ntech.cabosse.accounting.service.AccountingService;
 import com.ntech.cabosse.expense.dto.CreateDirectExpenseDto;
 import com.ntech.cabosse.expense.dto.DirectExpenseResponseDto;
@@ -36,6 +37,7 @@ import java.util.UUID;
 public class DirectExpenseService {
 
     @Inject DirectExpenseRepository repo;
+    @Inject com.ntech.cabosse.campaign.service.CampaignResolver campaignResolver;
     @Inject DirectExpenseRefService refService;
     @Inject ExpenseTypeRepository expenseTypes;
     @Inject com.ntech.cabosse.analytics.repository.AllocationKeyRepository allocationKeys;
@@ -71,6 +73,7 @@ public class DirectExpenseService {
         e.ref = refService.next();
         e.kind = kind;
         e.expenseDate = p.expenseDate() != null ? p.expenseDate() : LocalDate.now();
+        stampCampaign(e);
         e.label = p.label().trim();
         e.periodLabel = blankNull(p.periodLabel());
         e.notes = blankNull(p.notes());
@@ -151,4 +154,18 @@ public class DirectExpenseService {
 
     private String actor() { try { return jwt.getName(); } catch (Exception e) { return null; } }
     private UUID safeUserId() { try { return tenantContext.userId(); } catch (Exception e) { return null; } }
+
+    /**
+     * Rattache l'opération à la campagne de sa date métier.
+     *
+     * <p>Appelé aussi à la modification : corriger la date d'une opération
+     * doit déplacer son rattachement, sinon un correctif la laisse comptée
+     * dans la campagne d'origine.</p>
+     */
+    private void stampCampaign(DirectExpenseEntity e) {
+        CampaignEntity campaign = campaignResolver.resolveOptionalForDate(e.expenseDate, null);
+        e.campaignId = campaign != null ? campaign.id : null;
+        e.campaignYear = campaign != null ? campaign.campaignYear : null;
+    }
+
 }

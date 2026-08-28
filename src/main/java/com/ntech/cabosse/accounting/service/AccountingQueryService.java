@@ -113,15 +113,17 @@ public class AccountingQueryService {
 
     public List<JournalPieceResponseDto> listJournal(LocalDate from, LocalDate to,
                                                       String syscohadaAccount,
+                                                      java.util.UUID campaignId,
                                                       int page, int perPage) {
         int skip = Math.max(0, page) * Math.max(1, perPage);
-        return pieces.list(from, to, syscohadaAccount, skip, perPage).stream()
+        return pieces.list(from, to, syscohadaAccount, campaignId, skip, perPage).stream()
                 .map(JournalPieceResponseDto::from)
                 .toList();
     }
 
-    public long countJournal(LocalDate from, LocalDate to, String syscohadaAccount) {
-        return pieces.count(from, to, syscohadaAccount);
+    public long countJournal(LocalDate from, LocalDate to, String syscohadaAccount,
+                             java.util.UUID campaignId) {
+        return pieces.count(from, to, syscohadaAccount, campaignId);
     }
 
     // ════════════════════════════════════════════════════════════════
