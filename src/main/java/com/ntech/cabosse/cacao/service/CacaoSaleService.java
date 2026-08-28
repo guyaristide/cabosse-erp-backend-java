@@ -218,7 +218,10 @@ public class CacaoSaleService {
             throw new BusinessException(Messages.msg("m.cco-article-not-sellable", article.name));
         }
 
-        CampaignEntity campaign = p.campaignId() != null ? campaigns.get(p.campaignId()) : campaigns.current();
+        // Rattachement par la date de vente, comme partout ailleurs : ce
+        // service résolvait la campagne du jour de saisie alors que la date
+        // de l'opération était juste sous la main.
+        CampaignEntity campaign = campaignResolver.resolveOptionalForDate(p.date(), p.campaignId());
 
         SalesContractEntity contract = p.contractId() != null
                 ? contracts.findById(p.contractId()).orElseThrow(

@@ -5,7 +5,7 @@ import com.ntech.cabosse.article.entity.ArticleEntity;
 import com.ntech.cabosse.article.entity.ArticleType;
 import com.ntech.cabosse.article.repository.ArticleRepository;
 import com.ntech.cabosse.campaign.entity.CampaignEntity;
-import com.ntech.cabosse.campaign.service.CampaignService;
+import com.ntech.cabosse.campaign.service.CampaignResolver;
 import com.ntech.cabosse.collector.entity.CollectorAdvanceEntity;
 import com.ntech.cabosse.collector.entity.CollectorAdvanceStatus;
 import com.ntech.cabosse.collector.repository.CollectorAdvanceRepository;
@@ -67,7 +67,7 @@ public class ProducerPurchaseService {
     @Inject MemberRepository members;
     @Inject SectionRepository sections;
     @Inject ArticleRepository articles;
-    @Inject CampaignService campaigns;
+    @Inject CampaignResolver campaignResolver;
     @Inject CollectorAdvanceRepository advances;
     @Inject SupplierRepository suppliers;
     @Inject com.ntech.cabosse.members.service.ProducerRefKeyService producerRefKeys;
@@ -136,7 +136,10 @@ public class ProducerPurchaseService {
             });
         }
 
-        CampaignEntity campaign = p.campaignId() != null ? campaigns.get(p.campaignId()) : campaigns.current();
+        // Rattachement par la date du reçu, pas par le jour de la saisie :
+        // un reçu de campagne principale ressaisi en avril restait sinon
+        // compté dans la campagne intermédiaire.
+        CampaignEntity campaign = campaignResolver.resolveOptionalForDate(p.date(), p.campaignId());
 
         BigDecimal weight = resolveWeight(prefs, p);
         BigDecimal price = resolvePrice(prefs, p, campaign);

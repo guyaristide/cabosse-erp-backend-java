@@ -64,6 +64,32 @@ public class CampaignRepository {
                 .or(() -> open.stream().findFirst());
     }
 
+    /**
+     * Campagne dont la période couvre une date donnée.
+     *
+     * <p>À la différence de {@link #findCurrent()}, aucun repli : une
+     * opération datée hors de toute campagne ne se rattache à rien plutôt
+     * que d'aller grossir la campagne la plus récente. Un rattachement
+     * faux coûte plus cher qu'un rattachement absent — il fausse
+     * silencieusement les états de campagne, alors qu'un trou se voit.</p>
+     *
+     * <p>Les campagnes closes comptent : une opération saisie
+     * rétroactivement appartient à sa campagne même si celle-ci est
+     * refermée depuis. Seule la période fait foi.</p>
+     */
+    public Optional<CampaignEntity> findForDate(LocalDate day) {
+        if (day == null) {
+            return Optional.empty();
+        }
+        return coll()
+                .find()
+                .sort(new Document("startDate", -1))
+                .into(new ArrayList<CampaignEntity>())
+                .stream()
+                .filter(c -> covers(c, day))
+                .findFirst();
+    }
+
     private static boolean covers(CampaignEntity c, LocalDate day) {
         boolean started = c.startDate == null || !day.isBefore(c.startDate);
         boolean notEnded = c.endDate == null || !day.isAfter(c.endDate);

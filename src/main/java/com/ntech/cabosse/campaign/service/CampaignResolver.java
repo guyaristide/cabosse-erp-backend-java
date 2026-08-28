@@ -5,9 +5,11 @@ import com.ntech.cabosse.campaign.repository.CampaignRepository;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.i18n.Messages;
+import com.ntech.cabosse.tenant.service.TenantPreferencesLookup;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
+import java.time.LocalDate;
 import java.util.UUID;
 
 /**
@@ -29,6 +31,11 @@ public class CampaignResolver {
     // rejouerait son contrôle de capacité, et une avance légitime se
     // verrait refusée à cause d'un module tiers.
     @Inject CampaignRepository repo;
+
+    @Inject TenantPreferencesLookup preferences;
+
+    /** Rattachement laissé à la saisie, la campagne courante par défaut. */
+    private static final String MANUAL = "MANUAL";
 
     /**
      * Résolution exigeante, pour les opérations qui n'ont pas de sens hors
@@ -58,5 +65,50 @@ public class CampaignResolver {
                     () -> new NotFoundException(Messages.msg("m.cmp-campaign-not-found", campaignId)));
         }
         return repo.findCurrent().orElse(null);
+    }
+
+    /**
+     * Résolution par la date de l'opération, exigeante.
+     *
+     * @see #resolveOptionalForDate(LocalDate, UUID)
+     */
+    public CampaignEntity resolveForDate(LocalDate operationDate, UUID campaignId) {
+        CampaignEntity resolved = resolveOptionalForDate(operationDate, campaignId);
+        if (resolved == null) {
+            throw new BusinessException(Messages.msg("m.cmp-no-open-campaign"));
+        }
+        return resolved;
+    }
+
+    /**
+     * Rattache une opération à sa campagne d'après sa propre date.
+     *
+     * <p>Sans cela, une récolte de novembre saisie en mars entrait dans la
+     * campagne de mars : le rattachement suivait le jour de la saisie, pas
+     * celui du fait. Les états de campagne s'en trouvaient faussés sans que
+     * rien ne le signale.</p>
+     *
+     * <p>Trois cas, dans cet ordre :</p>
+     * <ol>
+     *   <li>une campagne explicitement choisie prime toujours, quel que
+     *       soit le réglage : c'est une décision humaine ;</li>
+     *   <li>en mode {@code DATE} (défaut), la campagne dont la période
+     *       couvre la date de l'opération ;</li>
+     *   <li>à défaut, et en mode {@code MANUAL}, la campagne courante,
+     *       comportement historique.</li>
+     * </ol>
+     *
+     * @param operationDate date métier de l'opération, pas sa date de saisie
+     * @param campaignId    campagne explicitement choisie, prioritaire
+     */
+    public CampaignEntity resolveOptionalForDate(LocalDate operationDate, UUID campaignId) {
+        if (campaignId != null) {
+            return resolveOptional(campaignId);
+        }
+        if (MANUAL.equals(preferences.current().campaignAssignmentMode())) {
+            return repo.findCurrent().orElse(null);
+        }
+        return repo.findForDate(operationDate)
+                .orElseGet(() -> repo.findCurrent().orElse(null));
     }
 }

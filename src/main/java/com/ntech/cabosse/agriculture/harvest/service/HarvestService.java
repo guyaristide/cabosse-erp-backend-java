@@ -123,8 +123,10 @@ public class HarvestService {
             e.memberId = null;
             e.memberName = null;
         }
-        // La campagne fait foi ; l'année n'est qu'une dénormalisation.
-        CampaignEntity campaign = campaignResolver.resolve(p.campaignId());
+        // La campagne fait foi ; l'année n'est qu'une dénormalisation. Elle
+        // se déduit de la date de récolte, pas du jour de la saisie : une
+        // récolte de novembre saisie en mars appartient à novembre.
+        CampaignEntity campaign = campaignResolver.resolveForDate(p.harvestDate(), p.campaignId());
         e.campaignId = campaign.id;
         e.campaignLabel = campaign.label;
         e.campaignYear = campaign.campaignYear;

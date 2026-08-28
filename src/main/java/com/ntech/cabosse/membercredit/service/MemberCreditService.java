@@ -145,7 +145,8 @@ public class MemberCreditService {
         e.sectionName = m.sectionId != null
                 ? sections.findById(m.sectionId).map(s -> s.name).orElse(null) : null;
 
-        CampaignEntity campaign = campaignResolver.resolveOptional(p.campaignId());
+        CampaignEntity campaign =
+                campaignResolver.resolveOptionalForDate(p.requestedAt(), p.campaignId());
         e.campaignId = campaign != null ? campaign.id : null;
         e.campaignLabel = campaign != null ? campaign.label : null;
 
