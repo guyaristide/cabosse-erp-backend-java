@@ -52,7 +52,7 @@ public class DelegateAccountService {
             throw new BusinessException(Messages.msg("m.col-not-a-delegate", delegate.name));
         }
 
-        List<CollectorAdvanceEntity> all = advances.listByDelegate(delegateSupplierId).stream()
+        List<CollectorAdvanceEntity> all = advances.listDisbursedByDelegate(delegateSupplierId).stream()
                 .filter(a -> campaignId == null || campaignId.equals(a.campaignId))
                 .toList();
         BigDecimal advanced = all.stream()
@@ -154,7 +154,7 @@ public class DelegateAccountService {
         LocalDate start = campaigns.findById(currentCampaignId)
                 .map(c -> c.startDate)
                 .orElse(null);
-        BigDecimal advancedBefore = advances.listByDelegate(delegateSupplierId).stream()
+        BigDecimal advancedBefore = advances.listDisbursedByDelegate(delegateSupplierId).stream()
                 .filter(a -> isBefore(a.campaignId, currentCampaignId, start))
                 .map(a -> nz(a.advanceAmountFcfa))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -266,7 +266,7 @@ public class DelegateAccountService {
                   BigDecimal amount, BigDecimal weight, BigDecimal retention) {}
 
         List<Op> ops = new ArrayList<>();
-        for (CollectorAdvanceEntity a : advances.listByDelegate(delegateSupplierId)) {
+        for (CollectorAdvanceEntity a : advances.listDisbursedByDelegate(delegateSupplierId)) {
             if (campaignId != null && !campaignId.equals(a.campaignId)) continue;
             ops.add(new Op(a.advanceDate,
                     com.ntech.cabosse.collector.dto.DelegateLedgerDto.Operation.ADVANCE,

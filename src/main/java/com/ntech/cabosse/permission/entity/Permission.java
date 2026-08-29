@@ -46,7 +46,15 @@ public enum Permission {
             TenantCapability.HAS_COMMODITY_TRADE),
     COLLECTION_RECEIPT_WRITE(Domain.COLLECTION, "m.per-collection-receipt-write",
             TenantCapability.HAS_COMMODITY_TRADE),
-    COLLECTION_ADVANCE_WRITE(Domain.COLLECTION, "m.per-collection-advance-write",
+    // Trois droits pour trois gestes, parce que trois gestes valent mieux
+    // qu'un sur la plus grosse sortie de trésorerie d'une campagne. La
+    // structure les attribue aux profils qu'elle veut : le logiciel ne
+    // décide pas qui, dans une coopérative, approuve un financement.
+    COLLECTION_ADVANCE_REQUEST(Domain.COLLECTION, "m.per-collection-advance-request",
+            TenantCapability.HAS_COMMODITY_TRADE),
+    COLLECTION_ADVANCE_APPROVE(Domain.COLLECTION, "m.per-collection-advance-approve",
+            TenantCapability.HAS_COMMODITY_TRADE),
+    COLLECTION_ADVANCE_DISBURSE(Domain.COLLECTION, "m.per-collection-advance-disburse",
             TenantCapability.HAS_COMMODITY_TRADE),
     COLLECTION_PAYMENT_WRITE(Domain.COLLECTION, "m.per-collection-payment-write",
             TenantCapability.HAS_COMMODITY_TRADE),

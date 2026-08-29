@@ -49,7 +49,9 @@ public class M061_TenantRolesAndDefaultProfile {
             Permission.REFERENTIAL_READ, Permission.REFERENTIAL_WRITE,
             Permission.PURCHASE_READ, Permission.PURCHASE_WRITE, Permission.EXPENSE_WRITE,
             Permission.COLLECTION_READ, Permission.COLLECTION_RECEIPT_WRITE,
-            Permission.COLLECTION_ADVANCE_WRITE, Permission.COLLECTION_PAYMENT_WRITE,
+            // L'opérateur demande une avance ; il ne l'approuve pas et ne
+            // la décaisse pas. C'est le sens même du découpage.
+            Permission.COLLECTION_ADVANCE_REQUEST, Permission.COLLECTION_PAYMENT_WRITE,
             Permission.MEMBER_READ, Permission.MEMBER_WRITE, Permission.MEMBER_CREDIT_REQUEST,
             Permission.PARCEL_READ, Permission.PARCEL_WRITE, Permission.HARVEST_WRITE,
             Permission.PROCESSING_READ, Permission.PRODUCTION_WRITE,

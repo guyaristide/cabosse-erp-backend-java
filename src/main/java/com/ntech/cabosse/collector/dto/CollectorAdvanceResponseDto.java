@@ -20,6 +20,11 @@ public record CollectorAdvanceResponseDto(
         String status, String pieceRef, String notes,
         List<DeliveryView> deliveries,
         Instant closedAt, Instant createdAt, String createdByEmail,
+        /** Qui a approuvé, refusé ou décaissé, et quand. Vide tant que le
+            geste n'a pas eu lieu. */
+        Instant approvedAt, String approvedByEmail,
+        String rejectionReason, Instant rejectedAt, String rejectedByEmail,
+        Instant disbursedAt, String disbursedByEmail,
         java.util.List<com.ntech.cabosse.shared.storage.AttachmentDto> attachments
 ) {
     public record DeliveryView(UUID id, LocalDate date, UUID articleId, String articleCode,
@@ -38,6 +43,9 @@ public record CollectorAdvanceResponseDto(
                 e.consumedAmountFcfa, e.remainingFcfa,
                 e.status != null ? e.status.name() : null, e.pieceRef, e.notes,
                 deliveries, e.closedAt, e.createdAt, e.createdByEmail,
+                e.approvedAt, e.approvedByEmail,
+                e.rejectionReason, e.rejectedAt, e.rejectedByEmail,
+                e.disbursedAt, e.disbursedByEmail,
                 com.ntech.cabosse.shared.storage.AttachmentDto.fromAll(e.attachments));
     }
 }

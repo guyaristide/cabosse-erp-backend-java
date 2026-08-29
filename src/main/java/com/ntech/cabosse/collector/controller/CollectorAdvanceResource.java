@@ -86,14 +86,63 @@ public class CollectorAdvanceResource {
 
     @POST
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
-    @RequiresPermission(Permission.COLLECTION_ADVANCE_WRITE)
+    @RequiresPermission(Permission.COLLECTION_ADVANCE_REQUEST)
     public Response create(@Valid CreateAdvanceDto payload, @QueryParam("siteId") UUID siteId) {
         return Response.status(Response.Status.CREATED)
                 .entity(ApiResponse.created(service.create(payload, siteId))).build();
     }
 
+    /**
+     * Approuve une demande d'avance.
+     *
+     * <p>Droit distinct de la demande : c'est tout l'objet du découpage.
+     * La structure attribue ces trois droits aux profils qu'elle veut.</p>
+     */
+    @POST
+    @Path("/{id}/approve")
+    // Aucun corps attendu : sans cela, un POST vide se heurte au
+    // @Consumes de la classe et repart en 415.
+    @Consumes(MediaType.WILDCARD)
+    @RequiresPermission(Permission.COLLECTION_ADVANCE_APPROVE)
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    public Response approve(@PathParam("id") UUID id) {
+        return Response.ok(ApiResponse.ok(service.approve(id))).build();
+    }
+
+    /** Refuse une demande, avec son motif, qui reste au dossier. */
+    @POST
+    @Path("/{id}/reject")
+    @RequiresPermission(Permission.COLLECTION_ADVANCE_APPROVE)
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    public Response reject(@PathParam("id") UUID id, RejectPayload payload) {
+        return Response.ok(ApiResponse.ok(
+                service.reject(id, payload != null ? payload.reason() : null))).build();
+    }
+
+    /**
+     * Décaisse une avance approuvée : les fonds partent et l'écriture
+     * passe. C'est ici seulement que l'avance devient imputable.
+     */
+    @POST
+    @Path("/{id}/disburse")
+    // Aucun corps attendu : sans cela, un POST vide se heurte au
+    // @Consumes de la classe et repart en 415.
+    @Consumes(MediaType.WILDCARD)
+    @RequiresPermission(Permission.COLLECTION_ADVANCE_DISBURSE)
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    public Response disburse(@PathParam("id") UUID id) {
+        return Response.ok(ApiResponse.ok(service.disburse(id))).build();
+    }
+
+    public record RejectPayload(String reason) {}
+
+    /**
+     * Clôture au décompte de campagne : le solde résiduel est arrêté.
+     * C'est une décision financière, donc le droit d'approbation.
+     */
     @POST
     @Path("/{id}/close")
+    @RequiresPermission(Permission.COLLECTION_ADVANCE_APPROVE)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response close(@PathParam("id") UUID id, ClosePayload payload) {
         return Response.ok(ApiResponse.ok(

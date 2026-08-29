@@ -110,13 +110,18 @@ class DelegateStatementTest extends AbstractIntegrationTest {
 
     private void openAdvance(UserEntity admin, String delegateId, String siteId,
                              String campaignId, int amount, LocalDate date) {
-        givenAs(admin).contentType("application/json")
+        String id = givenAs(admin).contentType("application/json")
                 .body("""
                         { "delegateSupplierId": "%s", "advanceDate": "%s",
                           "advanceAmountFcfa": %d, "paymentMethod": "CASH", "campaignId": "%s" }
                         """.formatted(delegateId, date, amount, campaignId))
                 .when().post("/api/v1/collector-advances?siteId=" + siteId)
-                .then().statusCode(201);
+                .then().statusCode(201).extract().path("data.id");
+        // Une avance n'est imputable qu'une fois décaissée.
+        givenAs(admin).when().post("/api/v1/collector-advances/" + id + "/approve")
+                .then().statusCode(200);
+        givenAs(admin).when().post("/api/v1/collector-advances/" + id + "/disburse")
+                .then().statusCode(200);
     }
 
     private void createReceipt(UserEntity admin, String memberId, String articleId, String siteId,

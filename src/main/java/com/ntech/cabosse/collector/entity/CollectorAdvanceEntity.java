@@ -54,7 +54,26 @@ public class CollectorAdvanceEntity {
     /** Reste à livrer = avance − consommé. */
     public BigDecimal remainingFcfa;
 
-    public CollectorAdvanceStatus status = CollectorAdvanceStatus.OPEN;
+    public CollectorAdvanceStatus status = CollectorAdvanceStatus.PENDING_APPROVAL;
+
+    // ─── Traces des trois gestes du circuit ─────────────────────────
+    // Qui a demandé se lit dans createdBy. Approbation et décaissement
+    // portent les leurs : sans elles, on saurait qu'une avance est sortie
+    // sans savoir qui l'a décidée.
+
+    public Instant approvedAt;
+    public UUID approvedBy;
+    public String approvedByEmail;
+
+    /** Motif du refus. Exigé : un refus sans raison ne se conteste pas. */
+    public String rejectionReason;
+    public Instant rejectedAt;
+    public UUID rejectedBy;
+    public String rejectedByEmail;
+
+    public Instant disbursedAt;
+    public UUID disbursedBy;
+    public String disbursedByEmail;
 
     /** Référence de la pièce comptable de l'avance. */
     public String pieceRef;

@@ -124,12 +124,25 @@ class CollectorAdvanceTest extends AbstractIntegrationTest {
                         """.formatted(delegateId, LocalDate.now()))
                 .when().post("/api/v1/collector-advances?siteId=" + siteId)
                 .then().statusCode(201)
-                .body("data.status", equalTo("OPEN"))
+                .body("data.status", equalTo("PENDING_APPROVAL"))
                 .body("data.remainingFcfa", equalTo(1000000))
                 .body("data.sectionName", equalTo("Section Soubré"))
                 .extract().path("data.id");
 
-        // Pièce d'avance au journal (4091 / trésorerie).
+        // Une demande ne sort pas d'argent : rien au journal tant qu'elle
+        // n'est pas décaissée.
+        givenAs(admin).when().get("/api/v1/accounting/journal")
+                .then().statusCode(200).body("data.total", equalTo(0));
+
+        givenAs(admin).when().post("/api/v1/collector-advances/" + advanceId + "/approve")
+                .then().statusCode(200).body("data.status", equalTo("APPROVED"));
+        givenAs(admin).when().get("/api/v1/accounting/journal")
+                .then().statusCode(200).body("data.total", equalTo(0));
+
+        givenAs(admin).when().post("/api/v1/collector-advances/" + advanceId + "/disburse")
+                .then().statusCode(200).body("data.status", equalTo("OPEN"));
+
+        // Pièce d'avance au journal (4091 / trésorerie), au décaissement.
         givenAs(admin).when().get("/api/v1/accounting/journal")
                 .then().statusCode(200).body("data.total", equalTo(1));
 

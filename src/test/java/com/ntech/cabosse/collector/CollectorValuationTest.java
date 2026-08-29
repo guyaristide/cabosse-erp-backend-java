@@ -84,13 +84,26 @@ class CollectorValuationTest extends AbstractIntegrationTest {
     }
 
     private String openAdvance(UserEntity admin, String delegateId, String siteId) {
-        return givenAs(admin).contentType("application/json")
+        String id = givenAs(admin).contentType("application/json")
                 .body("""
                         { "delegateSupplierId": "%s", "advanceDate": "%s",
                           "advanceAmountFcfa": 400000, "paymentMethod": "CASH" }
                         """.formatted(delegateId, LocalDate.now()))
                 .when().post("/api/v1/collector-advances?siteId=" + siteId)
                 .then().statusCode(201).extract().path("data.id");
+        return disburse(admin, id);
+    }
+
+    /**
+     * Une avance n'est imputable qu'une fois décaissée : la demande passe
+     * par son approbation puis sa sortie de fonds.
+     */
+    private String disburse(UserEntity admin, String id) {
+        givenAs(admin).when().post("/api/v1/collector-advances/" + id + "/approve")
+                .then().statusCode(200);
+        givenAs(admin).when().post("/api/v1/collector-advances/" + id + "/disburse")
+                .then().statusCode(200);
+        return id;
     }
 
     private String createProducer(UserEntity admin, String lastName) {

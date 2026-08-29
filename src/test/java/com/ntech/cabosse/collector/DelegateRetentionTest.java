@@ -111,7 +111,7 @@ class DelegateRetentionTest extends AbstractIntegrationTest {
 
     private void openAdvance(UserEntity admin, String delegateId, String siteId,
                              String campaignId, int amount, LocalDate date, int expected) {
-        givenAs(admin).contentType("application/json")
+        var response = givenAs(admin).contentType("application/json")
                 .body("""
                         { "delegateSupplierId": "%s", "advanceDate": "%s",
                           "advanceAmountFcfa": %d, "paymentMethod": "CASH",
@@ -119,6 +119,13 @@ class DelegateRetentionTest extends AbstractIntegrationTest {
                         """.formatted(delegateId, date, amount, campaignId))
                 .when().post("/api/v1/collector-advances?siteId=" + siteId)
                 .then().statusCode(expected);
+        if (expected != 201) return;
+        // Une avance n'est imputable qu'une fois décaissée.
+        String id = response.extract().path("data.id");
+        givenAs(admin).when().post("/api/v1/collector-advances/" + id + "/approve")
+                .then().statusCode(200);
+        givenAs(admin).when().post("/api/v1/collector-advances/" + id + "/disburse")
+                .then().statusCode(200);
     }
 
     private void createReceipt(UserEntity admin, String memberId, String articleId, String siteId,

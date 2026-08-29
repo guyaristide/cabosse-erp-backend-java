@@ -69,9 +69,20 @@ public class CollectorAdvanceRepository {
                 .into(new ArrayList<>());
     }
 
-    /** Toutes les avances d'un délégué, la plus récente en tête. */
-    public List<CollectorAdvanceEntity> listByDelegate(UUID delegateSupplierId) {
-        return coll().find(Filters.eq("delegateSupplierId", delegateSupplierId))
+    /**
+     * Les avances <strong>décaissées</strong> d'un délégué, la plus récente
+     * en tête. Ouvertes ou closes : dans les deux cas l'argent est sorti.
+     *
+     * <p>C'est la seule liste que le compte courant doit voir. Une demande
+     * en attente ou refusée n'a rien remis au délégué : la compter
+     * gonflerait son solde d'un argent qu'il n'a jamais eu, et la garde de
+     * dette antérieure refuserait un refinancement sur une dette
+     * imaginaire.</p>
+     */
+    public List<CollectorAdvanceEntity> listDisbursedByDelegate(UUID delegateSupplierId) {
+        return coll().find(Filters.and(
+                        Filters.eq("delegateSupplierId", delegateSupplierId),
+                        Filters.in("status", "OPEN", "CLOSED")))
                 .sort(new org.bson.Document("advanceDate", -1).append("createdAt", -1))
                 .into(new ArrayList<>());
     }
