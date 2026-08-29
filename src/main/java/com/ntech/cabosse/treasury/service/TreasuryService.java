@@ -2,6 +2,7 @@ package com.ntech.cabosse.treasury.service;
 
 import com.ntech.cabosse.campaign.entity.CampaignEntity;
 import com.ntech.cabosse.accounting.entity.BankAccountEntity;
+import com.ntech.cabosse.accounting.entity.BankAccountKind;
 import com.ntech.cabosse.accounting.entity.JournalEntry;
 import com.ntech.cabosse.accounting.entity.JournalPieceEntity;
 import com.ntech.cabosse.accounting.repository.BankAccountRepository;
@@ -94,6 +95,7 @@ public class TreasuryService {
         }
         BankAccountEntity from = loadAccount(p.fromAccountId());
         BankAccountEntity to = loadAccount(p.toAccountId());
+        ensureCashComesFromBank(from, to);
 
         TreasuryTransferEntity e = new TreasuryTransferEntity();
         e.id = idGenerator.newId();
@@ -319,6 +321,27 @@ public class TreasuryService {
         return new TreasuryDtos.TreasuryReconciliationDto(
                 start, end, sent, received, inTransit, discrepancy,
                 count, withGap.size(), withGap, pending);
+    }
+
+
+    /**
+     * Une caisse ne s'approvisionne que depuis une banque (spécification
+     * Trésorerie).
+     *
+     * <p>L'argent liquide a une origine bancaire : c'est ce qui rend la
+     * caisse rapprochable. Alimenter une caisse depuis une autre caisse
+     * ferait circuler des espèces sans qu'aucun relevé ne les atteste, et
+     * un manquant deviendrait indétectable, chaque tiroir pouvant renvoyer
+     * au précédent.</p>
+     *
+     * <p>Le versement inverse, de la caisse vers la banque, reste libre :
+     * c'est la recette du jour qu'on dépose.</p>
+     */
+    private void ensureCashComesFromBank(BankAccountEntity from, BankAccountEntity to) {
+        if (to.kind == BankAccountKind.CAISSE && from.kind != BankAccountKind.BANQUE) {
+            throw new BusinessException(Messages.msg(
+                    "m.trs-cash-must-come-from-bank", label(to), label(from)));
+        }
     }
 
     // ─── Helpers ────────────────────────────────────────────────────

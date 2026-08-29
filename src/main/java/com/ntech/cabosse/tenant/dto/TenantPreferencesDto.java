@@ -44,6 +44,7 @@ public record TenantPreferencesDto(
         @Schema(description = "Compte SYSCOHADA débité pour la TVA déductible sur achats.",
                 example = "445660", defaultValue = "445660")
         String vatDeductibleAccount,
+        String vatCollectedAccount,
 
         @Schema(description = "Cycle comptable des parts sociales : pièce directe trésorerie/capital, "
                 + "ou souscription 461 puis libération.",

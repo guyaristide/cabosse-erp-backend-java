@@ -51,6 +51,9 @@ class CollectorAdvanceTest extends AbstractIntegrationTest {
         u.createdAt = Instant.now();
         u.updatedAt = u.createdAt;
         users.persist(u);
+        // Une caisse ne peut jamais être négative : la structure y met
+        // son solde d'ouverture avant toute sortie d'espèces.
+        fundCashBox(u, 50_000_000);
         return u;
     }
 
@@ -129,22 +132,22 @@ class CollectorAdvanceTest extends AbstractIntegrationTest {
                 .body("data.sectionName", equalTo("Section Soubré"))
                 .extract().path("data.id");
 
-        // Une demande ne sort pas d'argent : rien au journal tant qu'elle
-        // n'est pas décaissée.
+        // Une demande ne sort pas d'argent : le journal ne porte encore que
+        // l'amorçage de la caisse.
         givenAs(admin).when().get("/api/v1/accounting/journal")
-                .then().statusCode(200).body("data.total", equalTo(0));
+                .then().statusCode(200).body("data.total", equalTo(1));
 
         givenAs(admin).when().post("/api/v1/collector-advances/" + advanceId + "/approve")
                 .then().statusCode(200).body("data.status", equalTo("APPROVED"));
         givenAs(admin).when().get("/api/v1/accounting/journal")
-                .then().statusCode(200).body("data.total", equalTo(0));
+                .then().statusCode(200).body("data.total", equalTo(1));
 
         givenAs(admin).when().post("/api/v1/collector-advances/" + advanceId + "/disburse")
                 .then().statusCode(200).body("data.status", equalTo("OPEN"));
 
         // Pièce d'avance au journal (4091 / trésorerie), au décaissement.
         givenAs(admin).when().get("/api/v1/accounting/journal")
-                .then().statusCode(200).body("data.total", equalTo(1));
+                .then().statusCode(200).body("data.total", equalTo(2));
 
         String memberId = createProducer(admin, "Kouadio");
 
@@ -156,7 +159,7 @@ class CollectorAdvanceTest extends AbstractIntegrationTest {
                 .body("data.remainingFcfa", equalTo(250000));
 
         givenAs(admin).when().get("/api/v1/accounting/journal")
-                .then().statusCode(200).body("data.total", equalTo(2));
+                .then().statusCode(200).body("data.total", equalTo(3));
 
         // Livraison qui dépasse ce qu'il a reçu : acceptée, son solde
         // devient créditeur. La coopérative lui doit alors la différence,

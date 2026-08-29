@@ -112,6 +112,17 @@ public class TenantPreferences {
     public String vatDeductibleAccount;
 
     /**
+     * Compte SYSCOHADA crédité pour la TVA collectée sur ventes.
+     *
+     * <p>Il était gravé dans le code, alors que son pendant déductible se
+     * paramétrait : deux comptes du même couple, l'un ouvert, l'autre non.
+     * Depuis que le plan comptable s'édite, un tenant qui renumérote sa
+     * TVA voyait ses ventes continuer de créditer un compte qu'il n'a
+     * plus.</p>
+     */
+    public String vatCollectedAccount;
+
+    /**
      * Cycle comptable des parts sociales : {@link #CAPITAL_FLOW_DIRECT}
      * (défaut, une pièce trésorerie/capital) ou
      * {@link #CAPITAL_FLOW_SUBSCRIPTION} (réf. v7 : souscription
@@ -130,6 +141,11 @@ public class TenantPreferences {
     public String vatDeductibleAccount() {
         return vatDeductibleAccount == null || vatDeductibleAccount.isBlank()
                 ? "445660" : vatDeductibleAccount;
+    }
+
+    public String vatCollectedAccount() {
+        return vatCollectedAccount == null || vatCollectedAccount.isBlank()
+                ? "445700" : vatCollectedAccount;
     }
 
     /**

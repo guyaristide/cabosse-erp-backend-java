@@ -50,7 +50,11 @@ class DelegateAdvanceApprovalTest extends AbstractIntegrationTest {
                 "coop-circ-" + TestFixtures.randomSlugSuffix(), "Coopérative Circuit");
         tenant.organizationModel = TenantOrganizationModel.COOPERATIVE;
         tenants.update(tenant);
-        return user(Roles.TENANT_ADMIN, "admin");
+        UserEntity admin = user(Roles.TENANT_ADMIN, "admin");
+        // Une caisse ne peut jamais être négative : la structure y met
+        // son solde d'ouverture avant toute sortie d'espèces.
+        fundCashBox(admin, 50_000_000);
+        return admin;
     }
 
     private UserEntity user(String role, String prefix) {
@@ -165,19 +169,22 @@ class DelegateAdvanceApprovalTest extends AbstractIntegrationTest {
     void nothing_leaves_the_treasury_before_the_disbursement() {
         UserEntity admin = tenantAdmin();
         String delegateId = createDelegate(admin, "Délégué Sanogo");
+        // Une référence prise au départ : le journal porte déjà l'amorçage
+        // de la caisse, et ce qu'on veut lire est ce que le circuit ajoute.
+        long before = journalCount(admin);
 
         String id = requestAdvance(admin, delegateId, 3_000_000);
         // Une demande n'est pas un versement : rien au journal.
-        org.assertj.core.api.Assertions.assertThat(journalCount(admin)).isZero();
+        org.assertj.core.api.Assertions.assertThat(journalCount(admin)).isEqualTo(before);
 
         givenAs(admin).when().post("/api/v1/collector-advances/" + id + "/approve")
                 .then().statusCode(200);
         // Approuver n'est pas payer non plus.
-        org.assertj.core.api.Assertions.assertThat(journalCount(admin)).isZero();
+        org.assertj.core.api.Assertions.assertThat(journalCount(admin)).isEqualTo(before);
 
         givenAs(admin).when().post("/api/v1/collector-advances/" + id + "/disburse")
                 .then().statusCode(200);
-        org.assertj.core.api.Assertions.assertThat(journalCount(admin)).isEqualTo(1);
+        org.assertj.core.api.Assertions.assertThat(journalCount(admin)).isEqualTo(before + 1);
     }
 
     @Test
@@ -222,6 +229,7 @@ class DelegateAdvanceApprovalTest extends AbstractIntegrationTest {
     void a_refusal_carries_its_reason_and_leaves_nothing_behind() {
         UserEntity admin = tenantAdmin();
         String delegateId = createDelegate(admin, "Délégué Diarra");
+        long before = journalCount(admin);
         String id = requestAdvance(admin, delegateId, 5_000_000);
 
         // Un refus sans motif ne se conteste pas.
@@ -238,7 +246,7 @@ class DelegateAdvanceApprovalTest extends AbstractIntegrationTest {
                 .body("data.rejectedByEmail", equalTo(admin.email))
                 .body("data.pieceRef", nullValue());
 
-        org.assertj.core.api.Assertions.assertThat(journalCount(admin)).isZero();
+        org.assertj.core.api.Assertions.assertThat(journalCount(admin)).isEqualTo(before);
 
         // Un refus est terminal : il ne se décaisse pas, et il ne se clôt
         // pas non plus, ce qui laisserait croire à un décompte.
@@ -302,6 +310,7 @@ class DelegateAdvanceApprovalTest extends AbstractIntegrationTest {
     void a_decision_is_taken_only_once() {
         UserEntity admin = tenantAdmin();
         String delegateId = createDelegate(admin, "Délégué Coulibaly");
+        long before = journalCount(admin);
         String id = requestAdvance(admin, delegateId, 600_000);
 
         givenAs(admin).when().post("/api/v1/collector-advances/" + id + "/approve")
@@ -319,7 +328,7 @@ class DelegateAdvanceApprovalTest extends AbstractIntegrationTest {
         // Un second décaissement sortirait deux fois les fonds.
         givenAs(admin).when().post("/api/v1/collector-advances/" + id + "/disburse")
                 .then().statusCode(422);
-        org.assertj.core.api.Assertions.assertThat(journalCount(admin)).isEqualTo(1);
+        org.assertj.core.api.Assertions.assertThat(journalCount(admin)).isEqualTo(before + 1);
     }
 
     @Test

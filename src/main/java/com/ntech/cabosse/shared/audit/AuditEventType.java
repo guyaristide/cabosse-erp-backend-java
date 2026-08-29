@@ -55,6 +55,7 @@ public enum AuditEventType {
 
     // === Configuration plateforme ===
     CATALOG_UPDATED,
+    CHART_ACCOUNT_CHANGED,
     PLATFORM_SETTINGS_UPDATED,
 
     // === Achats (M2) ===
@@ -165,7 +166,8 @@ public enum AuditEventType {
             case IMPERSONATION_STARTED, IMPERSONATION_ENDED -> AuditCategory.IMPERSONATION;
             case TICKET_ASSIGNED, TICKET_PRIORITY_CHANGED, TICKET_STATUS_CHANGED,
                  TICKET_REPLIED, TICKET_NOTE_ADDED -> AuditCategory.SUPPORT;
-            case CATALOG_UPDATED, PLATFORM_SETTINGS_UPDATED -> AuditCategory.CONFIG;
+            case CATALOG_UPDATED, CHART_ACCOUNT_CHANGED,
+                 PLATFORM_SETTINGS_UPDATED -> AuditCategory.CONFIG;
             case PURCHASE_ORDER_CREATED, PURCHASE_ORDER_UPDATED,
                  PURCHASE_ORDER_CONFIRMED, PURCHASE_ORDER_IN_TRANSIT,
                  PURCHASE_ORDER_DELIVERED, PURCHASE_ORDER_CANCELLED -> AuditCategory.OPERATIONS;

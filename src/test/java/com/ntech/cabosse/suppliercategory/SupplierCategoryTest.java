@@ -67,6 +67,9 @@ class SupplierCategoryTest extends AbstractIntegrationTest {
         givenAs(u).contentType("application/json")
                 .body("{\"delegateMarginMode\":\"PER_KG\",\"delegateMarginRate\":10}")
                 .when().put("/api/v1/me/tenant/preferences").then().statusCode(200);
+        // Une caisse ne peut jamais être négative : la structure y met son
+        // solde d'ouverture avant toute sortie d'espèces.
+        fundCashBox(u, 50_000_000);
         return u;
     }
 

@@ -46,7 +46,11 @@ class MemberCreditTest extends AbstractIntegrationTest {
                 "coop-credit-" + TestFixtures.randomSlugSuffix(), "Coopérative Crédit");
         tenant.organizationModel = TenantOrganizationModel.COOPERATIVE;
         tenants.update(tenant);
-        return user(Roles.TENANT_ADMIN, "admin");
+        UserEntity admin = user(Roles.TENANT_ADMIN, "admin");
+        // Une caisse ne peut jamais être négative : la structure y met
+        // son solde d'ouverture avant toute sortie d'espèces.
+        fundCashBox(admin, 50_000_000);
+        return admin;
     }
 
     private UserEntity user(String role, String prefix) {

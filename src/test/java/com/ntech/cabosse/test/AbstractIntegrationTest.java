@@ -97,6 +97,31 @@ public abstract class AbstractIntegrationTest {
      * Spécification RestAssured pré-configurée avec le bon Bearer token.
      * Usage : {@code givenAs(admin).when().get("/api/v1/admin/tenants").then()...}
      */
+    /**
+     * Garnit la caisse, comme une coopérative le fait à l'ouverture.
+     *
+     * <p>Une caisse ne peut jamais être négative : aucun paiement en
+     * espèces ne passe tant qu'elle est vide. En exploitation, la structure
+     * déclare l'argent déjà présent par une écriture d'ouverture, ou
+     * l'approvisionne depuis sa banque. Ce helper fait la première, par le
+     * même chemin qu'un comptable : une opération diverse, validée.</p>
+     */
+    protected void fundCashBox(UserEntity admin, long amount) {
+        String odId = givenAs(admin).contentType("application/json")
+                .body("""
+                        { "date": "%s", "libelle": "Solde d'ouverture de caisse",
+                          "lines": [
+                            { "account": "571000", "libelle": "Espèces en caisse",
+                              "debitFcfa": %d },
+                            { "account": "471000", "libelle": "Contrepartie d'amorçage",
+                              "creditFcfa": %d } ] }
+                        """.formatted(java.time.LocalDate.now().minusYears(1), amount, amount))
+                .when().post("/api/v1/accounting/od")
+                .then().statusCode(201).extract().path("data.id");
+        givenAs(admin).when().post("/api/v1/accounting/od/" + odId + "/validate")
+                .then().statusCode(200);
+    }
+
     protected RequestSpecification givenAs(UserEntity user) {
         return given().auth().oauth2(bearerTokenFor(user));
     }

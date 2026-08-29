@@ -18,6 +18,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.HashSet;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
@@ -201,5 +202,79 @@ class TreasuryTest extends AbstractIntegrationTest {
                 .when().get("/api/v1/treasury/cash-position")
                 .then().statusCode(200)
                 .body("data.theoreticalFcfa", equalTo(497000));
+    }
+
+    // ─── Règles de la spécification Trésorerie ──────────────────────
+
+    private io.restassured.response.ValidatableResponse trySend(
+            UserEntity admin, String fromId, String toId, int amount) {
+        return givenAs(admin).contentType("application/json")
+                .body("""
+                        { "fromAccountId": "%s", "toAccountId": "%s", "amountFcfa": %d,
+                          "sentAt": "%s", "carrierName": "Chauffeur Koffi" }
+                        """.formatted(fromId, toId, amount, LocalDate.now()))
+                .when().post("/api/v1/treasury/transfers").then();
+    }
+
+    @Test
+    void a_cash_box_is_only_ever_topped_up_from_a_bank() {
+        UserEntity admin = tenantAdmin();
+        String bank = createAccount(admin, "BANQUE", "Banque Abidjan", "521000");
+        String cash = createAccount(admin, "CAISSE", "Caisse centrale", "571000");
+        String other = createAccount(admin, "CAISSE", "Caisse Méagui", "571000");
+
+        // Des espèces sans origine bancaire ne se rapprochent d'aucun
+        // relevé : un manquant y deviendrait indétectable.
+        trySend(admin, cash, other, 100000).statusCode(422)
+                .body("statusMessage", containsString("compte bancaire"));
+
+        // Depuis la banque, oui.
+        String topUp = send(admin, bank, cash, 100000, "Chauffeur Koffi");
+
+        // Le versement inverse est libre — mais tant que les fonds sont en
+        // route, la caisse est vide et n'a rien à verser.
+        trySend(admin, cash, bank, 50000).statusCode(422);
+
+        givenAs(admin).contentType("application/json")
+                .body("{\"receivedAt\":\"%s\",\"amountReceivedFcfa\":100000}"
+                        .formatted(LocalDate.now()))
+                .when().post("/api/v1/treasury/transfers/" + topUp + "/receive")
+                .then().statusCode(200);
+
+        // Reçus, ils peuvent repartir : c'est la recette du jour.
+        trySend(admin, cash, bank, 50000).statusCode(201);
+    }
+
+    @Test
+    void a_cash_box_never_goes_negative() {
+        UserEntity admin = tenantAdmin();
+        String bank = createAccount(admin, "BANQUE", "Banque Abidjan", "521000");
+        String cash = createAccount(admin, "CAISSE", "Caisse centrale", "571000");
+
+        // Rien dans le tiroir : rien n'en sort.
+        trySend(admin, cash, bank, 50000).statusCode(422)
+                .body("statusMessage", containsString("caisse"));
+
+        // On l'approvisionne, et la réception garnit vraiment la caisse.
+        String transferId = send(admin, bank, cash, 200000, "Chauffeur Koffi");
+        givenAs(admin).contentType("application/json")
+                .body("{\"receivedAt\":\"%s\",\"amountReceivedFcfa\":200000}"
+                        .formatted(LocalDate.now()))
+                .when().post("/api/v1/treasury/transfers/" + transferId + "/receive")
+                .then().statusCode(200);
+
+        // Ce qu'elle contient sort ; ce qu'elle ne contient pas, non.
+        trySend(admin, cash, bank, 250000).statusCode(422);
+        trySend(admin, cash, bank, 200000).statusCode(201);
+    }
+
+    @Test
+    void a_bank_account_may_go_negative_because_an_overdraft_is_negotiated() {
+        UserEntity admin = tenantAdmin();
+        String bank = createAccount(admin, "BANQUE", "Banque Abidjan", "521000");
+        String other = createAccount(admin, "BANQUE", "Banque Bangolo", "521000");
+
+        // Le découvert s'autorise : la règle ne vaut que pour les espèces.
+        trySend(admin, bank, other, 3000000).statusCode(201);
     }
 }

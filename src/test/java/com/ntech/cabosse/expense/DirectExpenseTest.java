@@ -55,6 +55,9 @@ class DirectExpenseTest extends AbstractIntegrationTest {
     @Test
     void petty_cash_expense_posts_charge_over_cash() {
         UserEntity admin = tenantAdmin();
+        // Une caisse vide ne paie rien : la structure y met d'abord son
+        // solde d'ouverture.
+        fundCashBox(admin, 100000);
 
         givenAs(admin).contentType("application/json")
                 .body("""
@@ -68,9 +71,11 @@ class DirectExpenseTest extends AbstractIntegrationTest {
                 .body("data.amountTtcFcfa", equalTo(5000))
                 .body("data.treasuryAccount", equalTo("571000"));
 
+        // Deux pièces : l'amorçage de la caisse, puis la dépense. La
+        // dépense est la plus récente, donc en tête.
         givenAs(admin).when().get("/api/v1/accounting/journal")
                 .then().statusCode(200)
-                .body("data.total", equalTo(1))
+                .body("data.total", equalTo(2))
                 .body("data.items[0].sourceType", equalTo("DIRECT_EXPENSE"))
                 .body("data.items[0].entries.syscohadaAccount", hasItem("628000"))
                 .body("data.items[0].entries.syscohadaAccount", hasItem("571000"));

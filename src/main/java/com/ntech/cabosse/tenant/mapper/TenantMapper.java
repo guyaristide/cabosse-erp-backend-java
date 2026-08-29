@@ -148,6 +148,7 @@ public final class TenantMapper {
                 entity.preferences.inventoryAlertThresholdFcfa(),
                 entity.preferences.periodReopenPolicy(),
                 entity.preferences.vatDeductibleAccount(),
+                entity.preferences.vatCollectedAccount(),
                 entity.preferences.memberCapitalFlow(),
                 entity.preferences.analyticsIncludeStockTransfers(),
                 entity.preferences.fiscalYearStartMonth(),

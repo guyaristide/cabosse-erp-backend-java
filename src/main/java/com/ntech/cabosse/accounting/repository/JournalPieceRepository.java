@@ -1,6 +1,8 @@
 package com.ntech.cabosse.accounting.repository;
 
 import com.mongodb.client.MongoCollection;
+import com.mongodb.client.model.Accumulators;
+import com.mongodb.client.model.Aggregates;
 import com.mongodb.client.model.Filters;
 import com.ntech.cabosse.accounting.entity.JournalPieceEntity;
 import com.ntech.cabosse.accounting.entity.PostingSourceType;
@@ -8,8 +10,10 @@ import com.ntech.cabosse.shared.persistence.TenantMongoDatabaseProvider;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.bson.Document;
+import org.bson.types.Decimal128;
 import org.bson.conversions.Bson;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -105,6 +109,45 @@ public class JournalPieceRepository {
         }
         if (campaignId != null) filters.add(Filters.eq("campaignId", campaignId));
         return filters;
+    }
+
+    /**
+     * Solde d'un compte à une date, calculé par le serveur.
+     *
+     * <p>Débits moins crédits. Reconstruire ce solde en Java suppose de
+     * rapatrier toutes les pièces du compte : praticable pour un état
+     * mensuel, pas pour un contrôle posé sur chaque paiement en espèces.
+     * L'agrégation le calcule là où vivent les données.</p>
+     *
+     * <p>Les montants sont en {@code Decimal128} : la somme reste exacte,
+     * là où un cumul en virgule flottante dériverait.</p>
+     */
+    public BigDecimal balance(String syscohadaAccount, LocalDate upTo) {
+        if (syscohadaAccount == null || syscohadaAccount.isBlank()) return BigDecimal.ZERO;
+        List<Bson> stages = new ArrayList<>();
+        List<Bson> match = new ArrayList<>();
+        if (upTo != null) match.add(Filters.lte("date", upTo));
+        match.add(Filters.eq("entries.syscohadaAccount", syscohadaAccount));
+        stages.add(Aggregates.match(Filters.and(match)));
+        stages.add(Aggregates.unwind("$entries"));
+        // Le second filtre est indispensable : la pièce retenue porte
+        // d'autres lignes, sur d'autres comptes, qu'il ne faut pas sommer.
+        stages.add(Aggregates.match(Filters.eq("entries.syscohadaAccount", syscohadaAccount)));
+        stages.add(Aggregates.group(null,
+                Accumulators.sum("debit", "$entries.debitFcfa"),
+                Accumulators.sum("credit", "$entries.creditFcfa")));
+
+        Document row = coll().withDocumentClass(Document.class).aggregate(stages).first();
+        if (row == null) return BigDecimal.ZERO;
+        return decimal(row.get("debit")).subtract(decimal(row.get("credit")));
+    }
+
+    /** Un montant absent vaut zéro ; un Decimal128 garde son exactitude. */
+    private static BigDecimal decimal(Object value) {
+        if (value == null) return BigDecimal.ZERO;
+        if (value instanceof Decimal128 d) return d.bigDecimalValue();
+        if (value instanceof Number n) return new BigDecimal(n.toString());
+        return BigDecimal.ZERO;
     }
 
     public void insert(JournalPieceEntity e) {

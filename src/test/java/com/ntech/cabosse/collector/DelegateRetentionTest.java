@@ -59,6 +59,9 @@ class DelegateRetentionTest extends AbstractIntegrationTest {
         u.createdAt = Instant.now();
         u.updatedAt = u.createdAt;
         users.persist(u);
+        // Une caisse ne peut jamais être négative : la structure y met
+        // son solde d'ouverture avant toute sortie d'espèces.
+        fundCashBox(u, 50_000_000);
         return u;
     }
 

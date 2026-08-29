@@ -48,6 +48,9 @@ class AllocationKeyTest extends AbstractIntegrationTest {
         u.createdAt = Instant.now();
         u.updatedAt = u.createdAt;
         users.persist(u);
+        // Une caisse ne peut jamais être négative : la structure y met
+        // son solde d'ouverture avant toute sortie d'espèces.
+        fundCashBox(u, 50_000_000);
         return u;
     }
 
@@ -107,7 +110,8 @@ class AllocationKeyTest extends AbstractIntegrationTest {
         // La pièce porte 3 lignes de charge imputées, + le crédit caisse.
         givenAs(admin).when().get("/api/v1/accounting/journal")
                 .then().statusCode(200)
-                .body("data.total", equalTo(1))
+                // L'amorçage de la caisse compte pour une pièce.
+                .body("data.total", equalTo(2))
                 .body("data.items[0].entries.find { it.costCenter == 'COL' }.debitFcfa", equalTo(50000))
                 .body("data.items[0].entries.find { it.costCenter == 'AGRO' }.debitFcfa", equalTo(30000))
                 .body("data.items[0].entries.find { it.costCenter == 'ADM' }.debitFcfa", equalTo(20000))

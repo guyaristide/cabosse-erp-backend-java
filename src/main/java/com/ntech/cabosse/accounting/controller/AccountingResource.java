@@ -10,6 +10,7 @@ import com.ntech.cabosse.accounting.dto.BankAccountResponseDto;
 import com.ntech.cabosse.accounting.dto.BankAccountUpsertDto;
 import com.ntech.cabosse.accounting.dto.BankStatementLineResponseDto;
 import com.ntech.cabosse.accounting.dto.BankStatementResponseDto;
+import com.ntech.cabosse.accounting.dto.ChartAccountUpsertDto;
 import com.ntech.cabosse.accounting.dto.ChartOfAccountsResponseDto;
 import com.ntech.cabosse.accounting.dto.JournalPieceResponseDto;
 import com.ntech.cabosse.accounting.dto.QuarantinedPostingDto;
@@ -40,6 +41,7 @@ import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
+import jakarta.ws.rs.PATCH;
 import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
@@ -82,6 +84,7 @@ public class AccountingResource {
     @Inject BankAccountService bankAccounts;
     @Inject AccountingExportService exports;
     @Inject ExportAudit exportAudit;
+    @Inject com.ntech.cabosse.accounting.service.ChartOfAccountsService chartService;
     @Inject com.ntech.cabosse.accounting.service.TvaDeclarationService tvaService;
     @Inject BankStatementImportService statementImport;
     @Inject BankReconciliationService reconciliation;
@@ -109,6 +112,47 @@ public class AccountingResource {
                 family, parseDate(fromRaw), parseDate(toRaw)
         );
         return Response.ok(ApiResponse.ok(chart)).build();
+    }
+
+    /**
+     * Ouvre un compte. Le plan était figé par migrations : déclarer une
+     * deuxième caisse ou une deuxième banque demandait une livraison.
+     */
+    @POST
+    @Path("/chart")
+    @RequiresPermission(Permission.ACCOUNTING_WRITE)
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    public Response createChartAccount(@Valid ChartAccountUpsertDto payload) {
+        var created = chartService.create(payload);
+        return Response.status(Response.Status.CREATED)
+                .entity(ApiResponse.created(ChartOfAccountsResponseDto.from(
+                        created, java.math.BigDecimal.ZERO, 0)))
+                .build();
+    }
+
+    /** Renomme un compte ou change sa famille. Le numéro, lui, ne bouge pas. */
+    @PUT
+    @Path("/chart/{id}")
+    @RequiresPermission(Permission.ACCOUNTING_WRITE)
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    public Response updateChartAccount(@PathParam("id") UUID id,
+                                       @Valid ChartAccountUpsertDto payload) {
+        var updated = chartService.update(id, payload);
+        return Response.ok(ApiResponse.ok(ChartOfAccountsResponseDto.from(
+                updated, java.math.BigDecimal.ZERO, 0))).build();
+    }
+
+    /** Désactive ou réactive un compte. Un compte ne se supprime jamais. */
+    @PATCH
+    @Path("/chart/{id}/active")
+    @Consumes(MediaType.WILDCARD)
+    @RequiresPermission(Permission.ACCOUNTING_WRITE)
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    public Response setChartAccountActive(@PathParam("id") UUID id,
+                                          @QueryParam("value") boolean value) {
+        var updated = chartService.setActive(id, value);
+        return Response.ok(ApiResponse.ok(ChartOfAccountsResponseDto.from(
+                updated, java.math.BigDecimal.ZERO, 0))).build();
     }
 
     // ─── Journal général ────────────────────────────────────────────
@@ -420,6 +464,7 @@ public class AccountingResource {
 
     /** La validation fige l'OD au journal : réservée à l'administrateur. */
     @POST
+    @Consumes(MediaType.WILDCARD)
     @RequiresPermission(Permission.ACCOUNTING_WRITE)
     @Path("/od/{id}/validate")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })

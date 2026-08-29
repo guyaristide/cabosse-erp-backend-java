@@ -176,4 +176,66 @@ class TvaWorkflowTest extends AbstractIntegrationTest {
                     "Un mois sans TVA doit se déclarer à zéro (" + field + ")");
         }
     }
+
+    /**
+     * Le compte de TVA collectée se paramètre, comme son pendant
+     * déductible.
+     *
+     * <p>Il était gravé dans le code : le moteur créditait 445700 et la
+     * déclaration lisait 445700, d'accord entre eux mais sourds au plan
+     * comptable du tenant. Depuis que celui-ci s'édite, une structure qui
+     * renumérote sa TVA voyait ses ventes continuer d'alimenter un compte
+     * qu'elle n'a plus, et sa déclaration le suivre : deux erreurs qui se
+     * confirment l'une l'autre.</p>
+     */
+    @Test
+    void le_compte_de_tva_collectee_suit_le_plan_du_tenant() {
+        UserEntity admin = tenantAdmin();
+
+        givenAs(admin).contentType("application/json")
+                .body("{ \"number\": \"445710\", \"label\": \"TVA collectée 18 %\", \"family\": \"TVA\" }")
+                .when().post("/api/v1/accounting/chart").then().statusCode(201);
+        givenAs(admin).contentType("application/json")
+                .body("{ \"vatCollectedAccount\": \"445710\" }")
+                .when().put("/api/v1/me/tenant/preferences").then().statusCode(200);
+
+        // Une vente passée sur le nouveau compte.
+        postValidatedOd(admin, """
+                { "date": "%s", "libelle": "Vente TTC",
+                  "lines": [
+                    { "account": "411000", "libelle": "Client", "debitFcfa": 11800 },
+                    { "account": "701000", "libelle": "Vente", "creditFcfa": 10000 },
+                    { "account": "445710", "libelle": "TVA collectée", "creditFcfa": 1800 }
+                  ] }
+                """.formatted(LocalDate.now()));
+
+        // La déclaration la voit : elle lit le compte du tenant, pas une
+        // constante.
+        givenAs(admin).contentType("application/json")
+                .when().post("/api/v1/accounting/tva/" + YearMonth.now() + "/mark-ready")
+                .then().statusCode(200)
+                .body("data.collectedFcfa", org.hamcrest.Matchers.comparesEqualTo(1800.0f));
+    }
+
+    /**
+     * Les pièces déjà passées sur l'ancien compte continuent de compter :
+     * changer de compte ne doit pas effacer une déclaration en cours.
+     */
+    @Test
+    void les_ecritures_de_l_ancien_compte_restent_declarees() {
+        UserEntity admin = tenantAdmin();
+        saleWithVat(admin);
+
+        givenAs(admin).contentType("application/json")
+                .body("{ \"number\": \"445710\", \"label\": \"TVA collectée 18 %\", \"family\": \"TVA\" }")
+                .when().post("/api/v1/accounting/chart").then().statusCode(201);
+        givenAs(admin).contentType("application/json")
+                .body("{ \"vatCollectedAccount\": \"445710\" }")
+                .when().put("/api/v1/me/tenant/preferences").then().statusCode(200);
+
+        givenAs(admin).contentType("application/json")
+                .when().post("/api/v1/accounting/tva/" + YearMonth.now() + "/mark-ready")
+                .then().statusCode(200)
+                .body("data.collectedFcfa", org.hamcrest.Matchers.comparesEqualTo(1800.0f));
+    }
 }

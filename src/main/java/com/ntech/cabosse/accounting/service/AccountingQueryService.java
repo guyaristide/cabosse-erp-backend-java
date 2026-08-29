@@ -297,7 +297,15 @@ public class AccountingQueryService {
             deductible = deductible.add(
                     stats.getOrDefault(SyscohadaAccounts.TVA_DEDUCTIBLE, AccountStats.ZERO).balance());
         }
-        BigDecimal collected = stats.getOrDefault(SyscohadaAccounts.TVA_COLLECTEE, AccountStats.ZERO).balance().negate();
+        // Symétrique du déductible : le compte se paramètre, et l'ancien
+        // continue de compter tant que des pièces y dorment.
+        String collectedAccount = preferencesLookup.current().vatCollectedAccount();
+        BigDecimal collectedBalance = stats.getOrDefault(collectedAccount, AccountStats.ZERO).balance();
+        if (!SyscohadaAccounts.TVA_COLLECTEE.equals(collectedAccount)) {
+            collectedBalance = collectedBalance.add(
+                    stats.getOrDefault(SyscohadaAccounts.TVA_COLLECTEE, AccountStats.ZERO).balance());
+        }
+        BigDecimal collected = collectedBalance.negate();
         return new TvaSnapshot(yearMonth, collected, deductible, collected.subtract(deductible));
     }
 

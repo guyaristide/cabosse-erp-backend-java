@@ -59,6 +59,7 @@ public record UpdateTenantPreferencesPayloadDto(
         @Schema(description = "Compte SYSCOHADA débité pour la TVA déductible sur achats.",
                 example = "445660")
         String vatDeductibleAccount,
+        String vatCollectedAccount,
 
         @jakarta.validation.constraints.Pattern(regexp = "^$|^(DIRECT|SUBSCRIPTION)$",
                 message = "{v.cycle-des-parts-sociales-direct-ou-subscription}")

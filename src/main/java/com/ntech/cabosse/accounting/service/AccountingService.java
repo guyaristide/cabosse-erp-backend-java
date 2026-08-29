@@ -1,5 +1,7 @@
 package com.ntech.cabosse.accounting.service;
 
+import com.ntech.cabosse.accounting.entity.BankAccountEntity;
+import com.ntech.cabosse.accounting.entity.BankAccountKind;
 import com.ntech.cabosse.accounting.entity.JournalEntry;
 import com.ntech.cabosse.accounting.entity.JournalPieceEntity;
 import com.ntech.cabosse.accounting.entity.PostingSourceType;
@@ -31,9 +33,12 @@ import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -68,6 +73,7 @@ public class AccountingService {
     private static final int VAT_RATIO_SCALE = 6;
 
     @Inject JournalPieceRepository pieces;
+    @Inject com.ntech.cabosse.accounting.repository.BankAccountRepository bankAccounts;
     @Inject com.ntech.cabosse.accounting.repository.AccountingPeriodRepository periods;
     @Inject com.ntech.cabosse.accounting.repository.QuarantinedPostingRepository quarantined;
     @Inject JournalPieceRefService refService;
@@ -252,6 +258,9 @@ public class AccountingService {
                         "m.acc-project-requires-program", e.syscohadaAccount));
             }
         }
+
+        // 3 bis. Une caisse ne peut jamais être négative.
+        ensureCashStaysPositive(request);
 
         // 4. Construction + insert
         JournalPieceEntity piece = new JournalPieceEntity();
@@ -655,7 +664,7 @@ public class AccountingService {
         entries.add(JournalEntry.debit(SyscohadaAccounts.CLIENTS, "Créance " + nullSafe(customerName), ttc));
         entries.add(JournalEntry.credit(revenue, "Vente en gros " + ref, ht));
         if (vat.signum() > 0) {
-            entries.add(JournalEntry.credit(SyscohadaAccounts.TVA_COLLECTEE, "TVA collectée " + ref, vat));
+            entries.add(JournalEntry.credit(preferencesLookup.current().vatCollectedAccount(), "TVA collectée " + ref, vat));
         }
         return postPiece(new PostingRequest(
                 date != null ? date : LocalDate.now(),
@@ -962,7 +971,7 @@ public class AccountingService {
         entries.addAll(salesRevenueEntries(sale, ht));
         if (vat.signum() > 0) {
             entries.add(JournalEntry.credit(
-                    SyscohadaAccounts.TVA_COLLECTEE,
+                    preferencesLookup.current().vatCollectedAccount(),
                     "TVA collectée " + nz(sale.vatRatePct) + "%",
                     vat
             ));
@@ -1210,6 +1219,68 @@ public class AccountingService {
     // ════════════════════════════════════════════════════════════════
     //  Helpers internes
     // ════════════════════════════════════════════════════════════════
+
+
+    /**
+     * Une caisse ne peut jamais être négative (spécification Trésorerie).
+     *
+     * <p>Une banque, si : le découvert s'autorise et se négocie. Une caisse
+     * non : elle contient des billets, et on ne sort pas d'un tiroir ce
+     * qu'il ne contient pas. Un solde négatif y signale toujours une erreur
+     * de saisie ou un vol, jamais une situation réelle.</p>
+     *
+     * <p>Le contrôle vit ici, au point de passage de toutes les écritures,
+     * plutôt que recopié dans les huit flux qui sortent des espèces. Un
+     * flux ajouté demain en hérite sans qu'on y pense ; recopié, il aurait
+     * fini par manquer quelque part.</p>
+     *
+     * <p>Ce qui rentre n'est jamais contrôlé, et une pièce qui débite la
+     * caisse plus qu'elle ne la crédite non plus : seul un solde qui
+     * passerait sous zéro est refusé.</p>
+     */
+    private void ensureCashStaysPositive(PostingRequest request) {
+        Map<String, BigDecimal> outflow = new HashMap<>();
+        for (JournalEntry e : request.entries()) {
+            if (e.syscohadaAccount == null) continue;
+            BigDecimal net = nz(e.creditFcfa).subtract(nz(e.debitFcfa));
+            if (net.signum() == 0) continue;
+            outflow.merge(e.syscohadaAccount, net, BigDecimal::add);
+        }
+        if (outflow.isEmpty()) return;
+
+        Set<String> cashAccounts = cashAccounts();
+        LocalDate at = request.date() != null ? request.date() : LocalDate.now();
+        for (Map.Entry<String, BigDecimal> moved : outflow.entrySet()) {
+            if (moved.getValue().signum() <= 0) continue;
+            if (!cashAccounts.contains(moved.getKey())) continue;
+            BigDecimal available = pieces.balance(moved.getKey(), at);
+            if (available.compareTo(moved.getValue()) < 0) {
+                throw new BusinessException(Messages.msg("m.acc-cash-would-go-negative",
+                        moved.getKey(), available, moved.getValue()));
+            }
+        }
+    }
+
+    /**
+     * Les comptes qui désignent des espèces.
+     *
+     * <p>Déduits des comptes de trésorerie déclarés par le tenant, et non
+     * d'un préfixe de numéro : le plan comptable est destiné à devenir
+     * éditable, et deviner la nature d'un compte à ses trois premiers
+     * chiffres serait faux le jour où un tenant le renumérote. Le compte de
+     * caisse par défaut compte, car un tenant peut encaisser en espèces
+     * sans avoir déclaré la caisse correspondante.</p>
+     */
+    private Set<String> cashAccounts() {
+        Set<String> accounts = new HashSet<>();
+        accounts.add(SyscohadaAccounts.CAISSE_DEFAULT);
+        for (BankAccountEntity account : bankAccounts.listAll()) {
+            if (account.kind == BankAccountKind.CAISSE && account.syscohadaAccount != null) {
+                accounts.add(account.syscohadaAccount);
+            }
+        }
+        return accounts;
+    }
 
     public String treasuryAccountFor(PaymentMethod method) {
         if (method == null) return SyscohadaAccounts.BANQUE_DEFAULT;

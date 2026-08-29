@@ -55,7 +55,7 @@ public class TenantPreferencesService {
                 p.postStockTransferEntries(),
                 p.inventoryAlertThresholdPct(), p.inventoryAlertThresholdFcfa(),
                 p.periodReopenPolicy(),
-                p.vatDeductibleAccount(), p.memberCapitalFlow(),
+                p.vatDeductibleAccount(), p.vatCollectedAccount(), p.memberCapitalFlow(),
                 p.analyticsIncludeStockTransfers(),
                 p.fiscalYearStartMonth(), p.incomeTaxRatePct(),
                 p.costCenterRequired(),
@@ -162,6 +162,13 @@ public class TenantPreferencesService {
                     "from", t.preferences.vatDeductibleAccount(),
                     "to", payload.vatDeductibleAccount()));
             t.preferences.vatDeductibleAccount = payload.vatDeductibleAccount().trim();
+        }
+        if (payload.vatCollectedAccount() != null && !payload.vatCollectedAccount().isBlank()
+                && !payload.vatCollectedAccount().equals(t.preferences.vatCollectedAccount())) {
+            diffs.put("vatCollectedAccount", Map.of(
+                    "from", t.preferences.vatCollectedAccount(),
+                    "to", payload.vatCollectedAccount()));
+            t.preferences.vatCollectedAccount = payload.vatCollectedAccount().trim();
         }
         if (payload.memberCapitalFlow() != null && !payload.memberCapitalFlow().isBlank()
                 && !payload.memberCapitalFlow().equals(t.preferences.memberCapitalFlow())) {
