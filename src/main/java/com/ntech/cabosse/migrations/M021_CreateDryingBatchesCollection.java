@@ -6,6 +6,7 @@ import com.mongodb.client.model.IndexModel;
 import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.model.Indexes;
 import com.ntech.cabosse.shared.migration.CapabilityMigrationGuard;
+import com.ntech.cabosse.shared.migration.MigrationIndexes;
 import com.ntech.cabosse.tenant.capability.TenantCapability;
 import io.mongock.api.annotations.ChangeUnit;
 import io.mongock.api.annotations.Execution;
@@ -29,7 +30,7 @@ public class M021_CreateDryingBatchesCollection {
         if (!CapabilityMigrationGuard.shouldRunFor(database, client, TenantCapability.HAS_DRYING)) {
             return;
         }
-        database.getCollection("drying_batches").createIndexes(List.of(
+        MigrationIndexes.ensure(database.getCollection("drying_batches"), List.of(
                 new IndexModel(Indexes.ascending("ref"), new IndexOptions().unique(true).name("uniq_drying_ref")),
                 new IndexModel(Indexes.ascending("status"), new IndexOptions().name("idx_drying_status")),
                 new IndexModel(Indexes.descending("startedAt"), new IndexOptions().name("idx_drying_startedAt_desc").sparse(true)),

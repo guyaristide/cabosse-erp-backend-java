@@ -6,6 +6,7 @@ import com.mongodb.client.model.IndexModel;
 import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.model.Indexes;
 import com.ntech.cabosse.shared.migration.CapabilityMigrationGuard;
+import com.ntech.cabosse.shared.migration.MigrationIndexes;
 import com.ntech.cabosse.tenant.capability.TenantCapability;
 import io.mongock.api.annotations.ChangeUnit;
 import io.mongock.api.annotations.Execution;
@@ -29,7 +30,7 @@ public class M016_CreateEudrDossiersCollection {
         if (!CapabilityMigrationGuard.shouldRunFor(database, client, TenantCapability.HAS_EUDR_COMPLIANCE)) {
             return;
         }
-        database.getCollection("eudr_dossiers").createIndexes(List.of(
+        MigrationIndexes.ensure(database.getCollection("eudr_dossiers"), List.of(
                 new IndexModel(
                         Indexes.ascending("parcelId"),
                         new IndexOptions().unique(true).name("uniq_eudr_parcelId")

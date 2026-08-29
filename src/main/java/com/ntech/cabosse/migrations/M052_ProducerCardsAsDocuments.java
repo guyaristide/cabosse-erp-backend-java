@@ -5,12 +5,14 @@ import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.Filters;
+import com.mongodb.client.model.IndexModel;
 import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.model.Indexes;
 import com.mongodb.client.model.UpdateOneModel;
 import com.mongodb.client.model.Updates;
 import com.mongodb.client.model.WriteModel;
 import com.ntech.cabosse.shared.migration.CapabilityMigrationGuard;
+import com.ntech.cabosse.shared.migration.MigrationIndexes;
 import com.ntech.cabosse.tenant.capability.TenantCapability;
 import io.mongock.api.annotations.ChangeUnit;
 import io.mongock.api.annotations.Execution;
@@ -108,9 +110,9 @@ public class M052_ProducerCardsAsDocuments {
         if (!ops.isEmpty()) members.bulkWrite(ops);
 
         boolean hasDuplicates = byKey.values().stream().anyMatch(names -> names.size() > 1);
-        members.createIndex(
+        MigrationIndexes.ensure(members, new IndexModel(
                 Indexes.ascending("producerRefKeys"),
-                producerRefKeysIndexOptions(hasDuplicates));
+                producerRefKeysIndexOptions(hasDuplicates)));
     }
 
     /**

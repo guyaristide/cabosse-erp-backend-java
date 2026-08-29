@@ -2,13 +2,16 @@ package com.ntech.cabosse.migrations;
 
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoDatabase;
+import com.mongodb.client.model.IndexModel;
 import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.model.Indexes;
 import com.ntech.cabosse.shared.migration.CapabilityMigrationGuard;
+import com.ntech.cabosse.shared.migration.MigrationIndexes;
 import com.ntech.cabosse.tenant.capability.TenantCapability;
 import io.mongock.api.annotations.ChangeUnit;
 import io.mongock.api.annotations.Execution;
 import io.mongock.api.annotations.RollbackExecution;
+import java.util.List;
 
 /**
  * Migration 054 — crédits et avances aux producteurs membres.
@@ -37,12 +40,13 @@ public class M054_CreateMemberCreditsCollection {
             return;
         }
         var credits = database.getCollection("member_credits");
-        credits.createIndex(Indexes.ascending("memberId", "status"),
-                new IndexOptions().name("idx_member_credits_member_status").background(true));
-        credits.createIndex(Indexes.ascending("ref"),
-                new IndexOptions().name("uniq_member_credits_ref").unique(true).background(true));
-        credits.createIndex(Indexes.ascending("campaignId"),
-                new IndexOptions().name("idx_member_credits_campaign").sparse(true).background(true));
+        MigrationIndexes.ensure(credits, List.of(
+                new IndexModel(Indexes.ascending("memberId", "status"),
+                        new IndexOptions().name("idx_member_credits_member_status").background(true)),
+                new IndexModel(Indexes.ascending("ref"),
+                        new IndexOptions().name("uniq_member_credits_ref").unique(true).background(true)),
+                new IndexModel(Indexes.ascending("campaignId"),
+                        new IndexOptions().name("idx_member_credits_campaign").sparse(true).background(true))));
     }
 
     @RollbackExecution

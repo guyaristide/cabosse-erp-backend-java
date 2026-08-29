@@ -3,9 +3,11 @@ package com.ntech.cabosse.migrations;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.Filters;
+import com.mongodb.client.model.IndexModel;
 import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.model.Indexes;
 import com.ntech.cabosse.shared.migration.CapabilityMigrationGuard;
+import com.ntech.cabosse.shared.migration.MigrationIndexes;
 import com.ntech.cabosse.tenant.capability.TenantCapability;
 import io.mongock.api.annotations.ChangeUnit;
 import io.mongock.api.annotations.Execution;
@@ -53,9 +55,9 @@ public class M048_ProducerEnrolment {
 
     private static void createCropsCollection(MongoDatabase database) {
         if (database.getCollection("crops").countDocuments() > 0) return;
-        database.getCollection("crops").createIndex(
+        MigrationIndexes.ensure(database.getCollection("crops"), new IndexModel(
                 Indexes.ascending("code"),
-                new IndexOptions().unique(true).name("uniq_crops_code"));
+                new IndexOptions().unique(true).name("uniq_crops_code")));
     }
 
     /**

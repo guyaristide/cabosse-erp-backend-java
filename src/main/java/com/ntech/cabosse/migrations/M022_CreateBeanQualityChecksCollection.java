@@ -6,6 +6,7 @@ import com.mongodb.client.model.IndexModel;
 import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.model.Indexes;
 import com.ntech.cabosse.shared.migration.CapabilityMigrationGuard;
+import com.ntech.cabosse.shared.migration.MigrationIndexes;
 import com.ntech.cabosse.tenant.capability.TenantCapability;
 import io.mongock.api.annotations.ChangeUnit;
 import io.mongock.api.annotations.Execution;
@@ -29,7 +30,7 @@ public class M022_CreateBeanQualityChecksCollection {
         if (!CapabilityMigrationGuard.shouldRunFor(database, client, TenantCapability.HAS_DRYING)) {
             return;
         }
-        database.getCollection("bean_quality_checks").createIndexes(List.of(
+        MigrationIndexes.ensure(database.getCollection("bean_quality_checks"), List.of(
                 new IndexModel(Indexes.ascending("ref"), new IndexOptions().unique(true).name("uniq_qc_ref")),
                 // Partiel, et non simplement unique : un contrôle qualité peut
                 // vivre sans lot de séchage (M074), et un index unique sur un

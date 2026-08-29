@@ -76,6 +76,55 @@ dependencies {
 group = 'com.ntech.cabosse'
 version = '1.0-SNAPSHOT'
 
+/*
+ * Identité du build, scellée dans le jar.
+ *
+ * Sans elle, savoir quelle version tourne dans un environnement demandait de
+ * sonder des routes au hasard pour voir lesquelles répondaient : long, et
+ * jamais concluant. Le commit est lu depuis git, ou depuis les variables
+ * d'environnement que posent les plateformes de déploiement quand le clone
+ * n'emporte pas l'historique. Quand rien n'est disponible, on l'écrit
+ * « inconnu » plutôt que de laisser croire à une version identifiée.
+ */
+static String gitValue(Object project, List<String> args, String fallback) {
+    try {
+        def out = new ByteArrayOutputStream()
+        project.exec {
+            commandLine(['git'] + args)
+            standardOutput = out
+            errorOutput = new ByteArrayOutputStream()
+            ignoreExitValue = true
+        }
+        def value = out.toString('UTF-8').trim()
+        return value.isEmpty() ? fallback : value
+    } catch (Exception ignored) {
+        return fallback
+    }
+}
+
+tasks.named('processResources') {
+    // Le temps de build change à chaque compilation : la tâche ne peut pas
+    // être considérée à jour, sans quoi le jar embarquerait l'identité du
+    // build précédent — exactement le mensonge qu'on cherche à éviter.
+    outputs.upToDateWhen { false }
+    doLast {
+        def commit = System.getenv('SOURCE_COMMIT')
+                ?: System.getenv('GIT_COMMIT')
+                ?: gitValue(project, ['rev-parse', '--short=9', 'HEAD'], 'inconnu')
+        def branch = System.getenv('SOURCE_BRANCH')
+                ?: System.getenv('GIT_BRANCH')
+                ?: gitValue(project, ['rev-parse', '--abbrev-ref', 'HEAD'], 'inconnu')
+        def target = new File(sourceSets.main.output.resourcesDir, 'build-info.properties')
+        target.parentFile.mkdirs()
+        target.text = """\
+build.version=${project.version}
+build.commit=${commit.take(9)}
+build.branch=${branch}
+build.time=${java.time.Instant.now()}
+"""
+    }
+}
+
 java {
     sourceCompatibility = JavaVersion.VERSION_21
     targetCompatibility = JavaVersion.VERSION_21
