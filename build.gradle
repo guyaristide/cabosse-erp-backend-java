@@ -86,18 +86,16 @@ version = '1.0-SNAPSHOT'
  * n'emporte pas l'historique. Quand rien n'est disponible, on l'écrit
  * « inconnu » plutôt que de laisser croire à une version identifiée.
  */
-static String gitValue(Object project, List<String> args, String fallback) {
+def gitValue = { List<String> args, String fallback ->
     try {
-        def out = new ByteArrayOutputStream()
-        project.exec {
+        def value = providers.exec {
             commandLine(['git'] + args)
-            standardOutput = out
-            errorOutput = new ByteArrayOutputStream()
-            ignoreExitValue = true
-        }
-        def value = out.toString('UTF-8').trim()
+        }.standardOutput.asText.get().trim()
         return value.isEmpty() ? fallback : value
     } catch (Exception ignored) {
+        // Pas de dépôt git dans le contexte de build (image sans historique,
+        // archive source) : la plateforme de déploiement pose alors les
+        // variables d'environnement lues plus bas.
         return fallback
     }
 }
@@ -110,10 +108,10 @@ tasks.named('processResources') {
     doLast {
         def commit = System.getenv('SOURCE_COMMIT')
                 ?: System.getenv('GIT_COMMIT')
-                ?: gitValue(project, ['rev-parse', '--short=9', 'HEAD'], 'inconnu')
+                ?: gitValue(['rev-parse', '--short=9', 'HEAD'], 'inconnu')
         def branch = System.getenv('SOURCE_BRANCH')
                 ?: System.getenv('GIT_BRANCH')
-                ?: gitValue(project, ['rev-parse', '--abbrev-ref', 'HEAD'], 'inconnu')
+                ?: gitValue(['rev-parse', '--abbrev-ref', 'HEAD'], 'inconnu')
         def target = new File(sourceSets.main.output.resourcesDir, 'build-info.properties')
         target.parentFile.mkdirs()
         target.text = """\

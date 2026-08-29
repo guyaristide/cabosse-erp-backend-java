@@ -1,6 +1,7 @@
 package com.ntech.cabosse.shared.startup;
 
 import com.mongodb.client.model.Filters;
+import com.ntech.cabosse.health.MigrationHealth;
 import com.ntech.cabosse.shared.migration.TenantMigrationRunner;
 import com.ntech.cabosse.shared.persistence.ControlPlane;
 import com.ntech.cabosse.shared.persistence.ControlPlaneProvider;
@@ -53,6 +54,7 @@ public class StartupMigrationRunner {
 
     @Inject ControlPlaneProvider controlPlane;
     @Inject TenantMigrationRunner runner;
+    @Inject MigrationHealth health;
     @Inject Logger log;
 
     /**
@@ -63,22 +65,25 @@ public class StartupMigrationRunner {
     void onStart(@Observes @Priority(jakarta.interceptor.Interceptor.Priority.APPLICATION + 600)
                  StartupEvent ev) {
         log.info("Startup tenant migrations : start");
-        int ok = 0;
-        int failed = 0;
+        health.reset();
         for (TenantEntity tenant : controlPlane
                 .collection(ControlPlane.Collections.TENANTS, TenantEntity.class)
                 .find(Filters.in("status", MIGRATABLE_STATUSES))) {
             try {
                 runner.runMigrationsFor(tenant.databaseName);
-                ok++;
+                health.recordApplied();
                 log.infof("Migrations applied for tenant %s (%s)",
                         tenant.slug, tenant.databaseName);
             } catch (Exception e) {
-                failed++;
+                // L'échec est retenu, et pas seulement journalisé : sans
+                // trace exploitable, un tenant reste bloqué à la migration
+                // fautive sans que rien ne le signale dans le produit.
+                health.recordFailure(tenant.slug);
                 log.errorf(e, "Migration failed for tenant %s (%s)",
                         tenant.slug, tenant.databaseName);
             }
         }
-        log.infof("Startup tenant migrations : done (%d ok, %d failed)", ok, failed);
+        log.infof("Startup tenant migrations : done (%d ok, %d failed)",
+                health.applied(), health.failed());
     }
 }

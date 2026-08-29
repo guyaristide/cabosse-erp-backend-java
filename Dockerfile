@@ -37,6 +37,15 @@ RUN ./gradlew --no-daemon dependencies > /dev/null 2>&1 || true
 # 3) Maintenant on copie le code source — chaque modif invalide ici.
 COPY src /workspace/src
 
+# Identité du build. `.git/` est exclu de l'image (cf. .dockerignore), donc
+# le commit ne peut pas être lu depuis l'historique : Coolify le fournit en
+# argument de build. Sans lui, /api/v1/health/version répondra « inconnu »,
+# ce qui reste honnête mais ne permet plus de comparer deux environnements.
+ARG SOURCE_COMMIT
+ARG SOURCE_BRANCH
+ENV SOURCE_COMMIT=${SOURCE_COMMIT}
+ENV SOURCE_BRANCH=${SOURCE_BRANCH}
+
 # 4) Build du JAR Quarkus (fast-jar layout par défaut).
 #    Skip tests : Coolify fait du déploiement, pas du CI. La CI tourne
 #    ailleurs (GitHub Actions ou local). Si tu veux tests dans Coolify,
