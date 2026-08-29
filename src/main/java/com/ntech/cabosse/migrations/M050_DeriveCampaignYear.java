@@ -40,7 +40,7 @@ public class M050_DeriveCampaignYear {
     /** Flux portant une copie de l'année, à recaler depuis leur campagne. */
     private static final List<String> DENORMALIZED = List.of(
             "harvests", "collector_advances", "producer_purchases",
-            "cacao_sales", "sales_contracts");
+            "commodity_sales", "sales_contracts");
 
     @Execution
     public void execute(MongoDatabase database) {

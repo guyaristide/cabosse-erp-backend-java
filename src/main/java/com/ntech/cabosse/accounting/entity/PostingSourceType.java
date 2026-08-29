@@ -83,8 +83,8 @@ public enum PostingSourceType {
 
     /** Contre-passation d'un reçu d'achat producteur annulé. */
     PRODUCER_PURCHASE_REVERSAL,
-    /** Vente de cacao en gros / export (backlog NEG-02). */
-    CACAO_SALE,
+    /** Vente de matière première en gros ou à l'export. */
+    COMMODITY_SALE,
     /** Règlement versé à un fournisseur au titre de ses livraisons. */
     PRODUCER_PAYMENT
 }

@@ -52,6 +52,6 @@ public enum MovementSource {
     COLLECTOR_DELIVERY,
     /** Achat de matière première au producteur membre (reçu, backlog NEG-01). */
     PRODUCER_PURCHASE,
-    /** Vente de cacao en gros / export (backlog NEG-02). */
-    CACAO_SALE
+    /** Vente de matière première en gros ou à l'export. */
+    COMMODITY_SALE
 }

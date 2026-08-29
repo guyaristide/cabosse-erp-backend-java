@@ -19,7 +19,7 @@ final class SaleExportColumns {
                 ExportColumn.of(Messages.msg("m.imp-h-reference"),         SaleResponseDto::ref),
                 ExportColumn.of(Messages.msg("m.imp-h-date-vente"),        SaleResponseDto::saleDate),
                 ExportColumn.of(Messages.msg("m.imp-h-echeance"),          SaleResponseDto::dueDate),
-                ExportColumn.of(Messages.msg("m.imp-h-cacao-sale-customer"),            SaleResponseDto::customerName),
+                ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-customer"),            SaleResponseDto::customerName),
                 ExportColumn.of(Messages.msg("m.imp-h-site"),              SaleResponseDto::siteName),
                 ExportColumn.of(Messages.msg("m.imp-h-canal"),             r -> humanChannel(r.channel())),
                 ExportColumn.of(Messages.msg("m.imp-h-status"),            r -> humanStatus(r.status())),

@@ -493,27 +493,19 @@ public class TenantPreferences {
     // ─── Vente de cacao export (backlog NEG-02) ───
 
     /** Taux de TVA sur la vente cacao export (%). Défaut 0 (exonéré). */
-    public java.math.BigDecimal cacaoSaleVatRatePct;
+    public java.math.BigDecimal commoditySaleVatRatePct;
 
-    public java.math.BigDecimal cacaoSaleVatRatePct() {
-        return cacaoSaleVatRatePct != null ? cacaoSaleVatRatePct : java.math.BigDecimal.ZERO;
+    public java.math.BigDecimal commoditySaleVatRatePct() {
+        return commoditySaleVatRatePct != null ? commoditySaleVatRatePct : java.math.BigDecimal.ZERO;
     }
 
-    /** Seuil d'humidité d'acceptation (%). Défaut 8.5 (référence, non bloquant). */
-    public java.math.BigDecimal cacaoHumidityAcceptancePct;
-
-    public java.math.BigDecimal cacaoHumidityAcceptancePct() {
-        return cacaoHumidityAcceptancePct != null
-                ? cacaoHumidityAcceptancePct : new java.math.BigDecimal("8.5");
-    }
-
-    /** Borne haute de la fourchette de réfaction (%). Au-delà : rejet. Défaut 10. */
-    public java.math.BigDecimal cacaoHumidityRejectionPct;
-
-    public java.math.BigDecimal cacaoHumidityRejectionPct() {
-        return cacaoHumidityRejectionPct != null
-                ? cacaoHumidityRejectionPct : new java.math.BigDecimal("10");
-    }
+    /*
+     * Les deux seuils d'humidité qui vivaient ici sont partis au référentiel
+     * des seuils de qualité. Ils n'étaient ni lus par un calcul, ni exposés
+     * par l'API, et contredisaient ce que l'écran affichait comme la
+     * référence : deux valeurs pour une seule notion, dont aucune ne faisait
+     * foi.
+     */
 
     // ─── Récolte et potentiel de production (remarques expert 26/08) ───
 

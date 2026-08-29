@@ -642,7 +642,7 @@ public class AccountingService {
      * primes au MVP), crédit TVA collectée (445700) si TVA &gt; 0. Le coût des
      * ventes n'est pas journalisé (dérivé du CMUP comme les ventes de PF).
      */
-    public Optional<JournalPieceEntity> postFromCacaoSale(
+    public Optional<JournalPieceEntity> postFromCommoditySale(
             UUID saleId, String ref, String customerName, String revenueAccount,
             BigDecimal htAmount, BigDecimal vatAmount, LocalDate date) {
         BigDecimal ht = nz(htAmount);
@@ -653,14 +653,14 @@ public class AccountingService {
                 ? SyscohadaAccounts.VENTES_PRODUITS_FINIS : revenueAccount;
         List<JournalEntry> entries = new ArrayList<>();
         entries.add(JournalEntry.debit(SyscohadaAccounts.CLIENTS, "Créance " + nullSafe(customerName), ttc));
-        entries.add(JournalEntry.credit(revenue, "Vente cacao " + ref, ht));
+        entries.add(JournalEntry.credit(revenue, "Vente en gros " + ref, ht));
         if (vat.signum() > 0) {
             entries.add(JournalEntry.credit(SyscohadaAccounts.TVA_COLLECTEE, "TVA collectée " + ref, vat));
         }
         return postPiece(new PostingRequest(
                 date != null ? date : LocalDate.now(),
-                PostingSourceType.CACAO_SALE, saleId, ref,
-                "Vente cacao " + ref + " : " + nullSafe(customerName), entries));
+                PostingSourceType.COMMODITY_SALE, saleId, ref,
+                "Vente en gros " + ref + " : " + nullSafe(customerName), entries));
     }
 
     public Optional<JournalPieceEntity> postFromCollectorDelivery(

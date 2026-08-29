@@ -31,7 +31,18 @@ public class M022_CreateBeanQualityChecksCollection {
         }
         database.getCollection("bean_quality_checks").createIndexes(List.of(
                 new IndexModel(Indexes.ascending("ref"), new IndexOptions().unique(true).name("uniq_qc_ref")),
-                new IndexModel(Indexes.ascending("dryingBatchId"), new IndexOptions().unique(true).name("uniq_qc_dryingBatchId")),
+                // Partiel, et non simplement unique : un contrôle qualité peut
+                // vivre sans lot de séchage (M074), et un index unique sur un
+                // champ absent range tous ces documents sous une même clé
+                // nulle. La forme doit être celle du schéma d'aujourd'hui,
+                // faute de quoi le rejeu de cette migration à l'activation
+                // d'un tenant entre en conflit avec l'index en place et
+                // bloque le démarrage.
+                new IndexModel(Indexes.ascending("dryingBatchId"),
+                        new IndexOptions().unique(true).name("uniq_qc_dryingBatchId")
+                                .partialFilterExpression(
+                                        new org.bson.Document("dryingBatchId",
+                                                new org.bson.Document("$type", "binData")))),
                 new IndexModel(Indexes.ascending("conformOverall"), new IndexOptions().name("idx_qc_conform")),
                 new IndexModel(Indexes.ascending("lotRef"), new IndexOptions().name("idx_qc_lotRef").sparse(true))
         ));

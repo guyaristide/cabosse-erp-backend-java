@@ -81,7 +81,7 @@ final class SaleExportLines {
                 ExportColumn.of(Messages.msg("m.imp-h-date-vente"),          r -> r.sale.saleDate()),
                 ExportColumn.of(Messages.msg("m.imp-h-designation-article"), r -> r.line.articleName()),
                 ExportColumn.of(Messages.msg("m.imp-h-receipt-quantity"),            r -> r.line.quantity()),
-                ExportColumn.of(Messages.msg("m.imp-h-cacao-sale-customer"),              r -> r.sale.customerName()),
+                ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-customer"),              r -> r.sale.customerName()),
                 ExportColumn.of(Messages.msg("m.imp-h-site"),                r -> r.sale.siteName()),
                 ExportColumn.of(Messages.msg("m.imp-h-canal"),               r -> humanChannel(r.sale.channelTypeSnapshot())),
                 ExportColumn.of(Messages.msg("m.imp-h-status"),              r -> humanStatus(r.sale.status())),
