@@ -36,9 +36,11 @@ import java.util.UUID;
  *       avec sa période et son prix bord champ. La principale n'est pas
  *       close le jour où l'intermédiaire s'ouvre. La campagne « courante »
  *       est celle dont la période couvre le jour, pas la seule ouverte.</li>
- *   <li>Une campagne {@link CampaignStatus#CLOSED} est immuable. La
- *       réouverture n'est pas exposée — supposée passer par une action
- *       d'administration future.</li>
+ *   <li>Une campagne {@link CampaignStatus#CLOSED} ne se modifie plus,
+ *       mais la clôture <strong>se défait</strong>. Elle ne pose qu'un
+ *       statut : rien d'irréversible ne s'y attache, et une campagne close
+ *       par erreur devenait autrement inutilisable à jamais, puisqu'elle
+ *       continue de réserver sa période au contrôle de chevauchement.</li>
  *   <li>La grille tarifaire (prix de base, primes, ristourne) reste
  *       éditable tant que la campagne est OPEN.</li>
  * </ul>
@@ -83,6 +85,18 @@ public class CampaignService {
     public CampaignEntity current() {
         ensureCapability();
         return repo.findCurrent().orElse(null);
+    }
+
+    /**
+     * Ce qu'on a le droit d'afficher comme « campagne en cours ».
+     *
+     * <p>Sans repli : hors de toute période, il n'y a pas de campagne en
+     * cours, et l'en-tête doit se taire plutôt que de nommer une campagne
+     * ouverte quelconque.</p>
+     */
+    public CampaignEntity currentCovering() {
+        ensureCapability();
+        return repo.findCoveringToday().orElse(null);
     }
 
     public CampaignEntity create(CampaignUpsertDto payload) {
@@ -244,6 +258,56 @@ public class CampaignService {
         e.updatedAt = now;
         repo.replace(e);
         return e;
+    }
+
+    /**
+     * Rouvre une campagne close.
+     *
+     * <p>La clôture ne pose qu'un statut : elle n'écrit aucune pièce et ne
+     * verrouille rien d'autre. La refermer par erreur privait pourtant la
+     * structure de tout recours, puisqu'une campagne close n'est plus
+     * modifiable mais réserve toujours sa période.</p>
+     *
+     * <p>Le geste reste tracé : la date et l'auteur de la clôture défaite
+     * s'effacent, l'historique du journal d'audit demeure.</p>
+     */
+    public CampaignEntity reopen(UUID id) {
+        ensureCapability();
+        CampaignEntity e = get(id);
+        if (e.status == CampaignStatus.OPEN) {
+            throw new BusinessException(Messages.msg("m.cmp-already-open"));
+        }
+        e.status = CampaignStatus.OPEN;
+        e.closedAt = null;
+        e.closedBy = null;
+        e.closedByEmail = null;
+        e.updatedAt = Instant.now();
+        repo.replace(e);
+        return e;
+    }
+
+    /**
+     * Retire une campagne créée par erreur.
+     *
+     * <p>Une campagne ouverte pour un essai réservait sa période à jamais :
+     * rien ne la supprimait, et la clôturer <strong>aggravait</strong> le
+     * cas, puisqu'une campagne close continue de compter au contrôle de
+     * chevauchement et n'est plus modifiable. Le seul recours était de vivre
+     * avec, ou de renoncer à la vraie campagne qui recouvrait sa période.</p>
+     *
+     * <p>La suppression n'est possible que si <strong>aucune opération</strong>
+     * ne s'y rattache. Une campagne qui a vu passer un reçu, une avance ou
+     * une estimation de rendement n'est pas une erreur de saisie : c'est de
+     * l'histoire, et l'effacer laisserait des opérations pointant vers un
+     * néant.</p>
+     */
+    public void delete(UUID id) {
+        ensureCapability();
+        CampaignEntity e = get(id);
+        repo.firstCollectionReferencing(id).ifPresent(collection -> {
+            throw new BusinessException(Messages.msg("m.cmp-in-use", e.label));
+        });
+        repo.delete(id);
     }
 
     /**

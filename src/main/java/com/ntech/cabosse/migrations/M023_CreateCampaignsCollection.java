@@ -45,18 +45,14 @@ public class M023_CreateCampaignsCollection {
                 new IndexModel(
                         Indexes.ascending("status"),
                         new IndexOptions().name("idx_campaigns_status")
-                ),
-                // Garde-fou DB : au plus une campagne OPEN à la fois (en
-                // complément de la validation applicative).
-                new IndexModel(
-                        Indexes.ascending("status"),
-                        new IndexOptions()
-                                .name("uniq_campaigns_open")
-                                .unique(true)
-                                .partialFilterExpression(
-                                        new org.bson.Document("status", "OPEN")
-                                )
                 )
+                // Il y avait ici un index unique sur les campagnes ouvertes,
+                // « au plus une OPEN à la fois ». La règle était fausse : une
+                // saison se joue en principale ET intermédiaire, ouvertes en
+                // même temps, chacune avec son barème. M073 le supprime des
+                // bases existantes — mais cette migration tourne en
+                // runAlways, si bien qu'elle le reposait à chaque démarrage
+                // et défaisait M073 dans la foulée. Ne pas le réintroduire.
         ));
     }
 

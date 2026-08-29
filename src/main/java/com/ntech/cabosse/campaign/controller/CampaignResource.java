@@ -13,6 +13,7 @@ import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
@@ -50,7 +51,9 @@ public class CampaignResource {
     @GET
     @Path("/current")
     public Response current() {
-        var current = service.current();
+        // Lecture stricte : cet appel sert l'affichage, pas le rattachement
+        // par défaut d'une saisie.
+        var current = service.currentCovering();
         if (current == null) {
             return Response.ok(ApiResponse.ok((CampaignResponseDto) null)).build();
         }
@@ -103,9 +106,39 @@ public class CampaignResource {
     @POST
     @RequiresPermission(Permission.REFERENTIAL_WRITE)
     @Path("/{id}/close")
+    // Aucun corps attendu : sans cela, un POST vide se heurte au
+    // @Consumes de la classe et repart en 415.
+    @Consumes(MediaType.WILDCARD)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response close(@PathParam("id") UUID id) {
         var closed = service.close(id);
         return Response.ok(ApiResponse.ok(CampaignResponseDto.from(closed))).build();
+    }
+
+    /** Défait une clôture : elle ne posait qu'un statut. */
+    @POST
+    @RequiresPermission(Permission.REFERENTIAL_WRITE)
+    @Path("/{id}/reopen")
+    @Consumes(MediaType.WILDCARD)
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    public Response reopen(@PathParam("id") UUID id) {
+        var reopened = service.reopen(id);
+        return Response.ok(ApiResponse.ok(CampaignResponseDto.from(reopened))).build();
+    }
+
+    /**
+     * Retire une campagne créée par erreur, si elle n'a rien vu passer.
+     *
+     * <p>Sans elle, un essai réservait sa période à jamais : la clôture
+     * n'y changeait rien, une campagne close comptant toujours au contrôle
+     * de chevauchement.</p>
+     */
+    @DELETE
+    @RequiresPermission(Permission.REFERENTIAL_WRITE)
+    @Path("/{id}")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    public Response delete(@PathParam("id") UUID id) {
+        service.delete(id);
+        return Response.noContent().build();
     }
 }

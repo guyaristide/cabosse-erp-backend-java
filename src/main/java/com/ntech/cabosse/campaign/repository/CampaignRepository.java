@@ -37,6 +37,35 @@ public class CampaignRepository {
         return Optional.ofNullable(coll().find(Filters.eq("code", code)).first());
     }
 
+    /**
+     * Une opération se rattache-t-elle à cette campagne ?
+     *
+     * <p>Vingt collections portent un {@code campaignId}, et la liste
+     * s'allonge. Les énumérer ici condamnerait le garde à se périmer en
+     * silence : une vingt-et-unième arriverait, et une campagne encore
+     * référencée deviendrait supprimable. On balaie donc toutes les
+     * collections de la base, la campagne exceptée. Le coût, une requête
+     * comptée par collection, ne se paie qu'au moment d'une suppression.</p>
+     */
+    public Optional<String> firstCollectionReferencing(UUID campaignId) {
+        for (String name : tenantDb.database().listCollectionNames()) {
+            if (COLLECTION.equals(name)) continue;
+            // Un seul rattachement vit dans un sous-document plutôt qu'à
+            // la racine : l'estimation de rendement portée par la parcelle.
+            long used = tenantDb.database().getCollection(name)
+                    .countDocuments(Filters.or(
+                            Filters.eq("campaignId", campaignId),
+                            Filters.eq("campaignYields.campaignId", campaignId)));
+            if (used > 0) return Optional.of(name);
+        }
+        return Optional.empty();
+    }
+
+    /** Retire la campagne. L'appelant a vérifié qu'elle ne porte rien. */
+    public void delete(UUID id) {
+        coll().deleteOne(Filters.eq("_id", id));
+    }
+
     /** Campagnes ouvertes, la plus récemment démarrée en tête. */
     public List<CampaignEntity> listOpen() {
         return coll()
@@ -56,12 +85,22 @@ public class CampaignRepository {
      * rattachement par défaut, corrigeable à la main.</p>
      */
     public Optional<CampaignEntity> findCurrent() {
-        List<CampaignEntity> open = listOpen();
+        return findCoveringToday().or(() -> listOpen().stream().findFirst());
+    }
+
+    /**
+     * Campagne ouverte qui couvre réellement aujourd'hui, sans repli.
+     *
+     * <p>Le repli de {@link #findCurrent()} sert à proposer un rattachement
+     * par défaut à une saisie hors période. Il ne convient pas pour
+     * <strong>afficher</strong> une campagne en cours : clôturer celle qui
+     * couvre le jour faisait apparaître une autre campagne ouverte, sans
+     * rapport avec la date, présentée comme courante. L'écran affirmait ce
+     * qui n'était pas.</p>
+     */
+    public Optional<CampaignEntity> findCoveringToday() {
         LocalDate today = LocalDate.now();
-        return open.stream()
-                .filter(c -> covers(c, today))
-                .findFirst()
-                .or(() -> open.stream().findFirst());
+        return listOpen().stream().filter(c -> covers(c, today)).findFirst();
     }
 
     /**

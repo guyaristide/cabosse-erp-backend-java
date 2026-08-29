@@ -29,7 +29,14 @@ import org.bson.Document;
  * La validation applicative le dit déjà ; l'index le tient même si une
  * écriture passe à côté d'elle.</p>
  */
-@ChangeUnit(id = "campaign_season_indexes", order = "073", author = "neiba")
+/*
+ * runAlways : cette migration répare un index posé par une autre qui, elle,
+ * rejoue à chaque démarrage. Sans rejeu, elle nettoyait une fois, l'autre
+ * reposait l'index au boot suivant, et la réparation ne tenait pas. Corriger
+ * la source ne suffisait pas non plus : sur les bases où le mal était déjà
+ * fait, plus rien ne serait repassé. Le corps est idempotent.
+ */
+@ChangeUnit(id = "campaign_season_indexes", order = "073", author = "neiba", runAlways = true)
 public class M073_CampaignSeasonIndexes {
 
     private static final String CAMPAIGNS = "campaigns";

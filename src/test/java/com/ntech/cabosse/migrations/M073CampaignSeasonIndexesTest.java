@@ -114,4 +114,66 @@ class M073CampaignSeasonIndexesTest extends AbstractIntegrationTest {
         assertThat(indexNames(database)).doesNotContain("uniq_campaigns_open");
         assertThat(indexNames(database)).contains("uniq_campaigns_main_per_year");
     }
+
+    /**
+     * Le démarrage suivant ne repose pas ce que la migration a retiré.
+     *
+     * <p>M023 tourne en {@code runAlways} : elle rejoue à chaque
+     * démarrage. Elle recréait l'index obsolète, si bien que M073 le
+     * retirait puis le voyait revenir au boot suivant. Sur une vraie base,
+     * ouvrir une deuxième campagne repartait en erreur interne — alors
+     * qu'une saison se joue justement en principale et intermédiaire
+     * ouvertes ensemble.</p>
+     *
+     * <p>Le test précédent ne pouvait pas le voir : il ne rejouait que
+     * M073, jamais la migration qui la défaisait.</p>
+     */
+    @Test
+    void the_next_startup_does_not_put_the_obsolete_index_back() {
+        // Un vrai tenant : M023 ne fait rien sans la capacité membres, et
+        // c'est précisément ce qui masquait le défaut jusqu'ici.
+        var tenant = fixtures.createActiveTenant(
+                "coop-idx-" + com.ntech.cabosse.test.TestFixtures.randomSlugSuffix(),
+                "Coopérative Index");
+        tenant.organizationModel =
+                com.ntech.cabosse.tenant.entity.TenantOrganizationModel.COOPERATIVE;
+        tenants.update(tenant);
+        MongoDatabase database = mongoClient.getDatabase(tenant.databaseName);
+        database.getCollection("campaigns").drop();
+
+        new M023_CreateCampaignsCollection().execute(database, mongoClient);
+        new M073_CampaignSeasonIndexes().execute(database);
+        // Le démarrage suivant.
+        new M023_CreateCampaignsCollection().execute(database, mongoClient);
+
+        assertThat(indexNames(database)).doesNotContain("uniq_campaigns_open");
+
+        // Et deux campagnes ouvertes cohabitent, comme le modèle l'exige.
+        database.getCollection("campaigns").insertMany(List.of(
+                new Document("_id", UUID.randomUUID()).append("status", "OPEN")
+                        .append("code", "CMP-2026-01").append("campaignYear", 2026)
+                        .append("kind", "MAIN"),
+                new Document("_id", UUID.randomUUID()).append("status", "OPEN")
+                        .append("code", "CMP-2027-01").append("campaignYear", 2027)
+                        .append("kind", "INTERMEDIATE")));
+        assertThat(database.getCollection("campaigns")
+                .countDocuments(new Document("status", "OPEN"))).isEqualTo(2);
+    }
+
+    /**
+     * La réparation doit repasser à chaque démarrage.
+     *
+     * <p>Corriger la source ne suffisait pas : sur les bases où l'index
+     * était déjà revenu, plus rien ne serait repassé pour l'enlever. Sans
+     * {@code runAlways}, la campagne close par erreur y restait
+     * irrécupérable.</p>
+     */
+    @Test
+    void the_repair_runs_at_every_startup() {
+        var changeUnit = M073_CampaignSeasonIndexes.class
+                .getAnnotation(io.mongock.api.annotations.ChangeUnit.class);
+        assertThat(changeUnit.runAlways())
+                .as("M073 répare ce qu'une migration rejouable défaisait : elle doit rejouer aussi")
+                .isTrue();
+    }
 }

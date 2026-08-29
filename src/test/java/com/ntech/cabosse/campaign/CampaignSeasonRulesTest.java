@@ -46,6 +46,15 @@ class CampaignSeasonRulesTest extends AbstractIntegrationTest {
         TenantEntity tenant = fixtures.createActiveTenant(
                 "coop-sai-" + TestFixtures.randomSlugSuffix(), "Coopérative Saison");
         tenant.organizationModel = TenantOrganizationModel.COOPERATIVE;
+        // Une activité de production ouvre les parcelles, dont un test a
+        // besoin pour poser une estimation de rendement sur une campagne.
+        tenant.activities = new java.util.ArrayList<>();
+        com.ntech.cabosse.tenant.entity.TenantActivity activity =
+                new com.ntech.cabosse.tenant.entity.TenantActivity();
+        activity.code = "cacao-production";
+        activity.label = "Production de cacao";
+        activity.isPrimary = true;
+        tenant.activities.add(activity);
         tenants.update(tenant);
 
         UserEntity u = new UserEntity();
@@ -164,5 +173,71 @@ class CampaignSeasonRulesTest extends AbstractIntegrationTest {
                 .when().put("/api/v1/campaigns/" + id)
                 .then().statusCode(200)
                 .body("data.label", equalTo("Principale 2026 corrigée"));
+    }
+
+    // ─── Retirer une campagne créée par erreur ──────────────────────
+
+    private String createId(UserEntity a, String label, String kind, String start, String end) {
+        return create(a, label, kind, start, end).statusCode(201).extract().path("data.id");
+    }
+
+    @Test
+    void a_season_opened_by_mistake_can_be_removed() {
+        UserEntity a = admin();
+        String essai = createId(a, "Essai", "MAIN", "2026-01-01", "2027-01-01");
+
+        // Tant qu'elle est là, elle réserve sa période : la vraie campagne
+        // intermédiaire de la saison ne peut pas naître.
+        create(a, "Intermédiaire 2026", "INTERMEDIATE", "2026-03-01", "2026-08-31")
+                .statusCode(422);
+
+        givenAs(a).when().delete("/api/v1/campaigns/" + essai).then().statusCode(204);
+
+        create(a, "Intermédiaire 2026", "INTERMEDIATE", "2026-03-01", "2026-08-31")
+                .statusCode(201);
+    }
+
+    @Test
+    void a_season_that_saw_operations_is_history_and_stays() {
+        UserEntity a = admin();
+        String campagne = createId(a, "Principale 2026", "MAIN", "2026-09-01", "2027-02-28");
+
+        // Une estimation de rendement portée par une parcelle suffit : ce
+        // rattachement vit dans un sous-document, là où un balayage naïf
+        // ne l'aurait pas vu.
+        String memberId = givenAs(a).contentType("application/json")
+                .body("{\"lastName\":\"Kouassi\",\"gender\":\"MALE\",\"status\":\"ACTIVE\"}")
+                .when().post("/api/v1/members").then().statusCode(201).extract().path("data.id");
+        givenAs(a).contentType("application/json")
+                .body("""
+                        { "memberId": "%s", "name": "Parcelle A", "surfaceHa": 2.5,
+                          "gpsCenter": [-7.48, 7.01], "status": "ACTIVE",
+                          "campaignYields": [ { "campaignId": "%s", "estimateKg": 1200 } ] }
+                        """.formatted(memberId, campagne))
+                .when().post("/api/v1/parcels").then().statusCode(201);
+
+        givenAs(a).when().delete("/api/v1/campaigns/" + campagne)
+                .then().statusCode(422)
+                .body("statusMessage", org.hamcrest.Matchers.containsString("opérations"));
+    }
+
+    @Test
+    void closing_the_season_that_covers_today_leaves_no_current_one() {
+        UserEntity a = admin();
+        LocalDate today = LocalDate.now();
+        String enCours = createId(a, "En cours", "MAIN",
+                today.minusMonths(1).toString(), today.plusMonths(1).toString());
+        // Une autre campagne ouverte, très loin dans le temps.
+        createId(a, "Bien plus tard", "MAIN", "2031-01-01", "2031-06-30");
+
+        givenAs(a).when().get("/api/v1/campaigns/current")
+                .then().statusCode(200).body("data.label", equalTo("En cours"));
+
+        givenAs(a).when().post("/api/v1/campaigns/" + enCours + "/close").then().statusCode(200);
+
+        // Il ne reste aucune campagne couvrant aujourd'hui : l'en-tête doit
+        // se taire, et non désigner celle de 2031 comme « en cours ».
+        givenAs(a).when().get("/api/v1/campaigns/current")
+                .then().statusCode(200).body("data", org.hamcrest.Matchers.nullValue());
     }
 }
