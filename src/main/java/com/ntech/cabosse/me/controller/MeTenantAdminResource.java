@@ -145,6 +145,7 @@ public class MeTenantAdminResource {
 
     @GET
     @Path("/audit")
+    @RequiresPermission(Permission.AUDIT_READ)
     @Operation(summary = "Journal d'audit du tenant courant",
             description = "Événements d'audit où tenantId = tenant courant. Pagination par défaut "
                     + "50 entrées (max 200). Tri par date décroissante.")

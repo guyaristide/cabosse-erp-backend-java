@@ -141,7 +141,9 @@ public class TenantTechnicalService {
             new MigrationDescriptor("split_advance_permissions", "077", "neiba"),
             new MigrationDescriptor("seed_tenant_profiles", "078", "neiba"),
             new MigrationDescriptor("reclassify_chart_families", "079", "neiba"),
-            new MigrationDescriptor("narrow_system_accounts", "080", "neiba")
+            new MigrationDescriptor("narrow_system_accounts", "080", "neiba"),
+            new MigrationDescriptor("grant_audit_read_to_admin_profiles", "081", "neiba"),
+            new MigrationDescriptor("keep_administrator_profile_complete", "082", "neiba")
     );
 
     /** Fréquence de backup par plan tarifaire (cf. plans.json catalogue). */

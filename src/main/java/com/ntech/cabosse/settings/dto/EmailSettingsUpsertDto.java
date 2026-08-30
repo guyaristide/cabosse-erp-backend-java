@@ -39,6 +39,14 @@ public record EmailSettingsUpsertDto(
         /** Voir convention « patch sensible » dans la doc de la classe. */
         String password,
 
+        /**
+         * Boîte qui reçoit les avis d'assistance. Vide → l'adresse
+         * d'expédition fait office : c'est déjà la boîte de l'éditeur, et
+         * un avis qui revient à l'expéditeur vaut mieux qu'aucun avis.
+         */
+        @Email(message = "{v.adresse-e-mail-invalide}")
+        String supportInbox,
+
         @Pattern(regexp = "NONE|REQUIRED|OPTIONAL",
                 message = "{v.valeur-autorisee-none-required-optional}")
         String startTls,

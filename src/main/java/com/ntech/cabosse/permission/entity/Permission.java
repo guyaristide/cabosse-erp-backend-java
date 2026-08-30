@@ -115,7 +115,15 @@ public enum Permission {
     // ─── Administration du tenant ───────────────────────────────────
     SETTINGS_READ(Domain.ADMIN, "m.per-settings-read"),
     SETTINGS_WRITE(Domain.ADMIN, "m.per-settings-write"),
-    USER_MANAGE(Domain.ADMIN, "m.per-user-manage");
+    USER_MANAGE(Domain.ADMIN, "m.per-user-manage"),
+    /*
+     * Le journal d'audit n'était gardé que par le rôle d'administrateur.
+     * C'était trop rigide dans un sens et trop large dans l'autre : la
+     * structure ne pouvait pas l'ouvrir à un contrôleur ou à son expert
+     * comptable, et tout administrateur y accédait sans que ce soit un
+     * choix. Un droit dédié rend la décision à la structure.
+     */
+    AUDIT_READ(Domain.ADMIN, "m.per-audit-read");
 
     /** Regroupement d'affichage, pour composer un profil sans se perdre. */
     public enum Domain {

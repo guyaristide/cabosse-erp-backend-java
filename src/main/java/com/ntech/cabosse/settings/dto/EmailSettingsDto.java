@@ -17,6 +17,8 @@ public record EmailSettingsDto(
         String host,
         Integer port,
         String username,
+        /** Boîte qui reçoit les avis d'assistance. Vide → {@code from}. */
+        String supportInbox,
         /** Toujours masqué. Vide si non configuré. */
         String passwordMasked,
         /** {@code true} si un mot de passe est configuré (BD ou YAML). */

@@ -119,8 +119,11 @@ public class PlatformSettingsResource {
 
         EmailSettingsDto.Source overallSource = sourceOf(dbValues, raw);
 
+        String supportInbox = dbValues.get("supportInbox");
+
         EmailSettingsDto dto = new EmailSettingsDto(
                 from, host, port, username,
+                supportInbox != null ? supportInbox : "",
                 passwordMasked, passwordSet,
                 startTls != null ? startTls : "NONE",
                 mockMode,
@@ -139,6 +142,7 @@ public class PlatformSettingsResource {
         values.put("host", body.host());
         values.put("port", String.valueOf(body.port()));
         values.put("username", body.username());
+        values.put("supportInbox", body.supportInbox() != null ? body.supportInbox() : "");
         values.put("password", body.password()); // service gère patch sensible
         values.put("startTls", body.startTls() != null ? body.startTls() : "NONE");
         values.put("mockMode", String.valueOf(body.mockMode()));
