@@ -33,6 +33,22 @@ public record InviteTenantUserPayloadDto(
         @NotBlank(message = "{v.role-requis}")
         @Pattern(regexp = "^(TENANT_ADMIN|USER)$",
                 message = "{v.role-invalide-tenant-admin-ou-user-attendu}")
-        String role
+        String role,
+
+        /**
+         * Profils attribués dès l'invitation.
+         *
+         * <p>Sans eux, la personne invitée arrive avec <strong>aucun
+         * droit</strong> : elle peut se connecter, et tous les écrans lui
+         * sont fermés. Il fallait ensuite la retrouver dans la liste des
+         * utilisateurs pour lui attribuer un profil, en second geste, sans
+         * que rien ne le dise. Les rattacher à l'invitation ferme ce
+         * piège.</p>
+         *
+         * <p>Absents pour un administrateur du tenant, qui porte déjà tous
+         * les droits : lui poser un profil n'ajouterait rien et ferait
+         * croire que le retirer restreint quelque chose.</p>
+         */
+        java.util.List<java.util.UUID> tenantRoleIds
 
 ) {}

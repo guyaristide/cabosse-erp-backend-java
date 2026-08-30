@@ -60,6 +60,17 @@ public record CreateDirectExpenseDto(
                 message = "{v.reglement-cash-mobile-money-bank-transfer-other}")
         String paymentMethod,
 
+        /**
+         * Caisse ou compte bancaire mouvementé.
+         *
+         * <p>Facultatif : sans lui, le mode de paiement décide du compte
+         * par défaut, comme avant. Une structure qui tient plusieurs
+         * caisses ou plusieurs banques sous des sous-comptes distincts le
+         * renseigne pour que l'argent atterrisse au bon endroit.</p>
+         */
+        java.util.UUID bankAccountId,
+
+
         @Size(max = 1000)
         String notes
 ) {}

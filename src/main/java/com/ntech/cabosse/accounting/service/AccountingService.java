@@ -634,11 +634,13 @@ public class AccountingService {
     public Optional<JournalPieceEntity> postFromProducerPayment(
             UUID paymentId, String ref, String beneficiaryName, String debtAccount,
             com.ntech.cabosse.reception.entity.PaymentMethod method,
+            UUID bankAccountId,
             BigDecimal amount, LocalDate date) {
         if (amount == null || amount.signum() <= 0) return Optional.empty();
         List<JournalEntry> entries = List.of(
                 JournalEntry.debit(debtAccount, "Solde dû à " + nullSafe(beneficiaryName), amount),
-                JournalEntry.credit(treasuryAccountFor(method), "Règlement " + ref, amount));
+                JournalEntry.credit(treasuryAccountFor(method, bankAccountId),
+                        "Règlement " + ref, amount));
         return postPiece(new PostingRequest(
                 date != null ? date : LocalDate.now(),
                 PostingSourceType.PRODUCER_PAYMENT, paymentId, ref,
@@ -1283,12 +1285,36 @@ public class AccountingService {
     }
 
     public String treasuryAccountFor(PaymentMethod method) {
+        return treasuryAccountFor(method, null);
+    }
+
+    /**
+     * Compte de trésorerie mouvementé par un règlement.
+     *
+     * <p>Quand le règlement désigne un compte déclaré, c'est celui-là qui
+     * bouge. Une coopérative qui tient deux caisses, ou plusieurs banques
+     * sous des sous-comptes distincts, attend que l'argent atterrisse là
+     * où il est réellement entré : sans cela, les sous-comptes restent à
+     * zéro et la séparation n'est que d'affichage.</p>
+     *
+     * <p>Sans compte désigné, on retombe sur le compte par défaut du mode
+     * de paiement. C'est ce que font les structures à une seule caisse et
+     * une seule banque, et ce que faisaient tous les règlements avant que
+     * le choix n'existe : les écritures déjà passées gardent leur
+     * sens.</p>
+     */
+    public String treasuryAccountFor(PaymentMethod method, UUID bankAccountId) {
+        if (bankAccountId != null) {
+            BankAccountEntity account = bankAccounts.findById(bankAccountId).orElseThrow(
+                    () -> new com.ntech.cabosse.shared.exception.NotFoundException(
+                            Messages.msg("m.acc-bank-account-not-found", bankAccountId)));
+            if (account.syscohadaAccount != null && !account.syscohadaAccount.isBlank()) {
+                return account.syscohadaAccount;
+            }
+        }
         if (method == null) return SyscohadaAccounts.BANQUE_DEFAULT;
         return switch (method) {
             case CASH -> SyscohadaAccounts.CAISSE_DEFAULT;
-            // MOBILE_MONEY, TRANSFER, OTHER → banque par défaut au MVP ;
-            // sera ventilé sur un BankAccount spécifique si le tenant
-            // attache un bankAccountId au paiement (sprint ultérieur).
             default -> SyscohadaAccounts.BANQUE_DEFAULT;
         };
     }

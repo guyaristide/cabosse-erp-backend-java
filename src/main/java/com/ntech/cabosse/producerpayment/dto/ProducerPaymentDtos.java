@@ -28,6 +28,18 @@ public final class ProducerPaymentDtos {
             UUID delegateSupplierId,
 
             @NotNull(message = "{v.mode-de-paiement-requis}") PaymentMethod paymentMethod,
+
+            /**
+             * Caisse ou compte bancaire d'où sortent les fonds.
+             *
+             * <p>Facultatif : une structure à une seule caisse et une seule
+             * banque n'a rien à désigner, et le mode de paiement suffit à
+             * choisir le compte. Dès qu'elle en tient plusieurs, sous des
+             * sous-comptes distincts, c'est ce champ qui décide lequel
+             * bouge — sans quoi les sous-comptes resteraient à zéro.</p>
+             */
+            UUID bankAccountId,
+
             LocalDate date,
             @Size(max = 80) String paymentRef,
 

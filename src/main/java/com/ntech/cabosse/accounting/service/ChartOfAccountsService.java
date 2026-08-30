@@ -1,6 +1,7 @@
 package com.ntech.cabosse.accounting.service;
 
 import com.ntech.cabosse.accounting.dto.ChartAccountUpsertDto;
+import com.ntech.cabosse.accounting.entity.AccountFamily;
 import com.ntech.cabosse.accounting.entity.ChartOfAccountsEntity;
 import com.ntech.cabosse.accounting.repository.ChartOfAccountsRepository;
 import com.ntech.cabosse.accounting.repository.JournalPieceRepository;
@@ -53,7 +54,9 @@ public class ChartOfAccountsService {
         e.id = idGenerator.newId();
         e.number = number;
         e.label = p.label().trim();
-        e.family = p.family();
+        // Déduite du numéro, jamais reçue de l'appelant : c'est le premier
+        // chiffre qui dit la classe, et lui seul.
+        e.family = AccountFamily.fromNumber(number);
         e.active = true;
         // Un compte ouvert par la structure n'est pas un compte du socle :
         // elle en dispose, y compris pour le désactiver.
@@ -80,7 +83,6 @@ public class ChartOfAccountsService {
             throw new BusinessException(Messages.msg("m.acc-chart-number-immutable", e.number));
         }
         e.label = p.label().trim();
-        e.family = p.family();
         e.updatedAt = Instant.now();
         chart.replace(e);
         trace(e, "Compte " + e.number + " renommé « " + e.label + " »");

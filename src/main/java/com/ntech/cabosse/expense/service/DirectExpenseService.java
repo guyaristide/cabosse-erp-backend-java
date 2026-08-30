@@ -119,7 +119,7 @@ public class DirectExpenseService {
         e.amountTtcFcfa = e.amountHtFcfa.add(e.vatAmountFcfa);
 
         e.paymentMethod = method.name();
-        e.treasuryAccount = accounting.treasuryAccountFor(method);
+        e.treasuryAccount = accounting.treasuryAccountFor(method, p.bankAccountId());
 
         e.createdAt = Instant.now();
         e.createdBy = safeUserId();

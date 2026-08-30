@@ -21,6 +21,7 @@ public enum AuditEventType {
     TENANT_REACTIVATED,
     TENANT_DELETED,
     TENANT_MIGRATIONS_RUN,
+    TENANT_DATA_RESET,
     TENANT_BACKUP_REQUESTED,
 
     // === Utilisateurs / invitations ===
@@ -156,7 +157,8 @@ public enum AuditEventType {
         return switch (this) {
             case TENANT_PROVISIONED, TENANT_PROVISIONING_FAILED, TENANT_UPDATED,
                  TENANT_SUSPENDED, TENANT_REACTIVATED, TENANT_DELETED,
-                 TENANT_MIGRATIONS_RUN, TENANT_BACKUP_REQUESTED -> AuditCategory.TENANT;
+                 TENANT_MIGRATIONS_RUN, TENANT_BACKUP_REQUESTED,
+                 TENANT_DATA_RESET -> AuditCategory.TENANT;
             case TENANT_PLAN_CHANGED -> AuditCategory.BILLING;
             case INVITATION_SENT, PASSWORD_RESET_REQUESTED, PASSWORD_CHANGED,
                  USER_DISABLED, USER_REACTIVATED, ROLE_GRANTED, ROLE_REVOKED,

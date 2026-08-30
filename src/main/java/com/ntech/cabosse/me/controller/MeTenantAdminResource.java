@@ -61,6 +61,7 @@ public class MeTenantAdminResource {
     @Inject TenantUserService userService;
     @Inject MeTenantAdminService adminService;
     @Inject AuditRepository auditRepo;
+    @Inject com.ntech.cabosse.tenant.service.TenantResetService resetService;
 
     // ─── Utilisateurs ───
 
@@ -73,6 +74,29 @@ public class MeTenantAdminResource {
     public Response listUsers() {
         List<TenantUserSummaryDto> users = userService.listByTenant(tenantContext.tenantId());
         return Response.ok(ApiResponse.ok(users)).build();
+    }
+
+    /**
+     * Remet les données de la structure à leur état d'ouverture.
+     *
+     * <p>Réservé à l'administrateur de la structure, et à lui seul : aucun
+     * droit délégué ne l'ouvre. La destruction est définitive et sans
+     * sauvegarde, d'où le nom de la structure à recopier dans la charge
+     * utile — un jeton et un clic ne suffisent pas.</p>
+     */
+    @POST
+    @Path("/reset")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Operation(summary = "Remettre les données de la structure à plat",
+            description = "Efface les données d'exploitation et rejoue les migrations. "
+                    + "Les comptes utilisateurs et les profils de droits sont conservés. "
+                    + "Irréversible : le nom de la structure doit être recopié.")
+    @APIResponse(responseCode = "204", description = "Données remises à plat")
+    @APIResponse(responseCode = "422", description = "Nom recopié incorrect")
+    public Response resetData(
+            @Valid com.ntech.cabosse.tenant.dto.TenantResetPayloadDto payload) {
+        resetService.resetToInitialState(tenantContext.tenantId(), payload.confirmation());
+        return Response.noContent().build();
     }
 
     @POST

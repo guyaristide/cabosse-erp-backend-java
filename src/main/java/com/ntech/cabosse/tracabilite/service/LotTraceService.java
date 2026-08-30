@@ -265,8 +265,11 @@ public class LotTraceService {
         details.add(Messages.msg("m.trc-fifo-inference", String.valueOf(UPSTREAM_LIMIT)));
         // pieceRef = première référence (la plus probable comme source)
         String first = refs.iterator().next();
-        String href = first.startsWith("BC-") ? "/app/achats?q=" + first
-                : first.startsWith("RD-") ? "/app/achats/receptions?q=" + first
+        // Les adresses de l'application sont en anglais : des liens écrits en
+        // français menaient à une page inexistante, et une traçabilité dont
+        // on ne peut pas ouvrir les maillons ne sert à rien.
+        String href = first.startsWith("BC-") ? "/app/purchases?q=" + first
+                : first.startsWith("RD-") ? "/app/purchases/receptions?q=" + first
                 : null;
         Instant earliest = upstream.sources.stream()
                 .map(UpstreamSource::when)
@@ -372,7 +375,7 @@ public class LotTraceService {
                 formatPosition(pos),
                 Messages.msg("m.trc-customer-deliveries"),
                 latest != null ? LocalDate.ofInstant(latest, ZoneOffset.UTC).toString() : "",
-                first, "/app/ventes?q=" + first,
+                first, "/app/sales?q=" + first,
                 details,
                 "—",
                 "validated"

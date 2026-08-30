@@ -319,7 +319,7 @@ public class ProducerPurchaseService {
                     "Apurement délégué " + delegate.name, paid));
         } else {
             credits.add(new AccountingService.PurchaseLeg(
-                    accounting.treasuryAccountFor(p.paymentMethod()),
+                    accounting.treasuryAccountFor(p.paymentMethod(), p.bankAccountId()),
                     "Règlement achat " + e.ref, paid));
         }
         if (creditImputed.signum() > 0) {

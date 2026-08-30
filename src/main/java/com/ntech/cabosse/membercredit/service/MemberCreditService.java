@@ -249,7 +249,7 @@ public class MemberCreditService {
         accounting.postFromMemberCredit(
                         e.id, e.ref, e.memberName,
                         preferences.current().memberCreditAccount(),
-                        accounting.treasuryAccountFor(p.paymentMethod()),
+                        accounting.treasuryAccountFor(p.paymentMethod(), p.bankAccountId()),
                         nz(e.amountFcfa), date)
                 .ifPresent(piece -> e.pieceRef = piece.ref);
 

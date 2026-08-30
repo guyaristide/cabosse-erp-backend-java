@@ -11,6 +11,7 @@ import com.ntech.cabosse.shared.security.Roles;
 import com.ntech.cabosse.tenant.dto.InviteTenantUserPayloadDto;
 import com.ntech.cabosse.tenant.dto.TenantUserSummaryDto;
 import com.ntech.cabosse.tenant.entity.TenantEntity;
+import com.ntech.cabosse.permission.repository.TenantRoleRepository;
 import com.ntech.cabosse.tenant.repository.TenantRepository;
 import com.ntech.cabosse.user.entity.UserEntity;
 import com.ntech.cabosse.user.entity.UserStatus;
@@ -66,6 +67,7 @@ public class TenantUserService {
             "$2a$12$pending-invitation-redemption-placeholder-not-usable";
 
     @Inject UserRepository users;
+    @Inject com.mongodb.client.MongoClient mongoClient;
     @Inject com.ntech.cabosse.plan.service.PlanLimitService planLimits;
     @Inject TenantRepository tenants;
     @Inject InvitationTokenService invitationTokens;
@@ -115,6 +117,7 @@ public class TenantUserService {
         if (!Roles.HUMAN_ASSIGNABLE.contains(payload.role())) {
             throw new BusinessException(Messages.msg("m.tnt-role-not-assignable", payload.role()));
         }
+        List<UUID> profiles = resolveInvitedProfiles(tenant, payload);
         // Le plafond de comptes du plan se consomme ici, quelle que soit la
         // porte d'entrée (back-office ou administrateur du tenant).
         planLimits.enforceUserSeat(tenant);
@@ -128,6 +131,7 @@ public class TenantUserService {
         user.passwordHash = PENDING_PASSWORD_HASH;
         user.tenantId = tenant.id;
         user.roles = new HashSet<>(Set.of(payload.role()));
+        user.tenantRoleIds = new java.util.ArrayList<>(profiles);
         user.status = UserStatus.INVITED;
         user.invitationTokenHash = token.hash();
         user.invitationExpiresAt = Instant.now().plus(INVITATION_TTL);
@@ -147,6 +151,51 @@ public class TenantUserService {
                 .record();
 
         return toSummary(user);
+    }
+
+    /**
+     * Profils à poser sur la personne invitée, une fois vérifiés.
+     *
+     * <p>Une personne invitée sans profil arrive avec <strong>aucun
+     * droit</strong> : elle se connecte, et tous les écrans lui sont
+     * fermés. Il fallait la retrouver ensuite dans la liste pour lui
+     * attribuer un profil, en second geste, sans que rien ne l'annonce.
+     * Les profils voyagent donc avec l'invitation.</p>
+     *
+     * <p>Ils restent facultatifs au niveau de l'API : le back-office
+     * invite d'abord un administrateur de structure, qui n'en a pas
+     * besoin. C'est l'écran d'administration du tenant qui les exige, là
+     * où le piège se referme réellement.</p>
+     *
+     * <p>Les profils sont lus dans la base de la structure visée, et non
+     * dans celle du contexte courant : le back-office invite pour le
+     * compte d'un tenant qui n'est pas le sien.</p>
+     */
+    private List<UUID> resolveInvitedProfiles(TenantEntity tenant,
+                                              InviteTenantUserPayloadDto payload) {
+        List<UUID> wanted = payload.tenantRoleIds() == null ? List.of()
+                : payload.tenantRoleIds().stream().filter(java.util.Objects::nonNull).distinct().toList();
+
+        // Même règle qu'à l'attribution : un administrateur porte déjà tous
+        // les droits, lui poser un profil laisserait croire que le retirer
+        // restreint quelque chose.
+        if (Roles.TENANT_ADMIN.equals(payload.role())) {
+            if (!wanted.isEmpty()) {
+                throw new BusinessException(Messages.msg("m.per-tenant-admin-has-all-rights"));
+            }
+            return List.of();
+        }
+
+        if (wanted.isEmpty()) return List.of();
+
+        var roles = mongoClient.getDatabase(tenant.databaseName)
+                .getCollection(TenantRoleRepository.COLLECTION);
+        for (UUID roleId : wanted) {
+            if (roles.countDocuments(com.mongodb.client.model.Filters.eq("_id", roleId)) == 0) {
+                throw new NotFoundException(Messages.msg("m.per-role-not-found", roleId));
+            }
+        }
+        return wanted;
     }
 
     /**

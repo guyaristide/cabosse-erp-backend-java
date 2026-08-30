@@ -313,6 +313,10 @@ public class ProducerPurchaseImportService {
                         parseDecimal(raw.amount()),
                         parseDecimal(raw.amountPaid()),
                         parsePayment(raw.paymentMethod()),
+                        // L'import ne désigne pas de caisse : le fichier ne
+                        // dit pas par quel tiroir l'argent est passé. Le
+                        // compte par défaut du mode de paiement s'applique.
+                        null,
                         blankToNull(raw.paymentRef()),
                         null,
                         n.delegateSupplierId() == null ? blankToNull(raw.delegateName()) : null,

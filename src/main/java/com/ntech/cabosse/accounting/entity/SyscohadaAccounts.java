@@ -162,4 +162,49 @@ public final class SyscohadaAccounts {
             default -> VENTES_PRODUITS_FINIS;
         };
     }
+
+    /**
+     * Comptes que le moteur de comptabilisation emploie <strong>sans que
+     * personne ne les choisisse</strong>. Ce sont les seuls qui ne peuvent
+     * pas être retirés des saisies : les désactiver ferait échouer un
+     * achat ou une vente au moment de passer l'écriture.
+     *
+     * <p>Le reste du plan standard appartient à la structure, qui doit
+     * pouvoir l'adapter. La liste est construite ici, à partir des
+     * constantes ci-dessus, pour qu'un compte ajouté au moteur devienne
+     * protégé sans qu'on ait à y penser deux fois.</p>
+     */
+    public static final java.util.Set<String> ENGINE_ACCOUNTS = java.util.Set.of(
+            "130000",
+            "310000",
+            "320000",
+            "330000",
+            "340000",
+            "360000",
+            "401000",
+            "409100",
+            "411000",
+            "441000",
+            "445600",
+            "445700",
+            "461000",
+            "471000",
+            "521000",
+            "571000",
+            "585000",
+            "601000",
+            "602000",
+            "603100",
+            "603200",
+            "603300",
+            "604000",
+            "608100",
+            "624000",
+            "631000",
+            "701000",
+            "702000",
+            "734000",
+            "736000",
+            "891000"
+    );
 }

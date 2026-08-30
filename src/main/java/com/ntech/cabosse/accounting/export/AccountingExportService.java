@@ -131,7 +131,12 @@ public class AccountingExportService {
             BigDecimal[] cell = totals.getOrDefault(a.number, new BigDecimal[] { BigDecimal.ZERO, BigDecimal.ZERO });
             BigDecimal d = cell[0];
             BigDecimal c = cell[1];
-            rows.add(new BalanceRow(a.number, a.label, a.family.name(), d, c, d.subtract(c)));
+            // Le nom technique de la classe ne veut rien dire pour qui lit
+            // une balance : on exporte son intitulé, traduit. Et un compte
+            // hors référentiel n'a pas de classe : la colonne reste vide
+            // plutôt que de faire tomber tout l'export.
+            String family = a.family == null ? "" : Messages.msg(a.family.messageKey());
+            rows.add(new BalanceRow(a.number, a.label, family, d, c, d.subtract(c)));
         }
         rows.sort(Comparator.comparing(BalanceRow::accountNumber));
 
