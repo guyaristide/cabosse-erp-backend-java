@@ -18,6 +18,8 @@ public record CollectorAdvanceResponseDto(
         LocalDate advanceDate, BigDecimal advanceAmountFcfa, String paymentMethod,
         BigDecimal consumedAmountFcfa, BigDecimal remainingFcfa,
         String status, String pieceRef, String notes,
+        /** Ce que le décaissement a réellement mouvementé : compte, référence, frais. */
+        UUID bankAccountId, String paymentRef, BigDecimal bankFeesFcfa,
         List<DeliveryView> deliveries,
         Instant closedAt, Instant createdAt, String createdByEmail,
         /** Qui a approuvé, refusé ou décaissé, et quand. Vide tant que le
@@ -42,6 +44,7 @@ public record CollectorAdvanceResponseDto(
                 e.paymentMethod != null ? e.paymentMethod.name() : null,
                 e.consumedAmountFcfa, e.remainingFcfa,
                 e.status != null ? e.status.name() : null, e.pieceRef, e.notes,
+                e.bankAccountId, e.paymentRef, e.bankFeesFcfa,
                 deliveries, e.closedAt, e.createdAt, e.createdByEmail,
                 e.approvedAt, e.approvedByEmail,
                 e.rejectionReason, e.rejectedAt, e.rejectedByEmail,

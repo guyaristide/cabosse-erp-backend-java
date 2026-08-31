@@ -181,8 +181,17 @@ class DelegateRetentionTest extends AbstractIntegrationTest {
         assertAmount(account, "data.netBalanceFcfa", "795000");      // 1 000 000 − (200 000 + 5 000)
     }
 
+    /**
+     * Le refinancement d'un délégué endetté est signalé, pas refusé.
+     *
+     * <p>C'était un blocage : la demande était rejetée tant qu'aucune mise
+     * en compte n'était convenue. Décision de l'utilisateur du 30/08/2026,
+     * énoncée comme une règle générale : le système constate et donne à
+     * décider, il n'arbitre pas. Refinancer un délégué qui traîne une
+     * dette sans contrepartie est un choix de gouvernance.</p>
+     */
     @Test
-    void a_delegate_with_prior_debt_cannot_be_refinanced_without_a_retention() {
+    void a_delegate_with_prior_debt_is_flagged_not_blocked() {
         UserEntity admin = tenantAdmin();
         LocalDate today = LocalDate.now();
         String past = createCampaign(admin, "Principale passée",
@@ -197,10 +206,19 @@ class DelegateRetentionTest extends AbstractIntegrationTest {
         // Campagne passée : il reçoit 500 000 et ne livre rien.
         openAdvance(admin, delegateId, siteId, past, 500_000, today.minusMonths(8), 201);
 
-        // Le refinancer sans contrepartie doit être refusé.
-        openAdvance(admin, delegateId, siteId, current, 300_000, today, 422);
+        // Le refinancer sans contrepartie passe : le logiciel n'arbitre pas.
+        openAdvance(admin, delegateId, siteId, current, 300_000, today, 201);
 
-        // Une fois la mise en compte convenue, le financement passe.
+        // Mais la fiche technique le signale, pour que la décision se
+        // prenne les yeux ouverts.
+        givenAs(admin).when()
+                .get("/api/v1/collector-advances/delegates/" + delegateId
+                        + "/terms?campaignId=" + current)
+                .then().statusCode(200)
+                .body("data.hasPriorDebt", org.hamcrest.Matchers.is(true))
+                .body("data.retentionMissingOnPriorDebt", org.hamcrest.Matchers.is(true));
+
+        // Une fois la mise en compte convenue, l'avertissement tombe.
         givenAs(admin).contentType("application/json")
                 .body("""
                         { "name": "KONE Adama", "collector": true, "sectionId": "%s",
@@ -209,6 +227,12 @@ class DelegateRetentionTest extends AbstractIntegrationTest {
                 .when().put("/api/v1/suppliers/" + delegateId)
                 .then().statusCode(200);
         openAdvance(admin, delegateId, siteId, current, 300_000, today, 201);
+
+        givenAs(admin).when()
+                .get("/api/v1/collector-advances/delegates/" + delegateId
+                        + "/terms?campaignId=" + current)
+                .then().statusCode(200)
+                .body("data.retentionMissingOnPriorDebt", org.hamcrest.Matchers.is(false));
     }
 
     @Test

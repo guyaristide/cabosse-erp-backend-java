@@ -218,8 +218,11 @@ public class ProducerPaymentService {
             e.totalAmountFcfa = total;
             String debtAccount = toDelegate
                     ? prefs.delegatePayableAccount() : prefs.producerPayableAccount();
+            e.bankFeesFcfa = (p.bankFeesFcfa() != null && p.bankFeesFcfa().signum() > 0)
+                    ? p.bankFeesFcfa() : null;
             accounting.postFromProducerPayment(e.id, e.ref, beneficiaryName,
-                            debtAccount, p.paymentMethod(), p.bankAccountId(), total, date)
+                            debtAccount, p.paymentMethod(), p.bankAccountId(),
+                            total, e.bankFeesFcfa, date)
                     .ifPresent(piece -> e.pieceRef = piece.ref);
         } catch (RuntimeException ex) {
             for (ProducerPaymentDtos.AllocationDto a : applied) {

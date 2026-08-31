@@ -102,15 +102,24 @@ public class AccountingResource {
 
     // ─── Plan comptable ─────────────────────────────────────────────
 
+    /**
+     * Le plan comptable, et la balance qui s'en déduit.
+     *
+     * <p>{@code withBalances=false} rend le plan seul : c'est ce que lit
+     * le référentiel, qui n'a rien à dire des soldes et n'a donc pas à
+     * payer une passe sur tout le journal pour afficher une liste de
+     * comptes.</p>
+     */
     @GET
     @Path("/chart")
     public Response listChart(@QueryParam("family") String familyRaw,
                               @QueryParam("from") String fromRaw,
-                              @QueryParam("to") String toRaw) {
+                              @QueryParam("to") String toRaw,
+                              @QueryParam("withBalances") @DefaultValue("true") boolean withBalances) {
         AccountFamily family = parseFamily(familyRaw);
-        List<ChartOfAccountsResponseDto> chart = query.listChart(
-                family, parseDate(fromRaw), parseDate(toRaw)
-        );
+        List<ChartOfAccountsResponseDto> chart = withBalances
+                ? query.listChart(family, parseDate(fromRaw), parseDate(toRaw))
+                : query.listChartPlain(family);
         return Response.ok(ApiResponse.ok(chart)).build();
     }
 

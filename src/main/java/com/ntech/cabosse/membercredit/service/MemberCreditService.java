@@ -244,13 +244,16 @@ public class MemberCreditService {
         e.disbursedAt = date;
         e.paymentMethod = p.paymentMethod();
         e.paymentRef = blankToNull(p.paymentRef());
+        // Zéro et « pas de frais » se valent : on ne garde que ce qui pèse.
+        e.bankFeesFcfa = (p.bankFeesFcfa() != null && p.bankFeesFcfa().signum() > 0)
+                ? p.bankFeesFcfa() : null;
         e.updatedAt = Instant.now();
 
         accounting.postFromMemberCredit(
                         e.id, e.ref, e.memberName,
                         preferences.current().memberCreditAccount(),
                         accounting.treasuryAccountFor(p.paymentMethod(), p.bankAccountId()),
-                        nz(e.amountFcfa), date)
+                        nz(e.amountFcfa), e.bankFeesFcfa, date)
                 .ifPresent(piece -> e.pieceRef = piece.ref);
 
         repo.replace(e);

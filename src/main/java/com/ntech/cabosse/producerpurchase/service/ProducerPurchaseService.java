@@ -181,7 +181,9 @@ public class ProducerPurchaseService {
         // livre en direct est payé au prix, sans intermédiaire à
         // rétribuer. La catégorie sert alors au classement seul.
         BigDecimal margin = delegate != null
-                ? marginResolver.resolve(prefs, delegate, categoryOfCarrier).on(weight, amount)
+                ? marginResolver.resolve(prefs, delegate, categoryOfCarrier,
+                        campaign != null ? campaign.id : null)
+                        .on(weight, amount)
                 : BigDecimal.ZERO;
         // Mise en compte : ce que la coopérative retient au délégué, par
         // kilo livré. Symétrique de la marge, qu'elle lui verse. Le taux

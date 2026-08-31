@@ -298,6 +298,7 @@ public class TenantPreferencesService {
                     "from", t.preferences.delegateMarginRate(),
                     "to", payload.delegateMarginRate()));
             t.preferences.delegateMarginRate = payload.delegateMarginRate();
+        
         }
 
         if (payload.delegateMarginAccount() != null && !payload.delegateMarginAccount().isBlank()

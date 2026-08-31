@@ -42,6 +42,17 @@ public class MemberCreditRepository {
         return filters.isEmpty() ? new Document() : Filters.and(filters);
     }
 
+    /**
+     * Tous les crédits d'un statut, sans pagination. Même raison que côté
+     * avances : la file de trésorerie trie par ancienneté à travers
+     * plusieurs sources.
+     */
+    public List<MemberCreditEntity> findByStatus(String status) {
+        return coll().find(Filters.eq("status", status))
+                .sort(new Document("requestedAt", 1))
+                .into(new ArrayList<>());
+    }
+
     public long countSearch(UUID memberId, String status, UUID campaignId) {
         return coll().countDocuments(searchFilter(memberId, status, campaignId));
     }

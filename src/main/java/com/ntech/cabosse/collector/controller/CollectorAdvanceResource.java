@@ -2,6 +2,7 @@ package com.ntech.cabosse.collector.controller;
 
 import com.ntech.cabosse.collector.dto.CollectorAdvanceResponseDto;
 import com.ntech.cabosse.shared.i18n.Messages;
+import jakarta.validation.Valid;
 import com.ntech.cabosse.collector.dto.CreateAdvanceDto;
 import com.ntech.cabosse.collector.service.CollectorAdvanceService;
 import com.ntech.cabosse.collector.service.DelegateAccountService;
@@ -22,7 +23,6 @@ import com.ntech.cabosse.shared.export.ExportResponses;
 import io.quarkus.security.Authenticated;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
-import jakarta.validation.Valid;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
@@ -49,6 +49,8 @@ public class CollectorAdvanceResource {
 
     @Inject ExportAudit exportAudit;
     @Inject CollectorAdvanceService service;
+    @Inject com.fasterxml.jackson.databind.ObjectMapper json;
+    @Inject jakarta.validation.Validator validator;
     @Inject DelegateAccountService accountService;
 
     @GET
@@ -125,13 +127,32 @@ public class CollectorAdvanceResource {
      */
     @POST
     @Path("/{id}/disburse")
-    // Aucun corps attendu : sans cela, un POST vide se heurte au
-    // @Consumes de la classe et repart en 415.
+    // Le corps est lu comme du texte, puis désérialisé à la main.
+    //
+    // Déclarer le payload en paramètre typé rendrait le corps obligatoire :
+    // un POST sans corps et sans en-tête de type repart en 415, ce qui
+    // casserait tout appelant déjà en place le temps qu'il se redéploie.
+    // Un décaissement sans rien à préciser doit rester un POST vide.
     @Consumes(MediaType.WILDCARD)
     @RequiresPermission(Permission.COLLECTION_ADVANCE_DISBURSE)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
-    public Response disburse(@PathParam("id") UUID id) {
-        return Response.ok(ApiResponse.ok(service.disburse(id))).build();
+    public Response disburse(@PathParam("id") UUID id, String body) {
+        return Response.ok(ApiResponse.ok(service.disburse(id, parseDisbursement(body)))).build();
+    }
+
+    /** Corps absent, vide ou {@code {}} : aucun élément à enregistrer. */
+    private com.ntech.cabosse.collector.dto.DisburseAdvanceDto parseDisbursement(String body) {
+        if (body == null || body.isBlank()) return null;
+        try {
+            var payload = json.readValue(body,
+                    com.ntech.cabosse.collector.dto.DisburseAdvanceDto.class);
+            var violations = validator.validate(payload);
+            if (!violations.isEmpty()) throw new jakarta.validation.ConstraintViolationException(violations);
+            return payload;
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new com.ntech.cabosse.shared.exception.ValidationException(
+                    Messages.msg("m.col-disbursement-payload-unreadable"));
+        }
     }
 
     public record RejectPayload(String reason) {}
@@ -156,14 +177,21 @@ public class CollectorAdvanceResource {
      */
     /**
      * Fiche technique d'un délégué : ce qu'il traîne, ce qui a été convenu
-     * avec lui, et ce qu'il faudrait avancer pour un volume donné.
+     * avec lui, et la conversion entre volume et montant dans les deux
+     * sens.
+     *
+     * <p>{@code volumeKg} donne le montant à avancer, {@code amountFcfa}
+     * donne le volume que cette somme représente. Le second est le cas
+     * courant : le délégué demande de l'argent, pas un tonnage.</p>
      */
     @GET
     @Path("/delegates/{supplierId}/terms")
     public Response delegateTerms(@PathParam("supplierId") UUID supplierId,
                                   @QueryParam("campaignId") UUID campaignId,
-                                  @QueryParam("volumeKg") java.math.BigDecimal volumeKg) {
-        return Response.ok(ApiResponse.ok(accountService.terms(supplierId, campaignId, volumeKg))).build();
+                                  @QueryParam("volumeKg") java.math.BigDecimal volumeKg,
+                                  @QueryParam("amountFcfa") java.math.BigDecimal amountFcfa) {
+        return Response.ok(ApiResponse.ok(
+                accountService.terms(supplierId, campaignId, volumeKg, amountFcfa))).build();
     }
 
     @GET

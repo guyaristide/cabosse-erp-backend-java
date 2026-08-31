@@ -138,6 +138,22 @@ public class SaleRepository {
      * Créances : ventes en {@code CONFIRMED} ou {@code DELIVERED} non
      * totalement payées et arrivées à échéance.
      */
+    /**
+     * Ventes engagées et non soldées, échues ou non.
+     *
+     * <p>Sert la file « à encaisser » de la trésorerie, qui ne regarde pas
+     * l'échéance : une somme due avant terme reste une somme à recevoir, et
+     * c'est ce que le caissier prépare.</p>
+     */
+    public List<SaleEntity> listUnsettled() {
+        Bson filter = Filters.and(
+                Filters.in("status", SaleStatus.CONFIRMED.name(), SaleStatus.DELIVERED.name()),
+                Filters.ne("paymentStatus", "PAID"));
+        return coll().find(filter)
+                .sort(new Document("saleDate", 1))
+                .into(new ArrayList<>());
+    }
+
     public List<SaleEntity> listOverdueReceivables(LocalDate today) {
         Bson filter = Filters.and(
                 Filters.in("status", SaleStatus.CONFIRMED.name(), SaleStatus.DELIVERED.name()),

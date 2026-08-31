@@ -204,7 +204,9 @@ public class ProducerPurchaseImportService {
 
             // Cumul de l'apurement, sur les seules lignes applicables.
             if (status != Status.INVALID && delegate != null && displayAmount != null && weight != null) {
-                BigDecimal margin = marginResolver.resolve(prefs, delegate).on(weight, displayAmount);
+                BigDecimal margin = marginResolver
+                        .resolve(prefs, delegate, campaign != null ? campaign.id : null)
+                        .on(weight, displayAmount);
                 balanceBefore.computeIfAbsent(delegate.id, this::openBalance);
                 running.merge(delegate.id, displayAmount.add(margin), BigDecimal::add);
                 perDelegate.computeIfAbsent(delegate.id, k -> new DelegateAccumulator(delegate.name))

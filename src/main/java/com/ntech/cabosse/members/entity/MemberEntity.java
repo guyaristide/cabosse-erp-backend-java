@@ -161,6 +161,14 @@ public class MemberEntity {
     public java.math.BigDecimal collectorMarginRate;
 
     /**
+     * Rémunération convenue campagne par campagne. Recopiée sur le
+     * fournisseur miroir, qui la porte pour les reçus d'achat. Voir
+     * {@link com.ntech.cabosse.supplier.entity.SupplierEntity#collectorMarginByCampaign}.
+     */
+    public java.util.List<com.ntech.cabosse.supplier.entity.SupplierEntity.CampaignMargin>
+            collectorMarginByCampaign = new java.util.ArrayList<>();
+
+    /**
      * Numéros normalisés par lesquels ce producteur peut être retrouvé dans
      * un fichier importé, dérivés des pièces dont le type sert
      * d'identifiant. Un index unique porte sur cette liste : deux

@@ -72,6 +72,34 @@ public class SupplierEntity {
     public java.math.BigDecimal collectorMarginRate;
 
     /**
+     * Rémunération de ce délégué, campagne par campagne.
+     *
+     * <p>Une campagne se négocie : le taux d'une saison n'engage pas la
+     * suivante. L'entrée d'une campagne l'emporte donc sur le taux commun
+     * du délégué, qui reste le repli quand rien n'a été convenu pour la
+     * campagne en cours.</p>
+     *
+     * <p>Seul le taux varie par campagne, pas le mode : c'est le tenant ou
+     * la catégorie qui décide si l'on rémunère au kilo ou au pourcentage,
+     * et changer d'unité en cours d'exercice rendrait deux campagnes
+     * incomparables.</p>
+     */
+    public java.util.List<CampaignMargin> collectorMarginByCampaign = new java.util.ArrayList<>();
+
+    /** Taux convenu pour une campagne donnée. */
+    public static class CampaignMargin {
+        public java.util.UUID campaignId;
+        public java.math.BigDecimal rate;
+
+        public CampaignMargin() {}
+
+        public CampaignMargin(java.util.UUID campaignId, java.math.BigDecimal rate) {
+            this.campaignId = campaignId;
+            this.rate = rate;
+        }
+    }
+
+    /**
      * Mise en compte : retenue en FCFA par kilo convenue sur chaque
      * livraison du délégué.
      *

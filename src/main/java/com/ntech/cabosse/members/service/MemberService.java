@@ -25,6 +25,7 @@ import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.tenant.TenantContext;
+import com.ntech.cabosse.members.dto.CollectorMarginsDto;
 import com.ntech.cabosse.supplier.entity.SupplierEntity;
 import com.ntech.cabosse.supplier.repository.SupplierRepository;
 import com.ntech.cabosse.tenant.entity.TenantPreferences;
@@ -60,6 +61,7 @@ public class MemberService {
     @Inject com.ntech.cabosse.plan.service.PlanLimitService planLimits;
     @Inject MemberRefService refService;
     @Inject SupplierRepository suppliers;
+    @Inject com.ntech.cabosse.campaign.repository.CampaignRepository campaigns;
     @Inject com.ntech.cabosse.locality.repository.LocalityRepository localities;
     @Inject IdGenerator idGenerator;
     @Inject ProducerRefKeyService producerRefKeys;
@@ -543,9 +545,49 @@ public class MemberService {
             }
             if (!e.collector) s.localityIds = new java.util.ArrayList<>();
             s.collectorMarginRate = e.collector ? e.collectorMarginRate : null;
+            s.collectorMarginByCampaign = e.collector
+                    ? new java.util.ArrayList<>(e.collectorMarginByCampaign)
+                    : new java.util.ArrayList<>();
             s.updatedAt = Instant.now();
             suppliers.replace(s);
         });
+    }
+
+    /**
+     * Fixe la rémunération d'un délégué campagne par campagne.
+     *
+     * <p>La liste reçue remplace celle en place : retirer une campagne
+     * revient à dire qu'aucun taux particulier n'a été convenu pour elle,
+     * et le taux commun du délégué reprend la main.</p>
+     *
+     * <p>Le taux ne s'applique qu'aux reçus enregistrés ensuite. Ceux déjà
+     * saisis portent la rémunération figée à leur enregistrement : les
+     * relire au taux du jour réécrirait des comptes déjà arrêtés.</p>
+     */
+    public MemberResponseDto setCollectorMargins(UUID id, CollectorMarginsDto payload) {
+        MemberEntity e = loadOrFail(id);
+        if (!e.collector) {
+            throw new BusinessException(Messages.msg("m.mem-not-a-delegate", e.name));
+        }
+        List<SupplierEntity.CampaignMargin> margins = new ArrayList<>();
+        java.util.Set<UUID> seen = new java.util.HashSet<>();
+        for (var entry : payload.margins() == null ? List.<CollectorMarginsDto.Entry>of()
+                : payload.margins()) {
+            // Deux taux pour une même campagne rendraient le résultat
+            // dépendant de l'ordre de la liste.
+            if (!seen.add(entry.campaignId())) {
+                throw new BusinessException(
+                        Messages.msg("m.mem-margin-duplicate-campaign", entry.campaignId()));
+            }
+            campaigns.findById(entry.campaignId()).orElseThrow(() -> new NotFoundException(
+                    Messages.msg("m.cmp-campaign-not-found", entry.campaignId())));
+            margins.add(new SupplierEntity.CampaignMargin(entry.campaignId(), entry.rate()));
+        }
+        e.collectorMarginByCampaign = margins;
+        e.updatedAt = Instant.now();
+        members.replace(e);
+        syncMirrorSupplier(e);
+        return MemberResponseDto.from(e);
     }
 
     private SupplierEntity createMirrorSupplier(MemberEntity m) {
@@ -564,6 +606,9 @@ public class MemberService {
         s.collector = m.collector;
         s.sectionId = m.collector ? m.sectionId : null;
         s.collectorMarginRate = m.collector ? m.collectorMarginRate : null;
+        s.collectorMarginByCampaign = m.collector
+                ? new java.util.ArrayList<>(m.collectorMarginByCampaign)
+                : new java.util.ArrayList<>();
         s.active = true;
         s.createdAt = Instant.now();
         s.updatedAt = s.createdAt;

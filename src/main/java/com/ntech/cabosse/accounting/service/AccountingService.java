@@ -541,11 +541,12 @@ public class AccountingService {
     public Optional<JournalPieceEntity> postFromMemberCredit(
             UUID creditId, String ref, String memberName,
             String creditAccount, String treasuryAccount,
-            BigDecimal amount, LocalDate date) {
+            BigDecimal amount, BigDecimal bankFees, LocalDate date) {
         if (amount == null || amount.signum() <= 0) return Optional.empty();
-        List<JournalEntry> entries = List.of(
+        List<JournalEntry> entries = withBankFees(List.of(
                 JournalEntry.debit(creditAccount, "Créance sur " + nullSafe(memberName), amount),
-                JournalEntry.credit(treasuryAccount, "Décaissement " + ref, amount));
+                JournalEntry.credit(treasuryAccount, "Décaissement " + ref, amount)),
+                bankFees, treasuryAccount, ref);
         return postPiece(new PostingRequest(
                 date != null ? date : LocalDate.now(),
                 PostingSourceType.MEMBER_CREDIT, creditId, ref,
@@ -554,13 +555,15 @@ public class AccountingService {
 
     public Optional<JournalPieceEntity> postFromCollectorAdvance(
             UUID advanceId, String ref, String delegateLabel, BigDecimal amount,
-            com.ntech.cabosse.reception.entity.PaymentMethod method, LocalDate date) {
+            com.ntech.cabosse.reception.entity.PaymentMethod method,
+            UUID bankAccountId, BigDecimal bankFees, LocalDate date) {
         if (amount == null || amount.signum() <= 0) return Optional.empty();
         String advanceAccount = preferencesLookup.current().collectorAdvanceAccount();
-        String treasury = treasuryAccountFor(method);
-        List<JournalEntry> entries = List.of(
+        String treasury = treasuryAccountFor(method, bankAccountId);
+        List<JournalEntry> entries = withBankFees(List.of(
                 JournalEntry.debit(advanceAccount, "Avance " + nullSafe(delegateLabel), amount),
-                JournalEntry.credit(treasury, "Décaissement avance " + ref, amount));
+                JournalEntry.credit(treasury, "Décaissement avance " + ref, amount)),
+                bankFees, treasury, ref);
         return postPiece(new PostingRequest(
                 date != null ? date : LocalDate.now(),
                 PostingSourceType.COLLECTOR_ADVANCE, advanceId, ref,
@@ -635,12 +638,13 @@ public class AccountingService {
             UUID paymentId, String ref, String beneficiaryName, String debtAccount,
             com.ntech.cabosse.reception.entity.PaymentMethod method,
             UUID bankAccountId,
-            BigDecimal amount, LocalDate date) {
+            BigDecimal amount, BigDecimal bankFees, LocalDate date) {
         if (amount == null || amount.signum() <= 0) return Optional.empty();
-        List<JournalEntry> entries = List.of(
+        String treasury = treasuryAccountFor(method, bankAccountId);
+        List<JournalEntry> entries = withBankFees(List.of(
                 JournalEntry.debit(debtAccount, "Solde dû à " + nullSafe(beneficiaryName), amount),
-                JournalEntry.credit(treasuryAccountFor(method, bankAccountId),
-                        "Règlement " + ref, amount));
+                JournalEntry.credit(treasury, "Règlement " + ref, amount)),
+                bankFees, treasury, ref);
         return postPiece(new PostingRequest(
                 date != null ? date : LocalDate.now(),
                 PostingSourceType.PRODUCER_PAYMENT, paymentId, ref,
@@ -1303,6 +1307,31 @@ public class AccountingService {
      * le choix n'existe : les écritures déjà passées gardent leur
      * sens.</p>
      */
+    /**
+     * Ajoute, s'il y a lieu, l'écriture des frais bancaires.
+     *
+     * <p>Les frais sont portés en écriture <strong>distincte</strong> sur le
+     * compte de trésorerie, jamais fondus dans le montant décaissé. C'est le
+     * rapprochement bancaire qui l'impose : il compare ligne par ligne sur le
+     * compte de banque, pas le total de la pièce. Deux écritures se
+     * rapprochent que la banque débite en une ligne ou en deux ; un montant
+     * fondu ne se rapprocherait d'aucune des deux, et la ligne partirait en
+     * régularisation contre ce même compte de frais, comptant la charge une
+     * seconde fois.</p>
+     *
+     * <p>Les frais sont à la charge de l'émetteur, donc de la structure :
+     * ils ne touchent jamais le compte du bénéficiaire, qui reste débité du
+     * montant entier.</p>
+     */
+    private List<JournalEntry> withBankFees(List<JournalEntry> entries, BigDecimal fees,
+                                            String treasuryAccount, String ref) {
+        if (fees == null || fees.signum() <= 0) return entries;
+        List<JournalEntry> all = new ArrayList<>(entries);
+        all.add(JournalEntry.debit(SyscohadaAccounts.FRAIS_BANCAIRES, "Frais bancaires " + ref, fees));
+        all.add(JournalEntry.credit(treasuryAccount, "Frais bancaires " + ref, fees));
+        return all;
+    }
+
     public String treasuryAccountFor(PaymentMethod method, UUID bankAccountId) {
         if (bankAccountId != null) {
             BankAccountEntity account = bankAccounts.findById(bankAccountId).orElseThrow(

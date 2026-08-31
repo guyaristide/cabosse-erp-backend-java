@@ -26,6 +26,17 @@ public record DelegateTermsDto(
         BigDecimal priorDebtFcfa,
         /** Mise en compte convenue, en FCFA par kilo livré. */
         BigDecimal retentionPerKgFcfa,
+        /**
+         * Le délégué traîne une dette et aucune mise en compte n'est
+         * convenue avec lui.
+         *
+         * <p>C'était un refus : la demande d'avance était rejetée tant
+         * qu'une retenue par kilo n'était pas portée sur sa fiche. C'est
+         * devenu un avertissement. Refinancer un délégué endetté sans
+         * contrepartie est une décision, et le logiciel qui la prenait à
+         * la place de la gouvernance se substituait à elle.</p>
+         */
+        boolean retentionMissingOnPriorDebt,
         /** Marge de fonctionnement, en FCFA par kilo livré. */
         BigDecimal marginPerKgFcfa,
         /** Prix bord champ de la campagne, en FCFA par kilo. */
@@ -42,5 +53,25 @@ public record DelegateTermsDto(
          * Ce qu'il faudrait avancer pour un volume donné, quand l'appelant
          * en propose un : prix barème × volume.
          */
-        BigDecimal suggestedAdvanceFcfa
+        BigDecimal suggestedAdvanceFcfa,
+        /**
+         * Le volume qu'un montant demandé représente : montant ÷ prix
+         * barème.
+         *
+         * <p>C'est le sens le plus courant sur le terrain : le délégué
+         * demande une somme, et c'est le volume qu'il devra livrer qu'on
+         * en déduit. L'autre sens, du volume vers le montant, sert quand
+         * il annonce ce qu'il a déjà rassemblé.</p>
+         */
+        BigDecimal suggestedVolumeKg,
+        /**
+         * Ce qui reste à justifier sur la campagne en cours : avances
+         * décaissées et non encore couvertes par des livraisons.
+         *
+         * <p>Un constat, jamais une garde. Financer un délégué qui traîne
+         * un encours est une décision de la gouvernance, pas une règle que
+         * le logiciel arbitre : il montre ce qu'il faut pour décider, et
+         * s'arrête là.</p>
+         */
+        BigDecimal outstandingFcfa
 ) {}

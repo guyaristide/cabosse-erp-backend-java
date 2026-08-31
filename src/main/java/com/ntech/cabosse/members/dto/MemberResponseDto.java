@@ -38,6 +38,8 @@ public record MemberResponseDto(
         UUID sectionId,
         boolean collector,
         java.math.BigDecimal collectorMarginRate,
+        /** Rémunération convenue campagne par campagne, la plus précise. */
+        java.util.List<CampaignMarginView> collectorMarginByCampaign,
         UUID followUpAgentMemberId,
         List<UUID> deliveredArticleIds,
         List<MemberExternalCodeDto> externalProducerCodes,
@@ -69,6 +71,8 @@ public record MemberResponseDto(
         Instant createdAt,
         Instant updatedAt
 ) {
+
+    public record CampaignMarginView(java.util.UUID campaignId, java.math.BigDecimal rate) {}
     public record DocumentView(UUID id, String label, String fileName,
                                String mimeType, long sizeBytes, Instant uploadedAt) {}
 
@@ -109,7 +113,11 @@ public record MemberResponseDto(
                 MemberHouseholdDto.from(e.household),
                 MemberEnrolmentDto.from(e.enrolment),
                 MemberFileCompleteness.evaluate(e, fileValidityMonths, identityProofTypes),
-                e.sectionId, e.collector, e.collectorMarginRate, e.followUpAgentMemberId,
+                e.sectionId, e.collector, e.collectorMarginRate,
+                e.collectorMarginByCampaign == null ? java.util.List.of()
+                        : e.collectorMarginByCampaign.stream()
+                                .map(m -> new CampaignMarginView(m.campaignId, m.rate)).toList(),
+                e.followUpAgentMemberId,
                 e.deliveredArticleIds != null ? List.copyOf(e.deliveredArticleIds) : List.of(),
                 e.externalProducerCodes == null ? List.of() : e.externalProducerCodes.stream()
                         .map(MemberExternalCodeDto::from).toList(),

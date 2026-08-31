@@ -2,6 +2,11 @@ package com.ntech.cabosse.treasury.controller;
 
 import com.ntech.cabosse.shared.api.ApiResponse;
 import com.ntech.cabosse.shared.api.PageRequest;
+import com.ntech.cabosse.shared.export.ExportAudit;
+import com.ntech.cabosse.shared.export.ExportDataset;
+import com.ntech.cabosse.shared.export.ExportFormat;
+import com.ntech.cabosse.shared.export.ExportResponses;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.security.Roles;
 import com.ntech.cabosse.treasury.dto.TreasuryDtos;
 import com.ntech.cabosse.treasury.service.TreasuryService;
@@ -39,6 +44,93 @@ import java.util.UUID;
 public class TreasuryResource {
 
     @Inject TreasuryService service;
+    @Inject ExportAudit exportAudit;
+    @Inject com.ntech.cabosse.treasury.service.PayableService payableService;
+    @Inject com.ntech.cabosse.treasury.service.AccountStatementService statementService;
+    @Inject com.ntech.cabosse.treasury.service.ReceivableService receivableService;
+
+    // ─── Ce qui attend un décaissement ──────────────────────────────
+
+    /**
+     * La file des engagements à payer, toutes sources confondues.
+     *
+     * <p>En lecture seule : elle répond à « combien faut-il sortir, et à
+     * qui », question à laquelle aucun écran ne répondait. L'exécution du
+     * paiement reste pour l'instant dans le module d'origine.</p>
+     */
+    @GET
+    @Path("/payables")
+    @RequiresPermission(Permission.ACCOUNTING_READ)
+    public Response payables(@QueryParam("kind") String kind,
+                             @QueryParam("siteId") UUID siteId,
+                             @QueryParam("page") @DefaultValue("0") int page,
+                             @QueryParam("perPage") @DefaultValue("20") int perPage) {
+        return Response.ok(ApiResponse.ok(
+                payableService.queue(kind, siteId, PageRequest.of(page, perPage)))).build();
+    }
+
+    /**
+     * La file des encaissements attendus, symétrique de {@code /payables}.
+     *
+     * <p>En lecture seule elle aussi : l'exécution de l'encaissement reste
+     * dans le module d'origine tant que la question de savoir qui encaisse
+     * et depuis où n'est pas tranchée.</p>
+     */
+    @GET
+    @Path("/receivables")
+    @RequiresPermission(Permission.ACCOUNTING_READ)
+    public Response receivables(@QueryParam("kind") String kind,
+                                @QueryParam("siteId") UUID siteId,
+                                @QueryParam("page") @DefaultValue("0") int page,
+                                @QueryParam("perPage") @DefaultValue("20") int perPage) {
+        return Response.ok(ApiResponse.ok(
+                receivableService.queue(kind, siteId, PageRequest.of(page, perPage)))).build();
+    }
+
+    // ─── Le relevé d'un compte ──────────────────────────────────────
+
+    /**
+     * Ce qui est entré et sorti d'un compte, et au titre de quelle
+     * opération.
+     *
+     * <p>Ni le rapprochement, qui confronte à un document de la banque, ni
+     * l'état des flux, qui agrège par période : le relevé que la structure
+     * tient elle-même, où chaque ligne renvoie à son opération.</p>
+     */
+    @GET
+    @Path("/accounts/{id}/statement")
+    @RequiresPermission(Permission.ACCOUNTING_READ)
+    public Response statement(@PathParam("id") UUID id,
+                              @QueryParam("from") String from,
+                              @QueryParam("to") String to,
+                              @QueryParam("direction") String direction,
+                              @QueryParam("page") @DefaultValue("0") int page,
+                              @QueryParam("perPage") @DefaultValue("20") int perPage) {
+        return Response.ok(ApiResponse.ok(statementService.statement(
+                id, parseDate(from), parseDate(to), direction,
+                PageRequest.of(page, perPage)))).build();
+    }
+
+    /** Export du relevé, mêmes filtres qu'à l'écran, période entière. */
+    @GET
+    @Path("/accounts/{id}/statement/export")
+    @Produces({ "text/csv",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "application/pdf" })
+    @RequiresPermission(Permission.ACCOUNTING_READ)
+    public Response exportStatement(@PathParam("id") UUID id,
+                                    @QueryParam("from") String from,
+                                    @QueryParam("to") String to,
+                                    @QueryParam("direction") String direction,
+                                    @QueryParam("format") String formatRaw) {
+        ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
+        var rows = statementService.allMovements(id, parseDate(from), parseDate(to), direction);
+        var dataset = new ExportDataset<>(
+                Messages.msg("m.exp-t-releve-de-compte"),
+                AccountStatementExportColumns.all(), rows);
+        exportAudit.record("releve-de-compte", "Relevé de compte", format, rows.size());
+        return ExportResponses.build("releve-de-compte", format, dataset);
+    }
 
     // ─── Transports de fonds ────────────────────────────────────────
 

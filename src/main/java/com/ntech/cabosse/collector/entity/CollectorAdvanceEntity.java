@@ -75,6 +75,19 @@ public class CollectorAdvanceEntity {
     public UUID disbursedBy;
     public String disbursedByEmail;
 
+    /** Compte de trésorerie réellement mouvementé, désigné au décaissement. */
+    public UUID bankAccountId;
+
+    /** Référence du règlement : numéro de chèque, de virement, de transaction. */
+    public String paymentRef;
+
+    /**
+     * Frais bancaires du décaissement. À la charge de la structure : ils
+     * n'entrent pas dans {@link #advanceAmountFcfa} et ne pèsent donc pas
+     * sur le compte courant du délégué.
+     */
+    public BigDecimal bankFeesFcfa;
+
     /** Référence de la pièce comptable de l'avance. */
     public String pieceRef;
 

@@ -142,6 +142,86 @@ public class JournalPieceRepository {
         return decimal(row.get("debit")).subtract(decimal(row.get("credit")));
     }
 
+    /**
+     * Les mouvements d'un compte, ligne à ligne.
+     *
+     * <p>Le relevé d'un compte de trésorerie se lit par <b>ligne</b> et non
+     * par pièce : une même pièce porte le décaissement et, séparément, les
+     * frais bancaires que la banque prélève dessus. Les fondre en une seule
+     * ligne empêcherait de rapprocher un relevé qui les débite en deux.</p>
+     *
+     * <p>Le dépliage et la pagination se font dans l'agrégation, non en
+     * mémoire : une caisse principale accumule des milliers de mouvements
+     * sur un exercice, et les rapatrier pour en afficher vingt serait
+     * intenable. C'est aussi pourquoi la pagination porte sur les lignes
+     * dépliées, une pagination par pièce rendant des pages de taille
+     * variable.</p>
+     *
+     * @param direction {@code "IN"}, {@code "OUT"} ou {@code null} pour les deux
+     */
+    public List<Document> movements(String syscohadaAccount, LocalDate from, LocalDate to,
+                                    String direction, int skip, int limit) {
+        if (syscohadaAccount == null || syscohadaAccount.isBlank()) return List.of();
+        List<Bson> stages = movementStages(syscohadaAccount, from, to, direction);
+        // Du plus ancien au plus récent, comme un relevé bancaire. La
+        // référence départage à date égale, sans quoi deux lectures
+        // successives pourraient rendre deux ordres.
+        stages.add(Aggregates.sort(new Document("date", 1).append("ref", 1)));
+        stages.add(Aggregates.skip(skip));
+        stages.add(Aggregates.limit(limit));
+        return coll().withDocumentClass(Document.class)
+                .aggregate(stages).into(new ArrayList<>());
+    }
+
+    /** Nombre de lignes du relevé, pour la pagination. */
+    public long countMovements(String syscohadaAccount, LocalDate from, LocalDate to,
+                               String direction) {
+        if (syscohadaAccount == null || syscohadaAccount.isBlank()) return 0;
+        List<Bson> stages = movementStages(syscohadaAccount, from, to, direction);
+        stages.add(Aggregates.count("n"));
+        Document row = coll().withDocumentClass(Document.class).aggregate(stages).first();
+        return row == null ? 0 : ((Number) row.get("n")).longValue();
+    }
+
+    /**
+     * Entrées et sorties de la période, sur tout ce qui est filtré et non
+     * sur la page : un total qui ne porterait que sur vingt lignes ne
+     * répondrait à aucune question.
+     */
+    public BigDecimal[] movementTotals(String syscohadaAccount, LocalDate from, LocalDate to,
+                                       String direction) {
+        if (syscohadaAccount == null || syscohadaAccount.isBlank()) {
+            return new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO};
+        }
+        List<Bson> stages = movementStages(syscohadaAccount, from, to, direction);
+        stages.add(Aggregates.group(null,
+                Accumulators.sum("debit", "$entries.debitFcfa"),
+                Accumulators.sum("credit", "$entries.creditFcfa")));
+        Document row = coll().withDocumentClass(Document.class).aggregate(stages).first();
+        if (row == null) return new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO};
+        return new BigDecimal[]{decimal(row.get("debit")), decimal(row.get("credit"))};
+    }
+
+    private List<Bson> movementStages(String syscohadaAccount, LocalDate from, LocalDate to,
+                                      String direction) {
+        List<Bson> stages = new ArrayList<>();
+        List<Bson> match = new ArrayList<>();
+        if (from != null) match.add(Filters.gte("date", from));
+        if (to != null) match.add(Filters.lte("date", to));
+        match.add(Filters.eq("entries.syscohadaAccount", syscohadaAccount));
+        stages.add(Aggregates.match(Filters.and(match)));
+        stages.add(Aggregates.unwind("$entries"));
+        // Second filtre indispensable : la pièce retenue porte d'autres
+        // lignes, sur d'autres comptes, qui ne sont pas des mouvements de
+        // ce compte-ci.
+        List<Bson> onAccount = new ArrayList<>();
+        onAccount.add(Filters.eq("entries.syscohadaAccount", syscohadaAccount));
+        if ("IN".equals(direction)) onAccount.add(Filters.gt("entries.debitFcfa", 0));
+        if ("OUT".equals(direction)) onAccount.add(Filters.gt("entries.creditFcfa", 0));
+        stages.add(Aggregates.match(Filters.and(onAccount)));
+        return stages;
+    }
+
     /** Un montant absent vaut zéro ; un Decimal128 garde son exactitude. */
     private static BigDecimal decimal(Object value) {
         if (value == null) return BigDecimal.ZERO;

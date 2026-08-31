@@ -71,6 +71,20 @@ public class AccountingQueryService {
     //  Plan comptable enrichi (solde + nb mouvements sur la période)
     // ════════════════════════════════════════════════════════════════
 
+    /**
+     * Le plan seul : numéro, libellé, famille, activité.
+     *
+     * <p>Sans l'agrégation des écritures, qui n'a de sens que pour une
+     * balance. Un référentiel qui ferait une passe sur tout le journal
+     * pour afficher une liste de comptes deviendrait lent à mesure que la
+     * structure travaille, alors qu'il n'a rien à dire des soldes.</p>
+     */
+    public List<ChartOfAccountsResponseDto> listChartPlain(AccountFamily family) {
+        return chart.list(family).stream()
+                .map(a -> ChartOfAccountsResponseDto.from(a, java.math.BigDecimal.ZERO, 0))
+                .toList();
+    }
+
     public List<ChartOfAccountsResponseDto> listChart(AccountFamily family,
                                                       LocalDate from, LocalDate to) {
         List<ChartOfAccountsEntity> accounts = chart.list(family);

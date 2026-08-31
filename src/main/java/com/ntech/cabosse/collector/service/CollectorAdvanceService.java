@@ -7,6 +7,7 @@ import com.ntech.cabosse.article.entity.ArticleType;
 import com.ntech.cabosse.article.repository.ArticleRepository;
 import com.ntech.cabosse.collector.dto.CollectorAdvanceResponseDto;
 import com.ntech.cabosse.collector.dto.CreateAdvanceDto;
+import com.ntech.cabosse.collector.dto.DisburseAdvanceDto;
 import com.ntech.cabosse.campaign.entity.CampaignEntity;
 import com.ntech.cabosse.campaign.service.CampaignResolver;
 import com.ntech.cabosse.collector.entity.CollectorAdvanceEntity;
@@ -99,11 +100,11 @@ public class CollectorAdvanceService {
                 campaignResolver.resolveOptionalForDate(p.advanceDate(), p.campaignId());
         e.campaignId = campaign != null ? campaign.id : null;
         e.campaignYear = campaign != null ? campaign.campaignYear : null;
-        // Le délégué apure sa dette avant tout nouveau financement. Quand
-        // la coopérative le refinance malgré un solde antérieur, elle exige
-        // en contrepartie une mise en compte : une retenue par kilo livré,
-        // convenue sur sa fiche. Sans elle, l'avance est refusée.
-        ensureRetentionOnPriorDebt(delegate.id, e.campaignId);
+        // Ce que le délégué traîne d'une campagne antérieure, et l'absence
+        // éventuelle de mise en compte, s'affichent sur l'écran de demande.
+        // Le logiciel ne refuse plus : refinancer un délégué endetté est
+        // une décision de la gouvernance, et un blocage automatique se
+        // substituerait à elle.
 
         e.siteId = siteId;
         e.advanceDate = p.advanceDate();
@@ -146,7 +147,10 @@ public class CollectorAdvanceService {
         if (isSameActor(e.createdBy, e.createdByEmail) && !permissions.currentIsTenantAdmin()) {
             throw new BusinessException(Messages.msg("m.col-approve-self-forbidden", e.ref));
         }
-        ensureRetentionOnPriorDebt(e.delegateSupplierId, e.campaignId);
+        // Le solde antérieur du délégué et sa mise en compte sont sous les
+        // yeux de celui qui approuve, sur la fiche technique. Ils ne
+        // barrent plus la route : approuver malgré une dette est une
+        // décision, et c'est à l'approbateur de la prendre.
 
         Instant now = Instant.now();
         e.status = CollectorAdvanceStatus.APPROVED;
@@ -192,6 +196,19 @@ public class CollectorAdvanceService {
      * livraisons d'un délégué ne se comptent que sur une avance ouverte.</p>
      */
     public CollectorAdvanceResponseDto disburse(UUID id) {
+        return disburse(id, null);
+    }
+
+    /**
+     * Décaisse en désignant d'où sort l'argent, sous quelle référence et
+     * à quel coût.
+     *
+     * <p>Ces trois informations n'existent pas à la demande d'avance :
+     * personne n'y sait encore de quel compte l'argent sortira, ni quel
+     * numéro portera le chèque, ni ce que la banque prélèvera. Elles
+     * appartiennent au geste qui sort les fonds.</p>
+     */
+    public CollectorAdvanceResponseDto disburse(UUID id, DisburseAdvanceDto payload) {
         CollectorAdvanceEntity e = loadOrFail(id);
         requireStatus(e, CollectorAdvanceStatus.APPROVED);
         // Deux paires d'yeux par transition : l'approbateur ne sort pas
@@ -201,8 +218,22 @@ public class CollectorAdvanceService {
         }
 
         Instant now = Instant.now();
+        if (payload != null) {
+            // Le moyen prévu à la demande était une intention ; celui du
+            // décaissement est ce qui s'est réellement passé, et c'est lui
+            // qui oriente l'écriture vers la banque ou la caisse.
+            if (payload.paymentMethod() != null) e.paymentMethod = payload.paymentMethod();
+            e.bankAccountId = payload.bankAccountId();
+            e.paymentRef = (payload.paymentRef() == null || payload.paymentRef().isBlank())
+                    ? null : payload.paymentRef().trim();
+            // Zéro et « pas de frais » se valent : on ne garde que ce qui
+            // pèse, pour qu'un état ne montre pas des lignes à 0 FCFA.
+            e.bankFeesFcfa = (payload.bankFeesFcfa() != null
+                    && payload.bankFeesFcfa().signum() > 0) ? payload.bankFeesFcfa() : null;
+        }
         accounting.postFromCollectorAdvance(e.id, e.ref, e.delegateName,
-                        e.advanceAmountFcfa, e.paymentMethod, e.advanceDate)
+                        e.advanceAmountFcfa, e.paymentMethod,
+                        e.bankAccountId, e.bankFeesFcfa, e.advanceDate)
                 .ifPresent(piece -> e.pieceRef = piece.ref);
         e.status = CollectorAdvanceStatus.OPEN;
         e.disbursedAt = now;
@@ -214,24 +245,6 @@ public class CollectorAdvanceService {
                 "Décaissement " + e.ref + " : " + e.advanceAmountFcfa
                         + " à " + e.delegateName);
         return CollectorAdvanceResponseDto.from(e);
-    }
-
-    /**
-     * Le délégué apure sa dette avant tout nouveau financement.
-     *
-     * <p>Quand la structure le refinance malgré un solde antérieur, elle
-     * exige en contrepartie une mise en compte : une retenue par kilo
-     * livré, convenue sur sa fiche. Sans elle, l'avance est refusée.</p>
-     */
-    private void ensureRetentionOnPriorDebt(UUID delegateSupplierId, UUID campaignId) {
-        if (campaignId == null) return;
-        SupplierEntity delegate = suppliers.findById(delegateSupplierId).orElse(null);
-        if (delegate == null || nz(delegate.collectorRetentionPerKgFcfa).signum() > 0) return;
-        BigDecimal previous = delegateAccount.previousBalance(delegateSupplierId, campaignId);
-        if (previous.signum() > 0) {
-            throw new BusinessException(Messages.msg(
-                    "m.col-retention-required-on-prior-debt", delegate.name, previous));
-        }
     }
 
     /**

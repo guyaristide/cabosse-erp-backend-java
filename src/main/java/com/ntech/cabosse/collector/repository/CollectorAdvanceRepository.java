@@ -38,6 +38,21 @@ public class CollectorAdvanceRepository {
                 ? new org.bson.Document() : Filters.eq("status", status);
     }
 
+    /**
+     * Toutes les avances d'un statut, sans pagination.
+     *
+     * <p>Sert la file de trésorerie, qui doit trier par ancienneté à
+     * travers plusieurs sources : une pagination par source empêcherait
+     * tout classement global. Le volume est borné par le statut, pas par
+     * l'historique : ce qui est approuvé et pas encore décaissé se compte
+     * en dizaines.</p>
+     */
+    public List<CollectorAdvanceEntity> findByStatus(String status) {
+        return coll().find(Filters.eq("status", status))
+                .sort(new org.bson.Document("advanceDate", 1))
+                .into(new ArrayList<>());
+    }
+
     public long countSearch(String status) {
         return coll().countDocuments(searchFilter(status));
     }

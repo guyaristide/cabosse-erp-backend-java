@@ -41,7 +41,18 @@ public final class ProducerPaymentDtos {
             UUID bankAccountId,
 
             LocalDate date,
+            /** Référence du règlement : numéro de chèque, de virement, de transaction. */
             @Size(max = 80) String paymentRef,
+
+            /**
+             * Frais bancaires de l'opération, s'il y en a.
+             *
+             * <p>À la charge de l'émetteur, donc de la structure : ils ne
+             * touchent jamais la dette envers le bénéficiaire, qui reste
+             * soldée du montant entier.</p>
+             */
+            @DecimalMin(value = "0", message = "{v.montant-positif-requis}")
+            BigDecimal bankFeesFcfa,
 
             @NotEmpty(message = "{v.au-moins-une-livraison-a-regler}")
             List<@Valid AllocationDto> allocations,
@@ -63,6 +74,8 @@ public final class ProducerPaymentDtos {
             String beneficiaryKind, UUID memberId, UUID delegateSupplierId, String beneficiaryName,
             BigDecimal totalAmountFcfa,
             String paymentMethod, String paymentRef,
+            /** Frais bancaires du règlement, à la charge de la structure. */
+            BigDecimal bankFeesFcfa,
             List<AllocationView> allocations,
             String pieceRef, String notes, Instant createdAt, String createdByEmail
     ) {
@@ -83,7 +96,7 @@ public final class ProducerPaymentDtos {
                     e.memberId, e.delegateSupplierId, e.beneficiaryName,
                     e.totalAmountFcfa,
                     e.paymentMethod != null ? e.paymentMethod.name() : null,
-                    e.paymentRef, lines, e.pieceRef, e.notes, e.createdAt, e.createdByEmail);
+                    e.paymentRef, e.bankFeesFcfa, lines, e.pieceRef, e.notes, e.createdAt, e.createdByEmail);
         }
     }
 

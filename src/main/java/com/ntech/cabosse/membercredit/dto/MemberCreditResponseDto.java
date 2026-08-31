@@ -23,7 +23,10 @@ public record MemberCreditResponseDto(
         boolean governanceApprovalRequired,
         Instant approvedAt, String approvedByEmail, String approvalNote,
         Instant rejectedAt, String rejectedByEmail, String rejectionReason,
-        LocalDate disbursedAt, String paymentMethod, String paymentRef, String pieceRef,
+        LocalDate disbursedAt, String paymentMethod, String paymentRef,
+        /** Frais bancaires du décaissement, à la charge de la structure. */
+        java.math.BigDecimal bankFeesFcfa,
+        String pieceRef,
         BigDecimal imputedAmountFcfa, BigDecimal remainingFcfa,
         List<ImputationView> imputations,
         String notes, Instant settledAt, Instant createdAt,
@@ -53,7 +56,7 @@ public record MemberCreditResponseDto(
                 e.rejectedAt, e.rejectedByEmail, e.rejectionReason,
                 e.disbursedAt,
                 e.paymentMethod != null ? e.paymentMethod.name() : null,
-                e.paymentRef, e.pieceRef,
+                e.paymentRef, e.bankFeesFcfa, e.pieceRef,
                 e.imputedAmountFcfa, e.remainingFcfa,
                 imputations, e.notes, e.settledAt, e.createdAt,
                 com.ntech.cabosse.shared.storage.AttachmentDto.fromAll(e.attachments));

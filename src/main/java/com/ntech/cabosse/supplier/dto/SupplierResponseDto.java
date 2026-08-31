@@ -15,10 +15,14 @@ public record SupplierResponseDto(
         String contactName, String paymentTerms, String notes,
         boolean collector, UUID sectionId, java.util.List<UUID> localityIds,
         java.math.BigDecimal collectorMarginRate,
+        /** Rémunération convenue campagne par campagne, la plus précise. */
+        java.util.List<CampaignMarginView> collectorMarginByCampaign,
         java.math.BigDecimal collectorRetentionPerKgFcfa,
         UUID categoryId, String categoryName,
         boolean active, Instant createdAt, Instant updatedAt
 ) {
+
+    public record CampaignMarginView(java.util.UUID campaignId, java.math.BigDecimal rate) {}
     public static SupplierResponseDto from(SupplierEntity e) {
         return from(e, null);
     }
@@ -32,6 +36,9 @@ public record SupplierResponseDto(
                 e.collector, e.sectionId,
                 e.localityIds != null ? e.localityIds : java.util.List.of(),
                 e.collectorMarginRate,
+                e.collectorMarginByCampaign == null ? java.util.List.of()
+                        : e.collectorMarginByCampaign.stream()
+                                .map(m -> new CampaignMarginView(m.campaignId, m.rate)).toList(),
                 e.collectorRetentionPerKgFcfa,
                 e.categoryId, categoryName,
                 e.active, e.createdAt, e.updatedAt

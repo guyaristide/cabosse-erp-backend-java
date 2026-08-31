@@ -82,6 +82,13 @@ public class MemberCreditEntity {
     public LocalDate disbursedAt;
     public PaymentMethod paymentMethod;
     public String paymentRef;
+
+    /**
+     * Frais bancaires du décaissement. À la charge de la structure : ils
+     * n'entrent pas dans le montant du crédit et ne pèsent donc pas sur la
+     * créance du producteur.
+     */
+    public java.math.BigDecimal bankFeesFcfa;
     /** Pièce comptable du décaissement. */
     public String pieceRef;
 

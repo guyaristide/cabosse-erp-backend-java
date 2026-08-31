@@ -152,6 +152,26 @@ public class MemberResource {
         return Response.ok(ApiResponse.ok(service.reject(id, reason))).build();
     }
 
+    // ─── Rémunération d'un délégué, campagne par campagne ───────────
+
+    /**
+     * Fixe ce qu'un délégué touche pour une campagne donnée.
+     *
+     * <p>Le taux d'une saison n'engage pas la suivante : une campagne se
+     * négocie. La liste reçue remplace celle en place, et le taux commun
+     * du délégué reprend la main sur les campagnes qu'elle ne cite pas.</p>
+     */
+    @PUT
+    @RequiresPermission(Permission.MEMBER_WRITE)
+    @Path("/{id}/collector-margins")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
+    public Response setCollectorMargins(
+            @PathParam("id") UUID id,
+            @Valid com.ntech.cabosse.members.dto.CollectorMarginsDto payload) {
+        ensureCapability();
+        return Response.ok(ApiResponse.ok(service.setCollectorMargins(id, payload))).build();
+    }
+
     // ─── Radiation (MEM-05) ─────────────────────────────────────────
 
     public record RetirePayload(String reason) {}

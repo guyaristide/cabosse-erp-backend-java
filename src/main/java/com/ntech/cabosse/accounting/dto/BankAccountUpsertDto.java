@@ -9,7 +9,9 @@ import jakarta.validation.constraints.Size;
 public record BankAccountUpsertDto(
         @NotBlank @Size(max = 80) String bankName,
         @Size(max = 60) String accountNumber,
-        @NotBlank @Size(max = 10) String syscohadaAccount,
+        /** Même longueur que le plan comptable : un compte de trésorerie
+            peut être un sous-compte profond. */
+        @NotBlank @Size(max = 20) String syscohadaAccount,
         @NotBlank @Size(max = 80) String label,
         @Size(max = 120) String sub,
         @NotNull BankAccountKind kind,

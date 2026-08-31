@@ -112,6 +112,19 @@ public class DelegateAccountService {
      * un prix unitaire.</p>
      */
     public DelegateTermsDto terms(UUID delegateSupplierId, UUID campaignId, BigDecimal volumeKg) {
+        return terms(delegateSupplierId, campaignId, volumeKg, null);
+    }
+
+    /**
+     * Fiche technique, dans les deux sens de la formule.
+     *
+     * <p>Le délégué demande une somme, et on en déduit le volume qu'il
+     * devra livrer ; ou il annonce un volume, et on en déduit la somme à
+     * lui avancer. C'est la même division, prise par un bout ou par
+     * l'autre, et le terrain emploie surtout le premier.</p>
+     */
+    public DelegateTermsDto terms(UUID delegateSupplierId, UUID campaignId,
+                                  BigDecimal volumeKg, BigDecimal amountFcfa) {
         SupplierEntity delegate = suppliers.findById(delegateSupplierId).orElseThrow(
                 () -> new NotFoundException(Messages.msg("m.col-delegate-not-found", delegateSupplierId)));
         if (!delegate.collector) {
@@ -123,7 +136,10 @@ public class DelegateAccountService {
 
         BigDecimal prior = campaign != null ? previousBalance(delegate.id, campaign.id) : BigDecimal.ZERO;
         BigDecimal retention = nz(delegate.collectorRetentionPerKgFcfa);
-        var margin = marginResolver.resolve(preferences.current(), delegate);
+        // Le taux dépend de la campagne : c'est celui négocié pour elle,
+        // pas celui d'une autre saison.
+        var margin = marginResolver.resolve(preferences.current(), delegate,
+                campaign != null ? campaign.id : null);
         BigDecimal marginPerKg = margin.isPerKg() ? nz(margin.rate()) : null;
         BigDecimal basePrice = campaign != null ? nz(campaign.basePricePerKgFcfa) : BigDecimal.ZERO;
         BigDecimal scalePrice = marginPerKg != null ? basePrice.add(marginPerKg) : null;
@@ -131,12 +147,43 @@ public class DelegateAccountService {
                 ? scalePrice.multiply(volumeKg).setScale(2, RoundingMode.HALF_UP)
                 : null;
 
+        // Le sens inverse : une somme demandée vaut un volume à livrer.
+        // Sans prix barème il n'y a rien à diviser, et un volume faux
+        // engagerait le délégué sur une quantité qu'il n'a pas promise.
+        BigDecimal suggestedVolume =
+                scalePrice != null && scalePrice.signum() > 0
+                        && amountFcfa != null && amountFcfa.signum() > 0
+                        ? amountFcfa.divide(scalePrice, 3, RoundingMode.HALF_UP)
+                        : null;
+
         return new DelegateTermsDto(
                 delegate.id, delegate.code, delegate.name,
                 campaign != null ? campaign.id : null,
                 campaign != null ? campaign.label : null,
                 prior.signum() > 0, prior,
-                retention, marginPerKg, basePrice, scalePrice, suggested);
+                retention,
+                prior.signum() > 0 && retention.signum() <= 0,
+                marginPerKg, basePrice, scalePrice, suggested,
+                suggestedVolume,
+                outstanding(delegate.id, campaign != null ? campaign.id : null));
+    }
+
+    /**
+     * Ce qui reste à justifier sur la campagne en cours.
+     *
+     * <p>Somme des reliquats des avances décaissées et encore ouvertes.
+     * C'est ce qu'on regarde avant d'en accorder une nouvelle.</p>
+     *
+     * <p>Le chiffre s'affiche, il n'arbitre rien : accorder ou refuser est
+     * une décision de la gouvernance, et un logiciel qui bloquerait de
+     * lui-même se substituerait à elle.</p>
+     */
+    public BigDecimal outstanding(UUID delegateSupplierId, UUID campaignId) {
+        return advances.listDisbursedByDelegate(delegateSupplierId).stream()
+                .filter(a -> a.status == com.ntech.cabosse.collector.entity.CollectorAdvanceStatus.OPEN)
+                .filter(a -> campaignId == null || campaignId.equals(a.campaignId))
+                .map(a -> nz(a.remainingFcfa))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     /**
@@ -217,7 +264,12 @@ public class DelegateAccountService {
                 delivered = delivered.add(nz(r.amountFcfa));
             }
 
-            var resolved = marginResolver.resolve(prefs, delegate);
+            // L'état porte sur une ou plusieurs campagnes : le taux affiché
+            // est celui de la campagne demandée quand il n'y en a qu'une, et
+            // le taux commun dès qu'on en agrège plusieurs, faute d'un taux
+            // unique qui puisse les représenter.
+            var resolved = marginResolver.resolve(prefs, delegate,
+                    scope.size() == 1 ? scope.get(0) : null);
             rows.add(new com.ntech.cabosse.collector.dto.DelegateStatementDto.Row(
                     delegate.id, delegate.code, delegate.name,
                     delegate.sectionId != null

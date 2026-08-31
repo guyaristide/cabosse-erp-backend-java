@@ -48,6 +48,13 @@ public class ProducerPaymentEntity {
     public PaymentMethod paymentMethod;
     public String paymentRef;
 
+    /**
+     * Frais bancaires du règlement. À la charge de la structure : ils
+     * n'entrent pas dans le montant réglé et ne soldent donc aucune dette
+     * envers le bénéficiaire.
+     */
+    public java.math.BigDecimal bankFeesFcfa;
+
     public List<Allocation> allocations = new ArrayList<>();
 
     /** Pièce comptable du règlement. */
