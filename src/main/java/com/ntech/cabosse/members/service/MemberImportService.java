@@ -128,6 +128,11 @@ public class MemberImportService {
         int ready = 0, update = 0, warning = 0, invalid = 0, duplicate = 0;
         int additionalParcel = 0, parcelsToCreate = 0, parcelsToUpdate = 0;
 
+        // Rang de la parcelle chez son producteur, pour nommer celles que
+        // le registre ne nomme pas. Un producteur déclare ses plantations
+        // sur plusieurs lignes : le compteur suit le fichier, pas la ligne.
+        Map<String, Integer> parcelRanks = new java.util.HashMap<>();
+
         for (MemberImportRowDto raw : input) {
             List<FieldIssue> issues = new ArrayList<>();
 
@@ -140,8 +145,16 @@ public class MemberImportService {
             String gender = parseGender(raw.gender(), issues);
             String personType = parsePersonType(raw.personType());
             String maritalStatus = parseMaritalStatus(raw.maritalStatus());
-            LocalDate birthDate = parseDate(raw.birthDate(), "birthDate", issues);
+            // L'état civil d'un producteur ne porte souvent que l'année.
+            // Le modèle le prévoit avec birthYear ; l'import s'y range au
+            // lieu de refuser la ligne ou d'inventer un 1er janvier, qui
+            // finirait imprimé sur une carte producteur.
+            Integer yearOnly = yearOnly(raw.birthDate());
+            LocalDate birthDate = yearOnly != null
+                    ? null
+                    : parseDate(raw.birthDate(), "birthDate", issues);
             Integer birthYear = parseInt(raw.birthYear(), "birthYear", issues);
+            if (birthYear == null) birthYear = yearOnly;
             LocalDate joinedAt = parseDate(raw.joinedAt(), "joinedAt", issues);
             LocalDate collectedAt = parseDate(raw.dataCollectedAt(), "dataCollectedAt", issues);
             BigDecimal parts = parseDecimal(raw.partsSocialesAmount(), "partsSocialesAmount", issues);
@@ -187,7 +200,7 @@ public class MemberImportService {
                     parseBoolean(raw.censusRegistered()), parseBoolean(raw.producerCardIssued()),
                     collectedAt != null ? collectedAt.format(ISO) : null,
                     trim(raw.notes()),
-                    parseParcel(raw, knownParcels, issues),
+                    parseParcel(raw, knownParcels, nextParcelRank(raw, parcelRanks), issues),
                     trim(raw.delegateCode()));
 
             // Le village face au référentiel. Une ressemblance n'est jamais
@@ -274,6 +287,7 @@ public class MemberImportService {
      */
     private MemberImportPreviewDto.Parcel parseParcel(MemberImportRowDto raw,
                                                       Map<String, UUID> knownParcels,
+                                                      int parcelRank,
                                                       List<FieldIssue> issues) {
         String name = trim(raw.parcelName());
         String code = trim(raw.parcelCode());
@@ -299,9 +313,14 @@ public class MemberImportService {
             issues.add(new FieldIssue("parcelLatitude", Messages.msg("m.imp-parcel-position-required")));
             return null;
         }
+        // Beaucoup de coopératives ne nomment pas leurs parcelles : elles
+        // les repèrent par leur producteur et leur position. Exiger un nom
+        // qu'aucun registre ne porte reviendrait à leur demander d'en
+        // inventer un millier. Il se dérive du producteur et du rang de la
+        // parcelle dans sa déclaration, ce qu'un opérateur écrirait de
+        // toute façon, et reste modifiable ensuite.
         if (name == null && matched == null) {
-            issues.add(new FieldIssue("parcelName", Messages.msg("m.imp-parcel-name-required")));
-            return null;
+            name = derivedParcelName(raw, parcelRank);
         }
 
         List<String> certifications = trim(raw.parcelCertifications()) == null
@@ -927,6 +946,42 @@ public class MemberImportService {
             return Boolean.FALSE;
         }
         return null;
+    }
+
+    /** Rang de la parcelle suivante chez ce producteur, à partir de 1. */
+    private static int nextParcelRank(MemberImportRowDto raw, Map<String, Integer> ranks) {
+        String who = trim(raw.code());
+        if (who == null) who = recomposeName(trim(raw.lastName()), trim(raw.firstName()));
+        if (who == null) who = "?" + raw.rowNumber();
+        return ranks.merge(who.toUpperCase(Locale.ROOT), 1, Integer::sum);
+    }
+
+    /**
+     * Année seule, telle que « 1979 ».
+     *
+     * <p>Bornée à une plage plausible pour ne pas prendre un code à quatre
+     * chiffres pour une année de naissance.</p>
+     */
+    private static Integer yearOnly(String raw) {
+        if (raw == null) return null;
+        String value = raw.trim();
+        if (!value.matches("\\d{4}")) return null;
+        int year = Integer.parseInt(value);
+        return (year >= 1900 && year <= LocalDate.now().getYear()) ? year : null;
+    }
+
+    /**
+     * Nom de repli d'une parcelle que le registre ne nomme pas.
+     *
+     * <p>Le producteur d'abord, parce que c'est ainsi qu'on la désigne sur
+     * le terrain ; son rang ensuite, parce qu'un producteur en déclare
+     * plusieurs.</p>
+     */
+    private static String derivedParcelName(MemberImportRowDto raw, int rank) {
+        String who = trim(raw.code());
+        if (who == null) who = recomposeName(trim(raw.lastName()), trim(raw.firstName()));
+        String label = Messages.msg("m.imp-parcel-name-derived", String.valueOf(rank));
+        return who == null ? label : who + " " + label;
     }
 
     private static LocalDate parseDate(String raw, String field, List<FieldIssue> issues) {
