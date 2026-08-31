@@ -87,9 +87,11 @@ public class PayableService {
         if (kind != null && !kind.isBlank()) filters.put("kind", kind);
         if (siteId != null) filters.put("siteId", siteId.toString());
 
+        long oldest = all.isEmpty() ? 0 : all.get(0).ageDays();
+
         Pagination<PayableDto> page = Pagination.of(
                 all.size(), pr, new String[]{"since"}, "asc", filters, items);
-        return new PayableQueueDto(total, beneficiaries.size(), page);
+        return new PayableQueueDto(total, beneficiaries.size(), oldest, page);
     }
 
     private List<PayableDto> collect(String kind, UUID siteId) {

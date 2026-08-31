@@ -182,6 +182,32 @@ class PayableQueueTest extends AbstractIntegrationTest {
         assertThat(ages.get(0)).isEqualTo(12);
     }
 
+    @Test
+    void the_queue_says_how_long_the_oldest_has_waited() {
+        UserEntity admin = admin();
+        String campaign = openCampaign(admin);
+        approvedAdvance(admin, delegate(admin, "GBAGBO Célestin"), campaign,
+                400_000, LocalDate.now().minusDays(3));
+        approvedAdvance(admin, delegate(admin, "ZADI Norbert"), campaign,
+                400_000, LocalDate.now().minusDays(34));
+
+        // Un total seul ne dit pas s'il y a du retard : cinq millions dus
+        // depuis hier et cinq millions dus depuis six semaines n'appellent
+        // pas la même décision.
+        Number oldest = queue(admin, "").extract().path("data.oldestAgeDays");
+        assertThat(oldest.longValue()).isEqualTo(34L);
+    }
+
+    @Test
+    void an_empty_queue_has_no_age() {
+        UserEntity admin = admin();
+
+        // Zéro plutôt qu'une valeur héritée d'une file précédente : rien
+        // n'attend, il n'y a pas d'ancienneté à annoncer.
+        Number oldest = queue(admin, "").extract().path("data.oldestAgeDays");
+        assertThat(oldest.longValue()).isEqualTo(0L);
+    }
+
     // ─── Le total ───────────────────────────────────────────────────
 
     @Test

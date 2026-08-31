@@ -82,6 +82,13 @@ public final class PayableDtos {
     public record PayableQueueDto(
             BigDecimal totalRemainingFcfa,
             int beneficiaryCount,
+            /**
+             * Ancienneté de la plus vieille ligne de la file, tous filtres
+             * appliqués. Un total seul ne dit pas si la structure a du
+             * retard : cinq millions dus depuis hier et cinq millions dus
+             * depuis six semaines n'appellent pas la même décision.
+             */
+            long oldestAgeDays,
             Pagination<PayableDto> page
     ) {}
 }
