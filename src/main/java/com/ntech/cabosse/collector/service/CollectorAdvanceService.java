@@ -59,6 +59,7 @@ public class CollectorAdvanceService {
     @Inject AccountingService accounting;
     @Inject com.ntech.cabosse.tenant.service.TenantPreferencesLookup preferencesLookup;
     @Inject TenantContext tenantContext;
+    @Inject AdvanceNotifier notifier;
     @Inject AuditService audit;
     @Inject com.ntech.cabosse.permission.service.PermissionResolver permissions;
     @Inject JsonWebToken jwt;
@@ -126,6 +127,10 @@ public class CollectorAdvanceService {
         repo.insert(e);
         audit(e, AuditEventType.COLLECTOR_ADVANCE_CREATED,
                 "Demande d'avance " + e.advanceAmountFcfa + " pour le délégué " + e.delegateName);
+        // Après l'enregistrement, et sans pouvoir le remettre en cause :
+        // une demande écrite dont l'alerte n'est pas partie reste une
+        // demande écrite.
+        notifier.advanceAwaitsApproval(e);
         return CollectorAdvanceResponseDto.from(e);
     }
 

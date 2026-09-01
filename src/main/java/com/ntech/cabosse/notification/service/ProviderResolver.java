@@ -17,6 +17,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.Set;
 
 /**
@@ -38,6 +39,8 @@ public class ProviderResolver {
     @Inject NotificationProviderRepository providers;
     @Inject ProviderEngineRegistry engines;
     @Inject SecretCipher cipher;
+    @Inject PlatformEmailFallback platformEmail;
+    @Inject com.ntech.cabosse.shared.tenant.TenantContext tenantContext;
     @Inject Logger log;
 
     /**
@@ -46,11 +49,31 @@ public class ProviderResolver {
      * rien à drainer et aucune tentative ne doit être consommée.
      */
     public List<ResolvedProvider> resolve(NotificationChannel channel, NotificationUsage usage) {
-        List<NotificationProviderEntity> candidates = providers.listActive(channel).stream()
+        // La structure d'abord. Elle n'emprunte le socle que si elle n'a
+        // rien déclaré d'utilisable sur ce canal ; en déclarer un pour le
+        // courriel ne doit pas la priver du SMS de la plateforme, d'où le
+        // raisonnement canal par canal.
+        UUID tenantId = currentTenantId();
+        if (tenantId != null) {
+            List<ResolvedProvider> own = usableAt(channel, usage, tenantId);
+            if (!own.isEmpty()) return own;
+        }
+
+        List<ResolvedProvider> platform = usableAt(channel, usage, null);
+        // À défaut de tout fournisseur déclaré, le serveur qui poste déjà
+        // les invitations.
+        if (platform.isEmpty() && channel == NotificationChannel.EMAIL) {
+            platformEmail.provider().flatMap(this::resolveOne).ifPresent(platform::add);
+        }
+        return platform;
+    }
+
+    private List<ResolvedProvider> usableAt(NotificationChannel channel, NotificationUsage usage,
+                                            UUID tenantId) {
+        List<NotificationProviderEntity> candidates = providers.listActive(channel, tenantId).stream()
                 .filter(p -> p.priorityFor(usage).isPresent())
                 .sorted(Comparator.comparingInt(p -> p.priorityFor(usage).orElse(Integer.MAX_VALUE)))
                 .toList();
-
         List<ResolvedProvider> usable = new ArrayList<>();
         for (NotificationProviderEntity provider : candidates) {
             resolveOne(provider).ifPresent(usable::add);
@@ -81,9 +104,44 @@ public class ProviderResolver {
         return Optional.of(new ResolvedProvider(provider, engine.get(), params));
     }
 
-    /** Un canal a-t-il au moins un fournisseur actif ? Lecture bon marché. */
+    /**
+     * Un canal a-t-il de quoi envoyer ? Lecture bon marché, faite avant de
+     * drainer.
+     *
+     * <p>Le repli compte, sans quoi le relais s'arrêterait avant même
+     * d'essayer et la file resterait pleine à côté d'un serveur configuré.</p>
+     */
     public boolean channelHasActiveProvider(NotificationChannel channel) {
-        return providers.hasActive(channel);
+        UUID tenantId = currentTenantId();
+        if (tenantId != null && providers.hasActive(channel, tenantId)) return true;
+        if (providers.hasActive(channel, null)) return true;
+        return channel == NotificationChannel.EMAIL && platformEmail.provider().isPresent();
+    }
+
+    /**
+     * Un canal a-t-il de quoi envoyer quelque part, tous niveaux confondus ?
+     *
+     * <p>Question du relais, qui décide de faire ou non le tour des
+     * structures avant d'en ouvrir aucune. Depuis que chacune peut
+     * déclarer les siens, interroger le seul niveau plateforme ferait
+     * sauter le tour de toutes les coopératives dès que l'éditeur n'a rien
+     * configuré.</p>
+     */
+    public boolean channelHasAnyProvider(NotificationChannel channel) {
+        if (providers.hasAnyActive(channel)) return true;
+        return channel == NotificationChannel.EMAIL && platformEmail.provider().isPresent();
+    }
+
+    /**
+     * La structure courante, ou rien hors requête.
+     *
+     * <p>Le contexte tenant ne vit que le temps d'une requête, alors que
+     * le relais s'exécute sur minuterie. L'interroger sans précaution y
+     * lèverait une erreur et arrêterait tout envoi.</p>
+     */
+    private UUID currentTenantId() {
+        if (!io.quarkus.arc.Arc.container().requestContext().isActive()) return null;
+        return tenantContext.tenantIdOrNull();
     }
 
     private Map<String, String> decrypt(NotificationProviderEntity provider) {

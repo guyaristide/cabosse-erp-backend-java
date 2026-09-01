@@ -5,23 +5,29 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>{#insert title}Cabosse ERP{/}</title>
 </head>
-<body style="margin:0;padding:0;background-color:#fafaf9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#1a1a1a;line-height:1.5;">
-  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#fafaf9;">
+<body style="margin:0;padding:0;background-color:#faf7f2;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#1c1712;line-height:1.5;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#faf7f2;">
     <tr>
       <td align="center" style="padding:32px 16px;">
 
         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:520px;width:520px;">
           <!-- Brand -->
           <tr>
-            <td style="padding-bottom:24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;font-size:15px;font-weight:600;letter-spacing:-0.01em;color:#1a1a1a;">
-              Cabosse
-              <span style="margin-left:6px;font-family:'SF Mono','Courier New',monospace;font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:0.14em;color:#6b6b6b;">ERP</span>
+            <!--
+              Le lockup de la charte, reproduit en texte et non en image :
+              les clients de messagerie bloquent les images distantes par
+              défaut, et une marque qui ne s'affiche pas vaut moins qu'une
+              marque écrite. La goutte or au-dessus du « o » ne se rend pas
+              sans image, elle n'est donc pas tentée.
+            -->
+            <td style="padding-bottom:24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;font-size:19px;font-weight:600;letter-spacing:-0.02em;color:#1c1712;">
+              Cabosse<span style="color:#d6a24a;">&nbsp;ERP</span>
             </td>
           </tr>
 
           <!-- Card -->
           <tr>
-            <td style="padding:0;background-color:#ffffff;border:1px solid #e5e4e0;border-radius:12px;">
+            <td style="padding:0;background-color:#ffffff;border:1px solid #e2d8ca;border-radius:12px;">
               <div style="padding:32px;">
                 {#insert /}
               </div>
@@ -30,7 +36,7 @@
 
           <!-- Footer -->
           <tr>
-            <td align="center" style="padding-top:24px;font-family:'SF Mono','Courier New',monospace;font-size:10.5px;font-weight:500;text-transform:uppercase;letter-spacing:0.12em;color:#8a8a8a;">
+            <td align="center" style="padding-top:24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:0.12em;color:#948877;">
               {t.footer ?: 'Cabosse ERP'}
             </td>
           </tr>

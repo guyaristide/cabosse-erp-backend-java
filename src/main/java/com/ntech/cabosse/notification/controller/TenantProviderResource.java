@@ -3,10 +3,14 @@ package com.ntech.cabosse.notification.controller;
 import com.ntech.cabosse.notification.dto.EngineDescriptorDto;
 import com.ntech.cabosse.notification.dto.ProviderResponseDto;
 import com.ntech.cabosse.notification.dto.ProviderUpsertDto;
+import com.ntech.cabosse.notification.engine.ProviderEnginePort;
 import com.ntech.cabosse.notification.engine.ProviderEngineRegistry;
 import com.ntech.cabosse.notification.service.ProviderAdminService;
+import com.ntech.cabosse.permission.entity.Permission;
+import com.ntech.cabosse.permission.service.RequiresPermission;
 import com.ntech.cabosse.shared.api.ApiResponse;
 import com.ntech.cabosse.shared.security.Roles;
+import com.ntech.cabosse.shared.tenant.TenantContext;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
@@ -28,31 +32,42 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Administration des passerelles d'envoi. Réservée aux super-admins.
+ * Les serveurs d'envoi déclarés par une coopérative.
  *
- * <p>L'écran ne connaît aucun paramètre en dur : il lit les moteurs
- * déclarés ({@code /engines}) et dessine le formulaire correspondant.
- * Ajouter un moteur au backend suffit à le rendre configurable.</p>
+ * <p>Une structure qui possède son propre compte envoie sous son domaine,
+ * ce qui sert la délivrabilité et lui évite d'apparaître sous celui de
+ * l'éditeur auprès de ses producteurs. Celle qui n'a rien déclaré emprunte
+ * le socle sans avoir à s'en occuper.</p>
+ *
+ * <p>Même service que le back-office, borné à la structure courante. Le
+ * niveau plateforme reste hors de portée, en lecture comme en écriture :
+ * les identifiants de l'éditeur ne regardent aucun de ses clients.</p>
  */
-@Path("/api/v1/admin/notification-providers")
-@Tag(name = "Admin · Passerelles de notification",
-        description = "Moteurs déclarés, passerelles configurées, essai d'envoi")
+@Path("/api/v1/notifications/providers")
+@Tag(name = "Serveurs d'envoi de la structure",
+        description = "Configuration propre à la coopérative, prioritaire sur celle de la plateforme")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
-@RolesAllowed(Roles.PLATFORM_ADMIN)
-public class NotificationProviderResource {
+@RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+public class TenantProviderResource {
 
     @Inject ProviderAdminService service;
     @Inject ProviderEngineRegistry engines;
+    @Inject TenantContext tenantContext;
     @Inject JsonWebToken jwt;
 
     private String actor() {
         try { return jwt.getName(); } catch (Exception e) { return null; }
     }
 
-    /** Moteurs présents dans cette version, avec leurs paramètres attendus. */
+    private UUID tenant() {
+        return tenantContext.tenantId();
+    }
+
+    /** Moteurs disponibles, avec les paramètres que chacun attend. */
     @GET
     @Path("/engines")
+    @RequiresPermission(Permission.SETTINGS_READ)
     public Response engines() {
         List<EngineDescriptorDto> descriptors = engines.all().stream()
                 .map(EngineDescriptorDto::from)
@@ -61,19 +76,22 @@ public class NotificationProviderResource {
     }
 
     @GET
+    @RequiresPermission(Permission.SETTINGS_READ)
     public Response list() {
-        return Response.ok(ApiResponse.ok(service.list(null))).build();
+        return Response.ok(ApiResponse.ok(service.list(tenant()))).build();
     }
 
     @GET
     @Path("/{id}")
+    @RequiresPermission(Permission.SETTINGS_READ)
     public Response get(@PathParam("id") UUID id) {
-        return Response.ok(ApiResponse.ok(service.get(id, null))).build();
+        return Response.ok(ApiResponse.ok(service.get(id, tenant()))).build();
     }
 
     @POST
+    @RequiresPermission(Permission.NOTIFICATION_PROVIDER_WRITE)
     public Response create(@Valid ProviderUpsertDto payload) {
-        ProviderResponseDto created = service.create(payload, actor(), null);
+        ProviderResponseDto created = service.create(payload, actor(), tenant());
         return Response.status(Response.Status.CREATED)
                 .entity(ApiResponse.created(created))
                 .build();
@@ -81,28 +99,29 @@ public class NotificationProviderResource {
 
     @PUT
     @Path("/{id}")
+    @RequiresPermission(Permission.NOTIFICATION_PROVIDER_WRITE)
     public Response update(@PathParam("id") UUID id, @Valid ProviderUpsertDto payload) {
-        return Response.ok(ApiResponse.ok(service.update(id, payload, actor(), null))).build();
+        return Response.ok(ApiResponse.ok(service.update(id, payload, actor(), tenant()))).build();
     }
 
     @DELETE
     @Path("/{id}")
+    @RequiresPermission(Permission.NOTIFICATION_PROVIDER_WRITE)
     public Response delete(@PathParam("id") UUID id) {
-        service.delete(id, null);
+        service.delete(id, tenant());
         return Response.noContent().build();
     }
 
     /**
-     * Essaie la passerelle. Le motif rendu par l'opérateur est retransmis
-     * tel quel : c'est lui qui permet de corriger la configuration.
+     * Essai d'envoi. Sans lui, une erreur de configuration ne se découvre
+     * qu'au premier message réel, c'est-à-dire trop tard.
      */
     @POST
     @Path("/{id}/test")
-    // Aucun corps : la cible passe en paramètre. Sans cette tolérance,
-    // un appel sans en-tête de type se voit refusé pour un corps qu'il
-    // n'a pas à envoyer.
     @Consumes(MediaType.WILDCARD)
+    @RequiresPermission(Permission.NOTIFICATION_PROVIDER_WRITE)
     public Response test(@PathParam("id") UUID id, @QueryParam("target") String target) {
-        return Response.ok(ApiResponse.ok(service.test(id, target, null))).build();
+        ProviderAdminService.TestResult result = service.test(id, target, tenant());
+        return Response.ok(ApiResponse.ok(result)).build();
     }
 }

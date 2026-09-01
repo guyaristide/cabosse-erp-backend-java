@@ -43,28 +43,44 @@ public class ProviderAdminService {
     @Inject ProviderResolver resolver;
     @Inject SecretCipher cipher;
 
-    public List<ProviderResponseDto> list() {
-        return repo.listAll().stream().map(this::describe).toList();
+    /**
+     * Les fournisseurs d'un niveau.
+     *
+     * @param tenantId structure concernée, ou {@code null} pour ceux de la
+     *                 plateforme. Une coopérative ne voit jamais que les
+     *                 siens : mêler les niveaux lui montrerait les
+     *                 identifiants de l'éditeur.
+     */
+    public List<ProviderResponseDto> list(UUID tenantId) {
+        List<NotificationProviderEntity> rows = tenantId == null
+                ? repo.listOfPlatform()
+                : repo.listOfTenant(tenantId);
+        return rows.stream().map(this::describe).toList();
     }
 
-    public ProviderResponseDto get(UUID id) {
-        return describe(load(id));
+    public ProviderResponseDto get(UUID id, UUID tenantId) {
+        return describe(load(id, tenantId));
     }
 
-    public ProviderResponseDto create(ProviderUpsertDto payload, String actor) {
+    public ProviderResponseDto create(ProviderUpsertDto payload, String actor, UUID tenantId) {
         ProviderEnginePort engine = requireEngine(payload.engineCode());
         NotificationProviderEntity e = new NotificationProviderEntity();
         e.id = UuidCreator.getTimeOrderedEpoch();
         e.engineCode = engine.code();
         e.channel = engine.channel();
+        e.scope = tenantId == null
+                ? com.ntech.cabosse.notification.entity.ProviderScope.PLATFORM
+                : com.ntech.cabosse.notification.entity.ProviderScope.TENANT;
+        e.tenantId = tenantId;
         e.createdAt = Instant.now();
         apply(e, payload, engine, actor);
         repo.insert(e);
         return describe(e);
     }
 
-    public ProviderResponseDto update(UUID id, ProviderUpsertDto payload, String actor) {
-        NotificationProviderEntity e = load(id);
+    public ProviderResponseDto update(UUID id, ProviderUpsertDto payload, String actor,
+                                      UUID tenantId) {
+        NotificationProviderEntity e = load(id, tenantId);
         ProviderEnginePort engine = requireEngine(payload.engineCode());
         if (!engine.code().equals(e.engineCode)) {
             // Changer de moteur revient à changer de contrat de paramètres :
@@ -76,8 +92,8 @@ public class ProviderAdminService {
         return describe(e);
     }
 
-    public void delete(UUID id) {
-        load(id);
+    public void delete(UUID id, UUID tenantId) {
+        load(id, tenantId);
         repo.delete(id);
     }
 
@@ -86,11 +102,11 @@ public class ProviderAdminService {
      * l'opérateur l'a formulé. C'est la seule façon pour un administrateur
      * de distinguer « clé révoquée » de « émetteur non déclaré ».
      */
-    public TestResult test(UUID id, String target) {
+    public TestResult test(UUID id, String target, UUID tenantId) {
         if (target == null || target.isBlank()) {
             throw new BusinessException(Messages.msg("m.ntf-test-target-required"));
         }
-        NotificationProviderEntity e = load(id);
+        NotificationProviderEntity e = load(id, tenantId);
         Optional<ResolvedProvider> resolved = resolver.resolveOne(e);
         if (resolved.isEmpty()) {
             return new TestResult(false, unusableReason(e));
@@ -211,8 +227,23 @@ public class ProviderAdminService {
                         engines.all().stream().map(ProviderEnginePort::code).toList())));
     }
 
-    private NotificationProviderEntity load(UUID id) {
-        return repo.findById(id).orElseThrow(
+    /**
+     * Charge un fournisseur en vérifiant qu'il appartient bien au niveau
+     * qui le demande.
+     *
+     * <p>Une structure qui viserait l'identifiant d'une autre, ou celui de
+     * la plateforme, obtient un « introuvable » et non un refus : lui dire
+     * qu'il existe lui apprendrait déjà quelque chose.</p>
+     */
+    private NotificationProviderEntity load(UUID id, UUID tenantId) {
+        NotificationProviderEntity e = repo.findById(id).orElseThrow(
                 () -> new NotFoundException(Messages.msg("m.ntf-provider-not-found", id)));
+        boolean mine = tenantId == null
+                ? e.tenantId == null
+                : tenantId.equals(e.tenantId);
+        if (!mine) {
+            throw new NotFoundException(Messages.msg("m.ntf-provider-not-found", id));
+        }
+        return e;
     }
 }

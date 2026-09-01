@@ -3,8 +3,10 @@ package com.ntech.cabosse.notification.repository;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.Sorts;
+import org.bson.conversions.Bson;
 import com.ntech.cabosse.notification.entity.NotificationChannel;
 import com.ntech.cabosse.notification.entity.NotificationProviderEntity;
+import com.ntech.cabosse.notification.entity.ProviderScope;
 import com.ntech.cabosse.shared.persistence.ControlPlane;
 import com.ntech.cabosse.shared.persistence.ControlPlaneProvider;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -50,20 +52,61 @@ public class NotificationProviderRepository {
         return coll().find().sort(Sorts.ascending("channel", "label")).into(new ArrayList<>());
     }
 
-    /** Fournisseurs actifs d'un canal. L'ordre utile est calculé par usage. */
-    public List<NotificationProviderEntity> listActive(NotificationChannel channel) {
-        return coll().find(Filters.and(
-                        Filters.eq("channel", channel.name()),
-                        Filters.eq("active", true)))
-                .into(new ArrayList<>());
+    /**
+     * Fournisseurs actifs d'un canal à un niveau donné. L'ordre utile est
+     * calculé par usage.
+     *
+     * @param tenantId structure propriétaire, ou {@code null} pour le
+     *                 niveau plateforme
+     */
+    public List<NotificationProviderEntity> listActive(NotificationChannel channel, UUID tenantId) {
+        return coll().find(scoped(channel, tenantId)).into(new ArrayList<>());
     }
 
-    /** Y a-t-il au moins un fournisseur actif sur ce canal ? */
-    public boolean hasActive(NotificationChannel channel) {
+    /**
+     * Un fournisseur actif existe-t-il sur ce canal, à n'importe quel
+     * niveau ?
+     *
+     * <p>Sert la sortie anticipée du relais, qui s'exécute avant d'ouvrir
+     * le contexte d'une structure et ne peut donc pas raisonner par
+     * tenant. Interroger le seul niveau plateforme ferait sauter le tour
+     * de toutes les coopératives dès que l'éditeur n'a rien déclaré.</p>
+     */
+    public boolean hasAnyActive(NotificationChannel channel) {
         return coll().find(Filters.and(
                         Filters.eq("channel", channel.name()),
                         Filters.eq("active", true)))
-                .limit(1)
-                .first() != null;
+                .limit(1).first() != null;
+    }
+
+    /** Y a-t-il au moins un fournisseur actif à ce niveau, sur ce canal ? */
+    public boolean hasActive(NotificationChannel channel, UUID tenantId) {
+        return coll().find(scoped(channel, tenantId)).limit(1).first() != null;
+    }
+
+    /** Les fournisseurs déclarés par une structure, actifs ou non. */
+    public List<NotificationProviderEntity> listOfTenant(UUID tenantId) {
+        return coll().find(Filters.eq("tenantId", tenantId))
+                .sort(Sorts.ascending("channel", "label")).into(new ArrayList<>());
+    }
+
+    /** Les fournisseurs de la plateforme, actifs ou non. */
+    public List<NotificationProviderEntity> listOfPlatform() {
+        return coll().find(Filters.eq("scope", ProviderScope.PLATFORM.name()))
+                .sort(Sorts.ascending("channel", "label")).into(new ArrayList<>());
+    }
+
+    /**
+     * Un fournisseur de plateforme ne porte pas de structure ; celui d'une
+     * coopérative se reconnaît à la sienne. Filtrer sur la portée seule
+     * mêlerait les coopératives entre elles.
+     */
+    private Bson scoped(NotificationChannel channel, UUID tenantId) {
+        return Filters.and(
+                Filters.eq("channel", channel.name()),
+                Filters.eq("active", true),
+                tenantId == null
+                        ? Filters.eq("scope", ProviderScope.PLATFORM.name())
+                        : Filters.eq("tenantId", tenantId));
     }
 }

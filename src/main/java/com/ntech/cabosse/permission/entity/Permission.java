@@ -115,6 +115,13 @@ public enum Permission {
     // ─── Administration du tenant ───────────────────────────────────
     SETTINGS_READ(Domain.ADMIN, "m.per-settings-read"),
     SETTINGS_WRITE(Domain.ADMIN, "m.per-settings-write"),
+    /**
+     * Déclarer les serveurs d'envoi de la structure. Distinct de
+     * l'écriture des réglages : ces valeurs portent des identifiants de
+     * connexion, et les confier revient à confier un moyen d'envoyer sous
+     * le nom de la coopérative.
+     */
+    NOTIFICATION_PROVIDER_WRITE(Domain.ADMIN, "m.per-notification-provider-write"),
     USER_MANAGE(Domain.ADMIN, "m.per-user-manage"),
     /*
      * Le journal d'audit n'était gardé que par le rôle d'administrateur.

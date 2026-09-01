@@ -34,6 +34,19 @@ public class NotificationProviderEntity {
     public NotificationChannel channel;
 
     /**
+     * À qui appartient ce fournisseur.
+     *
+     * <p>Une coopérative qui déclare son propre compte envoie sous son
+     * domaine, ce qui sert la délivrabilité et évite d'apparaître sous
+     * celui de l'éditeur auprès de ses producteurs. Celle qui n'a rien
+     * déclaré emprunte le socle.</p>
+     */
+    public ProviderScope scope = ProviderScope.PLATFORM;
+
+    /** Structure propriétaire. Nul pour un fournisseur de plateforme. */
+    public UUID tenantId;
+
+    /**
      * Actif au sens de l'administrateur. Distinct de « utilisable » :
      * un fournisseur actif dont le moteur est absent de la livraison, ou
      * dont un paramètre requis manque, ne peut rien émettre. Sans ce

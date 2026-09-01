@@ -36,6 +36,20 @@ public class TenantContext {
         return require(tenantId, "tenantId");
     }
 
+    /**
+     * La structure courante, ou {@code null} hors d'une requête tenant.
+     *
+     * <p>Pour le code qui s'exécute des deux côtés : dans une requête,
+     * où une structure est connue, et sur minuterie, où il n'y en a pas.
+     * Le relais d'envoi est dans ce cas. Lui faire appeler
+     * {@link #tenantId()} l'arrêterait sur une erreur, alors que
+     * l'absence de structure est ici une situation normale et non un
+     * oubli de protection.</p>
+     */
+    public UUID tenantIdOrNull() {
+        return tenantId;
+    }
+
     public String databaseName() {
         return require(databaseName, "databaseName");
     }

@@ -66,9 +66,11 @@ public class NotificationRelay {
      * tests pilotent un passage sans dépendre de l'horloge du planificateur.
      */
     public void relay(NotificationChannel channel) {
-        // Aucune passerelle configurée sur ce canal : inutile d'ouvrir un
-        // contexte par tenant pour ne rien faire. Une lecture, puis on sort.
-        if (!resolver.channelHasActiveProvider(channel)) return;
+        // Aucune passerelle nulle part sur ce canal : inutile d'ouvrir un
+        // contexte par tenant pour ne rien faire. La question porte sur
+        // tous les niveaux, une coopérative pouvant avoir déclaré le sien
+        // quand l'éditeur n'a rien configuré.
+        if (!resolver.channelHasAnyProvider(channel)) return;
 
         AtomicInteger sent = new AtomicInteger();
         AtomicInteger failed = new AtomicInteger();
