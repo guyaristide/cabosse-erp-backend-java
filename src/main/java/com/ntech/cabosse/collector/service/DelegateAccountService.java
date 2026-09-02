@@ -55,8 +55,10 @@ public class DelegateAccountService {
         List<CollectorAdvanceEntity> all = advances.listDisbursedByDelegate(delegateSupplierId).stream()
                 .filter(a -> campaignId == null || campaignId.equals(a.campaignId))
                 .toList();
+        // Le montant approuvé, pas celui demandé : c'est lui qui est sorti
+        // de la caisse, et donc lui que le délégué doit couvrir.
         BigDecimal advanced = all.stream()
-                .map(a -> nz(a.advanceAmountFcfa)).reduce(BigDecimal.ZERO, BigDecimal::add);
+                .map(a -> nz(a.effectiveAmountFcfa())).reduce(BigDecimal.ZERO, BigDecimal::add);
 
         List<ProducerPurchaseEntity> receipts = purchases.listByDelegate(delegateSupplierId, campaignId);
         BigDecimal delivered = BigDecimal.ZERO;
@@ -203,7 +205,7 @@ public class DelegateAccountService {
                 .orElse(null);
         BigDecimal advancedBefore = advances.listDisbursedByDelegate(delegateSupplierId).stream()
                 .filter(a -> isBefore(a.campaignId, currentCampaignId, start))
-                .map(a -> nz(a.advanceAmountFcfa))
+                .map(a -> nz(a.effectiveAmountFcfa()))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal deliveredBefore = BigDecimal.ZERO;
         for (ProducerPurchaseEntity r : purchases.listByDelegate(delegateSupplierId, null)) {
@@ -322,7 +324,7 @@ public class DelegateAccountService {
             if (campaignId != null && !campaignId.equals(a.campaignId)) continue;
             ops.add(new Op(a.advanceDate,
                     com.ntech.cabosse.collector.dto.DelegateLedgerDto.Operation.ADVANCE,
-                    a.ref, null, nz(a.advanceAmountFcfa), BigDecimal.ZERO, BigDecimal.ZERO));
+                    a.ref, null, nz(a.effectiveAmountFcfa()), BigDecimal.ZERO, BigDecimal.ZERO));
         }
         for (var note : groupByDeliveryNote(purchases.listByDelegate(delegateSupplierId, campaignId))) {
             ops.add(new Op(note.date(),
@@ -393,7 +395,7 @@ public class DelegateAccountService {
 
     private static DelegateAccountDto.AdvanceLine advanceLine(CollectorAdvanceEntity a) {
         return new DelegateAccountDto.AdvanceLine(
-                a.id, a.ref, a.advanceDate, nz(a.advanceAmountFcfa), nz(a.remainingFcfa),
+                a.id, a.ref, a.advanceDate, nz(a.effectiveAmountFcfa()), nz(a.remainingFcfa),
                 a.status != null ? a.status.name() : null);
     }
 

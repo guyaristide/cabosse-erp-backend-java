@@ -70,6 +70,7 @@ public class MemberCreditService {
     @Inject IdGenerator idGenerator;
     @Inject JsonWebToken jwt;
     @Inject com.ntech.cabosse.shared.storage.AttachmentService attachments;
+    @Inject com.ntech.cabosse.shared.security.CurrentActor currentActor;
 
     private String actor() {
         try { return jwt.getName(); } catch (Exception e) { return null; }
@@ -242,6 +243,9 @@ public class MemberCreditService {
         LocalDate date = p.disbursedAt() != null ? p.disbursedAt() : LocalDate.now();
         e.status = MemberCreditStatus.DISBURSED;
         e.disbursedAt = date;
+        e.disbursedBy = safeUserId();
+        e.disbursedByEmail = actor();
+        e.disbursedByName = currentActor.name();
         e.paymentMethod = p.paymentMethod();
         e.paymentRef = blankToNull(p.paymentRef());
         // Zéro et « pas de frais » se valent : on ne garde que ce qui pèse.

@@ -452,6 +452,23 @@ public class TenantPreferences {
     }
 
     /**
+     * Montant à partir duquel une avance à un délégué exige l'approbation
+     * de l'organe de gouvernance.
+     *
+     * <p>Réglage distinct de celui des producteurs : les ordres de
+     * grandeur n'ont rien à voir, une avance de délégué se compte en
+     * millions là où un crédit producteur se compte en centaines de
+     * milliers. Zéro : la gouvernance se prononce sur tout, ce qui doit
+     * rester possible.</p>
+     */
+    public java.math.BigDecimal collectorAdvanceApprovalThresholdFcfa;
+
+    public java.math.BigDecimal collectorAdvanceApprovalThresholdFcfa() {
+        return collectorAdvanceApprovalThresholdFcfa != null
+                ? collectorAdvanceApprovalThresholdFcfa : java.math.BigDecimal.ZERO;
+    }
+
+    /**
      * Compte de créance sur les producteurs au titre des crédits et avances.
      * Distinct du compte d'avance aux délégués : mélanger les deux rendrait
      * la balance illisible pour le cabinet. Défaut « 409200 ».

@@ -57,6 +57,21 @@ public class MemberCreditRepository {
         return coll().countDocuments(searchFilter(memberId, status, campaignId));
     }
 
+    /**
+     * Les crédits effectivement décaissés sur une période.
+     *
+     * <p>Bornée par les dates : l'état des règlements est un historique,
+     * et un historique ne se charge pas en entier.</p>
+     */
+    public List<MemberCreditEntity> findDisbursedBetween(
+            java.time.LocalDate from, java.time.LocalDate to) {
+        return coll().find(com.mongodb.client.model.Filters.and(
+                        com.mongodb.client.model.Filters.gte("disbursedAt", from),
+                        com.mongodb.client.model.Filters.lte("disbursedAt", to)))
+                .sort(new org.bson.Document("disbursedAt", -1))
+                .into(new java.util.ArrayList<>());
+    }
+
     public List<MemberCreditEntity> search(UUID memberId, String status, UUID campaignId,
                                            int skip, int limit) {
         return coll().find(searchFilter(memberId, status, campaignId))

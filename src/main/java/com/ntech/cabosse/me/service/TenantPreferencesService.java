@@ -75,6 +75,7 @@ public class TenantPreferencesService {
                 p.delegatePayableAccount(),
                 p.producerReferenceCodeType,
                 p.memberCreditApprovalThresholdFcfa(),
+                p.collectorAdvanceApprovalThresholdFcfa(),
                 p.memberCreditAccount(),
                 p.cashDiscrepancyAccount(),
                 p.productionPotentialBasis(),
@@ -352,6 +353,16 @@ public class TenantPreferencesService {
                     "to", payload.memberCreditApprovalThresholdFcfa()));
             t.preferences.memberCreditApprovalThresholdFcfa =
                     payload.memberCreditApprovalThresholdFcfa();
+        }
+
+        if (payload.collectorAdvanceApprovalThresholdFcfa() != null
+                && payload.collectorAdvanceApprovalThresholdFcfa()
+                        .compareTo(t.preferences.collectorAdvanceApprovalThresholdFcfa()) != 0) {
+            diffs.put("collectorAdvanceApprovalThresholdFcfa", Map.of(
+                    "from", t.preferences.collectorAdvanceApprovalThresholdFcfa(),
+                    "to", payload.collectorAdvanceApprovalThresholdFcfa()));
+            t.preferences.collectorAdvanceApprovalThresholdFcfa =
+                    payload.collectorAdvanceApprovalThresholdFcfa();
         }
 
         if (payload.memberCreditAccount() != null && !payload.memberCreditAccount().isBlank()

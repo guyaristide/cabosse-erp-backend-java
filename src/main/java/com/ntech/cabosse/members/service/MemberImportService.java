@@ -105,7 +105,7 @@ public class MemberImportService {
 
     public MemberImportPreviewDto preview(List<MemberImportRowDto> input) {
         if (input == null || input.isEmpty()) {
-            return new MemberImportPreviewDto(0, 0, 0, 0, 0, 0, 0, 0, 0, List.of());
+            return new MemberImportPreviewDto(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, List.of());
         }
 
         List<MemberEntity> existing = members.listAll();
@@ -127,6 +127,7 @@ public class MemberImportService {
         List<Row> rows = new ArrayList<>(input.size());
         int ready = 0, update = 0, warning = 0, invalid = 0, duplicate = 0;
         int additionalParcel = 0, parcelsToCreate = 0, parcelsToUpdate = 0;
+        int parcelsWithoutPosition = 0;
 
         // Rang de la parcelle chez son producteur, pour nommer celles que
         // le registre ne nomme pas. Un producteur déclare ses plantations
@@ -190,11 +191,11 @@ public class MemberImportService {
                     recomposeName(lastName, firstName), firstName, lastName,
                     gender, personType, maritalStatus,
                     birthDate != null ? birthDate.format(ISO) : null, birthYear, trim(raw.birthPlace()),
-                    docType, trim(raw.idDocNumber()), trim(raw.nationalIdNumber()),
-                    trim(raw.externalCodeType()), trim(raw.externalCode()),
-                    trim(raw.phone()), trim(raw.email()), trim(raw.village()), sectionName,
+                    docType, absent(raw.idDocNumber()), absent(raw.nationalIdNumber()),
+                    trim(raw.externalCodeType()), absent(raw.externalCode()),
+                    absent(raw.phone()), absent(raw.email()), trim(raw.village()), sectionName,
                     joinedAt != null ? joinedAt.format(ISO) : null, parts,
-                    trim(raw.paymentMethod()), trim(raw.mobileMoneyNumber()),
+                    trim(raw.paymentMethod()), absent(raw.mobileMoneyNumber()),
                     spouses, children, girls, boys, c0to4, c5to17, cOver17,
                     schooled, notSchooled, trim(raw.childrenActivity()),
                     parseBoolean(raw.censusRegistered()), parseBoolean(raw.producerCardIssued()),
@@ -260,6 +261,8 @@ public class MemberImportService {
                     && status != Status.DUPLICATE_IN_FILE) {
                 if (normalized.parcel().matchedParcelId() != null) parcelsToUpdate++;
                 else parcelsToCreate++;
+                if (normalized.parcel().latitude() == null
+                        || normalized.parcel().longitude() == null) parcelsWithoutPosition++;
             }
 
             rows.add(new Row(raw.rowNumber(), status, normalized, matchedId, matchedOn,
@@ -267,7 +270,8 @@ public class MemberImportService {
         }
 
         return new MemberImportPreviewDto(input.size(), ready, update, warning, invalid, duplicate,
-                additionalParcel, parcelsToCreate, parcelsToUpdate, rows);
+                additionalParcel, parcelsToCreate, parcelsToUpdate,
+                parcelsWithoutPosition, rows);
     }
 
 
@@ -307,12 +311,11 @@ public class MemberImportService {
 
         UUID matched = code != null ? knownParcels.get(code.toUpperCase(Locale.ROOT)) : null;
 
-        // Une parcelle nouvelle exige sa position ; une parcelle reconnue
-        // par son code garde la sienne si la ligne n'en donne pas.
-        if (matched == null && (lat == null || lon == null)) {
-            issues.add(new FieldIssue("parcelLatitude", Messages.msg("m.imp-parcel-position-required")));
-            return null;
-        }
+        // La position ne barre plus la route. Beaucoup de registres n'ont
+        // pas encore été relevés au GPS, et refuser la ligne faisait perdre
+        // le producteur avec sa parcelle. Le manque se compte dans le
+        // récapitulatif : une parcelle sans position ne sert ni la
+        // traçabilité ni le devoir de vigilance, et se situe plus tard.
         // Beaucoup de coopératives ne nomment pas leurs parcelles : elles
         // les repèrent par leur producteur et leur position. Exiger un nom
         // qu'aucun registre ne porte reviendrait à leur demander d'en
@@ -1032,5 +1035,35 @@ public class MemberImportService {
 
     private static String trim(String s) {
         return s == null || s.isBlank() ? null : s.trim();
+    }
+
+    /**
+     * Ce que le registre écrit à la place d'une valeur qu'il n'a pas.
+     *
+     * <p>Sur le fichier de septembre 2026, 691 téléphones et 172 numéros de
+     * pièce valent « non disponible ». Recopiés tels quels, ils remplissent
+     * l'annuaire et les exports d'une phrase à la place d'un numéro, et un
+     * filtre « producteurs sans téléphone » ne trouve plus personne alors
+     * que le quart de la coopérative est injoignable.</p>
+     */
+    private static final java.util.Set<String> ABSENT = java.util.Set.of(
+            "non disponible", "non-disponible", "nondisponible", "indisponible",
+            "non renseigne", "non-renseigne", "non communique", "non-communique",
+            "neant", "aucun", "aucune", "inconnu", "inconnue", "rien",
+            "na", "n a", "n/a", "nd", "n d", "-", "--", "...",
+            "not available", "unavailable", "none", "unknown", "no phone");
+
+    /**
+     * Vide un champ facultatif que le fichier remplit d'un « non disponible ».
+     *
+     * <p>Réservé aux champs dont l'absence n'empêche rien : téléphone,
+     * courriel, numéros de pièce, mobile money. Appliqué au nom, la même
+     * tolérance transformerait une ligne qui passe en ligne refusée, et
+     * c'est exactement ce qu'on cherche à éviter.</p>
+     */
+    private static String absent(String s) {
+        String v = trim(s);
+        if (v == null) return null;
+        return ABSENT.contains(FuzzyLabels.canonical(v)) ? null : v;
     }
 }

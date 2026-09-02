@@ -3,6 +3,7 @@ package com.ntech.cabosse.collector.controller;
 import com.ntech.cabosse.collector.dto.CollectorAdvanceResponseDto;
 import com.ntech.cabosse.shared.i18n.Messages;
 import jakarta.validation.Valid;
+import com.ntech.cabosse.collector.dto.ApproveAdvanceDto;
 import com.ntech.cabosse.collector.dto.CreateAdvanceDto;
 import com.ntech.cabosse.collector.service.CollectorAdvanceService;
 import com.ntech.cabosse.collector.service.DelegateAccountService;
@@ -102,13 +103,35 @@ public class CollectorAdvanceResource {
      */
     @POST
     @Path("/{id}/approve")
-    // Aucun corps attendu : sans cela, un POST vide se heurte au
-    // @Consumes de la classe et repart en 415.
+    // Le corps porte la décision, montant accordé et appréciation, mais
+    // reste facultatif : approuver en entier sans un mot est le cas
+    // courant, et un POST vide ne doit pas repartir en 415.
     @Consumes(MediaType.WILDCARD)
     @RequiresPermission(Permission.COLLECTION_ADVANCE_APPROVE)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
-    public Response approve(@PathParam("id") UUID id) {
-        return Response.ok(ApiResponse.ok(service.approve(id))).build();
+    public Response approve(@PathParam("id") UUID id, String body) {
+        return Response.ok(ApiResponse.ok(service.approve(id, parseApproval(body)))).build();
+    }
+
+    /**
+     * Corps absent, vide ou {@code {}} : le montant demandé est accordé
+     * en entier, sans commentaire, ce qui reste le cas courant.
+     *
+     * <p>Comme au décaissement, le corps est lu à la main : le déclarer en
+     * paramètre typé rendrait un POST vide impossible, et casserait les
+     * appelants déjà en place le temps qu'ils se redéploient.</p>
+     */
+    private ApproveAdvanceDto parseApproval(String body) {
+        if (body == null || body.isBlank()) return null;
+        try {
+            var payload = json.readValue(body, ApproveAdvanceDto.class);
+            var violations = validator.validate(payload);
+            if (!violations.isEmpty()) throw new jakarta.validation.ConstraintViolationException(violations);
+            return payload;
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new com.ntech.cabosse.shared.exception.ValidationException(
+                    Messages.msg("m.col-approval-payload-unreadable"));
+        }
     }
 
     /** Refuse une demande, avec son motif, qui reste au dossier. */

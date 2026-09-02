@@ -16,6 +16,20 @@ public record CollectorAdvanceResponseDto(
         UUID sectionId, String sectionName,
         Integer campaignYear, UUID siteId,
         LocalDate advanceDate, BigDecimal advanceAmountFcfa, String paymentMethod,
+        /**
+         * Montant réellement accordé, quand la décision est prise. Nul tant
+         * que la demande attend : c'est lui, et non le montant sollicité,
+         * qui sort de la caisse.
+         */
+        BigDecimal approvedAmountFcfa,
+        /** Appréciation de l'approbateur, à côté de celle de l'émetteur. */
+        String approvalNote,
+        /** La demande attend-elle l'organe de gouvernance, ou la direction seule ? */
+        boolean governanceApprovalRequired,
+        /** Contrepartie attendue du délégué, figée à la demande, et son unité. */
+        BigDecimal expectedQuantity, String expectedQuantityUnit,
+        /** Prix barème qui a produit la contrepartie, figé avec elle. */
+        BigDecimal counterpartUnitPriceFcfa,
         BigDecimal consumedAmountFcfa, BigDecimal remainingFcfa,
         String status, String pieceRef, String notes,
         /** Ce que le décaissement a réellement mouvementé : compte, référence, frais. */
@@ -26,7 +40,7 @@ public record CollectorAdvanceResponseDto(
             geste n'a pas eu lieu. */
         Instant approvedAt, String approvedByEmail,
         String rejectionReason, Instant rejectedAt, String rejectedByEmail,
-        Instant disbursedAt, String disbursedByEmail,
+        Instant disbursedAt, String disbursedByEmail, String disbursedByName,
         java.util.List<com.ntech.cabosse.shared.storage.AttachmentDto> attachments
 ) {
     public record DeliveryView(UUID id, LocalDate date, UUID articleId, String articleCode,
@@ -42,13 +56,15 @@ public record CollectorAdvanceResponseDto(
                 e.id, e.ref, e.delegateSupplierId, e.delegateName, e.sectionId, e.sectionName,
                 e.campaignYear, e.siteId, e.advanceDate, e.advanceAmountFcfa,
                 e.paymentMethod != null ? e.paymentMethod.name() : null,
+                e.approvedAmountFcfa, e.approvalNote, e.governanceApprovalRequired,
+                e.expectedQuantity, e.expectedQuantityUnit, e.counterpartUnitPriceFcfa,
                 e.consumedAmountFcfa, e.remainingFcfa,
                 e.status != null ? e.status.name() : null, e.pieceRef, e.notes,
                 e.bankAccountId, e.paymentRef, e.bankFeesFcfa,
                 deliveries, e.closedAt, e.createdAt, e.createdByEmail,
                 e.approvedAt, e.approvedByEmail,
                 e.rejectionReason, e.rejectedAt, e.rejectedByEmail,
-                e.disbursedAt, e.disbursedByEmail,
+                e.disbursedAt, e.disbursedByEmail, e.disbursedByName,
                 com.ntech.cabosse.shared.storage.AttachmentDto.fromAll(e.attachments));
     }
 }

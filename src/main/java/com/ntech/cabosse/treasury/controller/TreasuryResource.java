@@ -48,6 +48,7 @@ public class TreasuryResource {
     @Inject com.ntech.cabosse.treasury.service.PayableService payableService;
     @Inject com.ntech.cabosse.treasury.service.AccountStatementService statementService;
     @Inject com.ntech.cabosse.treasury.service.ReceivableService receivableService;
+    @Inject com.ntech.cabosse.treasury.service.SettlementService settlementService;
 
     // ─── Ce qui attend un décaissement ──────────────────────────────
 
@@ -130,6 +131,54 @@ public class TreasuryResource {
                 AccountStatementExportColumns.all(), rows);
         exportAudit.record("releve-de-compte", "Relevé de compte", format, rows.size());
         return ExportResponses.build("releve-de-compte", format, dataset);
+    }
+
+    // ─── Ce qui a été réglé ─────────────────────────────────────────
+
+    /**
+     * L'état des règlements exécutés, du plus récent au plus ancien.
+     *
+     * <p>La file « à payer » montre ce qui attend et fait disparaître la
+     * ligne une fois payée : elle ne dit jamais ce qui a été fait, ni par
+     * qui. C'est le tableau de suivi que la caisse tient en face.</p>
+     *
+     * <p>Sans période, le mois courant : un historique de règlements
+     * grandit sans fin, et le charger en entier finirait par tenir la
+     * structure dans une requête.</p>
+     */
+    @GET
+    @Path("/settlements")
+    @RequiresPermission(Permission.ACCOUNTING_READ)
+    public Response settlements(@QueryParam("kind") String kind,
+                                @QueryParam("from") String from,
+                                @QueryParam("to") String to,
+                                @QueryParam("beneficiaryId") UUID beneficiaryId,
+                                @QueryParam("page") @DefaultValue("0") int page,
+                                @QueryParam("perPage") @DefaultValue("20") int perPage) {
+        return Response.ok(ApiResponse.ok(settlementService.report(
+                kind, parseDate(from), parseDate(to), beneficiaryId,
+                PageRequest.of(page, perPage)))).build();
+    }
+
+    /** Export de l'état, mêmes filtres qu'à l'écran, période entière. */
+    @GET
+    @Path("/settlements/export")
+    @Produces({ "text/csv",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "application/pdf" })
+    @RequiresPermission(Permission.ACCOUNTING_READ)
+    public Response exportSettlements(@QueryParam("kind") String kind,
+                                      @QueryParam("from") String from,
+                                      @QueryParam("to") String to,
+                                      @QueryParam("beneficiaryId") UUID beneficiaryId,
+                                      @QueryParam("format") String formatRaw) {
+        ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
+        var rows = settlementService.all(kind, parseDate(from), parseDate(to), beneficiaryId);
+        var dataset = new ExportDataset<>(
+                Messages.msg("m.exp-t-reglements-executes"),
+                SettlementExportColumns.all(), rows);
+        exportAudit.record("reglements-executes", "Règlements exécutés", format, rows.size());
+        return ExportResponses.build("reglements-executes", format, dataset);
     }
 
     // ─── Transports de fonds ────────────────────────────────────────

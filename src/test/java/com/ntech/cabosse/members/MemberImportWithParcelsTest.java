@@ -19,6 +19,7 @@ import java.time.Instant;
 import java.util.HashSet;
 
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.not;
@@ -204,6 +205,126 @@ class MemberImportWithParcelsTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void a_whole_file_without_positions_stays_importable() {
+        UserEntity admin = tenantAdmin();
+        String payload = "[" + """
+                { "rowNumber": 1, "code": "CRA-B-001", "lastName": "OUATTARA",
+                  "firstName": "Salif", "gender": "M", "village": "GBELE",
+                  "parcelSurfaceHa": "3,4", "parcelCrop": "Cacao" }
+                """ + "]";
+
+        // Le cas réel : un registre de 1581 lignes dont aucune n'est
+        // relevée au GPS. Rien ne doit rester sur le bord de la route.
+        givenAs(admin).contentType("application/json").body(payload)
+                .when().post("/api/v1/members/import/preview")
+                .then().statusCode(200)
+                .body("data.rows[0].status", equalTo("READY"));
+    }
+
+    @Test
+    void the_parcels_left_to_locate_are_counted() {
+        UserEntity admin = tenantAdmin();
+        String payload = "[" + """
+                { "rowNumber": 1, "code": "CRA-B-002", "lastName": "BAMBA",
+                  "firstName": "Yacouba", "gender": "M", "village": "GBELE",
+                  "parcelSurfaceHa": "2,1", "parcelCrop": "Cacao" }
+                """ + "]";
+
+        // Une parcelle sans position ne sert ni la traçabilité ni le
+        // devoir de vigilance. La créer en silence laisserait croire le
+        // registre complet, alors qu'il reste un relevé à faire.
+        givenAs(admin).contentType("application/json").body(payload)
+                .when().post("/api/v1/members/import/preview")
+                .then().statusCode(200)
+                .body("data.parcelsWithoutPosition", equalTo(1))
+                .body("data.parcelsToCreate", equalTo(1));
+    }
+
+    @Test
+    void the_parcel_is_really_created_without_its_position() {
+        UserEntity admin = tenantAdmin();
+        String payload = "[" + """
+                { "rowNumber": 1, "code": "CRA-B-003", "lastName": "KOFFI",
+                  "firstName": "Yao", "gender": "M", "village": "GBELE",
+                  "parcelSurfaceHa": "1,8", "parcelCrop": "Cacao" }
+                """ + "]";
+
+        givenAs(admin).contentType("application/json").body(payload)
+                .when().post("/api/v1/members/import/commit").then().statusCode(200);
+
+        // Un aperçu qui n'aboutirait à rien ne vaudrait pas mieux qu'un
+        // refus : la parcelle doit exister, sa superficie comprise, sans
+        // que personne ait eu à cocher une acceptation d'anomalie.
+        givenAs(admin).when().get("/api/v1/parcels?perPage=50")
+                .then().statusCode(200)
+                .body("data.total", equalTo(1))
+                .body("data.items[0].memberName", equalTo("KOFFI Yao"))
+                .body("data.items[0].gpsCenter", nullValue());
+    }
+
+
+    @Test
+    void a_registry_that_writes_not_available_instead_of_a_number() {
+        UserEntity admin = tenantAdmin();
+        String payload = "[" + """
+                { "rowNumber": 1, "code": "CRA-C-001", "lastName": "TRAORE",
+                  "firstName": "Aboubakar", "gender": "Hommes",
+                  "phone": "non disponible", "idDocNumber": "NON DISPONIBLE",
+                  "parcelSurfaceHa": "2,4" }
+                """ + "]";
+
+        // Sur le registre reçu le 02/09/2026, 696 lignes sur 2550 portent
+        // cette phrase à la place d'un numéro. Recopiée telle quelle, elle
+        // remplit l'annuaire et les exports, et un filtre « sans
+        // téléphone » ne trouve plus personne.
+        givenAs(admin).contentType("application/json").body(payload)
+                .when().post("/api/v1/members/import/preview")
+                .then().statusCode(200)
+                .body("data.readyRows", equalTo(1))
+                .body("data.rows[0].normalized.phone", nullValue())
+                .body("data.rows[0].normalized.idDocNumber", nullValue());
+    }
+
+    @Test
+    void the_tolerance_stops_at_the_fields_whose_absence_costs_nothing() {
+        UserEntity admin = tenantAdmin();
+        String payload = "[" + """
+                { "rowNumber": 1, "code": "CRA-C-002", "lastName": "Aucun",
+                  "firstName": "Inconnu", "gender": "Femmes", "village": "Néant",
+                  "parcelSurfaceHa": "1,2" }
+                """ + "]";
+
+        // Étendue au nom, la même tolérance viderait le champ et la ligne
+        // tomberait sur « nom requis » : une ligne qui passait serait
+        // refusée. C'est exactement ce qu'on cherche à éviter.
+        givenAs(admin).contentType("application/json").body(payload)
+                .when().post("/api/v1/members/import/preview")
+                .then().statusCode(200)
+                .body("data.readyRows", equalTo(1))
+                .body("data.rows[0].normalized.lastName", equalTo("Aucun"))
+                .body("data.rows[0].normalized.village", equalTo("Néant"));
+    }
+
+    @Test
+    void a_plural_gender_column_is_read_like_the_singular() {
+        UserEntity admin = tenantAdmin();
+        String payload = "[" + """
+                { "rowNumber": 1, "code": "CRA-C-003", "lastName": "KONE",
+                  "firstName": "Awa", "gender": "Femmes", "parcelSurfaceHa": "1" },
+                { "rowNumber": 2, "code": "CRA-C-004", "lastName": "KONE",
+                  "firstName": "Ali", "gender": "Hommes", "parcelSurfaceHa": "1" }
+                """ + "]";
+
+        // Le registre reçu titre ses colonnes au pluriel, comme un tableau
+        // de dénombrement plutôt qu'une fiche.
+        givenAs(admin).contentType("application/json").body(payload)
+                .when().post("/api/v1/members/import/preview")
+                .then().statusCode(200)
+                .body("data.rows[0].normalized.gender", equalTo("FEMALE"))
+                .body("data.rows[1].normalized.gender", equalTo("MALE"));
+    }
+
+    @Test
     void a_second_import_without_parcel_codes_would_duplicate_the_land() {
         UserEntity admin = tenantAdmin();
         String payload = "[" + row(1, "CCC-2021-900001", "Diabaté", "Mamadou", "", "Parcelle Est", "3.0", "5.30", "-6.50") + "]";
@@ -273,20 +394,28 @@ class MemberImportWithParcelsTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void a_parcel_without_position_is_refused_without_losing_the_producer() {
+    void a_parcel_without_position_is_ready_rather_than_refused() {
         UserEntity admin = tenantAdmin();
         String payload = """
                 [{ "rowNumber": 1, "code": "", "lastName": "Bamba", "firstName": "Sita",
                    "gender": "F", "parcelName": "Parcelle Ouest", "parcelSurfaceHa": "2" }]
                 """;
 
-        // La parcelle manque sa position : la ligne est écartée en entier
-        // plutôt que de créer une parcelle sans localisation, qui ne
-        // servirait ni la traçabilité ni la conformité.
+        // Règle inversée le 02/09/2026 à la demande de l'utilisateur. Elle
+        // écartait la ligne entière, au motif qu'une parcelle sans
+        // position ne sert ni la traçabilité ni la conformité. C'est vrai,
+        // mais beaucoup de registres n'ont pas encore été relevés au GPS,
+        // et le producteur se perdait avec sa parcelle.
+        //
+        // La ligne est prête, pas en avertissement : sur un fichier où
+        // presque aucune parcelle n'a de position, l'avertissement aurait
+        // tout basculé en anomalie, et une ligne en avertissement ne
+        // s'applique qu'avec includeWarnings.
         givenAs(admin).contentType("application/json").body(payload)
                 .when().post("/api/v1/members/import/preview")
                 .then().statusCode(200)
-                .body("data.invalidRows", equalTo(1))
-                .body("data.rows[0].issues[0].field", equalTo("parcelLatitude"));
+                .body("data.invalidRows", equalTo(0))
+                .body("data.warningRows", equalTo(0))
+                .body("data.readyRows", equalTo(1));
     }
 }

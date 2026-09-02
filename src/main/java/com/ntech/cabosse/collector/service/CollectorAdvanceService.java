@@ -5,9 +5,12 @@ import com.ntech.cabosse.accounting.service.AccountingService;
 import com.ntech.cabosse.article.entity.ArticleEntity;
 import com.ntech.cabosse.article.entity.ArticleType;
 import com.ntech.cabosse.article.repository.ArticleRepository;
+import com.ntech.cabosse.collector.dto.ApproveAdvanceDto;
 import com.ntech.cabosse.collector.dto.CollectorAdvanceResponseDto;
+import com.ntech.cabosse.collector.dto.DelegateTermsDto;
 import com.ntech.cabosse.collector.dto.CreateAdvanceDto;
 import com.ntech.cabosse.collector.dto.DisburseAdvanceDto;
+import com.ntech.cabosse.permission.entity.Permission;
 import com.ntech.cabosse.campaign.entity.CampaignEntity;
 import com.ntech.cabosse.campaign.service.CampaignResolver;
 import com.ntech.cabosse.collector.entity.CollectorAdvanceEntity;
@@ -48,6 +51,16 @@ import java.util.UUID;
 @ApplicationScoped
 public class CollectorAdvanceService {
 
+    /**
+     * Unité dans laquelle s'exprime la contrepartie attendue.
+     *
+     * <p>Elle suit le barème, qui s'exprime au kilo. Portée par la donnée
+     * plutôt qu'écrite dans l'affichage : le jour où un barème se compte
+     * au sac ou à la tonne, les demandes déjà déposées gardent l'unité
+     * dans laquelle elles ont été convenues.</p>
+     */
+    static final String COUNTERPART_UNIT = "kg";
+
     @Inject CollectorAdvanceRepository repo;
     @Inject DelegateAccountService delegateAccount;
     @Inject CollectorAdvanceRefService refService;
@@ -64,6 +77,7 @@ public class CollectorAdvanceService {
     @Inject com.ntech.cabosse.permission.service.PermissionResolver permissions;
     @Inject JsonWebToken jwt;
     @Inject com.ntech.cabosse.shared.storage.AttachmentService attachments;
+    @Inject com.ntech.cabosse.shared.security.CurrentActor currentActor;
 
     // ─── Lecture ────────────────────────────────────────────────────
 
@@ -116,6 +130,24 @@ public class CollectorAdvanceService {
         // Une demande, pas un versement : rien n'est sorti tant qu'elle
         // n'est pas approuvée puis décaissée.
         e.status = CollectorAdvanceStatus.PENDING_APPROVAL;
+
+        // Le seuil est figé ici, comme côté crédit producteur : le relever
+        // ensuite ne doit pas dispenser d'approbation une demande déjà
+        // déposée. Zéro signifie que la gouvernance se prononce sur tout.
+        BigDecimal threshold =
+                preferencesLookup.current().collectorAdvanceApprovalThresholdFcfa();
+        e.governanceApprovalRequired = threshold.signum() > 0
+                && p.advanceAmountFcfa().compareTo(threshold) >= 0;
+
+        // La contrepartie attendue, au barème du jour de la demande. Elle
+        // passe par la même formule que la fiche technique : deux
+        // divisions écrites deux fois finiraient par diverger.
+        DelegateTermsDto terms = delegateAccount.terms(
+                delegate.id, e.campaignId, null, p.advanceAmountFcfa());
+        e.expectedQuantity = terms.suggestedVolumeKg();
+        e.counterpartUnitPriceFcfa = terms.scalePricePerKgFcfa();
+        e.expectedQuantityUnit = e.expectedQuantity != null ? COUNTERPART_UNIT : null;
+
         e.notes = (p.notes() == null || p.notes().isBlank()) ? null : p.notes().trim();
         e.createdAt = Instant.now();
         e.updatedAt = e.createdAt;
@@ -144,6 +176,24 @@ public class CollectorAdvanceService {
      * croit.</p>
      */
     public CollectorAdvanceResponseDto approve(UUID id) {
+        return approve(id, null);
+    }
+
+    /**
+     * Approuve, en accordant éventuellement moins que ce qui est demandé.
+     *
+     * <p>L'approbation n'est plus binaire : la gouvernance peut suivre en
+     * partie. Le montant accordé devient celui qui commande tout ce qui
+     * suit, les fonds remis, l'écriture, le compte courant du délégué et
+     * l'imputation des livraisons. Un montant approuvé que le reste du
+     * logiciel ignorerait serait pire que son absence.</p>
+     *
+     * <p>La contrepartie attendue ne bouge pas, elle. C'est une prévision
+     * portée par la demande, pas un engagement recalculé à chaque
+     * décision : le point se fait au retour du délégué, sur ce qu'il a
+     * effectivement ramené (registre, DEC-29).</p>
+     */
+    public CollectorAdvanceResponseDto approve(UUID id, ApproveAdvanceDto payload) {
         CollectorAdvanceEntity e = loadOrFail(id);
         requireStatus(e, CollectorAdvanceStatus.PENDING_APPROVAL);
         // Séparation des tâches : celui qui a déposé la demande ne la
@@ -157,15 +207,46 @@ public class CollectorAdvanceService {
         // barrent plus la route : approuver malgré une dette est une
         // décision, et c'est à l'approbateur de la prendre.
 
+        // Au-dessus du seuil, l'approbation ordinaire ne suffit plus.
+        if (e.governanceApprovalRequired
+                && !permissions.currentIsTenantAdmin()
+                && !permissions.can(Permission.COLLECTION_ADVANCE_APPROVE_GOVERNANCE)) {
+            throw new jakarta.ws.rs.ForbiddenException(
+                    Messages.msg("m.col-governance-approval-required", e.ref));
+        }
+
+        BigDecimal approved = payload != null && payload.approvedAmountFcfa() != null
+                ? payload.approvedAmountFcfa() : e.advanceAmountFcfa;
+        // Accorder plus que demandé créerait un engagement que personne
+        // n'a sollicité.
+        if (approved.compareTo(e.advanceAmountFcfa) > 0) {
+            throw new BusinessException(Messages.msg(
+                    "m.col-approved-above-requested", e.advanceAmountFcfa));
+        }
+        // Zéro n'est pas une approbation partielle : c'est un refus, et un
+        // refus a son motif. L'enregistrer comme une approbation à zéro
+        // laisserait au dossier une décision sans raison.
+        if (approved.signum() <= 0) {
+            throw new BusinessException(Messages.msg("m.col-approved-zero-is-a-refusal"));
+        }
+
         Instant now = Instant.now();
         e.status = CollectorAdvanceStatus.APPROVED;
+        e.approvedAmountFcfa = approved;
+        e.approvalNote = payload != null && payload.note() != null && !payload.note().isBlank()
+                ? payload.note().trim() : null;
+        // Rien n'a encore été livré : le reste à couvrir suit le montant
+        // accordé, faute de quoi une avance réduite s'imputerait sur le
+        // montant demandé.
+        e.remainingFcfa = approved;
         e.approvedAt = now;
         e.approvedBy = safeUserId();
         e.approvedByEmail = actor();
         e.updatedAt = now;
         repo.replace(e);
         audit(e, AuditEventType.COLLECTOR_ADVANCE_APPROVED,
-                "Approbation " + e.ref + " (" + e.advanceAmountFcfa + ") pour " + e.delegateName);
+                "Approbation " + e.ref + " (" + approved + " sur "
+                        + e.advanceAmountFcfa + " demandés) pour " + e.delegateName);
         return CollectorAdvanceResponseDto.from(e);
     }
 
@@ -236,18 +317,23 @@ public class CollectorAdvanceService {
             e.bankFeesFcfa = (payload.bankFeesFcfa() != null
                     && payload.bankFeesFcfa().signum() > 0) ? payload.bankFeesFcfa() : null;
         }
+        // Le montant approuvé, jamais celui demandé : c'est lui qui sort
+        // de la caisse et qui doit se retrouver au journal.
         accounting.postFromCollectorAdvance(e.id, e.ref, e.delegateName,
-                        e.advanceAmountFcfa, e.paymentMethod,
+                        e.effectiveAmountFcfa(), e.paymentMethod,
                         e.bankAccountId, e.bankFeesFcfa, e.advanceDate)
                 .ifPresent(piece -> e.pieceRef = piece.ref);
         e.status = CollectorAdvanceStatus.OPEN;
         e.disbursedAt = now;
         e.disbursedBy = safeUserId();
         e.disbursedByEmail = actor();
+        // Le nom est figé ici : l'état de suivi nomme la caissière, et le
+        // résoudre après coup échoue dès que le compte est désactivé.
+        e.disbursedByName = currentActor.name();
         e.updatedAt = now;
         repo.replace(e);
         audit(e, AuditEventType.COLLECTOR_ADVANCE_DISBURSED,
-                "Décaissement " + e.ref + " : " + e.advanceAmountFcfa
+                "Décaissement " + e.ref + " : " + e.effectiveAmountFcfa()
                         + " à " + e.delegateName);
         return CollectorAdvanceResponseDto.from(e);
     }

@@ -54,6 +54,12 @@ public enum Permission {
             TenantCapability.HAS_COMMODITY_TRADE),
     COLLECTION_ADVANCE_APPROVE(Domain.COLLECTION, "m.per-collection-advance-approve",
             TenantCapability.HAS_COMMODITY_TRADE),
+    // Au-dessus du seuil du tenant, l'approbation ordinaire ne suffit
+    // plus : ce droit distinct matérialise l'échelon de gouvernance,
+    // comme côté crédit producteur.
+    COLLECTION_ADVANCE_APPROVE_GOVERNANCE(Domain.COLLECTION,
+            "m.per-collection-advance-approve-governance",
+            TenantCapability.HAS_COMMODITY_TRADE),
     COLLECTION_ADVANCE_DISBURSE(Domain.COLLECTION, "m.per-collection-advance-disburse",
             TenantCapability.HAS_COMMODITY_TRADE),
     COLLECTION_PAYMENT_WRITE(Domain.COLLECTION, "m.per-collection-payment-write",

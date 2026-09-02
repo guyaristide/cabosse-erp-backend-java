@@ -80,6 +80,16 @@ public class MemberCreditEntity {
 
     // ─── Décaissement ───
     public LocalDate disbursedAt;
+    public UUID disbursedBy;
+    public String disbursedByEmail;
+    /**
+     * Nom de qui a remis les fonds, figé au décaissement.
+     *
+     * <p>L'état de suivi nomme la caissière. Une adresse électronique ne
+     * la nomme pas, et la résoudre après coup échoue dès que le compte est
+     * désactivé ou renommé.</p>
+     */
+    public String disbursedByName;
     public PaymentMethod paymentMethod;
     public String paymentRef;
 

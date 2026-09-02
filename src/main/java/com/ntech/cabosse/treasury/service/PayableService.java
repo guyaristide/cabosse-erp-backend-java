@@ -118,7 +118,9 @@ public class PayableService {
                 new PayableDto(
                         PayableKind.COLLECTOR_ADVANCE.name(), a.id, null, a.ref,
                         BeneficiaryKind.DELEGATE.name(), a.delegateSupplierId, a.delegateName,
-                        nz(a.advanceAmountFcfa), a.advanceDate, ageOf(a.advanceDate),
+                        // La file à payer annonce ce que la caisse va
+                        // sortir : le montant accordé, pas celui sollicité.
+                        nz(a.effectiveAmountFcfa()), a.advanceDate, ageOf(a.advanceDate),
                         a.siteId, a.campaignId)));
     }
 

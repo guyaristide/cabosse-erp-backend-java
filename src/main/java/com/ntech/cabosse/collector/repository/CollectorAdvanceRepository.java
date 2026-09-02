@@ -53,6 +53,23 @@ public class CollectorAdvanceRepository {
                 .into(new ArrayList<>());
     }
 
+    /**
+     * Les avances effectivement décaissées sur une période.
+     *
+     * <p>Sert l'état des règlements exécutés. Bornée par les dates, jamais
+     * par le seul statut : l'historique d'une structure ne se charge pas
+     * en mémoire, là où ce qui attend se compte en dizaines.</p>
+     */
+    public List<CollectorAdvanceEntity> findDisbursedBetween(
+            java.time.LocalDate from, java.time.LocalDate to) {
+        return coll().find(Filters.and(
+                        Filters.ne("disbursedAt", null),
+                        Filters.gte("advanceDate", from),
+                        Filters.lte("advanceDate", to)))
+                .sort(new org.bson.Document("advanceDate", -1))
+                .into(new ArrayList<>());
+    }
+
     public long countSearch(String status) {
         return coll().countDocuments(searchFilter(status));
     }

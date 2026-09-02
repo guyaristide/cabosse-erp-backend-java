@@ -135,6 +135,12 @@ public record TenantPreferencesDto(
                 example = "500000", defaultValue = "0")
         java.math.BigDecimal memberCreditApprovalThresholdFcfa,
 
+        @Schema(description = "Montant à partir duquel une avance à un délégué exige l'approbation "
+                + "de l'organe de gouvernance. Réglage distinct de celui des producteurs, les ordres "
+                + "de grandeur différant. Zéro : la gouvernance se prononce sur tout.",
+                example = "2000000", defaultValue = "0")
+        java.math.BigDecimal collectorAdvanceApprovalThresholdFcfa,
+
         @Schema(description = "Compte de créance sur les producteurs (crédits et avances).",
                 example = "409200", defaultValue = "409200")
         String memberCreditAccount,

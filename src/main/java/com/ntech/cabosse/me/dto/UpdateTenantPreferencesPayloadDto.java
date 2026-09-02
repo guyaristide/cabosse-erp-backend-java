@@ -150,6 +150,11 @@ public record UpdateTenantPreferencesPayloadDto(
         @Schema(description = "Seuil d'approbation de gouvernance des crédits producteurs.")
         java.math.BigDecimal memberCreditApprovalThresholdFcfa,
 
+        @jakarta.validation.constraints.DecimalMin(value = "0", message = "{v.seuil-negatif-interdit}")
+        @Schema(description = "Seuil d'approbation de gouvernance des avances aux délégués. "
+                + "Réglage distinct de celui des producteurs.")
+        java.math.BigDecimal collectorAdvanceApprovalThresholdFcfa,
+
         @jakarta.validation.constraints.Pattern(regexp = "^$|^[0-9]{2,8}$",
                 message = "{v.compte-de-creance-2-a-8-chiffres}")
         @Schema(description = "Compte de créance sur les producteurs.")

@@ -56,6 +56,58 @@ public class CollectorAdvanceEntity {
 
     public CollectorAdvanceStatus status = CollectorAdvanceStatus.PENDING_APPROVAL;
 
+    /**
+     * Vrai quand le montant a franchi le seuil imposant l'approbation de
+     * l'organe de gouvernance.
+     *
+     * <p>Figé à la demande, comme côté crédit producteur : relever le
+     * seuil ensuite ne doit pas dispenser d'approbation un dossier déjà
+     * déposé. Faux quand le directeur tranche seul.</p>
+     */
+    public boolean governanceApprovalRequired;
+
+    /**
+     * Montant réellement approuvé, qui peut être inférieur au montant
+     * sollicité quand la gouvernance ne suit pas entièrement.
+     *
+     * <p>C'est lui, et non {@link #advanceAmountFcfa}, qui commande tout
+     * ce qui suit : les fonds remis, l'écriture, le compte courant du
+     * délégué et l'imputation des livraisons. Nul tant que la demande
+     * n'est pas approuvée ; voir {@link #effectiveAmountFcfa()}.</p>
+     */
+    public BigDecimal approvedAmountFcfa;
+
+    /**
+     * Commentaire de l'approbateur, à côté de celui de l'émetteur.
+     *
+     * <p>Il porte l'appréciation qui a fondé la décision, notamment quand
+     * le montant accordé n'est pas celui demandé. Un montant réduit sans
+     * un mot laisserait le demandeur deviner.</p>
+     */
+    public String approvalNote;
+
+    /**
+     * Contrepartie attendue du délégué : la quantité que le montant
+     * sollicité permet d'acheter, au barème de la campagne du jour de la
+     * demande.
+     *
+     * <p>Figée à la demande avec le prix qui l'a produite : un barème
+     * relevé ensuite ne réécrit pas une contrepartie déjà convenue. Nulle
+     * quand la demande ne porte aucune campagne, faute de barème ; zéro se
+     * lirait comme un engagement nul.</p>
+     *
+     * <p>Une prévision, jamais un contrôle : elle n'est pas recalculée sur
+     * le montant approuvé, et rien ne s'y compare pour bloquer. Le point
+     * se fait au retour du délégué, sur ce qu'il a effectivement ramené.</p>
+     */
+    public BigDecimal expectedQuantity;
+
+    /** Unité de {@link #expectedQuantity}, portée par la donnée. */
+    public String expectedQuantityUnit;
+
+    /** Prix unitaire qui a produit la contrepartie, figé avec elle. */
+    public BigDecimal counterpartUnitPriceFcfa;
+
     // ─── Traces des trois gestes du circuit ─────────────────────────
     // Qui a demandé se lit dans createdBy. Approbation et décaissement
     // portent les leurs : sans elles, on saurait qu'une avance est sortie
@@ -74,6 +126,14 @@ public class CollectorAdvanceEntity {
     public Instant disbursedAt;
     public UUID disbursedBy;
     public String disbursedByEmail;
+    /**
+     * Nom de qui a exécuté le règlement, figé au décaissement.
+     *
+     * <p>L'état de suivi nomme la caissière. Une adresse électronique ne
+     * la nomme pas, et la résoudre après coup échoue dès que le compte est
+     * désactivé ou renommé.</p>
+     */
+    public String disbursedByName;
 
     /** Compte de trésorerie réellement mouvementé, désigné au décaissement. */
     public UUID bankAccountId;
@@ -126,6 +186,18 @@ public class CollectorAdvanceEntity {
      */
     public java.util.List<com.ntech.cabosse.shared.storage.AttachmentRef> attachments =
             new java.util.ArrayList<>();
+
+    /**
+     * Le montant qui fait foi pour l'argent : celui qui a été approuvé,
+     * ou celui demandé tant que la décision n'est pas prise.
+     *
+     * <p>Les dossiers antérieurs à l'approbation partielle n'ont pas de
+     * montant approuvé : pour eux, les deux se confondent, et c'est
+     * exact.</p>
+     */
+    public BigDecimal effectiveAmountFcfa() {
+        return approvedAmountFcfa != null ? approvedAmountFcfa : advanceAmountFcfa;
+    }
 
     public CollectorAdvanceEntity() {}
 }

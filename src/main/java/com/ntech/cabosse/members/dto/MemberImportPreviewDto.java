@@ -23,6 +23,16 @@ public record MemberImportPreviewDto(
         int parcelsToCreate,
         /** Parcelles que le fichier mettra à jour, reconnues par leur code. */
         int parcelsToUpdate,
+        /**
+         * Parcelles que le fichier créera sans position GPS.
+         *
+         * <p>La position n'est plus exigée à l'import : beaucoup de
+         * registres n'ont pas encore été relevés au GPS, et l'exiger
+         * faisait perdre le producteur avec sa parcelle. Le nombre est
+         * dit parce qu'une parcelle sans position ne sert ni la
+         * traçabilité ni le devoir de vigilance : elle reste à situer.</p>
+         */
+        int parcelsWithoutPosition,
         List<Row> rows
 ) {
     public enum Status {

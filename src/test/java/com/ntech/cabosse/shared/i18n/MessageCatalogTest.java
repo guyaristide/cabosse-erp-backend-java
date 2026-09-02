@@ -141,4 +141,38 @@ class MessageCatalogTest {
                         + "sinon MessageFormat mange le texte et n'insère plus la valeur")
                 .isEmpty();
     }
+
+    /**
+     * Le piège symétrique, et il se voit à l'écran.
+     *
+     * <p>Un message sans paramètre ne passe pas par
+     * {@link java.text.MessageFormat} : il sort tel quel. Une apostrophe
+     * doublée par réflexe s'affiche donc en double, et l'utilisateur lit
+     * « la décision d''approbation ».</p>
+     *
+     * <p>Relevé le 02/09/2026 par un parcours de bout en bout, sur un
+     * message écrit le jour même. Quatre messages en souffraient, dont
+     * deux plus anciens : la règle inverse était contrôlée, pas
+     * celle-ci.</p>
+     */
+    @Test
+    void messages_without_parameters_keep_a_single_apostrophe() throws IOException {
+        Pattern parameterised = Pattern.compile("\\{\\d+}");
+        Pattern doubled = Pattern.compile("''");
+        List<String> offenders = new ArrayList<>();
+
+        for (String bundle : List.of("messages.properties", "messages_en.properties")) {
+            Properties props = load(bundle);
+            for (String key : props.stringPropertyNames()) {
+                String value = props.getProperty(key);
+                if (!parameterised.matcher(value).find() && doubled.matcher(value).find()) {
+                    offenders.add(bundle + " : " + key + " = " + value);
+                }
+            }
+        }
+        assertThat(offenders)
+                .as("apostrophe doublée dans un message sans paramètre : elle s'affichera "
+                        + "en double, ce message ne passant pas par MessageFormat")
+                .isEmpty();
+    }
 }
