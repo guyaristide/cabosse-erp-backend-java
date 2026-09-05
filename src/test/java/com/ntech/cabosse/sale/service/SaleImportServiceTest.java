@@ -155,15 +155,15 @@ class SaleImportServiceTest {
         e.customerId = CUSTOMER_ID;
         e.customerName = "GMS Abidjan";
         e.saleDate = LocalDate.now();
-        e.subtotalHtFcfa = totalTtc;
+        e.subtotalHt = totalTtc;
         e.discountPct = BigDecimal.ZERO;
-        e.discountFcfa = BigDecimal.ZERO;
+        e.discount = BigDecimal.ZERO;
         e.vatRatePct = BigDecimal.ZERO;
-        e.vatFcfa = BigDecimal.ZERO;
-        e.totalTtcFcfa = totalTtc;
-        e.totalCostFcfa = BigDecimal.ZERO;
-        e.grossMarginFcfa = totalTtc;
-        e.totalPaidFcfa = totalPaid;
+        e.vat = BigDecimal.ZERO;
+        e.totalTtc = totalTtc;
+        e.totalCost = BigDecimal.ZERO;
+        e.grossMargin = totalTtc;
+        e.totalPaid = totalPaid;
         e.paymentStatus = paymentStatus;
         e.status = status;
         e.createdAt = Instant.now();
@@ -174,10 +174,10 @@ class SaleImportServiceTest {
             l.articleId = i == 0 ? ARTICLE_ID : (i == 1 ? ARTICLE_2_ID : ARTICLE_3_ID);
             l.articleName = "PF " + i;
             l.quantity = BigDecimal.ONE;
-            l.unitPriceFcfa = totalTtc;
-            l.lineTotalHtFcfa = totalTtc;
-            l.cmupAtSaleFcfa = BigDecimal.ZERO;
-            l.lineMarginFcfa = totalTtc;
+            l.unitPrice = totalTtc;
+            l.lineTotalHt = totalTtc;
+            l.cmupAtSale = BigDecimal.ZERO;
+            l.lineMargin = totalTtc;
             l.discountPct = BigDecimal.ZERO;
             e.lines.add(l);
         }
@@ -188,9 +188,9 @@ class SaleImportServiceTest {
                 dto.customerId(), dto.customerCode(), dto.customerName(),
                 dto.customerLegalName(), dto.channelTypeSnapshot(),
                 dto.saleDate(), dto.dueDate(), dto.deliveryDate(),
-                dto.lines(), dto.subtotalHtFcfa(), dto.discountPct(), dto.discountFcfa(),
-                dto.vatRatePct(), dto.vatFcfa(), dto.totalTtcFcfa(), dto.totalCostFcfa(),
-                dto.grossMarginFcfa(),
+                dto.lines(), dto.subtotalHt(), dto.discountPct(), dto.discount(),
+                dto.vatRatePct(), dto.vat(), dto.totalTtc(), dto.totalCost(),
+                dto.grossMargin(),
                 dto.payments(), totalPaid, balance, paymentStatus,
                 status, dto.cancellation(),
                 dto.invoiceNumber(), dto.notes(),
@@ -570,10 +570,10 @@ class SaleImportServiceTest {
 
         ArgumentCaptor<SalePaymentDto> paymentCaptor = ArgumentCaptor.forClass(SalePaymentDto.class);
         verify(saleService).recordPayment(eq(SALE_ID), paymentCaptor.capture());
-        assertThat(paymentCaptor.getValue().amountFcfa()).isEqualByComparingTo(new BigDecimal("3000"));
+        assertThat(paymentCaptor.getValue().amount()).isEqualByComparingTo(new BigDecimal("3000"));
         assertThat(paymentCaptor.getValue().method()).isEqualTo(PaymentMethod.MOBILE_MONEY);
 
         assertThat(result.sale().paymentStatus()).isEqualTo(PaymentStatus.PARTIAL);
-        assertThat(result.sale().totalPaidFcfa()).isEqualByComparingTo(new BigDecimal("3000"));
+        assertThat(result.sale().totalPaid()).isEqualByComparingTo(new BigDecimal("3000"));
     }
 }

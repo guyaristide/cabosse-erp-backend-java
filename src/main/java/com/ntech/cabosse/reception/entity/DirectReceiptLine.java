@@ -24,9 +24,9 @@ public class DirectReceiptLine {
     public String supplierName;
 
     public BigDecimal quantity;
-    public BigDecimal unitPriceFcfa;
-    /** {@code quantity × unitPriceFcfa}. Pré-calculé pour audit. */
-    public BigDecimal totalLineFcfa;
+    public BigDecimal unitPrice;
+    /** {@code quantity × unitPrice}. Pré-calculé pour audit. */
+    public BigDecimal totalLine;
 
     /** Référence du bon de livraison côté terrain (n° BL). */
     public String deliveryNoteRef;

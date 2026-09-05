@@ -20,8 +20,8 @@ import java.util.UUID;
  */
 public class TariffChange {
 
-    public BigDecimal previousBasePricePerKgFcfa;
-    public BigDecimal newBasePricePerKgFcfa;
+    public BigDecimal previousBasePricePerKg;
+    public BigDecimal newBasePricePerKg;
 
     public BigDecimal previousRistournePct;
     public BigDecimal newRistournePct;

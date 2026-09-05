@@ -109,16 +109,28 @@ class MemberCreditTest extends AbstractIntegrationTest {
     private String createCredit(UserEntity admin, String memberId, String kind, int amount, String purpose) {
         return givenAs(admin).contentType("application/json")
                 .body("""
-                        { "memberId": "%s", "kind": "%s", "amountFcfa": %d, "purpose": "%s" }
+                        { "memberId": "%s", "kind": "%s", "amount": %d, "purpose": "%s" }
                         """.formatted(memberId, kind, amount, purpose))
                 .when().post("/api/v1/member-credits").then().statusCode(201)
                 .extract().path("data.id");
     }
 
+    /**
+     * Approuve si le dossier attend encore, puis décaisse.
+     *
+     * <p>Une avance déposée par qui porte le droit d'approbation est
+     * accordée au dépôt depuis le 03/09/2026 : le directeur tranche seul
+     * et d'un seul geste, sous le seuil. Un second appel à l'approbation
+     * se heurterait alors à un dossier déjà tranché.</p>
+     */
     private void approveAndDisburse(UserEntity admin, String creditId) {
-        givenAs(admin).contentType("application/json").body("{\"note\":\"Accord du conseil\"}")
-                .when().post("/api/v1/member-credits/" + creditId + "/approve")
-                .then().statusCode(200);
+        String status = givenAs(admin).when().get("/api/v1/member-credits/" + creditId)
+                .then().statusCode(200).extract().path("data.status");
+        if ("PENDING_APPROVAL".equals(status)) {
+            givenAs(admin).contentType("application/json").body("{\"note\":\"Accord du conseil\"}")
+                    .when().post("/api/v1/member-credits/" + creditId + "/approve")
+                    .then().statusCode(200);
+        }
         givenAs(admin).contentType("application/json")
                 .body("{\"paymentMethod\":\"CASH\",\"disbursedAt\":\"" + LocalDate.now() + "\"}")
                 .when().post("/api/v1/member-credits/" + creditId + "/disburse")
@@ -129,7 +141,7 @@ class MemberCreditTest extends AbstractIntegrationTest {
     void the_threshold_decides_which_approval_is_required() {
         UserEntity admin = tenantAdmin();
         givenAs(admin).contentType("application/json")
-                .body("{\"memberCreditApprovalThresholdFcfa\":500000}")
+                .body("{\"memberCreditApprovalThreshold\":500000}")
                 .when().put("/api/v1/me/tenant/preferences").then().statusCode(200);
 
         String memberId = createProducer(admin, "Kouassi");
@@ -167,7 +179,7 @@ class MemberCreditTest extends AbstractIntegrationTest {
 
         givenAs(admin).when().get("/api/v1/member-credits/members/" + memberId + "/debt")
                 .then().statusCode(200)
-                .body("data.totalRemainingFcfa", equalTo(0));
+                .body("data.totalRemaining", equalTo(0));
     }
 
     @Test
@@ -183,7 +195,7 @@ class MemberCreditTest extends AbstractIntegrationTest {
         // Le reste dû est lisible avant de payer.
         givenAs(admin).when().get("/api/v1/member-credits/members/" + memberId + "/debt")
                 .then().statusCode(200)
-                .body("data.totalRemainingFcfa", equalTo(150000))
+                .body("data.totalRemaining", equalTo(150000))
                 .body("data.lines", hasSize(1));
 
         // Livraison de 500 kg à 1000 : 500 000 dus, dont 30 000 retenus,
@@ -191,27 +203,27 @@ class MemberCreditTest extends AbstractIntegrationTest {
         givenAs(admin).contentType("application/json")
                 .body("""
                         { "date": "%s", "memberId": "%s", "articleId": "%s", "siteId": "%s",
-                          "weightKg": 500, "guaranteedPricePerKgFcfa": 1000,
+                          "weightKg": 500, "guaranteedPricePerKg": 1000,
                           "paymentMethod": "CASH",
-                          "creditImputations": [ { "creditId": "%s", "amountFcfa": 30000 } ] }
+                          "creditImputations": [ { "creditId": "%s", "amount": 30000 } ] }
                         """.formatted(LocalDate.now(), memberId, articleId, siteId, creditId))
                 .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                 .when().post("/api/v1/producer-purchases")
                 .then().statusCode(201)
-                .body("data.creditImputedFcfa", equalTo(30000))
-                .body("data.amountPaidFcfa", equalTo(470000))
-                .body("data.remainderFcfa", equalTo(0));
+                .body("data.creditImputed", equalTo(30000))
+                .body("data.amountPaid", equalTo(470000))
+                .body("data.remainder", equalTo(0));
 
         // La dette a baissé d'autant, et la retenue est tracée.
         givenAs(admin).when().get("/api/v1/member-credits/members/" + memberId + "/debt")
                 .then().statusCode(200)
-                .body("data.totalRemainingFcfa", equalTo(120000));
+                .body("data.totalRemaining", equalTo(120000));
 
         givenAs(admin).when().get("/api/v1/member-credits/" + creditId)
                 .then().statusCode(200)
                 .body("data.imputations", hasSize(1))
-                .body("data.imputations[0].amountFcfa", equalTo(30000))
-                .body("data.imputedAmountFcfa", equalTo(30000));
+                .body("data.imputations[0].amount", equalTo(30000))
+                .body("data.imputedAmount", equalTo(30000));
 
         // L'écriture porte la contrepartie sur le compte de créance.
         givenAs(admin).when().get("/api/v1/accounting/journal")
@@ -232,9 +244,9 @@ class MemberCreditTest extends AbstractIntegrationTest {
         givenAs(admin).contentType("application/json")
                 .body("""
                         { "date": "%s", "memberId": "%s", "articleId": "%s", "siteId": "%s",
-                          "weightKg": 100, "guaranteedPricePerKgFcfa": 1000,
+                          "weightKg": 100, "guaranteedPricePerKg": 1000,
                           "paymentMethod": "CASH",
-                          "creditImputations": [ { "creditId": "%s", "amountFcfa": 50000 } ] }
+                          "creditImputations": [ { "creditId": "%s", "amount": 50000 } ] }
                         """.formatted(LocalDate.now(), memberId, articleId, siteId, creditId))
                 .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                 .when().post("/api/v1/producer-purchases")
@@ -244,7 +256,7 @@ class MemberCreditTest extends AbstractIntegrationTest {
         // Rien n'a bougé : ni la dette, ni le stock.
         givenAs(admin).when().get("/api/v1/member-credits/members/" + memberId + "/debt")
                 .then().statusCode(200)
-                .body("data.totalRemainingFcfa", equalTo(20000));
+                .body("data.totalRemaining", equalTo(20000));
     }
 
     @Test
@@ -260,9 +272,9 @@ class MemberCreditTest extends AbstractIntegrationTest {
         givenAs(admin).contentType("application/json")
                 .body("""
                         { "date": "%s", "memberId": "%s", "articleId": "%s", "siteId": "%s",
-                          "weightKg": 100, "guaranteedPricePerKgFcfa": 1000,
+                          "weightKg": 100, "guaranteedPricePerKg": 1000,
                           "paymentMethod": "CASH",
-                          "creditImputations": [ { "creditId": "%s", "amountFcfa": 25000 } ] }
+                          "creditImputations": [ { "creditId": "%s", "amount": 25000 } ] }
                         """.formatted(LocalDate.now(), memberId, articleId, siteId, creditId))
                 .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                 .when().post("/api/v1/producer-purchases").then().statusCode(201);
@@ -270,12 +282,12 @@ class MemberCreditTest extends AbstractIntegrationTest {
         givenAs(admin).when().get("/api/v1/member-credits/" + creditId)
                 .then().statusCode(200)
                 .body("data.status", equalTo("SETTLED"))
-                .body("data.remainingFcfa", equalTo(0));
+                .body("data.remaining", equalTo(0));
 
         // Soldé, il ne pèse plus sur les livraisons suivantes.
         givenAs(admin).when().get("/api/v1/member-credits/members/" + memberId + "/debt")
                 .then().statusCode(200)
-                .body("data.totalRemainingFcfa", equalTo(0));
+                .body("data.totalRemaining", equalTo(0));
     }
 
     // ─── Séparation des tâches et seuil contraignant (CE-26, CE-27) ─
@@ -286,7 +298,7 @@ class MemberCreditTest extends AbstractIntegrationTest {
     private String createCreditAs(UserEntity who, String memberId, int amount) {
         return givenAs(who).contentType("application/json")
                 .body("""
-                        { "memberId": "%s", "kind": "CREDIT", "amountFcfa": %d, "purpose": "Intrants" }
+                        { "memberId": "%s", "kind": "CREDIT", "amount": %d, "purpose": "Intrants" }
                         """.formatted(memberId, amount))
                 .when().post("/api/v1/member-credits").then().statusCode(201)
                 .extract().path("data.id");
@@ -328,7 +340,7 @@ class MemberCreditTest extends AbstractIntegrationTest {
     void the_governance_threshold_is_binding_not_decorative() {
         UserEntity admin = tenantAdmin();
         givenAs(admin).contentType("application/json")
-                .body("{\"memberCreditApprovalThresholdFcfa\":500000}")
+                .body("{\"memberCreditApprovalThreshold\":500000}")
                 .when().put("/api/v1/me/tenant/preferences").then().statusCode(200);
         String memberId = createProducer(admin, "Kone");
 

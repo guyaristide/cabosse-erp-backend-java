@@ -89,8 +89,8 @@ class ClosedPeriodPolicyTest extends AbstractIntegrationTest {
                 .body("""
                         { "date": "%s", "libelle": "Achat arrivé en retard",
                           "lines": [
-                            { "account": "601000", "libelle": "Achat", "debitFcfa": 40000 },
-                            { "account": "401000", "libelle": "Fournisseur", "creditFcfa": 40000 }
+                            { "account": "601000", "libelle": "Achat", "debit": 40000 },
+                            { "account": "401000", "libelle": "Fournisseur", "credit": 40000 }
                           ] }
                         """.formatted(PAST))
                 .when().post("/api/v1/accounting/od").then().statusCode(201)

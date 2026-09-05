@@ -1,4 +1,12 @@
 package com.ntech.cabosse.treasury.service;
+import com.ntech.cabosse.treasury.dto.TreasuryReconciliationDto;
+import com.ntech.cabosse.treasury.dto.TransferResponseDto;
+import com.ntech.cabosse.treasury.dto.ReceiveTransferDto;
+import com.ntech.cabosse.treasury.dto.CreateTransferDto;
+import com.ntech.cabosse.treasury.dto.CreateCashCountDto;
+import com.ntech.cabosse.treasury.dto.CashMovementDto;
+import com.ntech.cabosse.treasury.dto.CashPositionDto;
+import com.ntech.cabosse.treasury.dto.CashCountResponseDto;
 
 import com.ntech.cabosse.campaign.entity.CampaignEntity;
 import com.ntech.cabosse.accounting.entity.BankAccountEntity;
@@ -18,7 +26,6 @@ import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.tenant.service.TenantPreferencesLookup;
-import com.ntech.cabosse.treasury.dto.TreasuryDtos;
 import com.ntech.cabosse.treasury.entity.CashCountEntity;
 import com.ntech.cabosse.treasury.entity.TreasuryTransferEntity;
 import com.ntech.cabosse.treasury.entity.TreasuryTransferStatus;
@@ -72,24 +79,24 @@ public class TreasuryService {
 
     // ─── Transports de fonds ────────────────────────────────────────
 
-    public Pagination<TreasuryDtos.TransferResponseDto> page(LocalDate from, LocalDate to,
+    public Pagination<TransferResponseDto> page(LocalDate from, LocalDate to,
                                                              String status, UUID accountId,
                                                              PageRequest pr) {
         long total = transfers.countSearch(from, to, status, accountId);
-        List<TreasuryDtos.TransferResponseDto> items = transfers
+        List<TransferResponseDto> items = transfers
                 .search(from, to, status, accountId, pr.skip(), pr.perPage())
-                .stream().map(TreasuryDtos.TransferResponseDto::from).toList();
+                .stream().map(TransferResponseDto::from).toList();
         Map<String, String> filters = new HashMap<>();
         if (status != null && !status.isBlank()) filters.put("status", status);
         if (accountId != null) filters.put("accountId", accountId.toString());
         return Pagination.of(total, pr, new String[]{"sentAt"}, "desc", filters, items);
     }
 
-    public TreasuryDtos.TransferResponseDto getTransfer(UUID id) {
-        return TreasuryDtos.TransferResponseDto.from(loadTransfer(id));
+    public TransferResponseDto getTransfer(UUID id) {
+        return TransferResponseDto.from(loadTransfer(id));
     }
 
-    public TreasuryDtos.TransferResponseDto send(TreasuryDtos.CreateTransferDto p) {
+    public TransferResponseDto send(CreateTransferDto p) {
         if (p.fromAccountId().equals(p.toAccountId())) {
             throw new BusinessException(Messages.msg("m.trs-same-accounts"));
         }
@@ -106,7 +113,7 @@ public class TreasuryService {
         e.toAccountId = to.id;
         e.toAccountLabel = label(to);
         e.toSyscohadaAccount = to.syscohadaAccount;
-        e.amountSentFcfa = p.amountFcfa();
+        e.amountSent = p.amount();
         e.sentAt = p.sentAt() != null ? p.sentAt() : LocalDate.now();
         CampaignEntity transferCampaign = campaignResolver.resolveOptionalForDate(e.sentAt, null);
         e.campaignId = transferCampaign != null ? transferCampaign.id : null;
@@ -120,15 +127,15 @@ public class TreasuryService {
         e.createdByEmail = actor();
 
         accounting.postTreasuryTransferOut(e.id, e.ref, from.syscohadaAccount, e.fromAccountLabel,
-                        e.amountSentFcfa, e.sentAt)
+                        e.amountSent, e.sentAt)
                 .ifPresent(piece -> e.pieceRefOut = piece.ref);
 
         transfers.insert(e);
         audit(e.id, e.ref, AuditEventType.TREASURY_TRANSFER_SENT,
-                "Sortie de " + e.amountSentFcfa + " de " + e.fromAccountLabel
+                "Sortie de " + e.amountSent + " de " + e.fromAccountLabel
                         + " vers " + e.toAccountLabel
                         + (e.carrierName != null ? ", porté par " + e.carrierName : ""));
-        return TreasuryDtos.TransferResponseDto.from(e);
+        return TransferResponseDto.from(e);
     }
 
     /**
@@ -136,7 +143,7 @@ public class TreasuryService {
      * parti : c'est justement ce que la coopérative veut voir, et l'écart
      * est constaté sur le champ pour que le compte de passage se solde.
      */
-    public TreasuryDtos.TransferResponseDto receive(UUID id, TreasuryDtos.ReceiveTransferDto p) {
+    public TransferResponseDto receive(UUID id, ReceiveTransferDto p) {
         TreasuryTransferEntity e = loadTransfer(id);
         if (e.status != TreasuryTransferStatus.IN_TRANSIT) {
             throw new BusinessException(
@@ -147,8 +154,8 @@ public class TreasuryService {
         if (date.isBefore(e.sentAt)) {
             throw new BusinessException(Messages.msg("m.trs-receive-before-send"));
         }
-        e.amountReceivedFcfa = p.amountReceivedFcfa();
-        e.discrepancyFcfa = p.amountReceivedFcfa().subtract(e.amountSentFcfa);
+        e.amountReceived = p.amountReceived();
+        e.discrepancy = p.amountReceived().subtract(e.amountSent);
         e.receivedAt = date;
         e.receivedByEmail = actor();
         e.status = TreasuryTransferStatus.RECEIVED;
@@ -158,18 +165,18 @@ public class TreasuryService {
         e.updatedAt = Instant.now();
 
         accounting.postTreasuryTransferIn(e.id, e.ref, to.syscohadaAccount, e.toAccountLabel,
-                        e.amountSentFcfa, e.amountReceivedFcfa,
+                        e.amountSent, e.amountReceived,
                         preferences.current().cashDiscrepancyAccount(), date)
                 .ifPresent(piece -> e.pieceRefIn = piece.ref);
 
         transfers.replace(e);
         audit(e.id, e.ref, AuditEventType.TREASURY_TRANSFER_RECEIVED,
-                "Réception de " + e.amountReceivedFcfa + " sur " + e.toAccountLabel
-                        + (e.discrepancyFcfa.signum() != 0 ? " (écart " + e.discrepancyFcfa + ")" : ""));
-        return TreasuryDtos.TransferResponseDto.from(e);
+                "Réception de " + e.amountReceived + " sur " + e.toAccountLabel
+                        + (e.discrepancy.signum() != 0 ? " (écart " + e.discrepancy + ")" : ""));
+        return TransferResponseDto.from(e);
     }
 
-    public TreasuryDtos.TransferResponseDto cancel(UUID id, String reason) {
+    public TransferResponseDto cancel(UUID id, String reason) {
         if (reason == null || reason.isBlank()) {
             throw new BusinessException(Messages.msg("m.trs-cancel-reason-required"));
         }
@@ -190,7 +197,7 @@ public class TreasuryService {
         transfers.replace(e);
         audit(e.id, e.ref, AuditEventType.TREASURY_TRANSFER_CANCELLED,
                 "Annulation " + e.ref + " : " + e.cancellationReason);
-        return TreasuryDtos.TransferResponseDto.from(e);
+        return TransferResponseDto.from(e);
     }
 
     // ─── Point de caisse ────────────────────────────────────────────
@@ -200,7 +207,7 @@ public class TreasuryService {
      * des mouvements de la période. Le solde se recalcule des écritures :
      * aucun compteur à maintenir, donc rien qui puisse dériver.
      */
-    public TreasuryDtos.CashPositionDto position(UUID accountId, LocalDate from, LocalDate at) {
+    public CashPositionDto position(UUID accountId, LocalDate from, LocalDate at) {
         BankAccountEntity account = loadAccount(accountId);
         LocalDate to = at != null ? at : LocalDate.now();
         LocalDate start = from != null ? from : to.withDayOfMonth(1);
@@ -208,16 +215,16 @@ public class TreasuryService {
         BigDecimal opening = balanceAt(account.syscohadaAccount, start.minusDays(1));
         BigDecimal inflows = BigDecimal.ZERO;
         BigDecimal outflows = BigDecimal.ZERO;
-        List<TreasuryDtos.CashPositionDto.Movement> movements = new ArrayList<>();
+        List<CashMovementDto> movements = new ArrayList<>();
 
         for (JournalPieceEntity piece : pieces.list(start, to, account.syscohadaAccount, 0, 5000)) {
             for (JournalEntry entry : piece.entries) {
                 if (!account.syscohadaAccount.equals(entry.syscohadaAccount)) continue;
-                BigDecimal in = nz(entry.debitFcfa);
-                BigDecimal out = nz(entry.creditFcfa);
+                BigDecimal in = nz(entry.debit);
+                BigDecimal out = nz(entry.credit);
                 inflows = inflows.add(in);
                 outflows = outflows.add(out);
-                movements.add(new TreasuryDtos.CashPositionDto.Movement(
+                movements.add(new CashMovementDto(
                         piece.date, piece.ref, entry.libelle, in, out));
             }
         }
@@ -226,13 +233,13 @@ public class TreasuryService {
         BigDecimal inTransit = transfers.listForPeriod(null, to).stream()
                 .filter(t -> t.status == TreasuryTransferStatus.IN_TRANSIT)
                 .filter(t -> accountId.equals(t.toAccountId))
-                .map(t -> nz(t.amountSentFcfa))
+                .map(t -> nz(t.amountSent))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        TreasuryDtos.CashCountResponseDto lastCount = counts.lastForAccount(accountId)
-                .map(TreasuryDtos.CashCountResponseDto::from).orElse(null);
+        CashCountResponseDto lastCount = counts.lastForAccount(accountId)
+                .map(CashCountResponseDto::from).orElse(null);
 
-        return new TreasuryDtos.CashPositionDto(
+        return new CashPositionDto(
                 account.id, label(account), account.syscohadaAccount,
                 start, to,
                 opening, inflows, outflows,
@@ -240,7 +247,7 @@ public class TreasuryService {
                 inTransit, movements, lastCount);
     }
 
-    public TreasuryDtos.CashCountResponseDto count(TreasuryDtos.CreateCashCountDto p) {
+    public CashCountResponseDto count(CreateCashCountDto p) {
         BankAccountEntity account = loadAccount(p.accountId());
         LocalDate date = p.countedAt() != null ? p.countedAt() : LocalDate.now();
 
@@ -254,9 +261,9 @@ public class TreasuryService {
         CampaignEntity countCampaign = campaignResolver.resolveOptionalForDate(e.countedAt, null);
         e.campaignId = countCampaign != null ? countCampaign.id : null;
         e.campaignYear = countCampaign != null ? countCampaign.campaignYear : null;
-        e.theoreticalFcfa = balanceAt(account.syscohadaAccount, date);
-        e.countedFcfa = p.countedFcfa();
-        e.discrepancyFcfa = e.countedFcfa.subtract(e.theoreticalFcfa);
+        e.theoretical = balanceAt(account.syscohadaAccount, date);
+        e.counted = p.counted();
+        e.discrepancy = e.counted.subtract(e.theoretical);
         e.notes = blankToNull(p.notes());
         e.countedByEmail = actor();
         e.createdAt = Instant.now();
@@ -264,23 +271,23 @@ public class TreasuryService {
 
         // La régularisation n'est pas automatique : un écart se cherche
         // avant de se passer en charge.
-        if (Boolean.TRUE.equals(p.postAdjustment()) && e.discrepancyFcfa.signum() != 0) {
+        if (Boolean.TRUE.equals(p.postAdjustment()) && e.discrepancy.signum() != 0) {
             accounting.postFromCashCount(e.id, e.ref, account.syscohadaAccount, e.accountLabel,
-                            e.discrepancyFcfa, preferences.current().cashDiscrepancyAccount(), date)
+                            e.discrepancy, preferences.current().cashDiscrepancyAccount(), date)
                     .ifPresent(piece -> e.pieceRef = piece.ref);
         }
 
         counts.insert(e);
         audit(e.id, e.ref, AuditEventType.CASH_COUNT_RECORDED,
-                "Point de caisse " + e.accountLabel + " : compté " + e.countedFcfa
-                        + ", attendu " + e.theoreticalFcfa
-                        + (e.discrepancyFcfa.signum() != 0 ? ", écart " + e.discrepancyFcfa : ""));
-        return TreasuryDtos.CashCountResponseDto.from(e);
+                "Point de caisse " + e.accountLabel + " : compté " + e.counted
+                        + ", attendu " + e.theoretical
+                        + (e.discrepancy.signum() != 0 ? ", écart " + e.discrepancy : ""));
+        return CashCountResponseDto.from(e);
     }
 
-    public List<TreasuryDtos.CashCountResponseDto> countHistory(UUID accountId, int limit) {
+    public List<CashCountResponseDto> countHistory(UUID accountId, int limit) {
         return counts.listByAccount(accountId, limit > 0 ? limit : 20).stream()
-                .map(TreasuryDtos.CashCountResponseDto::from).toList();
+                .map(CashCountResponseDto::from).toList();
     }
 
     // ─── Rapprochement ──────────────────────────────────────────────
@@ -291,7 +298,7 @@ public class TreasuryService {
      * ne cherche pas un total, il cherche les lignes qui ne tombent pas
      * juste.
      */
-    public TreasuryDtos.TreasuryReconciliationDto reconciliation(LocalDate from, LocalDate to) {
+    public TreasuryReconciliationDto reconciliation(LocalDate from, LocalDate to) {
         LocalDate end = to != null ? to : LocalDate.now();
         LocalDate start = from != null ? from : end.withDayOfMonth(1);
 
@@ -299,26 +306,26 @@ public class TreasuryService {
         BigDecimal received = BigDecimal.ZERO;
         BigDecimal inTransit = BigDecimal.ZERO;
         BigDecimal discrepancy = BigDecimal.ZERO;
-        List<TreasuryDtos.TransferResponseDto> withGap = new ArrayList<>();
-        List<TreasuryDtos.TransferResponseDto> pending = new ArrayList<>();
+        List<TransferResponseDto> withGap = new ArrayList<>();
+        List<TransferResponseDto> pending = new ArrayList<>();
         int count = 0;
 
         for (TreasuryTransferEntity t : transfers.listForPeriod(start, end)) {
             if (t.status == TreasuryTransferStatus.CANCELLED) continue;
             count++;
-            sent = sent.add(nz(t.amountSentFcfa));
+            sent = sent.add(nz(t.amountSent));
             if (t.status == TreasuryTransferStatus.RECEIVED) {
-                received = received.add(nz(t.amountReceivedFcfa));
-                if (nz(t.discrepancyFcfa).signum() != 0) {
-                    discrepancy = discrepancy.add(nz(t.discrepancyFcfa));
-                    withGap.add(TreasuryDtos.TransferResponseDto.from(t));
+                received = received.add(nz(t.amountReceived));
+                if (nz(t.discrepancy).signum() != 0) {
+                    discrepancy = discrepancy.add(nz(t.discrepancy));
+                    withGap.add(TransferResponseDto.from(t));
                 }
             } else {
-                inTransit = inTransit.add(nz(t.amountSentFcfa));
-                pending.add(TreasuryDtos.TransferResponseDto.from(t));
+                inTransit = inTransit.add(nz(t.amountSent));
+                pending.add(TransferResponseDto.from(t));
             }
         }
-        return new TreasuryDtos.TreasuryReconciliationDto(
+        return new TreasuryReconciliationDto(
                 start, end, sent, received, inTransit, discrepancy,
                 count, withGap.size(), withGap, pending);
     }
@@ -352,7 +359,7 @@ public class TreasuryService {
         for (JournalPieceEntity piece : pieces.list(null, at, syscohadaAccount, 0, 20000)) {
             for (JournalEntry entry : piece.entries) {
                 if (!syscohadaAccount.equals(entry.syscohadaAccount)) continue;
-                balance = balance.add(nz(entry.debitFcfa)).subtract(nz(entry.creditFcfa));
+                balance = balance.add(nz(entry.debit)).subtract(nz(entry.credit));
             }
         }
         return balance;

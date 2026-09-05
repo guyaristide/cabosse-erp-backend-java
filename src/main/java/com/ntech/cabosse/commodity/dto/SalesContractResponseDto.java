@@ -13,11 +13,11 @@ public record SalesContractResponseDto(
         String customerName,
         UUID campaignId,
         Integer campaignYear,
-        BigDecimal marginPerKgFcfa,
+        BigDecimal marginPerKg,
         String label,
-        BigDecimal coopPrimePerKgFcfa,
-        BigDecimal producerPrimePerKgFcfa,
-        BigDecimal socialPrimePerKgFcfa,
+        BigDecimal coopPrimePerKg,
+        BigDecimal producerPrimePerKg,
+        BigDecimal socialPrimePerKg,
         String notes,
         boolean active,
         Instant createdAt,
@@ -26,7 +26,7 @@ public record SalesContractResponseDto(
     public static SalesContractResponseDto from(SalesContractEntity e) {
         return new SalesContractResponseDto(
                 e.id, e.ref, e.customerId, e.customerName, e.campaignId, e.campaignYear,
-                e.marginPerKgFcfa, e.label, e.coopPrimePerKgFcfa, e.producerPrimePerKgFcfa,
-                e.socialPrimePerKgFcfa, e.notes, e.active, e.createdAt, e.updatedAt);
+                e.marginPerKg, e.label, e.coopPrimePerKg, e.producerPrimePerKg,
+                e.socialPrimePerKg, e.notes, e.active, e.createdAt, e.updatedAt);
     }
 }

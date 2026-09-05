@@ -76,7 +76,7 @@ public class CampaignEntity {
      * producteur : le laisser librement éditable ouvrait la porte à un
      * changement discret entre deux pesées.</p>
      */
-    public BigDecimal basePricePerKgFcfa = BigDecimal.ZERO;
+    public BigDecimal basePricePerKg = BigDecimal.ZERO;
 
     /**
      * Primes qualité par grade de fèves. Peut être vide si la coopérative

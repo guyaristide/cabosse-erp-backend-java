@@ -40,7 +40,7 @@ public class TreasuryTransferEntity {
     public String toAccountLabel;
     public String toSyscohadaAccount;
 
-    public BigDecimal amountSentFcfa;
+    public BigDecimal amountSent;
     public LocalDate sentAt;
 
     /**
@@ -53,7 +53,7 @@ public class TreasuryTransferEntity {
     public TreasuryTransferStatus status = TreasuryTransferStatus.IN_TRANSIT;
 
     // ─── Réception ───
-    public BigDecimal amountReceivedFcfa;
+    public BigDecimal amountReceived;
     public LocalDate receivedAt;
     public String receivedByEmail;
 
@@ -62,7 +62,7 @@ public class TreasuryTransferEntity {
      * Constaté comptablement à la réception pour que le compte de
      * virements internes se solde.
      */
-    public BigDecimal discrepancyFcfa;
+    public BigDecimal discrepancy;
 
     /** Pièce de la sortie du compte d'origine. */
     public String pieceRefOut;

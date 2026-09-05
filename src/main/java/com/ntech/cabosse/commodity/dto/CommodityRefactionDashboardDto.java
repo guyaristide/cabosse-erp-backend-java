@@ -11,7 +11,7 @@ import java.util.UUID;
  * depuis les ventes cacao. Règles métier confirmées par l'expert :
  * <ul>
  *   <li>coût d'une réfaction = kg réfacté (par type) × prix bord champ de la
- *       campagne du lot ({@code campaign.basePricePerKgFcfa}) — on valorise au
+ *       campagne du lot ({@code campaign.basePricePerKg}) — on valorise au
  *       prix d'achat au producteur, l'argent déjà payé et refusé par le client ;</li>
  *   <li>taux de réfaction = total réfactions ÷ volume déchargé (pesée usine) ;</li>
  *   <li>quantités et qualité ventilées par grade (G1/G2/SG) et par label.</li>
@@ -28,7 +28,7 @@ public record CommodityRefactionDashboardDto(
         List<RefactionCostLine> costByType,
         BigDecimal totalRefactionKg,
         /** Perte totale en FCFA = Σ (kg réfacté × prix bord champ de la campagne). */
-        BigDecimal totalRefactionCostFcfa,
+        BigDecimal totalRefactionCost,
 
         // ─── Réconciliation des poids ───────────────────────────
         /** Volume payé aux producteurs sur la campagne (achats producteur). */
@@ -56,7 +56,7 @@ public record CommodityRefactionDashboardDto(
             /** Libellé affichable (Humidité, Matières étrangères, …). */
             String label,
             BigDecimal kg,
-            BigDecimal costFcfa) {}
+            BigDecimal cost) {}
 
     @Schema(description = "Quantité vendue pour un grade de qualité")
     public record GradeQuantityLine(

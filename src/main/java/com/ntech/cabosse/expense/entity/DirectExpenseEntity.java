@@ -56,10 +56,10 @@ public class DirectExpenseEntity {
     public String allocationKeyCode;
     public String allocationKeyName;
 
-    public BigDecimal amountHtFcfa = BigDecimal.ZERO;
+    public BigDecimal amountHt = BigDecimal.ZERO;
     public BigDecimal vatRatePct = BigDecimal.ZERO;
-    public BigDecimal vatAmountFcfa = BigDecimal.ZERO;
-    public BigDecimal amountTtcFcfa = BigDecimal.ZERO;
+    public BigDecimal vatAmount = BigDecimal.ZERO;
+    public BigDecimal amountTtc = BigDecimal.ZERO;
 
     /** Mode de règlement (détermine le compte de trésorerie crédité). */
     public String paymentMethod;

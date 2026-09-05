@@ -43,8 +43,8 @@ public class QuarantinedPostingEntity {
     /** Lignes de l'écriture, conservées pour être passées telles quelles. */
     public List<JournalEntry> entries = new ArrayList<>();
 
-    public BigDecimal totalDebitFcfa;
-    public BigDecimal totalCreditFcfa;
+    public BigDecimal totalDebit;
+    public BigDecimal totalCredit;
 
     /** Période verrouillée qui a provoqué la mise en attente. */
     public String lockedPeriod;

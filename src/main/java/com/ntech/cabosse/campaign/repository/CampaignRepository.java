@@ -178,9 +178,9 @@ public class CampaignRepository {
         return coll().updateOne(
                 Filters.and(
                         Filters.eq("_id", id),
-                        Filters.eq("basePricePerKgFcfa", expectedBasePrice)),
+                        Filters.eq("basePricePerKg", expectedBasePrice)),
                 com.mongodb.client.model.Updates.combine(
-                        com.mongodb.client.model.Updates.set("basePricePerKgFcfa", newBasePrice),
+                        com.mongodb.client.model.Updates.set("basePricePerKg", newBasePrice),
                         com.mongodb.client.model.Updates.set("ristournePct", newRistournePct),
                         com.mongodb.client.model.Updates.set("qualityPremiums", newPremiums),
                         com.mongodb.client.model.Updates.set("updatedAt", updatedAt),

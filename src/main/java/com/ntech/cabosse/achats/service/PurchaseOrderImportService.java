@@ -93,7 +93,7 @@ public class PurchaseOrderImportService {
                 articleId = resolved.id();
             }
             resolvedLines.add(new ResolvedLine(
-                    articleId, line.quantity(), line.unitPriceFcfa(), line.discountPct()
+                    articleId, line.quantity(), line.unitPrice(), line.discountPct()
             ));
         }
 
@@ -107,10 +107,10 @@ public class PurchaseOrderImportService {
                 resolvedLines.stream()
                         .map(rl -> new PurchaseOrderLineDto(
                                 rl.articleId(), rl.quantity(),
-                                rl.unitPriceFcfa(), rl.discountPct()
+                                rl.unitPrice(), rl.discountPct()
                         ))
                         .toList(),
-                payload.transportFcfa(),
+                payload.transport(),
                 payload.vatRatePct(),
                 payload.notes(),
                 payload.incorporateFreightInCmup(),
@@ -172,7 +172,8 @@ public class PurchaseOrderImportService {
                 /* sectionId */ null,
                 /* localityIds */ null,
                 /* collectorMarginRate */ null,
-                /* collectorRetentionPerKgFcfa */ null,
+                /* advanceAccount */ null,
+                /* collectorRetentionPerKg */ null,
                 /* categoryId */ null
         );
         var created = supplierService.create(create);
@@ -281,6 +282,6 @@ public class PurchaseOrderImportService {
     private record ResolvedArticle(UUID id, String code, String name, String type, boolean created) {}
 
     private record ResolvedLine(UUID articleId, java.math.BigDecimal quantity,
-                                java.math.BigDecimal unitPriceFcfa,
+                                java.math.BigDecimal unitPrice,
                                 java.math.BigDecimal discountPct) {}
 }

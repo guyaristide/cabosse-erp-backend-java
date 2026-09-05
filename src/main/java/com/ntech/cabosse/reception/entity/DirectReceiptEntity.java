@@ -50,10 +50,10 @@ public class DirectReceiptEntity {
     /** Lignes par fournisseur (1+). */
     public List<DirectReceiptLine> lines;
 
-    /** Somme des {@code totalLineFcfa}. Dérivé. */
-    public BigDecimal subtotalHtFcfa;
-    /** Somme des {@code payment.amountFcfa} des lignes payées. Dérivé. */
-    public BigDecimal totalPaidFcfa;
+    /** Somme des {@code totalLine}. Dérivé. */
+    public BigDecimal subtotalHt;
+    /** Somme des {@code payment.amount} des lignes payées. Dérivé. */
+    public BigDecimal totalPaid;
 
     /**
      * Taux TVA appliqué à la session (0–100, défaut 0). Une RD adressée à

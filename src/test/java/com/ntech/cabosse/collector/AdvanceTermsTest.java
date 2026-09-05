@@ -78,7 +78,7 @@ class AdvanceTermsTest extends AbstractIntegrationTest {
         return givenAs(who).contentType("application/json")
                 .body("""
                         { "label": "Campagne %s", "kind": "MAIN", "startDate": "%s",
-                          "endDate": "%s", "basePricePerKgFcfa": %d }
+                          "endDate": "%s", "basePricePerKg": %d }
                         """.formatted(TestFixtures.randomSlugSuffix(),
                         LocalDate.now().minusMonths(1), LocalDate.now().plusMonths(5),
                         basePricePerKg))
@@ -97,7 +97,7 @@ class AdvanceTermsTest extends AbstractIntegrationTest {
         return givenAs(who).contentType("application/json")
                 .body("""
                         { "delegateSupplierId": "%s", "advanceDate": "%s",
-                          "advanceAmountFcfa": %d, "paymentMethod": "CHEQUE",
+                          "advanceAmount": %d, "paymentMethod": "CHEQUE",
                           "campaignId": "%s" }
                         """.formatted(delegateId, LocalDate.now(), amount, campaignId))
                 .when().post("/api/v1/collector-advances").then();
@@ -124,7 +124,7 @@ class AdvanceTermsTest extends AbstractIntegrationTest {
                 .get("/api/v1/collector-advances/delegates/" + delegateId
                         + "/terms?campaignId=" + campaign + "&volumeKg=100")
                 .then().statusCode(200)
-                .extract().path("data.suggestedAdvanceFcfa");
+                .extract().path("data.suggestedAdvance");
         assertThat(amount.doubleValue()).isEqualTo(92_500d);
     }
 
@@ -139,7 +139,7 @@ class AdvanceTermsTest extends AbstractIntegrationTest {
         // déduit les 100 kg qu'il devra livrer.
         Number volume = givenAs(admin).when()
                 .get("/api/v1/collector-advances/delegates/" + delegateId
-                        + "/terms?campaignId=" + campaign + "&amountFcfa=92500")
+                        + "/terms?campaignId=" + campaign + "&amount=92500")
                 .then().statusCode(200)
                 .extract().path("data.suggestedVolumeKg");
         assertThat(volume.doubleValue()).isEqualTo(100d);
@@ -156,10 +156,10 @@ class AdvanceTermsTest extends AbstractIntegrationTest {
 
         givenAs(admin).when()
                 .get("/api/v1/collector-advances/delegates/" + delegateId
-                        + "/terms?campaignId=" + campaign + "&amountFcfa=92500&volumeKg=100")
+                        + "/terms?campaignId=" + campaign + "&amount=92500&volumeKg=100")
                 .then().statusCode(200)
                 .body("data.suggestedVolumeKg", org.hamcrest.Matchers.nullValue())
-                .body("data.suggestedAdvanceFcfa", org.hamcrest.Matchers.nullValue());
+                .body("data.suggestedAdvance", org.hamcrest.Matchers.nullValue());
     }
 
     // ─── Le contrôle avant nouvelle avance ──────────────────────────
@@ -176,7 +176,7 @@ class AdvanceTermsTest extends AbstractIntegrationTest {
         Number outstanding = givenAs(admin).when()
                 .get("/api/v1/collector-advances/delegates/" + delegateId
                         + "/terms?campaignId=" + campaign)
-                .then().statusCode(200).extract().path("data.outstandingFcfa");
+                .then().statusCode(200).extract().path("data.outstanding");
         assertThat(outstanding.doubleValue()).isEqualTo(1_000_000d);
     }
 

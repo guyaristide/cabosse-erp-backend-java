@@ -83,7 +83,7 @@ class ManufacturingOrderTest extends AbstractIntegrationTest {
         givenAs(admin).contentType("application/json")
                 .body("""
                         { "articleId": "%s", "siteId": "%s", "kind": "IN", "quantity": 500,
-                          "unitPriceFcfa": 1200, "reason": "Amorçage" }
+                          "unitPrice": 1200, "reason": "Amorçage" }
                         """.formatted(cacaoId, siteId))
                 .when().post("/api/v1/stocks/movements").then().statusCode(201);
 
@@ -124,7 +124,7 @@ class ManufacturingOrderTest extends AbstractIntegrationTest {
                 .then().statusCode(200)
                 .body("data.status", equalTo("COMPLETED"))
                 // 12 × 1 200 = 14 400 de matière pour 10 kg produits.
-                .body("data.cmupAtCompletionFcfa", equalTo(1440.0F));
+                .body("data.cmupAtCompletion", equalTo(1440.0F));
 
         assertQuantity(chocolatId, 10);
     }

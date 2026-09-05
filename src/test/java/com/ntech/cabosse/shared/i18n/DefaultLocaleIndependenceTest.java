@@ -83,7 +83,12 @@ class DefaultLocaleIndependenceTest {
                 ResourceBundle.Control.getNoFallbackControl(ResourceBundle.Control.FORMAT_PROPERTIES));
         java.util.List<String> leaked = new java.util.ArrayList<>();
         for (String key : base.keySet()) {
-            if (!Messages.msg(Locale.FRENCH, key).equals(base.getString(key))) {
+            // Le marqueur de devise est résolu par msg() quelle que soit la
+            // langue ; ce test ne juge que la langue, on le résout donc
+            // aussi sur la référence, au même repli hors requête.
+            String expected = base.getString(key)
+                    .replace(Messages.CURRENCY_PLACEHOLDER, CurrencyLabels.display(null));
+            if (!Messages.msg(Locale.FRENCH, key).equals(expected)) {
                 leaked.add(key);
             }
         }

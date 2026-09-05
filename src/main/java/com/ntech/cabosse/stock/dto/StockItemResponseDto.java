@@ -21,9 +21,9 @@ public record StockItemResponseDto(
         String articleUnit,
         ArticleType articleType,
         BigDecimal quantity,
-        BigDecimal cmupFcfa,
+        BigDecimal cmup,
         BigDecimal alertThreshold,
-        BigDecimal totalValueFcfa,
+        BigDecimal totalValue,
         /** Quantité sous le seuil d'alerte de l'article. */
         boolean belowThreshold,
         /** Quantité sous le seuil critique (pct du seuil d'alerte, préférence tenant). */
@@ -41,8 +41,8 @@ public record StockItemResponseDto(
      *                   passe en critique (préférence {@code stockMinWarningPct}).
      */
     public static StockItemResponseDto from(StockItemEntity e, int warningPct) {
-        BigDecimal value = (e.quantity != null && e.cmupFcfa != null)
-                ? e.quantity.multiply(e.cmupFcfa)
+        BigDecimal value = (e.quantity != null && e.cmup != null)
+                ? e.quantity.multiply(e.cmup)
                 : null;
         boolean below = e.alertThreshold != null && e.alertThreshold.signum() > 0
                 && e.quantity != null && e.quantity.compareTo(e.alertThreshold) < 0;
@@ -52,7 +52,7 @@ public record StockItemResponseDto(
         return new StockItemResponseDto(
                 e.id, e.articleId, e.siteId,
                 e.articleCode, e.articleName, e.articleUnit, e.articleType,
-                e.quantity, e.cmupFcfa, e.alertThreshold, value,
+                e.quantity, e.cmup, e.alertThreshold, value,
                 below, crit,
                 e.lastMovementAt, e.createdAt, e.updatedAt
         );

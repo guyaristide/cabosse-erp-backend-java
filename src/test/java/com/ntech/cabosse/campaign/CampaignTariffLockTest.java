@@ -92,7 +92,7 @@ class CampaignTariffLockTest extends AbstractIntegrationTest {
         return givenAs(admin).contentType("application/json")
                 .body("""
                         { "label": "Campagne principale", "startDate": "%s", "endDate": "%s",
-                          "basePricePerKgFcfa": %d }
+                          "basePricePerKg": %d }
                         """.formatted(today.minusMonths(1), today.plusMonths(5), basePrice))
                 .when().post("/api/v1/campaigns").then().statusCode(201)
                 .extract().path("data.id");
@@ -103,7 +103,7 @@ class CampaignTariffLockTest extends AbstractIntegrationTest {
         LocalDate today = LocalDate.now();
         return """
                 { "label": "%s", "startDate": "%s", "endDate": "%s",
-                  "basePricePerKgFcfa": %d }
+                  "basePricePerKg": %d }
                 """.formatted(label, today.minusMonths(1), today.plusMonths(5), basePrice);
     }
 
@@ -133,7 +133,7 @@ class CampaignTariffLockTest extends AbstractIntegrationTest {
 
         givenAs(a).when().get("/api/v1/campaigns/" + id)
                 .then().statusCode(200)
-                .body("data.basePricePerKgFcfa", equalTo(900));
+                .body("data.basePricePerKg", equalTo(900));
     }
 
     @Test
@@ -143,7 +143,7 @@ class CampaignTariffLockTest extends AbstractIntegrationTest {
 
         var after = givenAs(a).contentType("application/json")
                 .body("""
-                        { "basePricePerKgFcfa": 950,
+                        { "basePricePerKg": 950,
                           "reason": "Relèvement du prix bord champ décidé en conseil du 28 août." }
                         """)
                 .when().put("/api/v1/campaigns/" + id + "/tariff")
@@ -151,9 +151,9 @@ class CampaignTariffLockTest extends AbstractIntegrationTest {
                 .body("data.tariffHistory", hasSize(1))
                 .extract().jsonPath();
 
-        assertAmount(after, "data.basePricePerKgFcfa", "950");
-        assertAmount(after, "data.tariffHistory[0].previousBasePricePerKgFcfa", "900");
-        assertAmount(after, "data.tariffHistory[0].newBasePricePerKgFcfa", "950");
+        assertAmount(after, "data.basePricePerKg", "950");
+        assertAmount(after, "data.tariffHistory[0].previousBasePricePerKg", "900");
+        assertAmount(after, "data.tariffHistory[0].newBasePricePerKg", "950");
         org.junit.jupiter.api.Assertions.assertEquals(
                 "Relèvement du prix bord champ décidé en conseil du 28 août.",
                 after.getString("data.tariffHistory[0].reason"));
@@ -167,18 +167,18 @@ class CampaignTariffLockTest extends AbstractIntegrationTest {
         String id = createCampaign(a, 900);
 
         givenAs(a).contentType("application/json")
-                .body("{ \"basePricePerKgFcfa\": 950 }")
+                .body("{ \"basePricePerKg\": 950 }")
                 .when().put("/api/v1/campaigns/" + id + "/tariff")
                 .then().statusCode(400);
 
         // Un motif d'un mot ne motive rien : la longueur minimale le refuse.
         givenAs(a).contentType("application/json")
-                .body("{ \"basePricePerKgFcfa\": 950, \"reason\": \"ok\" }")
+                .body("{ \"basePricePerKg\": 950, \"reason\": \"ok\" }")
                 .when().put("/api/v1/campaigns/" + id + "/tariff")
                 .then().statusCode(400);
 
         givenAs(a).when().get("/api/v1/campaigns/" + id)
-                .then().body("data.basePricePerKgFcfa", equalTo(900));
+                .then().body("data.basePricePerKg", equalTo(900));
     }
 
     @Test
@@ -194,7 +194,7 @@ class CampaignTariffLockTest extends AbstractIntegrationTest {
 
         givenAs(clerk).contentType("application/json")
                 .body("""
-                        { "basePricePerKgFcfa": 950, "reason": "Ajustement de ma propre initiative." }
+                        { "basePricePerKg": 950, "reason": "Ajustement de ma propre initiative." }
                         """)
                 .when().put("/api/v1/campaigns/" + id + "/tariff")
                 .then().statusCode(403);
@@ -206,12 +206,12 @@ class CampaignTariffLockTest extends AbstractIntegrationTest {
 
         givenAs(director).contentType("application/json")
                 .body("""
-                        { "basePricePerKgFcfa": 950,
+                        { "basePricePerKg": 950,
                           "reason": "Alignement sur le prix garanti annoncé par la filière." }
                         """)
                 .when().put("/api/v1/campaigns/" + id + "/tariff")
                 .then().statusCode(200)
-                .body("data.basePricePerKgFcfa", equalTo(950));
+                .body("data.basePricePerKg", equalTo(950));
     }
 
     @Test
@@ -230,7 +230,7 @@ class CampaignTariffLockTest extends AbstractIntegrationTest {
         givenAs(a).contentType("application/json")
                 .body("""
                         { "label": "Campagne principale", "startDate": "%s", "endDate": "%s",
-                          "basePricePerKgFcfa": 900,
+                          "basePricePerKg": 900,
                           "qualityPremiums": [ { "grade": "GR1", "premiumPerKg": 75 } ] }
                         """.formatted(today.minusMonths(1), today.plusMonths(5)))
                 .when().put("/api/v1/campaigns/" + id)
@@ -239,7 +239,7 @@ class CampaignTariffLockTest extends AbstractIntegrationTest {
         // Par le geste dédié, la prime change et l'historique la garde.
         var after = givenAs(a).contentType("application/json")
                 .body("""
-                        { "basePricePerKgFcfa": 900,
+                        { "basePricePerKg": 900,
                           "qualityPremiums": [ { "grade": "GR1", "premiumPerKg": 75 } ],
                           "reason": "Prime GR1 votée pour encourager le séchage soigné." }
                         """)
@@ -261,7 +261,7 @@ class CampaignTariffLockTest extends AbstractIntegrationTest {
         // pas remplir l'historique de décisions qui n'en sont pas.
         givenAs(a).contentType("application/json")
                 .body("""
-                        { "basePricePerKgFcfa": 900.00, "reason": "Confirmation du prix en vigueur." }
+                        { "basePricePerKg": 900.00, "reason": "Confirmation du prix en vigueur." }
                         """)
                 .when().put("/api/v1/campaigns/" + id + "/tariff")
                 .then().statusCode(422);
@@ -281,7 +281,7 @@ class CampaignTariffLockTest extends AbstractIntegrationTest {
         // soldée : les états ne tiendraient plus.
         givenAs(a).contentType("application/json")
                 .body("""
-                        { "basePricePerKgFcfa": 950, "reason": "Correction après clôture." }
+                        { "basePricePerKg": 950, "reason": "Correction après clôture." }
                         """)
                 .when().put("/api/v1/campaigns/" + id + "/tariff")
                 .then().statusCode(422);

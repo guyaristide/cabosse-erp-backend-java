@@ -93,7 +93,7 @@ class ApprovalQueueTest extends AbstractIntegrationTest {
         return givenAs(who).contentType("application/json")
                 .body("""
                         { "delegateSupplierId": "%s", "advanceDate": "%s",
-                          "advanceAmountFcfa": %d, "paymentMethod": "CASH", "notes": "%s" }
+                          "advanceAmount": %d, "paymentMethod": "CASH", "notes": "%s" }
                         """.formatted(delegateId, LocalDate.now(), amount, note))
                 .when().post("/api/v1/collector-advances").then().statusCode(201)
                 .extract().path("data.id");
@@ -115,7 +115,7 @@ class ApprovalQueueTest extends AbstractIntegrationTest {
         givenAs(admin).when().get("/api/v1/governance/approvals")
                 .then().statusCode(200)
                 .body("data.requestCount", equalTo(1))
-                .body("data.totalPendingFcfa", equalTo(1500000))
+                .body("data.totalPending", equalTo(1500000))
                 .body("data.page.items", hasSize(1))
                 .body("data.page.items[0].sourceId", equalTo(pending));
     }
@@ -134,7 +134,7 @@ class ApprovalQueueTest extends AbstractIntegrationTest {
                 .body("data.page.items[0].beneficiaryName", equalTo("Délégué Kouamé"))
                 .body("data.page.items[0].requesterNote", equalTo("Avance de campagne"))
                 .body("data.page.items[0].requestedByEmail", equalTo(admin.email))
-                .body("data.page.items[0].accountBalanceFcfa", notNullValue())
+                .body("data.page.items[0].accountBalance", notNullValue())
                 .body("data.page.items[0].ageDays", equalTo(0));
     }
 
@@ -145,13 +145,13 @@ class ApprovalQueueTest extends AbstractIntegrationTest {
         givenAs(admin).contentType("application/json")
                 .body("""
                         { "delegateSupplierId": "%s", "advanceDate": "%s",
-                          "advanceAmountFcfa": 100000, "paymentMethod": "CASH" }
+                          "advanceAmount": 100000, "paymentMethod": "CASH" }
                         """.formatted(delegateId, LocalDate.now()))
                 .when().post("/api/v1/collector-advances").then().statusCode(201);
         String old = givenAs(admin).contentType("application/json")
                 .body("""
                         { "delegateSupplierId": "%s", "advanceDate": "%s",
-                          "advanceAmountFcfa": 200000, "paymentMethod": "CASH" }
+                          "advanceAmount": 200000, "paymentMethod": "CASH" }
                         """.formatted(delegateId, LocalDate.now().minusDays(30)))
                 .when().post("/api/v1/collector-advances").then().statusCode(201)
                 .extract().path("data.id");
@@ -175,7 +175,7 @@ class ApprovalQueueTest extends AbstractIntegrationTest {
                 .when().post("/api/v1/members").then().statusCode(201).extract().path("data.id");
         givenAs(admin).contentType("application/json")
                 .body("""
-                        { "memberId": "%s", "kind": "CREDIT", "amountFcfa": 150000,
+                        { "memberId": "%s", "kind": "CREDIT", "amount": 150000,
                           "requestedAt": "%s" }
                         """.formatted(memberId, LocalDate.now()))
                 .when().post("/api/v1/member-credits").then().statusCode(201);
@@ -194,7 +194,7 @@ class ApprovalQueueTest extends AbstractIntegrationTest {
     void a_line_says_whether_the_reader_can_act_on_it() {
         UserEntity admin = tenantAdmin();
         givenAs(admin).contentType("application/json")
-                .body("{ \"collectorAdvanceApprovalThresholdFcfa\": 1000000 }")
+                .body("{ \"collectorAdvanceApprovalThreshold\": 1000000 }")
                 .when().put("/api/v1/me/tenant/preferences").then().statusCode(200);
         String delegateId = createDelegate(admin, "Délégué Sylla");
         UserEntity demandeur = operator(admin, "demandeur",
@@ -222,6 +222,35 @@ class ApprovalQueueTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void a_producer_request_shows_its_counterpart_to_the_reader() {
+        UserEntity admin = tenantAdmin();
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "label": "Campagne 2026", "campaignYear": 2026,
+                          "startDate": "%s", "endDate": "%s", "basePricePerKg": 1200 }
+                        """.formatted(LocalDate.now().minusDays(5), LocalDate.now().plusDays(120)))
+                .when().post("/api/v1/campaigns").then().statusCode(201);
+        String memberId = givenAs(admin).contentType("application/json")
+                .body("{ \"lastName\": \"TANOH\", \"firstName\": \"Ama\", "
+                        + "\"gender\": \"FEMALE\", \"status\": \"ACTIVE\" }")
+                .when().post("/api/v1/members").then().statusCode(201).extract().path("data.id");
+        UserEntity agent = operator(admin, "agent", "MEMBER_READ", "MEMBER_CREDIT_REQUEST");
+        givenAs(agent).contentType("application/json")
+                .body("""
+                        { "memberId": "%s", "kind": "ADVANCE", "amount": 150000,
+                          "requestedAt": "%s" }
+                        """.formatted(memberId, LocalDate.now()))
+                .when().post("/api/v1/member-credits").then().statusCode(201);
+
+        // 150 000 au prix bord champ de 1 200 : les 125 kg du document.
+        // Le conseil consulte, mais il consulte quelque chose de complet.
+        givenAs(admin).when().get("/api/v1/governance/approvals?kind=MEMBER_CREDIT")
+                .then().statusCode(200)
+                .body("data.page.items[0].expectedQuantity", equalTo(125.0f))
+                .body("data.page.items[0].expectedQuantityUnit", equalTo("kg"));
+    }
+
+    @Test
     void the_counterpart_travels_with_the_request() {
         UserEntity admin = tenantAdmin();
         givenAs(admin).contentType("application/json")
@@ -230,7 +259,7 @@ class ApprovalQueueTest extends AbstractIntegrationTest {
         String campaignId = givenAs(admin).contentType("application/json")
                 .body("""
                         { "label": "Campagne 2026", "campaignYear": 2026,
-                          "startDate": "%s", "endDate": "%s", "basePricePerKgFcfa": 900 }
+                          "startDate": "%s", "endDate": "%s", "basePricePerKg": 900 }
                         """.formatted(LocalDate.now().minusDays(5), LocalDate.now().plusDays(120)))
                 .when().post("/api/v1/campaigns").then().statusCode(201).extract().path("data.id");
         String delegateId = givenAs(admin).contentType("application/json")
@@ -241,7 +270,7 @@ class ApprovalQueueTest extends AbstractIntegrationTest {
         givenAs(admin).contentType("application/json")
                 .body("""
                         { "delegateSupplierId": "%s", "advanceDate": "%s", "campaignId": "%s",
-                          "advanceAmountFcfa": 2000000, "paymentMethod": "CASH" }
+                          "advanceAmount": 2000000, "paymentMethod": "CASH" }
                         """.formatted(delegateId, LocalDate.now(), campaignId))
                 .when().post("/api/v1/collector-advances").then().statusCode(201);
 
@@ -254,7 +283,7 @@ class ApprovalQueueTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void a_credit_line_has_no_delegate_balance_to_show() {
+    void a_credit_line_has_no_account_balance_but_carries_its_counterpart() {
         UserEntity admin = tenantAdmin();
         String memberId = givenAs(admin).contentType("application/json")
                 .body("{ \"lastName\": \"BAMBA\", \"firstName\": \"Sita\", "
@@ -262,16 +291,19 @@ class ApprovalQueueTest extends AbstractIntegrationTest {
                 .when().post("/api/v1/members").then().statusCode(201).extract().path("data.id");
         givenAs(admin).contentType("application/json")
                 .body("""
-                        { "memberId": "%s", "kind": "ADVANCE", "amountFcfa": 90000,
+                        { "memberId": "%s", "kind": "ADVANCE", "amount": 90000,
                           "requestedAt": "%s" }
                         """.formatted(memberId, LocalDate.now()))
                 .when().post("/api/v1/member-credits").then().statusCode(201);
 
         // Afficher zéro laisserait croire à un compte soldé, là où la
-        // notion n'existe pas pour cette nature.
+        // notion de compte courant n'existe pas pour cette nature.
+        //
+        // La contrepartie, elle, existe des deux côtés depuis le
+        // 03/09/2026 : ici la campagne n'a pas de prix bord champ, donc
+        // elle reste vide, mais le champ ne doit plus être forcé à vide.
         givenAs(admin).when().get("/api/v1/governance/approvals?kind=MEMBER_CREDIT")
                 .then().statusCode(200)
-                .body("data.page.items[0].accountBalanceFcfa", nullValue())
-                .body("data.page.items[0].expectedQuantity", nullValue());
+                .body("data.page.items[0].accountBalance", nullValue());
     }
 }

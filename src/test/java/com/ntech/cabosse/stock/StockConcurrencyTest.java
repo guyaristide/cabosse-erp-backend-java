@@ -77,7 +77,7 @@ class StockConcurrencyTest extends AbstractIntegrationTest {
         givenAs(admin).contentType("application/json")
                 .body("""
                         { "articleId": "%s", "siteId": "%s", "kind": "IN",
-                          "quantity": %d, "unitPriceFcfa": 500 }
+                          "quantity": %d, "unitPrice": 500 }
                         """.formatted(articleId, siteId, openingQty))
                 .when().post("/api/v1/stocks/movements").then().statusCode(201);
     }

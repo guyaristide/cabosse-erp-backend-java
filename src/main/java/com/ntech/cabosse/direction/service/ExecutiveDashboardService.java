@@ -115,8 +115,8 @@ public class ExecutiveDashboardService {
         BigDecimal rev = BigDecimal.ZERO;
         BigDecimal mar = BigDecimal.ZERO;
         for (SaleEntity s : list) {
-            if (s.totalTtcFcfa != null) rev = rev.add(s.totalTtcFcfa);
-            if (s.grossMarginFcfa != null) mar = mar.add(s.grossMarginFcfa);
+            if (s.totalTtc != null) rev = rev.add(s.totalTtc);
+            if (s.grossMargin != null) mar = mar.add(s.grossMargin);
         }
         return new SaleStats(rev, mar);
     }
@@ -144,8 +144,8 @@ public class ExecutiveDashboardService {
         for (JournalPieceEntity p : pieces.list(null, asOf, null, 0, Integer.MAX_VALUE)) {
             for (JournalEntry e : p.entries) {
                 if (!accounts.contains(e.syscohadaAccount)) continue;
-                if (e.debitFcfa != null) total = total.add(e.debitFcfa);
-                if (e.creditFcfa != null) total = total.subtract(e.creditFcfa);
+                if (e.debit != null) total = total.add(e.debit);
+                if (e.credit != null) total = total.subtract(e.credit);
             }
         }
         return total;
@@ -158,7 +158,7 @@ public class ExecutiveDashboardService {
         BigDecimal total = BigDecimal.ZERO;
         for (StockItemEntity item : stockItems.listBySite(null, null, null, false)) {
             BigDecimal q = item.quantity != null ? item.quantity : BigDecimal.ZERO;
-            BigDecimal c = item.cmupFcfa != null ? item.cmupFcfa : BigDecimal.ZERO;
+            BigDecimal c = item.cmup != null ? item.cmup : BigDecimal.ZERO;
             total = total.add(q.multiply(c));
         }
         return total;
@@ -176,8 +176,8 @@ public class ExecutiveDashboardService {
         if (!overdue.isEmpty()) {
             BigDecimal totalDue = BigDecimal.ZERO;
             for (SaleEntity s : overdue) {
-                BigDecimal ttc = s.totalTtcFcfa != null ? s.totalTtcFcfa : BigDecimal.ZERO;
-                BigDecimal paid = s.totalPaidFcfa != null ? s.totalPaidFcfa : BigDecimal.ZERO;
+                BigDecimal ttc = s.totalTtc != null ? s.totalTtc : BigDecimal.ZERO;
+                BigDecimal paid = s.totalPaid != null ? s.totalPaid : BigDecimal.ZERO;
                 totalDue = totalDue.add(ttc.subtract(paid));
             }
             alerts.add(new ExecutiveAlertDto(

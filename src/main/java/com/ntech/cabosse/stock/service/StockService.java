@@ -206,8 +206,8 @@ public class StockService {
 
         // ── Application atomique ──
         boolean isEntry = isEntryKind(input.kind());
-        BigDecimal puIn = input.unitPriceFcfa() != null
-                ? input.unitPriceFcfa()
+        BigDecimal puIn = input.unitPrice() != null
+                ? input.unitPrice()
                 : BigDecimal.ZERO;
 
         boolean requireAvailability = (input.kind() == MovementKind.OUT
@@ -236,17 +236,17 @@ public class StockService {
         //     la sortie ne change pas le CMUP)
         //   - ajustement : null (pas de valorisation propre)
         if (input.kind() == MovementKind.ADJUSTMENT) {
-            mvt.unitPriceFcfa = null;
+            mvt.unitPrice = null;
         } else if (isEntry) {
-            mvt.unitPriceFcfa = bounded(puIn, CMUP_SCALE);
+            mvt.unitPrice = bounded(puIn, CMUP_SCALE);
         } else {
-            mvt.unitPriceFcfa = bounded(updated.cmupFcfa, CMUP_SCALE);
+            mvt.unitPrice = bounded(updated.cmup, CMUP_SCALE);
         }
-        mvt.totalFcfa = (mvt.unitPriceFcfa != null)
-                ? bounded(signedQty.abs().multiply(mvt.unitPriceFcfa), MONEY_SCALE)
+        mvt.total = (mvt.unitPrice != null)
+                ? bounded(signedQty.abs().multiply(mvt.unitPrice), MONEY_SCALE)
                 : null;
         mvt.quantityAfter = bounded(updated.quantity, QTY_SCALE);
-        mvt.cmupAfterFcfa = bounded(updated.cmupFcfa, CMUP_SCALE);
+        mvt.cmupAfter = bounded(updated.cmup, CMUP_SCALE);
         mvt.sourceType = input.sourceType();
         mvt.sourceRef = input.sourceRef();
         mvt.sourceEntityId = input.sourceEntityId();
@@ -353,7 +353,7 @@ public class StockService {
                 BigDecimal newQty = qty.add(signed);
                 boolean isOut = m.kind == MovementKind.OUT || m.kind == MovementKind.TRANSFER_OUT;
                 if (isEntryKind(m.kind)) {
-                    BigDecimal pu = m.unitPriceFcfa != null ? m.unitPriceFcfa : BigDecimal.ZERO;
+                    BigDecimal pu = m.unitPrice != null ? m.unitPrice : BigDecimal.ZERO;
                     if (Boolean.TRUE.equals(m.replacesCmup)) {
                         cmup = bounded(pu, CMUP_SCALE);
                     } else if (newQty.signum() <= 0) {
@@ -369,14 +369,14 @@ public class StockService {
 
                 BigDecimal qtyAfter = bounded(qty, QTY_SCALE);
                 BigDecimal cmupAfter = bounded(cmup, CMUP_SCALE);
-                BigDecimal outPu = isOut ? cmupAfter : m.unitPriceFcfa;
+                BigDecimal outPu = isOut ? cmupAfter : m.unitPrice;
                 BigDecimal outTotal = isOut
                         ? bounded(signed.abs().multiply(outPu), MONEY_SCALE)
-                        : m.totalFcfa;
+                        : m.total;
                 boolean changed = !equalValues(m.quantityAfter, qtyAfter)
-                        || !equalValues(m.cmupAfterFcfa, cmupAfter)
-                        || (isOut && (!equalValues(m.unitPriceFcfa, outPu)
-                                || !equalValues(m.totalFcfa, outTotal)));
+                        || !equalValues(m.cmupAfter, cmupAfter)
+                        || (isOut && (!equalValues(m.unitPrice, outPu)
+                                || !equalValues(m.total, outTotal)));
                 if (changed) {
                     patches.add(new StockMovementRepository.ReplayPatch(
                             m.id, qtyAfter, cmupAfter, isOut, outPu, outTotal));
@@ -437,7 +437,7 @@ public class StockService {
         };
         String description = mvt.kind.name() + " " + mvt.articleName
                 + " · " + mvt.quantitySigned + " " + mvt.articleUnit
-                + " · CMUP après " + (mvt.cmupAfterFcfa != null ? mvt.cmupAfterFcfa : "—")
+                + " · CMUP après " + (mvt.cmupAfter != null ? mvt.cmupAfter : "—")
                 + (mvt.sourceRef != null ? " · source " + mvt.sourceRef : "");
         audit.event(type)
                 .actorEmail(actor())
@@ -452,7 +452,7 @@ public class StockService {
     /**
      * Applique une entrée (IN / OPENING / TRANSFER_IN) en upsert avec
      * recalcul atomique du CMUP via pipeline d'agrégation. Le serveur
-     * Mongo lit lui-même {@code quantity} et {@code cmupFcfa} courants,
+     * Mongo lit lui-même {@code quantity} et {@code cmup} courants,
      * applique la formule {@code (q*c + qi*pi) / (q + qi)}, et écrit
      * le résultat — le tout en une opération indivisible.
      */
@@ -473,9 +473,9 @@ public class StockService {
                     Messages.msg("m.stk-article-type-unknown", article.type));
         }
 
-        // Stage 1 : recalcule quantity + cmupFcfa, met à jour snapshots
+        // Stage 1 : recalcule quantity + cmup, met à jour snapshots
         // article/site et metadata. Référence aux champs courants via
-        // "$quantity" / "$cmupFcfa" (résolus par Mongo après lookup).
+        // "$quantity" / "$cmup" (résolus par Mongo après lookup).
         Document setComputed = new Document()
                 .append("articleId", article.id)
                 .append("siteId", site.id)
@@ -490,7 +490,7 @@ public class StockService {
                 // Mode « par lot » (livraison délégué, v21) : le coût de
                 // l'entrée fait autorité, le CMUP prend ce PU sans pondérer.
                 // Sinon, pondération standard (article, site).
-                .append("cmupFcfa", replaceCmupWithUnitPrice
+                .append("cmup", replaceCmupWithUnitPrice
                         ? puInD
                         : cmupExpression(qtyInD, puInD, zero))
                 .append("lastMovementAt", now)
@@ -552,7 +552,7 @@ public class StockService {
         // Le $divide peut produire un décimal non terminant (ex. 264200/7).
         // On le borne à CMUP_SCALE décimales via $round, sinon le résultat
         // hérite de toute la précision de Decimal128 (34 chiffres) et déborde
-        // dès qu'on le multiplie en aval (totalFcfa) → erreur d'encodage BSON.
+        // dès qu'on le multiplie en aval (total) → erreur d'encodage BSON.
         Document innerIn = new Document("$round", List.of(
                 new Document("$cond", new Document()
                         .append("if", new Document("$lte", List.of("$$newQty", zero)))
@@ -570,7 +570,7 @@ public class StockService {
 
         Document outerVars = new Document()
                 .append("oldQty", new Document("$ifNull", List.of("$quantity", zero)))
-                .append("oldCmup", new Document("$ifNull", List.of("$cmupFcfa", zero)))
+                .append("oldCmup", new Document("$ifNull", List.of("$cmup", zero)))
                 .append("inQty", qtyInD)
                 .append("inPu", puInD);
 
@@ -613,7 +613,7 @@ public class StockService {
                         deltaD
                 )))
                 // CMUP inchangé : on garde la valeur courante (0 si absent)
-                .append("cmupFcfa", new Document("$ifNull", List.of("$cmupFcfa", zero)))
+                .append("cmup", new Document("$ifNull", List.of("$cmup", zero)))
                 .append("lastMovementAt", now)
                 .append("updatedAt", now)
                 .append("version", new Document("$add", List.of(
@@ -698,7 +698,7 @@ public class StockService {
         }
 
         BigDecimal sourceCmup = stockItems.findByArticleAndSite(articleId, fromSiteId)
-                .map(e -> e.cmupFcfa)
+                .map(e -> e.cmup)
                 .orElseThrow(() -> new BusinessException(
                         Messages.msg("m.stk-no-stock-on-source-site")));
 
@@ -708,10 +708,10 @@ public class StockService {
         // source À LA DATE D'EFFET, pas celui d'aujourd'hui — sinon le
         // coût transporté dépendrait du moment de la saisie.
         if (occurredAt != null && movements.existsLaterThan(articleId, fromSiteId, occurredAt)) {
-            sourceCmup = snapshotAt(articleId, fromSiteId, occurredAt).cmupFcfa();
+            sourceCmup = snapshotAt(articleId, fromSiteId, occurredAt).cmup();
         }
 
-        // 1) Sortie du site source — au CMUP source (snapshot porté par mvt.unitPriceFcfa)
+        // 1) Sortie du site source — au CMUP source (snapshot porté par mvt.unitPrice)
         StockItemResponseDto outItem = applyMovement(new MovementInput(
                 articleId, fromSiteId,
                 MovementKind.TRANSFER_OUT,
@@ -824,7 +824,7 @@ public class StockService {
         }
 
         BigDecimal cmup = stockItems.findByArticleAndSite(fromArticleId, siteId)
-                .map(e -> e.cmupFcfa)
+                .map(e -> e.cmup)
                 .orElseThrow(() -> new BusinessException(
                         Messages.msg("m.stk-no-stock-of-article-on-site", from.name)));
 
@@ -833,7 +833,7 @@ public class StockService {
         // Comme le transfert : en rétroactif, le coût qui suit la matière
         // est le CMUP de l'article source à la date d'effet.
         if (occurredAt != null && movements.existsLaterThan(fromArticleId, siteId, occurredAt)) {
-            cmup = snapshotAt(fromArticleId, siteId, occurredAt).cmupFcfa();
+            cmup = snapshotAt(fromArticleId, siteId, occurredAt).cmup();
         }
         String motive = reason != null && !reason.isBlank()
                 ? reason : "Requalification " + from.name + " vers " + to.name;
@@ -910,7 +910,7 @@ public class StockService {
                 StockItemResponseDto r = applyMovement(new MovementInput(
                         line.articleId(), siteId,
                         MovementKind.OPENING,
-                        line.quantity(), line.unitPriceFcfa(),
+                        line.quantity(), line.unitPrice(),
                         MovementSource.OPENING, null, null,
                         null, "Amorçage initial", line.notes(),
                         occurredAt != null ? occurredAt : Instant.now()
@@ -924,7 +924,7 @@ public class StockService {
     }
 
     public record OpeningLine(UUID articleId, BigDecimal quantity,
-                                BigDecimal unitPriceFcfa, String notes) {}
+                                BigDecimal unitPrice, String notes) {}
     public record OpeningRejection(UUID articleId, String reason) {}
     public record OpeningResult(List<StockItemResponseDto> created,
                                   List<OpeningRejection> rejected) {}
@@ -1000,7 +1000,7 @@ public class StockService {
      * courante.
      *
      * <p>Pour le CMUP : on reprend le CMUP du dernier mouvement
-     * antérieur (snapshot {@code cmupAfterFcfa} figé sur chaque mvt).
+     * antérieur (snapshot {@code cmupAfter} figé sur chaque mvt).
      * Si aucun mvt antérieur, CMUP = 0.</p>
      */
     public SnapshotPoint snapshotAt(UUID articleId, UUID siteId, Instant asOf) {
@@ -1021,7 +1021,7 @@ public class StockService {
             // page est trié par occurredAt:-1
             for (StockMovementEntity m : page) {
                 if (m.occurredAt != null && !m.occurredAt.isAfter(asOf)) {
-                    cmup = m.cmupAfterFcfa != null ? m.cmupAfterFcfa : BigDecimal.ZERO;
+                    cmup = m.cmupAfter != null ? m.cmupAfter : BigDecimal.ZERO;
                     break;
                 }
             }
@@ -1032,7 +1032,7 @@ public class StockService {
     /**
      * Photo d'inventaire d'un site à une date — retourne la même forme
      * que {@link #listBySite}, donc directement consommable par le
-     * frontend, mais avec {@code quantity} et {@code cmupFcfa} recalés
+     * frontend, mais avec {@code quantity} et {@code cmup} recalés
      * à {@code asOf}.
      */
     public List<StockItemResponseDto> snapshotBySiteAsItems(UUID siteId, Instant asOf) {
@@ -1041,7 +1041,7 @@ public class StockService {
         for (StockItemEntity it : current) {
             SnapshotPoint p = snapshotAt(it.articleId, siteId, asOf);
             // Construit un DTO avec les snapshots article du present + qté/CMUP du passé
-            StockItemEntity snap = cloneAsOf(it, p.quantity(), p.cmupFcfa());
+            StockItemEntity snap = cloneAsOf(it, p.quantity(), p.cmup());
             out.add(StockItemResponseDto.from(snap));
         }
         return out;
@@ -1057,7 +1057,7 @@ public class StockService {
         e.articleUnit = src.articleUnit;
         e.articleType = src.articleType;
         e.quantity = qty != null ? qty : BigDecimal.ZERO;
-        e.cmupFcfa = cmup != null ? cmup : BigDecimal.ZERO;
+        e.cmup = cmup != null ? cmup : BigDecimal.ZERO;
         e.alertThreshold = src.alertThreshold;
         e.lastMovementAt = src.lastMovementAt;
         e.createdAt = src.createdAt;
@@ -1076,7 +1076,7 @@ public class StockService {
         // Initialise avec l'état courant
         for (StockItemEntity it : stockItems.listBySite(siteId, null, null, false)) {
             byArticle.put(it.articleId, new SnapshotPoint(
-                    it.articleId, siteId, asOf, it.quantity, it.cmupFcfa
+                    it.articleId, siteId, asOf, it.quantity, it.cmup
             ));
         }
         // Rejoue en sens inverse les mvts postérieurs
@@ -1086,7 +1086,7 @@ public class StockService {
             BigDecimal q = (p != null ? p.quantity() : BigDecimal.ZERO)
                     .subtract(m.quantitySigned != null ? m.quantitySigned : BigDecimal.ZERO);
             // CMUP : on garde celui du dernier mvt à <= asOf, sinon 0
-            BigDecimal cmup = (p != null) ? p.cmupFcfa() : BigDecimal.ZERO;
+            BigDecimal cmup = (p != null) ? p.cmup() : BigDecimal.ZERO;
             byArticle.put(m.articleId, new SnapshotPoint(m.articleId, siteId, asOf, q, cmup));
         }
         // Récupère le CMUP au point dans le temps pour chaque article
@@ -1103,7 +1103,7 @@ public class StockService {
     }
 
     public record SnapshotPoint(UUID articleId, UUID siteId, Instant asOf,
-                                  BigDecimal quantity, BigDecimal cmupFcfa) {}
+                                  BigDecimal quantity, BigDecimal cmup) {}
 
     // ─── Helpers ────────────────────────────────────────────────────
 
@@ -1111,7 +1111,7 @@ public class StockService {
      * Borne un {@link BigDecimal} à un nombre fixe de décimales avant
      * persistance. Indispensable : un CMUP issu d'une division non
      * terminante (ex. 264200/7) traîne sinon la pleine précision de
-     * Decimal128 (34 chiffres) et son produit ({@code totalFcfa}) déborde
+     * Decimal128 (34 chiffres) et son produit ({@code total}) déborde
      * la capacité d'encodage BSON. Préserve {@code null}.
      */
     private static BigDecimal bounded(BigDecimal v, int scale) {

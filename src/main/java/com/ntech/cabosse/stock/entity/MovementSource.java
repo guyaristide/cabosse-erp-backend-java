@@ -53,5 +53,7 @@ public enum MovementSource {
     /** Achat de matière première au producteur membre (reçu, backlog NEG-01). */
     PRODUCER_PURCHASE,
     /** Vente de matière première en gros ou à l'export. */
-    COMMODITY_SALE
+    COMMODITY_SALE,
+    /** Bordereau de sortie : chargement vers le client (épic magasin, CE-195). */
+    DISPATCH_NOTE
 }

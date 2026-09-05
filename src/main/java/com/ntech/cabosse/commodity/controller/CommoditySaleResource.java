@@ -87,6 +87,18 @@ public class CommoditySaleResource {
         return Response.ok(ApiResponse.ok(service.refactionDashboard(campaignId))).build();
     }
 
+    /** Constat d'un encaissement client (CE-194) : les flux d'argent exigent la clé. */
+    @POST
+    @Path("/{id}/payments")
+    @com.ntech.cabosse.permission.service.RequiresPermission(
+            com.ntech.cabosse.permission.entity.Permission.ACCOUNTING_WRITE)
+    @com.ntech.cabosse.shared.idempotency.RequiresIdempotencyKey
+    public Response recordPayment(@PathParam("id") UUID id,
+                                  @jakarta.validation.Valid
+                                  com.ntech.cabosse.commodity.dto.RecordSalePaymentDto payload) {
+        return Response.ok(ApiResponse.ok(service.recordPayment(id, payload))).build();
+    }
+
     @GET
     @Path("/{id}")
     public Response getById(@PathParam("id") UUID id) {

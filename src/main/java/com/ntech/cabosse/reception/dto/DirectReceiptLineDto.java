@@ -21,7 +21,7 @@ public record DirectReceiptLineDto(
 
         @NotNull(message = "{v.prix-unitaire-requis}")
         @DecimalMin(value = "0", message = "{v.prix-negatif-interdit}")
-        BigDecimal unitPriceFcfa,
+        BigDecimal unitPrice,
 
         @Size(max = 80, message = "{v.reference-du-bon-de-livraison-trop-longue}")
         String deliveryNoteRef,

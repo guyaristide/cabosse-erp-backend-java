@@ -16,10 +16,10 @@ public class PurchaseRequestLine {
 
     public BigDecimal quantity;
     /** Prix unitaire estimé (indicatif — le BC portera le prix négocié). */
-    public BigDecimal estimatedUnitPriceFcfa;
+    public BigDecimal estimatedUnitPrice;
 
-    /** {@code quantity × estimatedUnitPriceFcfa}. Pré-calculé. */
-    public BigDecimal estimatedLineFcfa;
+    /** {@code quantity × estimatedUnitPrice}. Pré-calculé. */
+    public BigDecimal estimatedLine;
 
     public PurchaseRequestLine() {}
 }

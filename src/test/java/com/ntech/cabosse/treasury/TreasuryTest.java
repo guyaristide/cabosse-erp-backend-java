@@ -75,7 +75,7 @@ class TreasuryTest extends AbstractIntegrationTest {
     private String send(UserEntity admin, String fromId, String toId, int amount, String carrier) {
         return givenAs(admin).contentType("application/json")
                 .body("""
-                        { "fromAccountId": "%s", "toAccountId": "%s", "amountFcfa": %d,
+                        { "fromAccountId": "%s", "toAccountId": "%s", "amount": %d,
                           "sentAt": "%s", "carrierName": "%s" }
                         """.formatted(fromId, toId, amount, LocalDate.now(), carrier))
                 .when().post("/api/v1/treasury/transfers")
@@ -100,8 +100,8 @@ class TreasuryTest extends AbstractIntegrationTest {
         givenAs(admin).queryParam("accountId", cash)
                 .when().get("/api/v1/treasury/cash-position")
                 .then().statusCode(200)
-                .body("data.theoreticalFcfa", equalTo(0))
-                .body("data.inTransitFcfa", equalTo(5000000));
+                .body("data.theoretical", equalTo(0))
+                .body("data.inTransit", equalTo(5000000));
 
         // La somme est passée par le compte de virements internes.
         givenAs(admin).when().get("/api/v1/accounting/journal")
@@ -121,26 +121,26 @@ class TreasuryTest extends AbstractIntegrationTest {
         // compté, et l'écart est constaté au lieu d'être absorbé.
         givenAs(admin).contentType("application/json")
                 .body("""
-                        { "amountReceivedFcfa": 980000, "receivedAt": "%s",
+                        { "amountReceived": 980000, "receivedAt": "%s",
                           "notes": "Écart signalé au comptage" }
                         """.formatted(LocalDate.now()))
                 .when().post("/api/v1/treasury/transfers/" + transferId + "/receive")
                 .then().statusCode(200)
                 .body("data.status", equalTo("RECEIVED"))
-                .body("data.discrepancyFcfa", equalTo(-20000));
+                .body("data.discrepancy", equalTo(-20000));
 
         givenAs(admin).queryParam("accountId", cash)
                 .when().get("/api/v1/treasury/cash-position")
                 .then().statusCode(200)
-                .body("data.theoreticalFcfa", equalTo(980000))
-                .body("data.inTransitFcfa", equalTo(0));
+                .body("data.theoretical", equalTo(980000))
+                .body("data.inTransit", equalTo(0));
 
         // Le rapprochement du mois nomme la ligne qui ne tombe pas juste.
         givenAs(admin).when().get("/api/v1/treasury/reconciliation")
                 .then().statusCode(200)
-                .body("data.totalSentFcfa", equalTo(1000000))
-                .body("data.totalReceivedFcfa", equalTo(980000))
-                .body("data.totalDiscrepancyFcfa", equalTo(-20000))
+                .body("data.totalSent", equalTo(1000000))
+                .body("data.totalReceived", equalTo(980000))
+                .body("data.totalDiscrepancy", equalTo(-20000))
                 .body("data.withDiscrepancy", hasSize(1))
                 .body("data.withDiscrepancy[0].carrierName", equalTo("Chauffeur Koffi"));
     }
@@ -153,27 +153,27 @@ class TreasuryTest extends AbstractIntegrationTest {
 
         String transferId = send(admin, bank, cash, 2000000, "Chauffeur Koffi");
         givenAs(admin).contentType("application/json")
-                .body("{\"amountReceivedFcfa\":2000000,\"receivedAt\":\"" + LocalDate.now() + "\"}")
+                .body("{\"amountReceived\":2000000,\"receivedAt\":\"" + LocalDate.now() + "\"}")
                 .when().post("/api/v1/treasury/transfers/" + transferId + "/receive")
                 .then().statusCode(200);
 
         // Comptage de fin de semaine : il manque 5 000 en caisse.
         givenAs(admin).contentType("application/json")
                 .body("""
-                        { "accountId": "%s", "countedFcfa": 1995000, "countedAt": "%s" }
+                        { "accountId": "%s", "counted": 1995000, "countedAt": "%s" }
                         """.formatted(cash, LocalDate.now()))
                 .when().post("/api/v1/treasury/cash-counts")
                 .then().statusCode(201)
-                .body("data.theoreticalFcfa", equalTo(2000000))
-                .body("data.countedFcfa", equalTo(1995000))
-                .body("data.discrepancyFcfa", equalTo(-5000))
+                .body("data.theoretical", equalTo(2000000))
+                .body("data.counted", equalTo(1995000))
+                .body("data.discrepancy", equalTo(-5000))
                 // L'écart ne se régularise pas tout seul : il se cherche.
                 .body("data.pieceRef", equalTo(null));
 
         givenAs(admin).queryParam("accountId", cash)
                 .when().get("/api/v1/treasury/cash-position")
                 .then().statusCode(200)
-                .body("data.lastCount.discrepancyFcfa", equalTo(-5000));
+                .body("data.lastCount.discrepancy", equalTo(-5000));
     }
 
     @Test
@@ -184,24 +184,24 @@ class TreasuryTest extends AbstractIntegrationTest {
 
         String transferId = send(admin, bank, cash, 500000, "Chauffeur Koffi");
         givenAs(admin).contentType("application/json")
-                .body("{\"amountReceivedFcfa\":500000,\"receivedAt\":\"" + LocalDate.now() + "\"}")
+                .body("{\"amountReceived\":500000,\"receivedAt\":\"" + LocalDate.now() + "\"}")
                 .when().post("/api/v1/treasury/transfers/" + transferId + "/receive")
                 .then().statusCode(200);
 
         givenAs(admin).contentType("application/json")
                 .body("""
-                        { "accountId": "%s", "countedFcfa": 497000, "countedAt": "%s",
+                        { "accountId": "%s", "counted": 497000, "countedAt": "%s",
                           "postAdjustment": true, "notes": "Manquant assumé après recherche" }
                         """.formatted(cash, LocalDate.now()))
                 .when().post("/api/v1/treasury/cash-counts")
                 .then().statusCode(201)
-                .body("data.discrepancyFcfa", equalTo(-3000));
+                .body("data.discrepancy", equalTo(-3000));
 
         // Après régularisation, le solde attendu colle au comptage.
         givenAs(admin).queryParam("accountId", cash)
                 .when().get("/api/v1/treasury/cash-position")
                 .then().statusCode(200)
-                .body("data.theoreticalFcfa", equalTo(497000));
+                .body("data.theoretical", equalTo(497000));
     }
 
     // ─── Règles de la spécification Trésorerie ──────────────────────
@@ -210,7 +210,7 @@ class TreasuryTest extends AbstractIntegrationTest {
             UserEntity admin, String fromId, String toId, int amount) {
         return givenAs(admin).contentType("application/json")
                 .body("""
-                        { "fromAccountId": "%s", "toAccountId": "%s", "amountFcfa": %d,
+                        { "fromAccountId": "%s", "toAccountId": "%s", "amount": %d,
                           "sentAt": "%s", "carrierName": "Chauffeur Koffi" }
                         """.formatted(fromId, toId, amount, LocalDate.now()))
                 .when().post("/api/v1/treasury/transfers").then();
@@ -236,7 +236,7 @@ class TreasuryTest extends AbstractIntegrationTest {
         trySend(admin, cash, bank, 50000).statusCode(422);
 
         givenAs(admin).contentType("application/json")
-                .body("{\"receivedAt\":\"%s\",\"amountReceivedFcfa\":100000}"
+                .body("{\"receivedAt\":\"%s\",\"amountReceived\":100000}"
                         .formatted(LocalDate.now()))
                 .when().post("/api/v1/treasury/transfers/" + topUp + "/receive")
                 .then().statusCode(200);
@@ -258,7 +258,7 @@ class TreasuryTest extends AbstractIntegrationTest {
         // On l'approvisionne, et la réception garnit vraiment la caisse.
         String transferId = send(admin, bank, cash, 200000, "Chauffeur Koffi");
         givenAs(admin).contentType("application/json")
-                .body("{\"receivedAt\":\"%s\",\"amountReceivedFcfa\":200000}"
+                .body("{\"receivedAt\":\"%s\",\"amountReceived\":200000}"
                         .formatted(LocalDate.now()))
                 .when().post("/api/v1/treasury/transfers/" + transferId + "/receive")
                 .then().statusCode(200);

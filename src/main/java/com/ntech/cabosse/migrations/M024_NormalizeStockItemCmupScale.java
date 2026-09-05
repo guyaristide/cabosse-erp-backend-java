@@ -11,7 +11,7 @@ import org.bson.Document;
 import java.util.List;
 
 /**
- * Migration 024 — normalise {@code stock_items.cmupFcfa} à 4 décimales.
+ * Migration 024 — normalise {@code stock_items.cmup} à 4 décimales.
  *
  * <p>Avant le correctif de {@code StockService.cmupExpression}, le CMUP
  * était calculé par un {@code $divide} Mongo <strong>non arrondi</strong>.
@@ -39,14 +39,14 @@ public class M024_NormalizeStockItemCmupScale {
 
     @Execution
     public void execute(MongoDatabase database) {
-        // Pipeline update : cmupFcfa = round(cmupFcfa, 4) pour toute valeur
+        // Pipeline update : cmup = round(cmup, 4) pour toute valeur
         // décimale présente. Filtrage sur le type Decimal128 pour ne jamais
         // passer une valeur non numérique à $round.
         database.getCollection(COLLECTION).updateMany(
-                Filters.type("cmupFcfa", BsonType.DECIMAL128),
+                Filters.type("cmup", BsonType.DECIMAL128),
                 List.of(new Document("$set", new Document(
-                        "cmupFcfa",
-                        new Document("$round", List.of("$cmupFcfa", CMUP_SCALE))
+                        "cmup",
+                        new Document("$round", List.of("$cmup", CMUP_SCALE))
                 )))
         );
     }

@@ -57,7 +57,7 @@ public class M013_CreateBankReconciliationCollections {
                         // Index utile pour les requêtes "trouve des candidats par montant + date".
                         Indexes.compoundIndex(
                                 Indexes.ascending("bankAccountId"),
-                                Indexes.ascending("amountFcfa"),
+                                Indexes.ascending("amount"),
                                 Indexes.ascending("operationDate")
                         ),
                         new IndexOptions().name("idx_lines_account_amount_date")

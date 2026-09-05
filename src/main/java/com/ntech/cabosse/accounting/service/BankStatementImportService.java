@@ -99,7 +99,7 @@ public class BankStatementImportService {
             line.bankAccountId = bankAccountId;
             line.operationDate = p.date;
             line.label = p.label;
-            line.amountFcfa = p.amount.abs();
+            line.amount = p.amount.abs();
             line.direction = p.direction;
             line.status = BankStatementLineStatus.UNMATCHED;
             line.sourceHash = hash;

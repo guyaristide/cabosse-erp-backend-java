@@ -56,6 +56,7 @@ public class CommoditySaleService {
     @Inject com.ntech.cabosse.qualitygrade.service.QualityNormService qualityNorms;
     @Inject com.ntech.cabosse.qualitygrade.service.QualityGradeService qualityGrades;
     @Inject SalesContractRepository contracts;
+    @Inject com.ntech.cabosse.dispatch.repository.DispatchNoteRepository dispatchNotes;
     @Inject CommodityRefService refService;
     @Inject CustomerRepository customers;
     @Inject ArticleRepository articles;
@@ -96,9 +97,9 @@ public class CommoditySaleService {
             declared = declared.add(nz(s.weights.declaredKg));
             discharged = discharged.add(nz(s.weights.dischargedKg));
             accepted = accepted.add(nz(s.weights.acceptedKg));
-            commercial = commercial.add(nz(s.commercialFcfa));
-            ttc = ttc.add(nz(s.amountInvoicedTtcFcfa));
-            margin = margin.add(nz(s.marginFcfa));
+            commercial = commercial.add(nz(s.commercial));
+            ttc = ttc.add(nz(s.amountInvoicedTtc));
+            margin = margin.add(nz(s.margin));
             if (s.quality.humidityPct != null) { humSum = humSum.add(s.quality.humidityPct); humCount++; }
             if (s.quality.grainage != null) { grainSum = grainSum.add(s.quality.grainage); grainCount++; }
         }
@@ -129,7 +130,7 @@ public class CommoditySaleService {
         // Prix bord champ par campagne, pour valoriser les réfactions au prix
         // d'achat au producteur (l'argent déjà payé et refusé par le client).
         java.util.Map<UUID, BigDecimal> basePrice = new java.util.HashMap<>();
-        for (CampaignEntity c : campaigns.list()) basePrice.put(c.id, nz(c.basePricePerKgFcfa));
+        for (CampaignEntity c : campaigns.list()) basePrice.put(c.id, nz(c.basePricePerKg));
 
         // Les codes sont structurels : ils désignent les colonnes de
         // réfaction du bordereau usine. Les libellés, eux, viennent du
@@ -241,21 +242,42 @@ public class CommoditySaleService {
                         () -> new NotFoundException(Messages.msg("m.cco-contract-not-found", p.contractId())))
                 : null;
 
-        BigDecimal declaredKg = required(p.weights() != null ? p.weights().declaredKg() : null, "Poids déclaré (départ)");
+        // La zone A de l'expert : la vente appelle un bordereau de sortie,
+        // dont le poids déclaré et la sortie de stock font foi. Sans
+        // bordereau (reprise, vente directe), l'ancien chemin demeure.
+        com.ntech.cabosse.dispatch.entity.DispatchNoteEntity dispatchNote = null;
+        if (p.dispatchNoteId() != null) {
+            dispatchNote = dispatchNotes.findById(p.dispatchNoteId()).orElseThrow(
+                    () -> new NotFoundException(Messages.msg("m.dsp-note-not-found", p.dispatchNoteId())));
+            if (dispatchNote.status != com.ntech.cabosse.dispatch.entity.DispatchNoteStatus.OPEN) {
+                throw new BusinessException(Messages.msg("m.cco-dispatch-not-open",
+                        dispatchNote.ref, dispatchNote.saleRef != null ? dispatchNote.saleRef : ""));
+            }
+            if (!dispatchNote.articleId.equals(p.articleId())) {
+                throw new BusinessException(Messages.msg("m.cco-dispatch-other-article",
+                        dispatchNote.ref, dispatchNote.articleName));
+            }
+            if (!dispatchNote.siteId.equals(p.siteId())) {
+                throw new BusinessException(Messages.msg("m.cco-dispatch-other-site", dispatchNote.ref));
+            }
+        }
+        BigDecimal declaredKg = dispatchNote != null
+                ? dispatchNote.totalNetKg
+                : required(p.weights() != null ? p.weights().declaredKg() : null, "Poids déclaré (départ)");
         BigDecimal acceptedKg = required(p.weights() != null ? p.weights().acceptedKg() : null, "Poids accepté");
 
-        BigDecimal price = p.pricePerKgFcfa() != null ? p.pricePerKgFcfa()
-                : nz(campaign != null ? campaign.basePricePerKgFcfa : null)
-                        .add(nz(contract != null ? contract.marginPerKgFcfa : null));
+        BigDecimal price = p.pricePerKg() != null ? p.pricePerKg()
+                : nz(campaign != null ? campaign.basePricePerKg : null)
+                        .add(nz(contract != null ? contract.marginPerKg : null));
         if (price.signum() <= 0) throw new BusinessException(Messages.msg("m.cco-price-required"));
 
         BigDecimal commercial = acceptedKg.multiply(price);
-        BigDecimal coopPrime = p.coopPrimeFcfa() != null ? p.coopPrimeFcfa()
-                : nz(contract != null ? contract.coopPrimePerKgFcfa : null).multiply(acceptedKg);
-        BigDecimal producerPrime = p.producerPrimeFcfa() != null ? p.producerPrimeFcfa()
-                : nz(contract != null ? contract.producerPrimePerKgFcfa : null).multiply(acceptedKg);
-        BigDecimal socialPrime = p.socialPrimeFcfa() != null ? p.socialPrimeFcfa()
-                : nz(contract != null ? contract.socialPrimePerKgFcfa : null).multiply(acceptedKg);
+        BigDecimal coopPrime = p.coopPrime() != null ? p.coopPrime()
+                : nz(contract != null ? contract.coopPrimePerKg : null).multiply(acceptedKg);
+        BigDecimal producerPrime = p.producerPrime() != null ? p.producerPrime()
+                : nz(contract != null ? contract.producerPrimePerKg : null).multiply(acceptedKg);
+        BigDecimal socialPrime = p.socialPrime() != null ? p.socialPrime()
+                : nz(contract != null ? contract.socialPrimePerKg : null).multiply(acceptedKg);
         BigDecimal totalPrime = coopPrime.add(producerPrime).add(socialPrime);
 
         BigDecimal ht = commercial.add(totalPrime);
@@ -263,9 +285,23 @@ public class CommoditySaleService {
         BigDecimal vat = ht.multiply(nz(vatRate)).divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
         BigDecimal ttc = ht.add(vat);
 
-        BigDecimal cmup = stockItems.findByArticleAndSite(article.id, p.siteId())
-                .map(it -> it.cmupFcfa).orElse(BigDecimal.ZERO);
-        BigDecimal cogs = declaredKg.multiply(nz(cmup));
+        BigDecimal cmup;
+        BigDecimal cogs;
+        if (dispatchNote != null) {
+            // Le coût des ventes est celui des lignes réellement chargées,
+            // au CMUP photographié à leur sortie : l'exact, pas l'actuel.
+            BigDecimal value = BigDecimal.ZERO;
+            for (com.ntech.cabosse.dispatch.entity.DispatchLine line : dispatchNote.lines) {
+                value = value.add(nz(line.netKg).multiply(nz(line.cmupAtDispatch)));
+            }
+            cogs = value;
+            cmup = declaredKg.signum() > 0
+                    ? value.divide(declaredKg, 6, RoundingMode.HALF_UP) : BigDecimal.ZERO;
+        } else {
+            cmup = stockItems.findByArticleAndSite(article.id, p.siteId())
+                    .map(it -> it.cmup).orElse(BigDecimal.ZERO);
+            cogs = declaredKg.multiply(nz(cmup));
+        }
         BigDecimal margin = ht.subtract(cogs);
 
         Instant now = Instant.now();
@@ -284,48 +320,71 @@ public class CommoditySaleService {
         e.articleName = article.name;
         e.articleUnit = article.unit;
         e.siteId = p.siteId();
+        if (dispatchNote != null) {
+            e.dispatchNoteId = dispatchNote.id;
+            e.dispatchNoteRef = dispatchNote.ref;
+        }
         mapLogistics(e, p);
         mapWeights(e, p);
+        if (dispatchNote != null) {
+            e.weights.declaredKg = declaredKg;
+        }
         mapRefactions(e, p);
         mapQuality(e, p);
-        e.pricePerKgFcfa = price;
-        e.commercialFcfa = commercial;
-        e.coopPrimeFcfa = coopPrime;
-        e.producerPrimeFcfa = producerPrime;
-        e.socialPrimeFcfa = socialPrime;
-        e.totalPrimeFcfa = totalPrime;
-        e.amountInvoicedHtFcfa = ht;
+        e.pricePerKg = price;
+        e.commercial = commercial;
+        e.coopPrime = coopPrime;
+        e.producerPrime = producerPrime;
+        e.socialPrime = socialPrime;
+        e.totalPrime = totalPrime;
+        e.amountInvoicedHt = ht;
         e.vatRatePct = nz(vatRate);
-        e.vatFcfa = vat;
-        e.amountInvoicedTtcFcfa = ttc;
-        e.cmupAtSaleFcfa = nz(cmup);
-        e.cogsFcfa = cogs;
-        e.marginFcfa = margin;
+        e.vat = vat;
+        e.amountInvoicedTtc = ttc;
+        e.cmupAtSale = nz(cmup);
+        e.cogs = cogs;
+        e.margin = margin;
         e.createdAt = now;
         e.updatedAt = now;
         e.createdBy = safeUserId();
         e.createdByEmail = actor();
 
-        // 1) Sortie de stock au CMUP sur le poids départ (contrôle de disponibilité).
-        stockService.applyMovement(new MovementInput(
-                article.id, p.siteId(), MovementKind.OUT, declaredKg, nz(cmup),
-                MovementSource.COMMODITY_SALE, e.ref, e.id, null,
-                "Vente cacao " + e.customerName, null,
-                p.date().atStartOfDay(java.time.ZoneOffset.UTC).toInstant()));
-        e.movementRef = e.ref;
+        // 1) Sortie de stock. Avec un bordereau de sortie, elle est déjà
+        //    faite au chargement, ligne à ligne sous les lots des reçus :
+        //    la vente le marque vendu, atomiquement, une seule vente par
+        //    chargement. Sans bordereau, l'ancien chemin sort le poids
+        //    déclaré au CMUP.
+        if (dispatchNote != null) {
+            if (!dispatchNotes.tryMarkSold(dispatchNote.id, e.id, e.ref)) {
+                throw new BusinessException(Messages.msg("m.cco-dispatch-not-open",
+                        dispatchNote.ref, ""));
+            }
+            e.movementRef = dispatchNote.ref;
+        } else {
+            stockService.applyMovement(new MovementInput(
+                    article.id, p.siteId(), MovementKind.OUT, declaredKg, nz(cmup),
+                    MovementSource.COMMODITY_SALE, e.ref, e.id, null,
+                    "Vente " + article.name + " " + e.customerName, null,
+                    p.date().atStartOfDay(java.time.ZoneOffset.UTC).toInstant()));
+            e.movementRef = e.ref;
+        }
 
         // 2) Écriture 411/701 (+ TVA). Si elle échoue (période close), on
-        //    compense la sortie de stock par une entrée équivalente.
+        //    défait ce que l'étape 1 a fait.
         try {
             accounting.postFromCommoditySale(e.id, e.ref, e.customerName, article.salesRevenueAccount,
                             ht, vat, p.date())
                     .ifPresent(piece -> e.pieceRef = piece.ref);
         } catch (RuntimeException ex) {
-            stockService.applyMovement(new MovementInput(
-                    article.id, p.siteId(), MovementKind.IN, declaredKg, nz(cmup),
-                    MovementSource.COMMODITY_SALE, e.ref, e.id, null,
-                    "Annulation vente cacao " + e.ref, null,
-                    p.date().atStartOfDay(java.time.ZoneOffset.UTC).toInstant(), true, null, false));
+            if (dispatchNote != null) {
+                dispatchNotes.unmarkSold(dispatchNote.id);
+            } else {
+                stockService.applyMovement(new MovementInput(
+                        article.id, p.siteId(), MovementKind.IN, declaredKg, nz(cmup),
+                        MovementSource.COMMODITY_SALE, e.ref, e.id, null,
+                        "Annulation vente " + e.ref, null,
+                        p.date().atStartOfDay(java.time.ZoneOffset.UTC).toInstant(), true, null, false));
+            }
             throw ex;
         }
 
@@ -335,7 +394,7 @@ public class CommoditySaleService {
                 .actorEmail(actor())
                 .target("commodity_sale", e.id.toString(), e.ref)
                 .tenant(tenantContext.tenantId(), null)
-                .description("Vente cacao " + e.ref + " : " + e.customerName + " · " + acceptedKg
+                .description("Vente négoce " + e.ref + " : " + e.customerName + " · " + acceptedKg
                         + " kg acceptés (" + ttc + ")")
                 .record();
 
@@ -444,6 +503,59 @@ public class CommoditySaleService {
 
     private CommoditySaleEntity loadOrFail(UUID id) {
         return repo.findById(id).orElseThrow(() -> new NotFoundException(Messages.msg("m.cco-sale-not-found", id)));
+    }
+
+    /**
+     * Constat d'un encaissement client (CE-194, page 3 du modèle) : le
+     * comptable saisit la date, le montant et la référence du règlement,
+     * l'écriture trésorerie / client part, et le solde de la vente suit.
+     * Un règlement partiel est un fait, pas une erreur : le solde reste
+     * au client. Encaisser plus que le solde est refusé, une créance ne
+     * devenant pas une dette par un excès de zèle.
+     */
+    public com.ntech.cabosse.commodity.dto.CommoditySaleResponseDto recordPayment(
+            UUID saleId, com.ntech.cabosse.commodity.dto.RecordSalePaymentDto p) {
+        CommoditySaleEntity e = repo.findById(saleId).orElseThrow(
+                () -> new NotFoundException(Messages.msg("m.cco-sale-not-found", saleId)));
+        BigDecimal ttc = nz(e.amountInvoicedTtc);
+        BigDecimal paid = nz(e.totalPaid);
+        BigDecimal remaining = ttc.subtract(paid);
+        if (p.amount().compareTo(remaining) > 0) {
+            throw new BusinessException(Messages.msg("m.cco-payment-exceeds-due",
+                    p.amount(), remaining));
+        }
+
+        String treasuryAccount = accounting.treasuryAccountFor(p.method(), p.bankAccountId());
+        com.ntech.cabosse.commodity.entity.CommoditySalePayment payment =
+                new com.ntech.cabosse.commodity.entity.CommoditySalePayment();
+        payment.id = idGenerator.newId();
+        payment.paidOn = p.paidOn();
+        payment.amount = p.amount();
+        payment.method = p.method();
+        payment.bankAccountId = p.bankAccountId();
+        payment.paymentRef = p.paymentRef().trim();
+        payment.notes = blankToNull(p.notes());
+        payment.recordedByEmail = actor();
+        payment.recordedAt = Instant.now();
+
+        accounting.postFromCommoditySalePayment(payment.id, e.ref, e.customerName,
+                        treasuryAccount, p.amount(), p.paidOn(), payment.paymentRef)
+                .ifPresent(piece -> payment.pieceRef = piece.ref);
+
+        if (e.payments == null) e.payments = new java.util.ArrayList<>();
+        e.payments.add(payment);
+        e.totalPaid = paid.add(p.amount());
+        e.updatedAt = Instant.now();
+        repo.replace(e);
+
+        audit.event(AuditEventType.COMMODITY_SALE_CREATED)
+                .actorEmail(actor())
+                .target("commodity_sale", e.id.toString(), e.ref)
+                .tenant(tenantContext.tenantId(), null)
+                .description("Encaissement sur la vente " + e.ref + " : " + p.amount() + " "
+                        + Messages.currencyLabel() + " (" + payment.paymentRef + ")")
+                .record();
+        return com.ntech.cabosse.commodity.dto.CommoditySaleResponseDto.from(e);
     }
 
     private String actor() { try { return jwt.getName(); } catch (Exception e) { return null; } }

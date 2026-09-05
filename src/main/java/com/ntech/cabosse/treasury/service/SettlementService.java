@@ -5,10 +5,10 @@ import com.ntech.cabosse.membercredit.repository.MemberCreditRepository;
 import com.ntech.cabosse.producerpayment.repository.ProducerPaymentRepository;
 import com.ntech.cabosse.shared.api.PageRequest;
 import com.ntech.cabosse.shared.api.Pagination;
-import com.ntech.cabosse.treasury.dto.PayableDtos.BeneficiaryKind;
-import com.ntech.cabosse.treasury.dto.SettlementDtos.SettlementDto;
-import com.ntech.cabosse.treasury.dto.SettlementDtos.SettlementKind;
-import com.ntech.cabosse.treasury.dto.SettlementDtos.SettlementReportDto;
+import com.ntech.cabosse.treasury.dto.BeneficiaryKind;
+import com.ntech.cabosse.treasury.dto.SettlementDto;
+import com.ntech.cabosse.treasury.dto.SettlementKind;
+import com.ntech.cabosse.treasury.dto.SettlementReportDto;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
@@ -67,10 +67,10 @@ public class SettlementService {
         all.sort(Comparator.comparing(SettlementDto::settledAt).reversed()
                 .thenComparing(s -> s.sourceRef() == null ? "" : s.sourceRef()));
 
-        BigDecimal total = all.stream().map(SettlementDto::amountFcfa)
+        BigDecimal total = all.stream().map(SettlementDto::amount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal fees = all.stream()
-                .map(s -> s.bankFeesFcfa() != null ? s.bankFeesFcfa() : BigDecimal.ZERO)
+                .map(s -> s.bankFees() != null ? s.bankFees() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         Set<UUID> beneficiaries = new HashSet<>();
@@ -125,7 +125,7 @@ public class SettlementService {
                 BeneficiaryKind.DELEGATE.name(), a.delegateSupplierId, a.delegateName,
                 a.advanceDate,
                 // Le montant approuvé : c'est lui qui a été remis.
-                a.effectiveAmountFcfa(), a.bankFeesFcfa,
+                a.effectiveAmount(), a.bankFees,
                 a.paymentMethod != null ? a.paymentMethod.name() : null,
                 a.paymentRef, a.bankAccountId, a.pieceRef,
                 a.disbursedByName, a.disbursedByEmail, a.campaignId)));
@@ -135,7 +135,7 @@ public class SettlementService {
         credits.findDisbursedBetween(from, to).forEach(c -> out.add(new SettlementDto(
                 SettlementKind.MEMBER_CREDIT.name(), c.id, c.ref,
                 BeneficiaryKind.MEMBER.name(), c.memberId, c.memberName,
-                c.disbursedAt, c.amountFcfa, c.bankFeesFcfa,
+                c.disbursedAt, c.amount, c.bankFees,
                 c.paymentMethod != null ? c.paymentMethod.name() : null,
                 c.paymentRef, null, c.pieceRef,
                 c.disbursedByName, c.disbursedByEmail, c.campaignId)));
@@ -146,7 +146,7 @@ public class SettlementService {
                 SettlementKind.PRODUCER_PAYMENT.name(), p.id, p.ref,
                 p.beneficiaryKind != null ? p.beneficiaryKind.name() : null,
                 p.memberId != null ? p.memberId : p.delegateSupplierId, p.beneficiaryName,
-                p.date, p.totalAmountFcfa, p.bankFeesFcfa,
+                p.date, p.totalAmount, p.bankFees,
                 p.paymentMethod != null ? p.paymentMethod.name() : null,
                 p.paymentRef, null, p.pieceRef,
                 null, p.createdByEmail, p.campaignId)));

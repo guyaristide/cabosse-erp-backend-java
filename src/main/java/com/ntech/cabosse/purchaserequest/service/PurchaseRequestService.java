@@ -156,7 +156,7 @@ public class PurchaseRequestService {
         for (PurchaseRequestLine l : e.lines) {
             orderLines.add(new PurchaseOrderLineDto(
                     l.articleId, l.quantity,
-                    l.estimatedUnitPriceFcfa != null ? l.estimatedUnitPriceFcfa : BigDecimal.ZERO,
+                    l.estimatedUnitPrice != null ? l.estimatedUnitPrice : BigDecimal.ZERO,
                     null));
         }
         PurchaseOrderUpsertDto orderPayload = new PurchaseOrderUpsertDto(
@@ -208,14 +208,14 @@ public class PurchaseRequestService {
             line.designation = a.name;
             line.unit = a.unit;
             line.quantity = ld.quantity();
-            line.estimatedUnitPriceFcfa = ld.estimatedUnitPriceFcfa();
-            BigDecimal pu = ld.estimatedUnitPriceFcfa() != null ? ld.estimatedUnitPriceFcfa() : BigDecimal.ZERO;
-            line.estimatedLineFcfa = ld.quantity().multiply(pu);
-            total = total.add(line.estimatedLineFcfa);
+            line.estimatedUnitPrice = ld.estimatedUnitPrice();
+            BigDecimal pu = ld.estimatedUnitPrice() != null ? ld.estimatedUnitPrice() : BigDecimal.ZERO;
+            line.estimatedLine = ld.quantity().multiply(pu);
+            total = total.add(line.estimatedLine);
             lines.add(line);
         }
         e.lines = lines;
-        e.estimatedTotalFcfa = total;
+        e.estimatedTotal = total;
     }
 
     private void requireStatus(PurchaseRequestEntity e, PurchaseRequestStatus expected, String messageKey) {

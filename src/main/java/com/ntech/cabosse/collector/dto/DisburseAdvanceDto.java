@@ -51,6 +51,6 @@ public record DisburseAdvanceDto(
          * qui reste débité du montant entier de l'avance.
          */
         @DecimalMin(value = "0", message = "{v.montant-positif-requis}")
-        BigDecimal bankFeesFcfa
+        BigDecimal bankFees
 
 ) {}

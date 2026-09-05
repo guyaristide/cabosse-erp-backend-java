@@ -18,9 +18,9 @@ final class CollectorAdvanceExportColumns {
                 ExportColumn.of(Messages.msg("m.imp-h-section"),          CollectorAdvanceResponseDto::sectionName),
                 ExportColumn.of(Messages.msg("m.imp-h-purchase-campaign"),         CollectorAdvanceResponseDto::campaignYear),
                 ExportColumn.of(Messages.msg("m.imp-h-date"),             CollectorAdvanceResponseDto::advanceDate),
-                ExportColumn.of(Messages.msg("m.imp-h-montant-fcfa"),   CollectorAdvanceResponseDto::advanceAmountFcfa),
-                ExportColumn.of(Messages.msg("m.imp-h-consomme-fcfa"),  CollectorAdvanceResponseDto::consumedAmountFcfa),
-                ExportColumn.of(Messages.msg("m.imp-h-solde-fcfa"),     CollectorAdvanceResponseDto::remainingFcfa),
+                ExportColumn.of(Messages.msg("m.imp-h-montant-amount"),   CollectorAdvanceResponseDto::advanceAmount),
+                ExportColumn.of(Messages.msg("m.imp-h-consomme-amount"),  CollectorAdvanceResponseDto::consumedAmount),
+                ExportColumn.of(Messages.msg("m.imp-h-solde-amount"),     CollectorAdvanceResponseDto::remaining),
                 ExportColumn.of(Messages.msg("m.imp-h-status"),           CollectorAdvanceResponseDto::status),
                 ExportColumn.of(Messages.msg("m.imp-h-purchase-payment-method"), CollectorAdvanceResponseDto::paymentMethod),
                 ExportColumn.of(Messages.msg("m.imp-h-piece-comptable"),  CollectorAdvanceResponseDto::pieceRef));

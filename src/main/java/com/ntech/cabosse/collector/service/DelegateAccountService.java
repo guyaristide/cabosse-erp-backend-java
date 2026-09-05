@@ -44,6 +44,7 @@ public class DelegateAccountService {
     @Inject CollectorAdvanceRepository advances;
     @Inject ProducerPurchaseRepository purchases;
     @Inject com.ntech.cabosse.producerpayment.repository.ProducerPaymentRepository payments;
+    @Inject com.ntech.cabosse.collector.repository.AdvanceRefundRepository advanceRefunds;
 
     public DelegateAccountDto account(UUID delegateSupplierId, UUID campaignId) {
         SupplierEntity delegate = suppliers.findById(delegateSupplierId).orElseThrow(
@@ -58,7 +59,7 @@ public class DelegateAccountService {
         // Le montant approuvé, pas celui demandé : c'est lui qui est sorti
         // de la caisse, et donc lui que le délégué doit couvrir.
         BigDecimal advanced = all.stream()
-                .map(a -> nz(a.effectiveAmountFcfa())).reduce(BigDecimal.ZERO, BigDecimal::add);
+                .map(a -> nz(a.effectiveAmount())).reduce(BigDecimal.ZERO, BigDecimal::add);
 
         List<ProducerPurchaseEntity> receipts = purchases.listByDelegate(delegateSupplierId, campaignId);
         BigDecimal delivered = BigDecimal.ZERO;
@@ -66,9 +67,9 @@ public class DelegateAccountService {
         BigDecimal retention = BigDecimal.ZERO;
         BigDecimal weight = BigDecimal.ZERO;
         for (ProducerPurchaseEntity r : receipts) {
-            delivered = delivered.add(nz(r.amountFcfa));
-            margin = margin.add(nz(r.delegateMarginFcfa));
-            retention = retention.add(nz(r.delegateRetentionFcfa));
+            delivered = delivered.add(nz(r.amount));
+            margin = margin.add(nz(r.delegateMargin));
+            retention = retention.add(nz(r.delegateRetention));
             weight = weight.add(nz(r.weightKg));
         }
 
@@ -77,13 +78,17 @@ public class DelegateAccountService {
         List<com.ntech.cabosse.producerpayment.entity.ProducerPaymentEntity> settlements =
                 payments.listForDelegate(delegateSupplierId, campaignId);
         BigDecimal paid = settlements.stream()
-                .map(s -> nz(s.totalAmountFcfa)).reduce(BigDecimal.ZERO, BigDecimal::add);
+                .map(s -> nz(s.totalAmount)).reduce(BigDecimal.ZERO, BigDecimal::add);
 
         // (A) Ce qu'il restait à apurer à la fin de la campagne d'avant.
         // Sans campagne demandée, la question n'a pas de sens : on regarde
         // alors le compte depuis l'origine.
         BigDecimal previous = campaignId != null ? previousBalance(delegateSupplierId, campaignId) : null;
-        BigDecimal gross = nz(previous).add(advanced);
+        // Les reliquats réglés (CE-187) sont des fonds sortis vers le
+        // délégué, comptés comme une avance : sans eux, un solde payé
+        // resterait créditeur et pourrait se régler deux fois.
+        BigDecimal refunded = advanceRefunds.sumPaid(delegateSupplierId, campaignId);
+        BigDecimal gross = nz(previous).add(advanced).add(refunded);
         BigDecimal net = gross.subtract(delivered.add(retention));
         BigDecimal averagePrice = weight.signum() > 0
                 ? delivered.divide(weight, 2, RoundingMode.HALF_UP)
@@ -99,7 +104,7 @@ public class DelegateAccountService {
                         ? sections.findById(delegate.sectionId).map(s -> s.name).orElse(null) : null,
                 previous, advanced, gross, weight, averagePrice,
                 delivered, margin, retention, paid, net, repaymentRate,
-                advanced.add(paid).subtract(delivered).subtract(margin),
+                advanced.add(paid).add(refunded).subtract(delivered).subtract(margin),
                 all.stream().map(DelegateAccountService::advanceLine).toList(),
                 settlements.stream().map(DelegateAccountService::paymentLine).toList(),
                 groupByDeliveryNote(receipts));
@@ -126,7 +131,7 @@ public class DelegateAccountService {
      * l'autre, et le terrain emploie surtout le premier.</p>
      */
     public DelegateTermsDto terms(UUID delegateSupplierId, UUID campaignId,
-                                  BigDecimal volumeKg, BigDecimal amountFcfa) {
+                                  BigDecimal volumeKg, BigDecimal amount) {
         SupplierEntity delegate = suppliers.findById(delegateSupplierId).orElseThrow(
                 () -> new NotFoundException(Messages.msg("m.col-delegate-not-found", delegateSupplierId)));
         if (!delegate.collector) {
@@ -137,13 +142,13 @@ public class DelegateAccountService {
                 : campaigns.findCurrent().orElse(null);
 
         BigDecimal prior = campaign != null ? previousBalance(delegate.id, campaign.id) : BigDecimal.ZERO;
-        BigDecimal retention = nz(delegate.collectorRetentionPerKgFcfa);
+        BigDecimal retention = nz(delegate.collectorRetentionPerKg);
         // Le taux dépend de la campagne : c'est celui négocié pour elle,
         // pas celui d'une autre saison.
         var margin = marginResolver.resolve(preferences.current(), delegate,
                 campaign != null ? campaign.id : null);
         BigDecimal marginPerKg = margin.isPerKg() ? nz(margin.rate()) : null;
-        BigDecimal basePrice = campaign != null ? nz(campaign.basePricePerKgFcfa) : BigDecimal.ZERO;
+        BigDecimal basePrice = campaign != null ? nz(campaign.basePricePerKg) : BigDecimal.ZERO;
         BigDecimal scalePrice = marginPerKg != null ? basePrice.add(marginPerKg) : null;
         BigDecimal suggested = scalePrice != null && volumeKg != null && volumeKg.signum() > 0
                 ? scalePrice.multiply(volumeKg).setScale(2, RoundingMode.HALF_UP)
@@ -154,8 +159,8 @@ public class DelegateAccountService {
         // engagerait le délégué sur une quantité qu'il n'a pas promise.
         BigDecimal suggestedVolume =
                 scalePrice != null && scalePrice.signum() > 0
-                        && amountFcfa != null && amountFcfa.signum() > 0
-                        ? amountFcfa.divide(scalePrice, 3, RoundingMode.HALF_UP)
+                        && amount != null && amount.signum() > 0
+                        ? amount.divide(scalePrice, 3, RoundingMode.HALF_UP)
                         : null;
 
         return new DelegateTermsDto(
@@ -184,7 +189,7 @@ public class DelegateAccountService {
         return advances.listDisbursedByDelegate(delegateSupplierId).stream()
                 .filter(a -> a.status == com.ntech.cabosse.collector.entity.CollectorAdvanceStatus.OPEN)
                 .filter(a -> campaignId == null || campaignId.equals(a.campaignId))
-                .map(a -> nz(a.remainingFcfa))
+                .map(a -> nz(a.remaining))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
@@ -205,16 +210,16 @@ public class DelegateAccountService {
                 .orElse(null);
         BigDecimal advancedBefore = advances.listDisbursedByDelegate(delegateSupplierId).stream()
                 .filter(a -> isBefore(a.campaignId, currentCampaignId, start))
-                .map(a -> nz(a.effectiveAmountFcfa()))
+                .map(a -> nz(a.effectiveAmount()))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal deliveredBefore = BigDecimal.ZERO;
         for (ProducerPurchaseEntity r : purchases.listByDelegate(delegateSupplierId, null)) {
             if (!isBefore(r.campaignId, currentCampaignId, start)) continue;
-            deliveredBefore = deliveredBefore.add(nz(r.amountFcfa)).add(nz(r.delegateRetentionFcfa));
+            deliveredBefore = deliveredBefore.add(nz(r.amount)).add(nz(r.delegateRetention));
         }
         BigDecimal paidBefore = payments.listForDelegate(delegateSupplierId).stream()
                 .filter(p -> isBefore(p.campaignId, currentCampaignId, start))
-                .map(p -> nz(p.totalAmountFcfa))
+                .map(p -> nz(p.totalAmount))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         return advancedBefore.add(paidBefore).subtract(deliveredBefore);
     }
@@ -260,10 +265,10 @@ public class DelegateAccountService {
             BigDecimal weight = BigDecimal.ZERO;
             BigDecimal delivered = BigDecimal.ZERO;
             for (ProducerPurchaseEntity r : receiptsOver(delegate.id, scope)) {
-                retention = retention.add(nz(r.delegateRetentionFcfa));
-                margin = margin.add(nz(r.delegateMarginFcfa));
+                retention = retention.add(nz(r.delegateRetention));
+                margin = margin.add(nz(r.delegateMargin));
                 weight = weight.add(nz(r.weightKg));
-                delivered = delivered.add(nz(r.amountFcfa));
+                delivered = delivered.add(nz(r.amount));
             }
 
             // L'état porte sur une ou plusieurs campagnes : le taux affiché
@@ -276,7 +281,7 @@ public class DelegateAccountService {
                     delegate.id, delegate.code, delegate.name,
                     delegate.sectionId != null
                             ? sections.findById(delegate.sectionId).map(sec -> sec.name).orElse(null) : null,
-                    delegate.collectorRetentionPerKgFcfa, retention,
+                    delegate.collectorRetentionPerKg, retention,
                     resolved.isPerKg() ? resolved.rate() : null, margin,
                     weight, delivered));
 
@@ -324,18 +329,18 @@ public class DelegateAccountService {
             if (campaignId != null && !campaignId.equals(a.campaignId)) continue;
             ops.add(new Op(a.advanceDate,
                     com.ntech.cabosse.collector.dto.DelegateLedgerDto.Operation.ADVANCE,
-                    a.ref, null, nz(a.effectiveAmountFcfa()), BigDecimal.ZERO, BigDecimal.ZERO));
+                    a.ref, null, nz(a.effectiveAmount()), BigDecimal.ZERO, BigDecimal.ZERO));
         }
         for (var note : groupByDeliveryNote(purchases.listByDelegate(delegateSupplierId, campaignId))) {
             ops.add(new Op(note.date(),
                     com.ntech.cabosse.collector.dto.DelegateLedgerDto.Operation.DELIVERY,
                     note.deliveryRef(), note.deliveryRef(),
-                    note.amountFcfa(), note.weightKg(), note.retentionFcfa()));
+                    note.amount(), note.weightKg(), note.retention()));
         }
         for (var p : payments.listForDelegate(delegateSupplierId, campaignId)) {
             ops.add(new Op(p.date,
                     com.ntech.cabosse.collector.dto.DelegateLedgerDto.Operation.SETTLEMENT,
-                    p.ref, null, nz(p.totalAmountFcfa), BigDecimal.ZERO, BigDecimal.ZERO));
+                    p.ref, null, nz(p.totalAmount), BigDecimal.ZERO, BigDecimal.ZERO));
         }
         // Une date manquante ne doit pas faire disparaître l'opération :
         // elle passe en tête, où elle se voit.
@@ -395,14 +400,14 @@ public class DelegateAccountService {
 
     private static DelegateAccountDto.AdvanceLine advanceLine(CollectorAdvanceEntity a) {
         return new DelegateAccountDto.AdvanceLine(
-                a.id, a.ref, a.advanceDate, nz(a.effectiveAmountFcfa()), nz(a.remainingFcfa),
+                a.id, a.ref, a.advanceDate, nz(a.effectiveAmount()), nz(a.remaining),
                 a.status != null ? a.status.name() : null);
     }
 
     private static DelegateAccountDto.PaymentLine paymentLine(
             com.ntech.cabosse.producerpayment.entity.ProducerPaymentEntity p) {
         return new DelegateAccountDto.PaymentLine(
-                p.id, p.ref, p.date, nz(p.totalAmountFcfa),
+                p.id, p.ref, p.date, nz(p.totalAmount),
                 p.paymentMethod != null ? p.paymentMethod.name() : null,
                 p.paymentRef, p.allocations != null ? p.allocations.size() : 0);
     }
@@ -429,14 +434,14 @@ public class DelegateAccountService {
             List<DelegateAccountDto.Receipt> lines = new ArrayList<>();
             for (ProducerPurchaseEntity r : en.getValue()) {
                 weight = weight.add(nz(r.weightKg));
-                amount = amount.add(nz(r.amountFcfa));
-                margin = margin.add(nz(r.delegateMarginFcfa));
-                noteRetention = noteRetention.add(nz(r.delegateRetentionFcfa));
+                amount = amount.add(nz(r.amount));
+                margin = margin.add(nz(r.delegateMargin));
+                noteRetention = noteRetention.add(nz(r.delegateRetention));
                 if (date == null) date = r.date;
                 lines.add(new DelegateAccountDto.Receipt(
                         r.id, r.ref, r.officialReceiptRef, r.producerName, r.date,
-                        nz(r.weightKg), nz(r.amountFcfa), nz(r.delegateMarginFcfa),
-                        nz(r.delegateRetentionFcfa)));
+                        nz(r.weightKg), nz(r.amount), nz(r.delegateMargin),
+                        nz(r.delegateRetention)));
             }
             notes.add(new DelegateAccountDto.DeliveryNote(
                     en.getKey(), date, lines.size(), weight, amount, margin, noteRetention, lines));

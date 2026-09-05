@@ -43,7 +43,7 @@ public record CampaignUpsertDto(
         LocalDate endDate,
 
         @NotNull(message = "{v.prix-de-base-requis}")
-        @DecimalMin(value = "0", message = "{v.valeur-negative-interdite}") BigDecimal basePricePerKgFcfa,
+        @DecimalMin(value = "0", message = "{v.valeur-negative-interdite}") BigDecimal basePricePerKg,
 
         List<@Valid QualityPremiumPayload> qualityPremiums,
 

@@ -92,7 +92,7 @@ class DelegateStatementTest extends AbstractIntegrationTest {
                 .body("""
                         { "code": "%s", "name": "%s", "collector": true, "sectionId": "%s"%s }
                         """.formatted(code, name, sectionId,
-                        retentionPerKg == null ? "" : ", \"collectorRetentionPerKgFcfa\": " + retentionPerKg))
+                        retentionPerKg == null ? "" : ", \"collectorRetentionPerKg\": " + retentionPerKg))
                 .when().post("/api/v1/suppliers").then().statusCode(201).extract().path("data.id");
     }
 
@@ -106,7 +106,7 @@ class DelegateStatementTest extends AbstractIntegrationTest {
         return givenAs(admin).contentType("application/json")
                 .body("""
                         { "label": "%s", "startDate": "%s", "endDate": "%s",
-                          "basePricePerKgFcfa": 1000 }
+                          "basePricePerKg": 1000 }
                         """.formatted(label, start, end))
                 .when().post("/api/v1/campaigns").then().statusCode(201).extract().path("data.id");
     }
@@ -116,7 +116,7 @@ class DelegateStatementTest extends AbstractIntegrationTest {
         String id = givenAs(admin).contentType("application/json")
                 .body("""
                         { "delegateSupplierId": "%s", "advanceDate": "%s",
-                          "advanceAmountFcfa": %d, "paymentMethod": "CASH", "campaignId": "%s" }
+                          "advanceAmount": %d, "paymentMethod": "CASH", "campaignId": "%s" }
                         """.formatted(delegateId, date, amount, campaignId))
                 .when().post("/api/v1/collector-advances?siteId=" + siteId)
                 .then().statusCode(201).extract().path("data.id");
@@ -133,7 +133,7 @@ class DelegateStatementTest extends AbstractIntegrationTest {
                 .header("Idempotency-Key", UUID.randomUUID().toString())
                 .body("""
                         { "date": "%s", "memberId": "%s", "articleId": "%s", "siteId": "%s",
-                          "weightKg": %d, "guaranteedPricePerKgFcfa": 1000,
+                          "weightKg": %d, "guaranteedPricePerKg": 1000,
                           "paymentMethod": "CASH", "delegateSupplierId": "%s"%s }
                         """.formatted(date, memberId, articleId, siteId, weight, delegateId,
                         deliveryRef == null ? "" : ", \"deliveryRef\": \"" + deliveryRef + "\""))
@@ -171,16 +171,16 @@ class DelegateStatementTest extends AbstractIntegrationTest {
 
         // Les lignes sont triées par code : del-a précède del-b.
         org.junit.jupiter.api.Assertions.assertEquals("del-a", statement.getString("data.rows[0].delegateCode"));
-        assertAmount(statement, "data.rows[0].retentionPerKgFcfa", "25");
-        assertAmount(statement, "data.rows[0].retentionAmountFcfa", "5000");  // 200 kg x 25
+        assertAmount(statement, "data.rows[0].retentionPerKg", "25");
+        assertAmount(statement, "data.rows[0].retentionAmount", "5000");  // 200 kg x 25
         assertAmount(statement, "data.rows[0].weightKg", "200");
-        assertAmount(statement, "data.rows[0].deliveredFcfa", "200000");
+        assertAmount(statement, "data.rows[0].delivered", "200000");
 
         org.junit.jupiter.api.Assertions.assertEquals("del-b", statement.getString("data.rows[1].delegateCode"));
-        assertAmount(statement, "data.rows[1].retentionAmountFcfa", "0");
+        assertAmount(statement, "data.rows[1].retentionAmount", "0");
 
         // Les taux ne s'additionnent pas : seuls les montants sont totalisés.
-        assertAmount(statement, "data.totals.retentionAmountFcfa", "5000");
+        assertAmount(statement, "data.totals.retentionAmount", "5000");
         assertAmount(statement, "data.totals.weightKg", "200");
         statement.getInt("data.totals.delegateCount");
     }
@@ -212,7 +212,7 @@ class DelegateStatementTest extends AbstractIntegrationTest {
                         + "?campaignId=" + principale + "&campaignId=" + intermediaire)
                 .then().statusCode(200).extract().jsonPath();
         assertAmount(both, "data.rows[0].weightKg", "150");
-        assertAmount(both, "data.rows[0].retentionAmountFcfa", "4500");  // 150 kg x 30
+        assertAmount(both, "data.rows[0].retentionAmount", "4500");  // 150 kg x 30
     }
 
     @Test
@@ -239,24 +239,24 @@ class DelegateStatementTest extends AbstractIntegrationTest {
 
         // Ligne 1, l'avance : rien n'est encore livré, tout reste à apurer.
         org.junit.jupiter.api.Assertions.assertEquals("ADVANCE", ledger.getString("data.lines[0].operation"));
-        assertAmount(ledger, "data.lines[0].grossBalanceFcfa", "400000");
-        assertAmount(ledger, "data.lines[0].netBalanceFcfa", "400000");
+        assertAmount(ledger, "data.lines[0].grossBalance", "400000");
+        assertAmount(ledger, "data.lines[0].netBalance", "400000");
 
         // Ligne 2, le premier bordereau : 100 kg à 1 000, 20 FCFA/kg retenus.
         org.junit.jupiter.api.Assertions.assertEquals("BRO-100", ledger.getString("data.lines[1].fieldNoteRef"));
-        assertAmount(ledger, "data.lines[1].deliveredFcfa", "100000");
-        assertAmount(ledger, "data.lines[1].retentionFcfa", "2000");
-        assertAmount(ledger, "data.lines[1].netBalanceFcfa", "298000"); // 400 000 − (100 000 + 2 000)
+        assertAmount(ledger, "data.lines[1].delivered", "100000");
+        assertAmount(ledger, "data.lines[1].retention", "2000");
+        assertAmount(ledger, "data.lines[1].netBalance", "298000"); // 400 000 − (100 000 + 2 000)
 
         // Ligne 3, le second : les grandeurs cumulent, elles ne se
         // remplacent pas. C'est ce cumul qui rend l'état lisible de haut
         // en bas.
         org.junit.jupiter.api.Assertions.assertEquals("BRO-101", ledger.getString("data.lines[2].fieldNoteRef"));
         assertAmount(ledger, "data.lines[2].weightKg", "250");
-        assertAmount(ledger, "data.lines[2].deliveredFcfa", "250000");
-        assertAmount(ledger, "data.lines[2].retentionFcfa", "5000");
-        assertAmount(ledger, "data.lines[2].netBalanceFcfa", "145000"); // 400 000 − (250 000 + 5 000)
-        assertAmount(ledger, "data.lines[2].averagePricePerKgFcfa", "1000");
+        assertAmount(ledger, "data.lines[2].delivered", "250000");
+        assertAmount(ledger, "data.lines[2].retention", "5000");
+        assertAmount(ledger, "data.lines[2].netBalance", "145000"); // 400 000 − (250 000 + 5 000)
+        assertAmount(ledger, "data.lines[2].averagePricePerKg", "1000");
         // (I) = H / C = 145 000 / 400 000 = 36,3 %
         assertAmount(ledger, "data.lines[2].repaymentRatePct", "36.3");
 

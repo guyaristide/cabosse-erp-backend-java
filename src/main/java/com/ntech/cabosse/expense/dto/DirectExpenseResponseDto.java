@@ -23,10 +23,10 @@ public record DirectExpenseResponseDto(
         String periodLabel,
         String allocationKeyCode,
         String allocationKeyName,
-        BigDecimal amountHtFcfa,
+        BigDecimal amountHt,
         BigDecimal vatRatePct,
-        BigDecimal vatAmountFcfa,
-        BigDecimal amountTtcFcfa,
+        BigDecimal vatAmount,
+        BigDecimal amountTtc,
         String paymentMethod,
         String treasuryAccount,
         String pieceRef,
@@ -39,7 +39,7 @@ public record DirectExpenseResponseDto(
                 e.supplierId, e.supplierName, e.expenseTypeId, e.expenseTypeName,
                 e.chargeAccount, e.label, e.periodLabel,
                 e.allocationKeyCode, e.allocationKeyName,
-                e.amountHtFcfa, e.vatRatePct, e.vatAmountFcfa, e.amountTtcFcfa,
+                e.amountHt, e.vatRatePct, e.vatAmount, e.amountTtc,
                 e.paymentMethod, e.treasuryAccount, e.pieceRef, e.notes, e.createdAt);
     }
 }

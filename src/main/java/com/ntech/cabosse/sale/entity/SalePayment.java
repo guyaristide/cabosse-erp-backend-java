@@ -19,7 +19,7 @@ public class SalePayment {
 
     public UUID id;
     public LocalDate paidOn;
-    public BigDecimal amountFcfa;
+    public BigDecimal amount;
     public PaymentMethod method;
     /** N° du bon de recette (référence interne du reçu remis au client). */
     public String paymentNoteRef;

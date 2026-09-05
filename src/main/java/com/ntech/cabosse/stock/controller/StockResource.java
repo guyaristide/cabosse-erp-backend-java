@@ -74,7 +74,7 @@ public class StockResource {
 
     /**
      * Photo d'inventaire d'un site à une date passée. Retourne la même
-     * forme que {@link #list}, avec {@code quantity} et {@code cmupFcfa}
+     * forme que {@link #list}, avec {@code quantity} et {@code cmup}
      * recalés à {@code asOf}. Le frontend bascule en lecture seule sur
      * cette vue (aucune mutation autorisée en mode historique).
      */
@@ -127,7 +127,7 @@ public class StockResource {
     public Response createMovement(@Valid MovementUpsertDto payload) {
         MovementInput input = new MovementInput(
                 payload.articleId(), payload.siteId(), payload.kind(),
-                payload.quantity(), payload.unitPriceFcfa(),
+                payload.quantity(), payload.unitPrice(),
                 MovementSource.MANUAL, null, null, null,
                 payload.reason(), payload.notes(), payload.occurredAt()
         );
@@ -178,7 +178,7 @@ public class StockResource {
     public Response opening(@Valid OpeningBatchDto payload) {
         List<StockService.OpeningLine> lines = payload.lines().stream()
                 .map(l -> new StockService.OpeningLine(
-                        l.articleId(), l.quantity(), l.unitPriceFcfa(), l.notes()))
+                        l.articleId(), l.quantity(), l.unitPrice(), l.notes()))
                 .toList();
         StockService.OpeningResult r = service.recordOpeningBatch(
                 payload.siteId(), lines, payload.occurredAt()

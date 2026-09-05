@@ -96,15 +96,15 @@ public class StockMovementRepository {
 
     /**
      * Instantané de valorisation recalculé pour un mouvement lors d'un
-     * rejeu chronologique. {@code unitPriceFcfa}/{@code totalFcfa} ne
+     * rejeu chronologique. {@code unitPrice}/{@code total} ne
      * sont réécrits que sur les sorties (le PU d'une sortie est une
      * photo du CMUP) — {@code patchUnitPrice} les protège ailleurs.
      */
     public record ReplayPatch(UUID id, java.math.BigDecimal quantityAfter,
-                               java.math.BigDecimal cmupAfterFcfa,
+                               java.math.BigDecimal cmupAfter,
                                boolean patchUnitPrice,
-                               java.math.BigDecimal unitPriceFcfa,
-                               java.math.BigDecimal totalFcfa) {}
+                               java.math.BigDecimal unitPrice,
+                               java.math.BigDecimal total) {}
 
     /** Applique en masse les instantanés recalculés par un rejeu. */
     public void patchReplaySnapshots(List<ReplayPatch> patches) {
@@ -114,10 +114,10 @@ public class StockMovementRepository {
         for (ReplayPatch p : patches) {
             List<Bson> sets = new ArrayList<>(4);
             sets.add(com.mongodb.client.model.Updates.set("quantityAfter", p.quantityAfter()));
-            sets.add(com.mongodb.client.model.Updates.set("cmupAfterFcfa", p.cmupAfterFcfa()));
+            sets.add(com.mongodb.client.model.Updates.set("cmupAfter", p.cmupAfter()));
             if (p.patchUnitPrice()) {
-                sets.add(com.mongodb.client.model.Updates.set("unitPriceFcfa", p.unitPriceFcfa()));
-                sets.add(com.mongodb.client.model.Updates.set("totalFcfa", p.totalFcfa()));
+                sets.add(com.mongodb.client.model.Updates.set("unitPrice", p.unitPrice()));
+                sets.add(com.mongodb.client.model.Updates.set("total", p.total()));
             }
             writes.add(new com.mongodb.client.model.UpdateOneModel<>(
                     Filters.eq("_id", p.id()),

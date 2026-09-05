@@ -176,7 +176,7 @@ class ParcelImportTest extends AbstractIntegrationTest {
                 .body("""
                         { "label": "Principale 2025-2026",
                           "startDate": "2025-09-01", "endDate": "2026-02-28",
-                          "basePricePerKgFcfa": 1500 }
+                          "basePricePerKg": 1500 }
                         """)
                 .when().post("/api/v1/campaigns")
                 .then().statusCode(201).extract().path("data.id");
@@ -184,7 +184,7 @@ class ParcelImportTest extends AbstractIntegrationTest {
                 .body("""
                         { "label": "Intermédiaire 2026",
                           "startDate": "2026-03-01", "endDate": "2026-08-31",
-                          "basePricePerKgFcfa": 1200 }
+                          "basePricePerKg": 1200 }
                         """)
                 .when().post("/api/v1/campaigns")
                 .then().statusCode(201).extract().path("data.id");

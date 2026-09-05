@@ -19,8 +19,8 @@ public record JournalPieceResponseDto(
         String sourceRef,
         String libelle,
         List<JournalEntryDto> entries,
-        BigDecimal totalDebitFcfa,
-        BigDecimal totalCreditFcfa,
+        BigDecimal totalDebit,
+        BigDecimal totalCredit,
         UUID reversedFromPieceId,
         Instant createdAt,
         String createdByEmail
@@ -31,7 +31,7 @@ public record JournalPieceResponseDto(
                 e.sourceType, e.sourceId, e.sourceRef,
                 e.libelle,
                 e.entries.stream().map(JournalEntryDto::from).toList(),
-                e.totalDebitFcfa, e.totalCreditFcfa,
+                e.totalDebit, e.totalCredit,
                 e.reversedFromPieceId,
                 e.createdAt, e.createdByEmail
         );

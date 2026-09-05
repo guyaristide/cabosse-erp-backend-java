@@ -28,6 +28,9 @@ import java.util.UUID;
 @ApplicationScoped
 public class SupplierService {
 
+    @jakarta.inject.Inject
+    com.ntech.cabosse.accounting.repository.ChartOfAccountsRepository chartAccounts;
+
     @Inject com.ntech.cabosse.members.repository.MemberRepository members;
 
     @Inject SupplierRepository repo;
@@ -60,7 +63,7 @@ public class SupplierService {
 
     public SupplierResponseDto getById(UUID id) {
         SupplierEntity e = repo.findById(id).orElseThrow(
-                () -> new NotFoundException(Messages.msg("m.sup-not-found", id)));
+                () -> new NotFoundException(com.ntech.cabosse.shared.i18n.Messages.msg("m.sup-not-found", id)));
         return SupplierResponseDto.from(e, categoryName(categories.byId(), e));
     }
 
@@ -92,7 +95,7 @@ public class SupplierService {
     public SupplierResponseDto create(SupplierUpsertDto p) {
         String code = (p.code() != null && !p.code().isBlank()) ? p.code().trim() : slugify(p.name());
         if (repo.codeExists(code)) {
-            throw new ConflictException(Messages.msg("m.sup-code-exists", code));
+            throw new ConflictException(com.ntech.cabosse.shared.i18n.Messages.msg("m.sup-code-exists", code));
         }
         SupplierEntity e = new SupplierEntity();
         e.id = UuidCreator.getTimeOrderedEpoch();
@@ -108,7 +111,7 @@ public class SupplierService {
 
     public SupplierResponseDto update(UUID id, SupplierUpsertDto p) {
         SupplierEntity e = repo.findById(id).orElseThrow(
-                () -> new NotFoundException(Messages.msg("m.sup-not-found", id)));
+                () -> new NotFoundException(com.ntech.cabosse.shared.i18n.Messages.msg("m.sup-not-found", id)));
         apply(e, p);
         e.updatedAt = Instant.now();
         repo.replace(e);
@@ -138,7 +141,7 @@ public class SupplierService {
 
     public SupplierResponseDto setActive(UUID id, boolean active) {
         SupplierEntity e = repo.findById(id).orElseThrow(
-                () -> new NotFoundException(Messages.msg("m.sup-not-found", id)));
+                () -> new NotFoundException(com.ntech.cabosse.shared.i18n.Messages.msg("m.sup-not-found", id)));
         if (e.active == active) return SupplierResponseDto.from(e);
         repo.updateActive(id, active);
         e.active = active;
@@ -169,11 +172,17 @@ public class SupplierService {
         UUID derived = derivedSection(e.localityIds);
         e.sectionId = e.collector ? (derived != null ? derived : p.sectionId()) : null;
         e.collectorMarginRate = e.collector ? p.collectorMarginRate() : null;
-        e.collectorRetentionPerKgFcfa = e.collector ? p.collectorRetentionPerKgFcfa() : null;
+        // Le compte d'avance appartient au tiers, quel que soit son rôle :
+        // un fournisseur ordinaire n'en a pas, mais rien n'empêche la
+        // structure d'en rattacher un.
+        assertAdvanceAccountUsable(p.advanceAccount(), e.id);
+        e.advanceAccount = p.advanceAccount() == null || p.advanceAccount().isBlank()
+                ? null : p.advanceAccount().trim();
+        e.collectorRetentionPerKg = e.collector ? p.collectorRetentionPerKg() : null;
         // La catégorie classe le fournisseur quelle que soit sa qualité :
         // un planteur qui livre en direct en a une comme un délégué.
         if (p.categoryId() != null && categories.findById(p.categoryId()).isEmpty()) {
-            throw new NotFoundException(Messages.msg("m.suc-not-found", p.categoryId()));
+            throw new NotFoundException(com.ntech.cabosse.shared.i18n.Messages.msg("m.suc-not-found", p.categoryId()));
         }
         e.categoryId = p.categoryId();
     }
@@ -220,7 +229,7 @@ public class SupplierService {
                 .flatMap(localities::findById)
                 .map(l -> l.name)
                 .orElse("?");
-        throw new ConflictException(Messages.msg("m.sup-locality-taken", village, other.name));
+        throw new ConflictException(com.ntech.cabosse.shared.i18n.Messages.msg("m.sup-locality-taken", village, other.name));
     }
 
     private void auditEvt(SupplierEntity e, String action) {
@@ -249,5 +258,31 @@ public class SupplierService {
 
     private UUID safeUserId() {
         try { return tenantContext.userId(); } catch (Exception e) { return null; }
+    }
+    /**
+     * Le compte d'avance rattaché à un tiers doit exister et n'appartenir
+     * qu'à lui.
+     *
+     * <p>Il n'est pas créé par nous : la structure l'ouvre dans son plan,
+     * et le rattacher sans le trouver signalerait une faute de frappe qui
+     * n'apparaîtrait qu'au premier décaissement, dans une écriture pointant
+     * un compte inexistant.</p>
+     *
+     * <p>Deux tiers qui partageraient le même compte rendraient le grand
+     * livre muet sur ce qu'ils doivent chacun, ce qui est précisément la
+     * raison d'ouvrir un compte par tiers.</p>
+     */
+    private void assertAdvanceAccountUsable(String account, java.util.UUID selfId) {
+        if (account == null || account.isBlank()) return;
+        String number = account.trim();
+        if (chartAccounts.findByNumber(number).isEmpty()) {
+            throw new com.ntech.cabosse.shared.exception.BusinessException(com.ntech.cabosse.shared.i18n.Messages.msg("m.sup-advance-account-unknown", number));
+        }
+        repo.findByAdvanceAccount(number)
+                .filter(other -> selfId == null || !other.id.equals(selfId))
+                .ifPresent(other -> {
+                    throw new com.ntech.cabosse.shared.exception.BusinessException(
+                            com.ntech.cabosse.shared.i18n.Messages.msg("m.sup-advance-account-taken", number, other.name));
+                });
     }
 }

@@ -81,7 +81,7 @@ public class InventorySessionResource {
         return Response.ok(ApiResponse.ok(InventorySessionResponseDto.from(
                 service.getById(id),
                 prefs.inventoryAlertThresholdPct(),
-                prefs.inventoryAlertThresholdFcfa()))).build();
+                prefs.inventoryAlertThresholdAmount()))).build();
     }
 
     @POST

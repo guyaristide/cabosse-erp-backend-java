@@ -5,7 +5,7 @@ import java.util.UUID;
 
 /**
  * Une ligne de vente. Snapshots article + prix au moment de la vente.
- * Le {@code cmupAtSaleFcfa} est figé à la création — sert au calcul de
+ * Le {@code cmupAtSale} est figé à la création — sert au calcul de
  * la marge brute et à la valorisation du mouvement OUT au moment du
  * "marquage livré".
  */
@@ -21,18 +21,18 @@ public class SaleLine {
 
     public BigDecimal quantity;
     /** PU négocié sur la ligne. */
-    public BigDecimal unitPriceFcfa;
+    public BigDecimal unitPrice;
     /** PU catalogue snapshoté (Article.standardSalePrice). Pour reporting écart. */
-    public BigDecimal standardPriceFcfa;
+    public BigDecimal standardPrice;
     /** Remise ligne (0..100). */
     public BigDecimal discountPct;
     /** {@code qty × pu × (1 - discount/100)}. */
-    public BigDecimal lineTotalHtFcfa;
+    public BigDecimal lineTotalHt;
 
     /** CMUP courant snapshoté à la création de la vente. */
-    public BigDecimal cmupAtSaleFcfa;
+    public BigDecimal cmupAtSale;
     /** {@code lineTotalHt - qty × cmup}. Info. */
-    public BigDecimal lineMarginFcfa;
+    public BigDecimal lineMargin;
 
     /** Lot tracé optionnellement sur le mouvement OUT au marquage livré. */
     public String lotRef;

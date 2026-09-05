@@ -11,7 +11,7 @@ import java.time.LocalDate;
 /**
  * Paiement d'une ligne de réception directe. Tous les champs sont
  * optionnels au sens où, à la création, le client peut omettre ce DTO
- * (paiement différé). Quand fourni, {@code amountFcfa} est obligatoire.
+ * (paiement différé). Quand fourni, {@code amount} est obligatoire.
  */
 @Schema(description = "Paiement d'une ligne de réception directe")
 public record DirectReceiptPaymentDto(
@@ -19,7 +19,7 @@ public record DirectReceiptPaymentDto(
         LocalDate paidOn,
 
         @DecimalMin(value = "0", inclusive = false, message = "{v.montant-0-requis}")
-        BigDecimal amountFcfa,
+        BigDecimal amount,
 
         @Size(max = 80, message = "{v.reference-du-bon-de-paiement-trop-longue}")
         String paymentNoteRef,

@@ -72,7 +72,7 @@ public class TenantPreferences {
     public java.math.BigDecimal inventoryAlertThresholdPct;
 
     /** Seuil d'écart d'inventaire significatif, en valeur absolue FCFA. Défaut 100 000. */
-    public java.math.BigDecimal inventoryAlertThresholdFcfa;
+    public java.math.BigDecimal inventoryAlertThresholdAmount;
 
     /**
      * Qui peut rouvrir une période comptable clôturée :
@@ -99,9 +99,9 @@ public class TenantPreferences {
                 ? java.math.BigDecimal.valueOf(5) : inventoryAlertThresholdPct;
     }
 
-    public java.math.BigDecimal inventoryAlertThresholdFcfa() {
-        return inventoryAlertThresholdFcfa == null
-                ? java.math.BigDecimal.valueOf(100_000) : inventoryAlertThresholdFcfa;
+    public java.math.BigDecimal inventoryAlertThresholdAmount() {
+        return inventoryAlertThresholdAmount == null
+                ? java.math.BigDecimal.valueOf(100_000) : inventoryAlertThresholdAmount;
     }
 
     /**
@@ -184,21 +184,21 @@ public class TenantPreferences {
 
     /**
      * Active le circuit de contrôle interne des achats (backlog ACH-01) :
-     * un bon de commande dont le total atteint {@link #purchaseRequestThresholdFcfa}
+     * un bon de commande dont le total atteint {@link #purchaseRequestThreshold}
      * doit être issu d'une demande d'achat approuvée. Défaut faux.
      */
     public Boolean purchaseRequestEnabled;
 
     /** Seuil (FCFA) au-dessus duquel une DA approuvée est exigée. Défaut 0. */
-    public java.math.BigDecimal purchaseRequestThresholdFcfa;
+    public java.math.BigDecimal purchaseRequestThreshold;
 
     public boolean purchaseRequestEnabled() {
         return purchaseRequestEnabled != null && purchaseRequestEnabled;
     }
 
-    public java.math.BigDecimal purchaseRequestThresholdFcfa() {
-        return purchaseRequestThresholdFcfa == null
-                ? java.math.BigDecimal.ZERO : purchaseRequestThresholdFcfa;
+    public java.math.BigDecimal purchaseRequestThreshold() {
+        return purchaseRequestThreshold == null
+                ? java.math.BigDecimal.ZERO : purchaseRequestThreshold;
     }
 
     /** Compte SYSCOHADA des avances aux délégués (ACH-02). Défaut « 4091 ». */
@@ -231,6 +231,29 @@ public class TenantPreferences {
     /** {@code true} si la livraison collecteur impose son coût au CMUP (mode par lot). */
     public boolean collectorDeliveryReplacesCmup() {
         return !COLLECTOR_VALUATION_WEIGHTED.equals(collectorDeliveryValuation());
+    }
+
+    /** Valeurs autorisées de {@link #receiptAccountingMode}. */
+    public static final String RECEIPT_ACCOUNTING_AUTO = "AUTO";
+    public static final String RECEIPT_ACCOUNTING_MANUAL = "MANUAL";
+
+    /**
+     * Quand l'écriture d'un reçu d'achat producteur se passe.
+     *
+     * <p>{@code AUTO} (défaut) : à la réception, comme partout ailleurs,
+     * le système constate. {@code MANUAL} : la livraison attend le
+     * comptable, qui consulte le compte du fournisseur puis clique
+     * « Comptabiliser maintenant » ; c'est le fonctionnement demandé par
+     * l'expert (document V2 du 04/09/2026, DEC-36). Dans les deux modes,
+     * le stock et le compte courant du délégué sont constatés à la
+     * réception : la matière est physiquement entrée, seule la pièce
+     * comptable attend.</p>
+     */
+    public String receiptAccountingMode;
+
+    public String receiptAccountingMode() {
+        return RECEIPT_ACCOUNTING_MANUAL.equals(receiptAccountingMode)
+                ? RECEIPT_ACCOUNTING_MANUAL : RECEIPT_ACCOUNTING_AUTO;
     }
 
     /** Valeurs autorisées de {@link #closedPeriodPolicy}. */
@@ -444,11 +467,11 @@ public class TenantPreferences {
      * conseil une avance de carburant paralyserait le terrain. Zéro : aucune
      * approbation de gouvernance n'est imposée.
      */
-    public java.math.BigDecimal memberCreditApprovalThresholdFcfa;
+    public java.math.BigDecimal memberCreditApprovalThreshold;
 
-    public java.math.BigDecimal memberCreditApprovalThresholdFcfa() {
-        return memberCreditApprovalThresholdFcfa != null
-                ? memberCreditApprovalThresholdFcfa : java.math.BigDecimal.ZERO;
+    public java.math.BigDecimal memberCreditApprovalThreshold() {
+        return memberCreditApprovalThreshold != null
+                ? memberCreditApprovalThreshold : java.math.BigDecimal.ZERO;
     }
 
     /**
@@ -461,11 +484,11 @@ public class TenantPreferences {
      * milliers. Zéro : la gouvernance se prononce sur tout, ce qui doit
      * rester possible.</p>
      */
-    public java.math.BigDecimal collectorAdvanceApprovalThresholdFcfa;
+    public java.math.BigDecimal collectorAdvanceApprovalThreshold;
 
-    public java.math.BigDecimal collectorAdvanceApprovalThresholdFcfa() {
-        return collectorAdvanceApprovalThresholdFcfa != null
-                ? collectorAdvanceApprovalThresholdFcfa : java.math.BigDecimal.ZERO;
+    public java.math.BigDecimal collectorAdvanceApprovalThreshold() {
+        return collectorAdvanceApprovalThreshold != null
+                ? collectorAdvanceApprovalThreshold : java.math.BigDecimal.ZERO;
     }
 
     /**

@@ -16,8 +16,18 @@ public record CreateAdvanceDto(
         @NotNull(message = "{v.date-d-avance-requise}") LocalDate advanceDate,
         @NotNull(message = "{v.montant-requis}")
         @DecimalMin(value = "0", inclusive = false, message = "{v.montant-0-requis}")
-        BigDecimal advanceAmountFcfa,
+        BigDecimal advanceAmount,
         @NotNull(message = "{v.mode-de-paiement-requis}") PaymentMethod paymentMethod,
         UUID campaignId,
+        /**
+         * Contrepartie attendue du délégué, saisie par la coopérative.
+         *
+         * <p>L'écran la propose au barème de la campagne, mais la
+         * coopérative garde la main : une contrepartie se négocie et n'est
+         * pas toujours le quotient exact. Absente, elle est reprise du
+         * barème ; sans barème, elle reste vide.</p>
+         */
+        @DecimalMin(value = "0", inclusive = false, message = "{v.quantite-0-requise}")
+        BigDecimal expectedQuantity,
         @Size(max = 1000) String notes
 ) {}

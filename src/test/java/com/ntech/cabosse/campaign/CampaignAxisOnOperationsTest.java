@@ -80,7 +80,7 @@ class CampaignAxisOnOperationsTest extends AbstractIntegrationTest {
         return givenAs(admin).contentType("application/json")
                 .body("""
                         { "label": "%s", "startDate": "%s", "endDate": "%s",
-                          "basePricePerKgFcfa": 1500 }
+                          "basePricePerKg": 1500 }
                         """.formatted(label, start, end))
                 .when().post("/api/v1/campaigns")
                 .then().statusCode(201)
@@ -111,7 +111,7 @@ class CampaignAxisOnOperationsTest extends AbstractIntegrationTest {
         givenAs(admin).contentType("application/json")
                 .body("""
                         { "siteId": "%s", "lines": [
-                            { "articleId": "%s", "quantity": 100, "unitPriceFcfa": 1200 } ] }
+                            { "articleId": "%s", "quantity": 100, "unitPrice": 1200 } ] }
                         """.formatted(siteId, articleId))
                 .when().post("/api/v1/stocks/opening")
                 .then().statusCode(201);

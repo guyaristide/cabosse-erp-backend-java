@@ -109,7 +109,7 @@ public class InventorySessionService {
             line.articleUnit = it.articleUnit;
             line.articleType = it.articleType != null ? it.articleType.name() : null;
             line.theoreticalQty = nz(it.quantity);
-            line.cmupFcfa = nz(it.cmupFcfa);
+            line.cmup = nz(it.cmup);
             return line;
         }).toList();
         e.openedAt = Instant.now();
@@ -174,7 +174,7 @@ public class InventorySessionService {
         TenantPreferences prefs = preferences.current();
         long significant = e.lines.stream()
                 .filter(l -> isSignificant(l, prefs.inventoryAlertThresholdPct(),
-                        prefs.inventoryAlertThresholdFcfa()))
+                        prefs.inventoryAlertThresholdAmount()))
                 .count();
         if (significant > 0) {
             audit.event(AuditEventType.STOCK_INVENTORY_VARIANCE_ALERT)
@@ -184,7 +184,8 @@ public class InventorySessionService {
                     .description("Inventaire " + e.ref + " : " + significant
                             + " écart(s) significatif(s) au-delà des seuils du tenant ("
                             + prefs.inventoryAlertThresholdPct() + " % / "
-                            + prefs.inventoryAlertThresholdFcfa() + " FCFA)")
+                            + prefs.inventoryAlertThresholdAmount() + " "
+                            + Messages.currencyLabel() + ")")
                     .record();
         }
         return e;
@@ -197,14 +198,14 @@ public class InventorySessionService {
      */
     public static boolean isSignificant(InventorySessionEntity.Line line,
                                         BigDecimal thresholdPct,
-                                        BigDecimal thresholdFcfa) {
+                                        BigDecimal thresholdAmount) {
         if (line.countedQty == null) return false;
         BigDecimal theoretical = line.theoreticalQty == null ? BigDecimal.ZERO : line.theoreticalQty;
         BigDecimal delta = line.countedQty.subtract(theoretical);
         if (delta.signum() == 0) return false;
-        BigDecimal cmup = line.cmupFcfa == null ? BigDecimal.ZERO : line.cmupFcfa;
+        BigDecimal cmup = line.cmup == null ? BigDecimal.ZERO : line.cmup;
         BigDecimal deltaValue = delta.multiply(cmup).abs();
-        if (thresholdFcfa != null && deltaValue.compareTo(thresholdFcfa) >= 0) return true;
+        if (thresholdAmount != null && deltaValue.compareTo(thresholdAmount) >= 0) return true;
         if (thresholdPct == null) return false;
         if (theoretical.signum() == 0) return true;
         BigDecimal ratioPct = delta.abs()
@@ -243,7 +244,7 @@ public class InventorySessionService {
             ));
             adjusted++;
             ArticleType type = parseType(line.articleType);
-            BigDecimal deltaValue = delta.multiply(nz(line.cmupFcfa));
+            BigDecimal deltaValue = delta.multiply(nz(line.cmup));
             deltaValueByType.merge(type, deltaValue, BigDecimal::add);
         }
 

@@ -30,7 +30,7 @@ import java.util.Set;
  * ligne fautive mais sur la requête entière : un seul document mal typé
  * fait tomber la liste complète.</p>
  *
- * <p>C'est arrivé avec {@code M051}, qui posait {@code delegateMarginFcfa}
+ * <p>C'est arrivé avec {@code M051}, qui posait {@code delegateMargin}
  * à zéro entier sur les reçus antérieurs au paramétrage de la
  * rémunération. Plutôt que de corriger ce seul champ, on balaie les
  * collections du domaine financier : les champs à convertir sont

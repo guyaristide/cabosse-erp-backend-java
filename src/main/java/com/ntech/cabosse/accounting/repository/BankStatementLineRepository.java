@@ -64,7 +64,7 @@ public class BankStatementLineRepository {
         LocalDate to = date.plusDays(daysWindow);
         return coll().find(Filters.and(
                 Filters.eq("bankAccountId", bankAccountId),
-                Filters.eq("amountFcfa", new org.bson.types.Decimal128(amount)),
+                Filters.eq("amount", new org.bson.types.Decimal128(amount)),
                 Filters.gte("operationDate", from),
                 Filters.lte("operationDate", to)
         )).into(new ArrayList<>());

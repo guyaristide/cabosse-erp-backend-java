@@ -67,7 +67,7 @@ class OfficialReceiptUniquenessTest extends AbstractIntegrationTest {
         return """
                 { "date": "%s", "memberId": "%s", "articleId": "%s", "siteId": "%s",
                   "officialReceiptRef": %s,
-                  "weightKg": 100, "guaranteedPricePerKgFcfa": 1000,
+                  "weightKg": 100, "guaranteedPricePerKg": 1000,
                   "paymentMethod": "CASH" }
                 """.formatted(LocalDate.now(), memberId, articleId, siteId,
                 receipt != null ? "\"" + receipt + "\"" : "null");

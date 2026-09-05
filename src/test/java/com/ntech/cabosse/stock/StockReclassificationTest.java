@@ -80,7 +80,7 @@ class StockReclassificationTest extends AbstractIntegrationTest {
         givenAs(admin).contentType("application/json")
                 .body("""
                         { "articleId": "%s", "receivedDate": "%s",
-                          "lines": [ { "supplierId": "%s", "quantity": %d, "unitPriceFcfa": %d } ] }
+                          "lines": [ { "supplierId": "%s", "quantity": %d, "unitPrice": %d } ] }
                         """.formatted(articleId, LocalDate.now(), supplierId, qty, unitPrice))
                 .when().post("/api/v1/direct-receipts?siteId=" + siteId).then().statusCode(201);
     }
@@ -104,7 +104,7 @@ class StockReclassificationTest extends AbstractIntegrationTest {
                 // Le coût suit la matière : 1500 de part et d'autre.
                 .body("data.sourceAfter.quantity", equalTo(700))
                 .body("data.destinationAfter.quantity", equalTo(300))
-                .body("data.destinationAfter.cmupFcfa", equalTo(1500.0F));
+                .body("data.destinationAfter.cmup", equalTo(1500.0F));
 
         // La charge quitte 601 (marchandises) pour 602 (matières premières).
         givenAs(admin).when().get("/api/v1/accounting/journal")

@@ -216,7 +216,7 @@ class ChartOfAccountsEditableTest extends AbstractIntegrationTest {
             UserEntity admin, String fromId, String toId, int amount) {
         return givenAs(admin).contentType("application/json")
                 .body("""
-                        { "fromAccountId": "%s", "toAccountId": "%s", "amountFcfa": %d,
+                        { "fromAccountId": "%s", "toAccountId": "%s", "amount": %d,
                           "sentAt": "%s", "carrierName": "Chauffeur Koffi" }
                         """.formatted(fromId, toId, amount, LocalDate.now()))
                 .when().post("/api/v1/treasury/transfers").then();

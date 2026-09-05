@@ -63,8 +63,8 @@ public class JournalPieceEntity {
     public List<JournalEntry> entries = new ArrayList<>();
 
     /** Somme des débits. Recalculé à chaque save (en pratique : une seule fois, immuable). */
-    public BigDecimal totalDebitFcfa = BigDecimal.ZERO;
-    public BigDecimal totalCreditFcfa = BigDecimal.ZERO;
+    public BigDecimal totalDebit = BigDecimal.ZERO;
+    public BigDecimal totalCredit = BigDecimal.ZERO;
 
     /**
      * Pièce d'origine si celle-ci est une contre-passation. {@code null}

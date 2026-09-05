@@ -83,8 +83,8 @@ class BankReconciliationTest extends AbstractIntegrationTest {
                 .body("""
                         { "date": "%s", "libelle": "Encaissement client",
                           "lines": [
-                            { "account": "521000", "libelle": "Banque", "debitFcfa": %d },
-                            { "account": "701000", "libelle": "Vente", "creditFcfa": %d }
+                            { "account": "521000", "libelle": "Banque", "debit": %d },
+                            { "account": "701000", "libelle": "Vente", "credit": %d }
                           ] }
                         """.formatted(date, amount, amount))
                 .when().post("/api/v1/accounting/od").then().statusCode(201)

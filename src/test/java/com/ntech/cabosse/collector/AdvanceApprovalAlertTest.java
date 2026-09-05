@@ -68,7 +68,7 @@ class AdvanceApprovalAlertTest extends AbstractIntegrationTest {
         return givenAs(who).contentType("application/json")
                 .body("""
                         { "label": "Campagne %s", "kind": "MAIN", "startDate": "%s",
-                          "endDate": "%s", "basePricePerKgFcfa": 900 }
+                          "endDate": "%s", "basePricePerKg": 900 }
                         """.formatted(TestFixtures.randomSlugSuffix(),
                         LocalDate.now().minusMonths(1), LocalDate.now().plusMonths(5)))
                 .when().post("/api/v1/campaigns").then().statusCode(201)
@@ -85,7 +85,7 @@ class AdvanceApprovalAlertTest extends AbstractIntegrationTest {
         return givenAs(who).contentType("application/json")
                 .body("""
                         { "delegateSupplierId": "%s", "advanceDate": "%s",
-                          "advanceAmountFcfa": 1500000, "paymentMethod": "CHEQUE",
+                          "advanceAmount": 1500000, "paymentMethod": "CHEQUE",
                           "campaignId": "%s" }
                         """.formatted(delegateId, LocalDate.now(), campaignId))
                 .when().post("/api/v1/collector-advances").then().statusCode(201)
@@ -103,6 +103,23 @@ class AdvanceApprovalAlertTest extends AbstractIntegrationTest {
                 .get("/api/v1/notifications/journal?limit=100")
                 .then().statusCode(200)
                 .extract().path("data.findAll { it.subjectRef == '" + ref + "' }.target");
+    }
+
+    /**
+     * Destinataires d'un fait précis, et non de tous les envois de
+     * l'avance.
+     *
+     * <p>Une avance en déclenche deux : l'approbateur au dépôt, la caisse
+     * à l'approbation. Un caissier qui porte aussi le droit d'approuver
+     * figure dans le premier ; ne filtrer que sur la référence ferait
+     * passer l'assertion sans que la seconde alerte existe.</p>
+     */
+    private List<String> queuedFor(UserEntity who, String ref, String eventType) {
+        return givenAs(who).when()
+                .get("/api/v1/notifications/journal?limit=100")
+                .then().statusCode(200)
+                .extract().path("data.findAll { it.subjectRef == '" + ref
+                        + "' && it.eventType == '" + eventType + "' }.target");
     }
 
     @Test
@@ -128,6 +145,55 @@ class AdvanceApprovalAlertTest extends AbstractIntegrationTest {
         // Il n'approuvera pas sa propre demande : la règle des deux paires
         // d'yeux le lui refuse, et l'inviter à décider n'aurait aucun sens.
         assertThat(queuedFor(requester, ref)).doesNotContain(requester.email);
+    }
+
+    /** Le circuit complet : déposer, puis approuver. */
+    private String approve(UserEntity who, String advanceId) {
+        return givenAs(who).when().post("/api/v1/collector-advances/" + advanceId + "/approve")
+                .then().statusCode(200).extract().path("data.ref");
+    }
+
+    private String requestAdvanceId(UserEntity who, String delegateId, String campaignId) {
+        return givenAs(who).contentType("application/json")
+                .body("""
+                        { "delegateSupplierId": "%s", "advanceDate": "%s",
+                          "advanceAmount": 1500000, "paymentMethod": "CHEQUE",
+                          "campaignId": "%s" }
+                        """.formatted(delegateId, LocalDate.now(), campaignId))
+                .when().post("/api/v1/collector-advances").then().statusCode(201)
+                .extract().path("data.id");
+    }
+
+    @Test
+    void an_approved_advance_alerts_whoever_will_pay_it() {
+        UserEntity requester = admin();
+        UserEntity cashier = userIn(tenant, "caissier");
+        String campaign = openCampaign(requester);
+        String id = requestAdvanceId(requester, delegate(requester, "BAMBA Sita"), campaign);
+        String ref = approve(requester, id);
+
+        // « La caissière exécute en préparant les chèques sur la base des
+        // avances validées qui lui parviennent en notifications. » C'est
+        // la troisième main du circuit, et rien ne la prévenait.
+        assertThat(queuedFor(requester, ref, "collector-advance.awaiting-disbursement"))
+                .contains(cashier.email);
+    }
+
+    @Test
+    void the_approver_is_not_invited_to_pay_what_they_just_granted() {
+        UserEntity requester = admin();
+        UserEntity approver = userIn(tenant, "approbateur");
+        String campaign = openCampaign(requester);
+        String id = requestAdvanceId(requester, delegate(requester, "SORO Awa"), campaign);
+        approve(approver, id);
+        String ref = givenAs(requester).when().get("/api/v1/collector-advances/" + id)
+                .then().extract().path("data.ref");
+
+        // La règle des deux paires d'yeux lui refusera de sortir les
+        // fonds : l'y inviter l'enverrait au-devant d'un refus.
+        List<String> targets = queuedFor(requester, ref, "collector-advance.awaiting-disbursement");
+        assertThat(targets).contains(requester.email);
+        assertThat(targets).doesNotContain(approver.email);
     }
 
     @Test

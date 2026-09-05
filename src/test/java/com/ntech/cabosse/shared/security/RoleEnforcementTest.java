@@ -80,8 +80,8 @@ class RoleEnforcementTest extends AbstractIntegrationTest {
                 .body("""
                         { "date": "2026-06-15", "libelle": "OD test",
                           "lines": [
-                            { "account": "601", "libelle": "d", "debitFcfa": 1000 },
-                            { "account": "401", "libelle": "c", "creditFcfa": 1000 }
+                            { "account": "601", "libelle": "d", "debit": 1000 },
+                            { "account": "401", "libelle": "c", "credit": 1000 }
                           ] }
                         """)
                 .when().post("/api/v1/accounting/od")

@@ -79,7 +79,7 @@ public class InventorySessionEntity {
         /** Quantité théorique figée à l'ouverture de la session. */
         public BigDecimal theoreticalQty;
         /** CMUP figé à l'ouverture — sert à valoriser l'écart. */
-        public BigDecimal cmupFcfa;
+        public BigDecimal cmup;
         /** Quantité comptée ; {@code null} tant que non saisie. */
         public BigDecimal countedQty;
         public String notes;

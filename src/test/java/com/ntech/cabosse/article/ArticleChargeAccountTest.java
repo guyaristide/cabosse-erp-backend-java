@@ -78,7 +78,7 @@ class ArticleChargeAccountTest extends AbstractIntegrationTest {
                 .contentType("application/json")
                 .body("""
                         { "articleId": "%s", "receivedDate": "%s",
-                          "lines": [ { "supplierId": "%s", "quantity": 100, "unitPriceFcfa": 1500 } ] }
+                          "lines": [ { "supplierId": "%s", "quantity": 100, "unitPrice": 1500 } ] }
                         """.formatted(articleId, LocalDate.now(), supplierId))
                 .when().post("/api/v1/direct-receipts")
                 .then().statusCode(201);
@@ -116,7 +116,7 @@ class ArticleChargeAccountTest extends AbstractIntegrationTest {
                 .contentType("application/json")
                 .body("""
                         { "articleId": "%s", "receivedDate": "%s",
-                          "lines": [ { "supplierId": "%s", "quantity": 50, "unitPriceFcfa": 1200 } ] }
+                          "lines": [ { "supplierId": "%s", "quantity": 50, "unitPrice": 1200 } ] }
                         """.formatted(articleId, LocalDate.now(), supplierId))
                 .when().post("/api/v1/direct-receipts")
                 .then().statusCode(201);
@@ -150,7 +150,7 @@ class ArticleChargeAccountTest extends AbstractIntegrationTest {
         givenAs(admin).contentType("application/json")
                 .body("""
                         { "articleId": "%s", "receivedDate": "%s",
-                          "lines": [ { "supplierId": "%s", "quantity": 10, "unitPriceFcfa": 1000 } ] }
+                          "lines": [ { "supplierId": "%s", "quantity": 10, "unitPrice": 1000 } ] }
                         """.formatted(articleId, LocalDate.now(), supplierId))
                 .when().post("/api/v1/direct-receipts")
                 .then().statusCode(201);

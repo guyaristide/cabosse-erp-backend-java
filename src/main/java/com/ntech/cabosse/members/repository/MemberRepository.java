@@ -100,4 +100,11 @@ public class MemberRepository {
     public void insert(MemberEntity e) { coll().insertOne(e); }
 
     public void replace(MemberEntity e) { coll().replaceOne(Filters.eq("_id", e.id), e); }
+    /** Le producteur qui porte déjà ce compte d'avance, s'il en existe un. */
+    public java.util.Optional<MemberEntity> findByAdvanceAccount(String account) {
+        if (account == null || account.isBlank()) return java.util.Optional.empty();
+        return java.util.Optional.ofNullable(
+                coll().find(com.mongodb.client.model.Filters.eq("advanceAccount", account.trim()))
+                        .first());
+    }
 }

@@ -38,7 +38,7 @@ public class PurchaseRequestEntity {
     public List<PurchaseRequestLine> lines;
 
     /** Total estimé — somme des lignes. */
-    public BigDecimal estimatedTotalFcfa;
+    public BigDecimal estimatedTotal;
 
     public PurchaseRequestStatus status = PurchaseRequestStatus.DRAFT;
 

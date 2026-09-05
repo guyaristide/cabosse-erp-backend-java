@@ -15,7 +15,7 @@ import java.util.UUID;
  * nouveau mouvement compensatoire (ex. contre-passation d'une RD → OUT
  * négatifs miroir des IN d'origine).</p>
  *
- * <p>Les champs {@code quantityAfter} et {@code cmupAfterFcfa} donnent
+ * <p>Les champs {@code quantityAfter} et {@code cmupAfter} donnent
  * l'état du {@link StockItemEntity} immédiatement après le mouvement
  * <em>dans l'ordre chronologique</em> ({@code occurredAt}). Une saisie
  * rétroactive déclenche le rejeu du couple (article, site) et la
@@ -65,10 +65,10 @@ public class StockMovementEntity {
      *       unitaire propre).</li>
      * </ul>
      */
-    public BigDecimal unitPriceFcfa;
+    public BigDecimal unitPrice;
 
-    /** {@code |quantitySigned| * unitPriceFcfa}. Null si unitPriceFcfa null. */
-    public BigDecimal totalFcfa;
+    /** {@code |quantitySigned| * unitPrice}. Null si unitPrice null. */
+    public BigDecimal total;
 
     /**
      * Sur une entrée : {@code true} si le CMUP a pris le PU de l'entrée
@@ -97,7 +97,7 @@ public class StockMovementEntity {
     public BigDecimal quantityAfter;
 
     /** CMUP du {@link StockItemEntity} APRÈS application du mouvement. */
-    public BigDecimal cmupAfterFcfa;
+    public BigDecimal cmupAfter;
 
     // ─── Origine métier ───
     public MovementSource sourceType;

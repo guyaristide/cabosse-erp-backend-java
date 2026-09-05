@@ -108,9 +108,9 @@ public class AccountingQueryService {
         pipeline.add(new Document("$unwind", "$entries"));
         pipeline.add(new Document("$group", new Document("_id", "$entries.syscohadaAccount")
                 .append("debit", new Document("$sum",
-                        new Document("$ifNull", List.of("$entries.debitFcfa", 0))))
+                        new Document("$ifNull", List.of("$entries.debit", 0))))
                 .append("credit", new Document("$sum",
-                        new Document("$ifNull", List.of("$entries.creditFcfa", 0))))
+                        new Document("$ifNull", List.of("$entries.credit", 0))))
                 .append("count", new Document("$sum", 1))));
         return runAggregate(pipeline).into(new ArrayList<>()).stream()
                 .collect(Collectors.toMap(
@@ -129,8 +129,21 @@ public class AccountingQueryService {
                                                       String syscohadaAccount,
                                                       java.util.UUID campaignId,
                                                       int page, int perPage) {
+        return listJournal(from, to, syscohadaAccount, campaignId, null, page, perPage);
+    }
+
+    /**
+     * @param sourceTypes natures d'opération retenues, vide pour toutes.
+     *                    Sert la lecture depuis la trésorerie.
+     */
+    public List<JournalPieceResponseDto> listJournal(LocalDate from, LocalDate to,
+                                                      String syscohadaAccount,
+                                                      java.util.UUID campaignId,
+                                                      List<String> sourceTypes,
+                                                      int page, int perPage) {
         int skip = Math.max(0, page) * Math.max(1, perPage);
-        return pieces.list(from, to, syscohadaAccount, campaignId, skip, perPage).stream()
+        return pieces.list(from, to, syscohadaAccount, campaignId, sourceTypes, skip, perPage)
+                .stream()
                 .map(JournalPieceResponseDto::from)
                 .toList();
     }
@@ -138,6 +151,11 @@ public class AccountingQueryService {
     public long countJournal(LocalDate from, LocalDate to, String syscohadaAccount,
                              java.util.UUID campaignId) {
         return pieces.count(from, to, syscohadaAccount, campaignId);
+    }
+
+    public long countJournal(LocalDate from, LocalDate to, String syscohadaAccount,
+                             java.util.UUID campaignId, List<String> sourceTypes) {
+        return pieces.count(from, to, syscohadaAccount, campaignId, sourceTypes);
     }
 
     // ════════════════════════════════════════════════════════════════
@@ -229,9 +247,9 @@ public class AccountingQueryService {
                 new Document("year", new Document("$isoWeekYear", "$date"))
                         .append("week", new Document("$isoWeek", "$date")))
                 .append("inflow", new Document("$sum",
-                        new Document("$ifNull", List.of("$entries.debitFcfa", 0))))
+                        new Document("$ifNull", List.of("$entries.debit", 0))))
                 .append("outflow", new Document("$sum",
-                        new Document("$ifNull", List.of("$entries.creditFcfa", 0))))));
+                        new Document("$ifNull", List.of("$entries.credit", 0))))));
         Map<String, CashFlowAggregate> byBucket = new HashMap<>();
         runAggregate(pipeline).forEach(d -> {
             Document id = d.get("_id", Document.class);
@@ -278,7 +296,7 @@ public class AccountingQueryService {
                     + " " + month.getYear();
             return new TvaDeclarationDto(
                     label, d.periodStart, d.periodEnd,
-                    d.collectedFcfa, d.deductibleFcfa, d.toPayFcfa,
+                    d.collected, d.deductible, d.toPay,
                     d.dueDate, d.status.name()
             );
         }
@@ -340,9 +358,9 @@ public class AccountingQueryService {
                 new Document("$regex", "^6"))));
         pipeline.add(new Document("$group", new Document("_id", "$entries.costCenter")
                 .append("debit", new Document("$sum",
-                        new Document("$ifNull", List.of("$entries.debitFcfa", 0))))
+                        new Document("$ifNull", List.of("$entries.debit", 0))))
                 .append("credit", new Document("$sum",
-                        new Document("$ifNull", List.of("$entries.creditFcfa", 0))))));
+                        new Document("$ifNull", List.of("$entries.credit", 0))))));
         Map<String, String> labels = costCenters.listAll().stream()
                 .collect(Collectors.toMap(c -> c.code, c -> c.name, (a, b) -> a));
 
@@ -457,15 +475,15 @@ public class AccountingQueryService {
                         new Document("$eq", List.of(
                                 new Document("$substrBytes", List.of("$entries.syscohadaAccount", 0, 1)), "6")),
                         new Document("$subtract", List.of(
-                                new Document("$ifNull", List.of("$entries.debitFcfa", 0)),
-                                new Document("$ifNull", List.of("$entries.creditFcfa", 0)))),
+                                new Document("$ifNull", List.of("$entries.debit", 0)),
+                                new Document("$ifNull", List.of("$entries.credit", 0)))),
                         0))))
                 .append("produit", new Document("$sum", new Document("$cond", List.of(
                         new Document("$eq", List.of(
                                 new Document("$substrBytes", List.of("$entries.syscohadaAccount", 0, 1)), "7")),
                         new Document("$subtract", List.of(
-                                new Document("$ifNull", List.of("$entries.creditFcfa", 0)),
-                                new Document("$ifNull", List.of("$entries.debitFcfa", 0)))),
+                                new Document("$ifNull", List.of("$entries.credit", 0)),
+                                new Document("$ifNull", List.of("$entries.debit", 0)))),
                         0))))));
         Map<String, String> labels = programs.listAll().stream()
                 .collect(Collectors.toMap(pr -> pr.code, pr -> pr.name, (a, b) -> a));

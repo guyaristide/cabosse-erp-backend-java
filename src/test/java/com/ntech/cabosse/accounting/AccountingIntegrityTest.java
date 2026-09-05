@@ -96,7 +96,7 @@ class AccountingIntegrityTest extends AbstractIntegrationTest {
         givenAs(admin).contentType("application/json")
                 .body("""
                         { "siteId": "%s", "channel": "B2B", "customerId": "%s", "saleDate": "%s",
-                          "lines": [ { "articleId": "%s", "quantity": %d, "unitPriceFcfa": %d } ] }
+                          "lines": [ { "articleId": "%s", "quantity": %d, "unitPrice": %d } ] }
                         """.formatted(siteId, customerId, LocalDate.now(), articleId, qty, unitPrice))
                 .when().post("/api/v1/sales?asQuote=false")
                 .then().statusCode(201);
@@ -108,8 +108,8 @@ class AccountingIntegrityTest extends AbstractIntegrationTest {
                 .body("""
                         { "date": "%s", "libelle": "Frais de campagne",
                           "lines": [
-                            { "account": "601000", "libelle": "Achat", "debitFcfa": %d },
-                            { "account": "401000", "libelle": "Fournisseur", "creditFcfa": %d }
+                            { "account": "601000", "libelle": "Achat", "debit": %d },
+                            { "account": "401000", "libelle": "Fournisseur", "credit": %d }
                           ] }
                         """.formatted(LocalDate.now(), amount, amount))
                 .when().post("/api/v1/accounting/od").then().statusCode(201)
@@ -148,8 +148,8 @@ class AccountingIntegrityTest extends AbstractIntegrationTest {
         assertFalse(pieces.isEmpty(), "Le jeu d'essai doit produire des écritures");
 
         for (int i = 0; i < pieces.size(); i++) {
-            BigDecimal totalDebit = dec(j.get("data.items[" + i + "].totalDebitFcfa"));
-            BigDecimal totalCredit = dec(j.get("data.items[" + i + "].totalCreditFcfa"));
+            BigDecimal totalDebit = dec(j.get("data.items[" + i + "].totalDebit"));
+            BigDecimal totalCredit = dec(j.get("data.items[" + i + "].totalCredit"));
             String ref = j.getString("data.items[" + i + "].ref");
 
             assertEquals(0, totalDebit.compareTo(totalCredit),
@@ -158,8 +158,8 @@ class AccountingIntegrityTest extends AbstractIntegrationTest {
 
             // Les totaux portés par la pièce doivent aussi correspondre à ses
             // propres lignes : un total juste sur des lignes fausses reste faux.
-            BigDecimal sumDebit = sum(j.getList("data.items[" + i + "].entries.debitFcfa"));
-            BigDecimal sumCredit = sum(j.getList("data.items[" + i + "].entries.creditFcfa"));
+            BigDecimal sumDebit = sum(j.getList("data.items[" + i + "].entries.debit"));
+            BigDecimal sumCredit = sum(j.getList("data.items[" + i + "].entries.credit"));
             assertEquals(0, sumDebit.compareTo(totalDebit),
                     "Pièce " + ref + " : total débit incohérent avec ses lignes");
             assertEquals(0, sumCredit.compareTo(totalCredit),
@@ -179,8 +179,8 @@ class AccountingIntegrityTest extends AbstractIntegrationTest {
         JsonPath j = journal(admin);
         int count = j.getList("data.items").size();
         for (int i = 0; i < count; i++) {
-            journalDebit = journalDebit.add(dec(j.get("data.items[" + i + "].totalDebitFcfa")));
-            journalCredit = journalCredit.add(dec(j.get("data.items[" + i + "].totalCreditFcfa")));
+            journalDebit = journalDebit.add(dec(j.get("data.items[" + i + "].totalDebit")));
+            journalCredit = journalCredit.add(dec(j.get("data.items[" + i + "].totalCredit")));
         }
 
         List<String[]> rows = csv(admin, "/api/v1/accounting/export/balance?format=csv");

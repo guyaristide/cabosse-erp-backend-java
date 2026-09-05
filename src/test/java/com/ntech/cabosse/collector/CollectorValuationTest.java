@@ -90,7 +90,7 @@ class CollectorValuationTest extends AbstractIntegrationTest {
         String id = givenAs(admin).contentType("application/json")
                 .body("""
                         { "delegateSupplierId": "%s", "advanceDate": "%s",
-                          "advanceAmountFcfa": 400000, "paymentMethod": "CASH" }
+                          "advanceAmount": 400000, "paymentMethod": "CASH" }
                         """.formatted(delegateId, LocalDate.now()))
                 .when().post("/api/v1/collector-advances?siteId=" + siteId)
                 .then().statusCode(201).extract().path("data.id");
@@ -125,7 +125,7 @@ class CollectorValuationTest extends AbstractIntegrationTest {
         givenAs(admin).contentType("application/json")
                 .body("""
                         { "date": "%s", "memberId": "%s", "articleId": "%s", "siteId": "%s",
-                          "weightKg": %d, "guaranteedPricePerKgFcfa": %d,
+                          "weightKg": %d, "guaranteedPricePerKg": %d,
                           "paymentMethod": "CASH", "delegateSupplierId": "%s" }
                         """.formatted(LocalDate.now(), memberId, articleId, siteId,
                                 qty, unitPrice, delegateId))
@@ -137,7 +137,7 @@ class CollectorValuationTest extends AbstractIntegrationTest {
     private double cmup(UserEntity admin, String articleId, String siteId) {
         return givenAs(admin).when()
                 .get("/api/v1/stocks/" + articleId + "/sites/" + siteId)
-                .then().statusCode(200).extract().jsonPath().getDouble("data.cmupFcfa");
+                .then().statusCode(200).extract().jsonPath().getDouble("data.cmup");
     }
 
     @Test

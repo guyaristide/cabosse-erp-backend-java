@@ -53,6 +53,37 @@ public class ProducerPurchaseRepository {
                 .into(new ArrayList<>());
     }
 
+    /** Les livraisons en attente du comptable, la plus ancienne d'abord. */
+    public List<ProducerPurchaseEntity> listPendingAccounting(int skip, int limit) {
+        return coll().find(Filters.and(
+                        Filters.eq("accountingStatus", "PENDING"), notCancelled()))
+                .sort(new Document("date", 1).append("createdAt", 1))
+                .skip(skip).limit(limit)
+                .into(new ArrayList<>());
+    }
+
+    public long countPendingAccounting() {
+        return coll().countDocuments(Filters.and(
+                Filters.eq("accountingStatus", "PENDING"), notCancelled()));
+    }
+
+    /**
+     * Les reçus actifs d'une journée sur un site, dans l'ordre de saisie :
+     * la fiche du jour du magasinier (CE-185) se lit comme le carnet,
+     * entrée après entrée, et ses cumuls suivent cet ordre.
+     */
+    public List<ProducerPurchaseEntity> listByDateAndSite(java.time.LocalDate date,
+                                                          UUID siteId, UUID articleId) {
+        List<Bson> filters = new ArrayList<>();
+        filters.add(Filters.eq("date", date));
+        filters.add(notCancelled());
+        if (siteId != null) filters.add(Filters.eq("siteId", siteId));
+        if (articleId != null) filters.add(Filters.eq("articleId", articleId));
+        return coll().find(Filters.and(filters))
+                .sort(new Document("createdAt", 1))
+                .into(new ArrayList<>());
+    }
+
     /** Tous les reçus filtrés (registre / état de synthèse, NEG-01). */
     /** Reçus portés par le compte courant d'un délégué, du plus ancien au plus récent. */
     /**
@@ -100,9 +131,9 @@ public class ProducerPurchaseRepository {
         return Filters.expr(new Document("$gt", List.of(
                 new Document("$subtract", List.of(
                         new Document("$subtract", List.of(
-                                new Document("$ifNull", List.of("$amountFcfa", 0)),
-                                new Document("$ifNull", List.of("$creditImputedFcfa", 0)))),
-                        new Document("$ifNull", List.of("$amountPaidFcfa", 0)))),
+                                new Document("$ifNull", List.of("$amount", 0)),
+                                new Document("$ifNull", List.of("$creditImputed", 0)))),
+                        new Document("$ifNull", List.of("$amountPaid", 0)))),
                 0)));
     }
 
@@ -151,13 +182,13 @@ public class ProducerPurchaseRepository {
                         Filters.eq("_id", id),
                         Filters.expr(new Document("$lte", List.of(
                                 new Document("$add", List.of(
-                                        new Document("$ifNull", List.of("$amountPaidFcfa", 0)),
+                                        new Document("$ifNull", List.of("$amountPaid", 0)),
                                         amount)),
                                 new Document("$subtract", List.of(
-                                        new Document("$ifNull", List.of("$amountFcfa", 0)),
-                                        new Document("$ifNull", List.of("$creditImputedFcfa", 0)))))))),
+                                        new Document("$ifNull", List.of("$amount", 0)),
+                                        new Document("$ifNull", List.of("$creditImputed", 0)))))))),
                 com.mongodb.client.model.Updates.combine(
-                        com.mongodb.client.model.Updates.inc("amountPaidFcfa", amount),
+                        com.mongodb.client.model.Updates.inc("amountPaid", amount),
                         com.mongodb.client.model.Updates.set("updatedAt", java.time.Instant.now())));
         return result.getModifiedCount() > 0;
     }
@@ -165,7 +196,7 @@ public class ProducerPurchaseRepository {
     /** Compensation d'un règlement après échec d'une étape ultérieure. */
     public void unpay(UUID id, java.math.BigDecimal amount) {
         coll().updateOne(Filters.eq("_id", id),
-                com.mongodb.client.model.Updates.inc("amountPaidFcfa", amount.negate()));
+                com.mongodb.client.model.Updates.inc("amountPaid", amount.negate()));
     }
 
     public Optional<ProducerPurchaseEntity> findById(UUID id) {
@@ -180,6 +211,34 @@ public class ProducerPurchaseRepository {
 
     public boolean refExists(String ref) {
         return coll().countDocuments(Filters.eq("ref", ref)) > 0;
+    }
+
+    /**
+     * Appelle des kilos nets du reçu pour un bordereau de sortie, sans
+     * jamais dépasser le disponible : update conditionnel atomique, deux
+     * chargements simultanés ne peuvent pas sortir deux fois le même
+     * reliquat. Rend faux si le disponible ne suffit pas.
+     */
+    public boolean tryDispatch(UUID id, java.math.BigDecimal netKg) {
+        org.bson.types.Decimal128 taken = new org.bson.types.Decimal128(netKg);
+        var result = coll().updateOne(
+                Filters.and(
+                        Filters.eq("_id", id),
+                        notCancelled(),
+                        Filters.expr(new Document("$lte", java.util.List.of(
+                                new Document("$add", java.util.List.of(
+                                        new Document("$ifNull", java.util.List.of("$dispatchedKg", 0)),
+                                        taken)),
+                                new Document("$ifNull", java.util.List.of("$weightKg", 0)))))),
+                com.mongodb.client.model.Updates.inc("dispatchedKg", taken));
+        return result.getModifiedCount() == 1;
+    }
+
+    /** Rend au reçu des kilos appelés, à l'annulation d'un bordereau. */
+    public void releaseDispatch(UUID id, java.math.BigDecimal netKg) {
+        coll().updateOne(Filters.eq("_id", id),
+                com.mongodb.client.model.Updates.inc("dispatchedKg",
+                        new org.bson.types.Decimal128(netKg.negate())));
     }
 
     public void insert(ProducerPurchaseEntity e) { coll().insertOne(e); }

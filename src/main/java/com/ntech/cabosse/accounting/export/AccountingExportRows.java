@@ -39,7 +39,7 @@ public final class AccountingExportRows {
     public record StatementRow(
             String section,
             String rubrique,
-            java.math.BigDecimal montantFcfa
+            java.math.BigDecimal montant
     ) {}
 
     public record JournalRow(

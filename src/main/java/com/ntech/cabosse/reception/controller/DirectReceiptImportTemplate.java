@@ -21,7 +21,7 @@ final class DirectReceiptImportTemplate {
             String producerCode,
             String producerName,
             String quantity,
-            String unitPriceFcfa,
+            String unitPrice,
             String deliveryNoteRef,
             String notes
     ) {}
@@ -32,7 +32,7 @@ final class DirectReceiptImportTemplate {
                 ExportColumn.of(Messages.msg("m.imp-h-producer-code"),               TemplateRow::producerCode),
                 ExportColumn.of(Messages.msg("m.imp-h-receipt-producer-name"),       TemplateRow::producerName),
                 ExportColumn.of(Messages.msg("m.imp-h-receipt-quantity"),            TemplateRow::quantity),
-                ExportColumn.of(Messages.msg("m.imp-h-receipt-unit-price"),          TemplateRow::unitPriceFcfa),
+                ExportColumn.of(Messages.msg("m.imp-h-receipt-unit-price"),          TemplateRow::unitPrice),
                 ExportColumn.of(Messages.msg("m.imp-h-receipt-delivery-note"),       TemplateRow::deliveryNoteRef),
                 ExportColumn.of(Messages.msg("m.imp-h-notes"),                       TemplateRow::notes)
         );

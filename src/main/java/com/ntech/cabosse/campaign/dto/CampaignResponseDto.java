@@ -26,7 +26,7 @@ public record CampaignResponseDto(
         int campaignYear,
         LocalDate startDate,
         LocalDate endDate,
-        BigDecimal basePricePerKgFcfa,
+        BigDecimal basePricePerKg,
         List<QualityPremiumDto> qualityPremiums,
         BigDecimal ristournePct,
         String defaultPaymentMethod,
@@ -46,8 +46,8 @@ public record CampaignResponseDto(
 
     @Schema(description = "Changement de barème d'une campagne")
     public record TariffChangeDto(
-            BigDecimal previousBasePricePerKgFcfa,
-            BigDecimal newBasePricePerKgFcfa,
+            BigDecimal previousBasePricePerKg,
+            BigDecimal newBasePricePerKg,
             BigDecimal previousRistournePct,
             BigDecimal newRistournePct,
             List<QualityPremiumDto> previousQualityPremiums,
@@ -58,7 +58,7 @@ public record CampaignResponseDto(
 
         static TariffChangeDto from(com.ntech.cabosse.campaign.entity.TariffChange c) {
             return new TariffChangeDto(
-                    c.previousBasePricePerKgFcfa, c.newBasePricePerKgFcfa,
+                    c.previousBasePricePerKg, c.newBasePricePerKg,
                     c.previousRistournePct, c.newRistournePct,
                     premiums(c.previousQualityPremiums), premiums(c.newQualityPremiums),
                     c.reason, c.changedAt, c.changedByEmail);
@@ -83,7 +83,7 @@ public record CampaignResponseDto(
         return new CampaignResponseDto(
                 e.id, e.code, e.label, e.kind, e.campaignYear,
                 e.startDate, e.endDate,
-                e.basePricePerKgFcfa, premiums,
+                e.basePricePerKg, premiums,
                 e.ristournePct, e.defaultPaymentMethod, e.notes,
                 e.status, e.closedAt, e.closedByEmail,
                 e.createdAt, e.updatedAt, e.createdByEmail,

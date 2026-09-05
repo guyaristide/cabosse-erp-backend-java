@@ -94,8 +94,8 @@ public class AccountingExportService {
                         sanitize(p.sourceRef),
                         sanitize(pieceDate),
                         sanitize(e.libelle),
-                        fecAmount(e.debitFcfa),
-                        fecAmount(e.creditFcfa),
+                        fecAmount(e.debit),
+                        fecAmount(e.credit),
                         "", // EcritureLet
                         "", // DateLet
                         sanitize(ecritureDate),
@@ -120,8 +120,8 @@ public class AccountingExportService {
             for (JournalEntry e : p.entries) {
                 BigDecimal[] cell = totals.computeIfAbsent(e.syscohadaAccount,
                         k -> new BigDecimal[] { BigDecimal.ZERO, BigDecimal.ZERO });
-                if (e.debitFcfa != null) cell[0] = cell[0].add(e.debitFcfa);
-                if (e.creditFcfa != null) cell[1] = cell[1].add(e.creditFcfa);
+                if (e.debit != null) cell[0] = cell[0].add(e.debit);
+                if (e.credit != null) cell[1] = cell[1].add(e.credit);
             }
         }
 
@@ -284,8 +284,8 @@ public class AccountingExportService {
                 continue;
             }
             for (JournalEntry e : p.entries) {
-                BigDecimal d = e.debitFcfa != null ? e.debitFcfa : BigDecimal.ZERO;
-                BigDecimal c = e.creditFcfa != null ? e.creditFcfa : BigDecimal.ZERO;
+                BigDecimal d = e.debit != null ? e.debit : BigDecimal.ZERO;
+                BigDecimal c = e.credit != null ? e.credit : BigDecimal.ZERO;
                 soldes.merge(e.syscohadaAccount, d.subtract(c), BigDecimal::add);
             }
         }
@@ -297,8 +297,8 @@ public class AccountingExportService {
         Map<String, BigDecimal> soldes = new HashMap<>();
         for (JournalPieceEntity p : iteratePieces(from, to)) {
             for (JournalEntry e : p.entries) {
-                BigDecimal d = e.debitFcfa != null ? e.debitFcfa : BigDecimal.ZERO;
-                BigDecimal c = e.creditFcfa != null ? e.creditFcfa : BigDecimal.ZERO;
+                BigDecimal d = e.debit != null ? e.debit : BigDecimal.ZERO;
+                BigDecimal c = e.credit != null ? e.credit : BigDecimal.ZERO;
                 soldes.merge(e.syscohadaAccount, d.subtract(c), BigDecimal::add);
             }
         }
@@ -336,7 +336,7 @@ public class AccountingExportService {
         return List.of(
                 ExportColumn.of(Messages.msg("m.imp-h-masse"), StatementRow::section),
                 ExportColumn.of(Messages.msg("m.imp-h-rubrique"), StatementRow::rubrique),
-                ExportColumn.of(Messages.msg("m.imp-h-montant-fcfa"), StatementRow::montantFcfa)
+                ExportColumn.of(Messages.msg("m.imp-h-montant-amount"), StatementRow::montant)
         );
     }
 
@@ -355,8 +355,8 @@ public class AccountingExportService {
         for (JournalPieceEntity p : all) {
             for (JournalEntry e : p.entries) {
                 if (!accountNumber.equals(e.syscohadaAccount)) continue;
-                BigDecimal d = e.debitFcfa != null ? e.debitFcfa : BigDecimal.ZERO;
-                BigDecimal c = e.creditFcfa != null ? e.creditFcfa : BigDecimal.ZERO;
+                BigDecimal d = e.debit != null ? e.debit : BigDecimal.ZERO;
+                BigDecimal c = e.credit != null ? e.credit : BigDecimal.ZERO;
                 running = running.add(d).subtract(c);
                 rows.add(new GrandLivreRow(p.date, p.ref, p.sourceRef, e.libelle, d, c, running));
             }
@@ -394,8 +394,8 @@ public class AccountingExportService {
                         p.sourceType != null ? p.sourceType.name() : "",
                         p.sourceRef, p.libelle,
                         e.syscohadaAccount, e.libelle,
-                        e.debitFcfa != null ? e.debitFcfa : BigDecimal.ZERO,
-                        e.creditFcfa != null ? e.creditFcfa : BigDecimal.ZERO
+                        e.debit != null ? e.debit : BigDecimal.ZERO,
+                        e.credit != null ? e.credit : BigDecimal.ZERO
                 ));
             }
         }

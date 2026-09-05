@@ -57,6 +57,9 @@ import java.util.stream.Collectors;
 @ApplicationScoped
 public class MemberService {
 
+    @jakarta.inject.Inject
+    com.ntech.cabosse.accounting.repository.ChartOfAccountsRepository chartAccounts;
+
     @Inject MemberRepository members;
     @Inject com.ntech.cabosse.plan.service.PlanLimitService planLimits;
     @Inject MemberRefService refService;
@@ -414,6 +417,9 @@ public class MemberService {
         e.email = blankToNull(p.email());
         e.joinedAt = p.joinedAt();
         e.partsSocialesAmount = p.partsSocialesAmount();
+        assertAdvanceAccountUsable(p.advanceAccount(), e.id);
+        e.advanceAccount = p.advanceAccount() == null || p.advanceAccount().isBlank()
+                ? null : p.advanceAccount().trim();
         e.status = p.status();
         e.preferredPaymentMethod = blankToNull(p.preferredPaymentMethod());
         e.mobileMoneyNumber = blankToNull(p.mobileMoneyNumber());
@@ -627,5 +633,27 @@ public class MemberService {
 
     private static String blankToNull(String s) {
         return s == null || s.isBlank() ? null : s.trim();
+    }
+    /**
+     * Le compte d'avance rattaché à un producteur doit exister et
+     * n'appartenir qu'à lui.
+     *
+     * <p>La structure ouvre le compte dans son plan ; le rattacher sans le
+     * trouver signalerait une faute de frappe qui n'apparaîtrait qu'au
+     * premier décaissement. Et deux producteurs qui le partageraient
+     * rendraient le grand livre muet sur ce que chacun doit.</p>
+     */
+    private void assertAdvanceAccountUsable(String account, java.util.UUID selfId) {
+        if (account == null || account.isBlank()) return;
+        String number = account.trim();
+        if (chartAccounts.findByNumber(number).isEmpty()) {
+            throw new BusinessException(Messages.msg("m.mem-advance-account-unknown", number));
+        }
+        members.findByAdvanceAccount(number)
+                .filter(other -> selfId == null || !other.id.equals(selfId))
+                .ifPresent(other -> {
+                    throw new BusinessException(
+                            Messages.msg("m.mem-advance-account-taken", number, other.name));
+                });
     }
 }

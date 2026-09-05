@@ -26,7 +26,7 @@ public record CommoditySaleImportPreviewDto(
             String date,
             BigDecimal declaredKg,
             BigDecimal acceptedKg,
-            BigDecimal amountFcfa
+            BigDecimal amount
     ) {}
 
     public record FieldIssue(String field, String message) {}

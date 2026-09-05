@@ -71,7 +71,7 @@ class FinancingAttachmentTest extends AbstractIntegrationTest {
     private String createCredit(UserEntity admin, String memberId) {
         return givenAs(admin).contentType("application/json")
                 .body("""
-                        { "memberId": "%s", "kind": "CREDIT", "amountFcfa": 150000,
+                        { "memberId": "%s", "kind": "CREDIT", "amount": 150000,
                           "purpose": "Moto" }
                         """.formatted(memberId))
                 .when().post("/api/v1/member-credits").then().statusCode(201)
@@ -90,7 +90,7 @@ class FinancingAttachmentTest extends AbstractIntegrationTest {
     private String createAdvance(UserEntity admin, String delegateId) {
         return givenAs(admin).contentType("application/json")
                 .body("""
-                        { "delegateSupplierId": "%s", "advanceAmountFcfa": 2000000,
+                        { "delegateSupplierId": "%s", "advanceAmount": 2000000,
                           "advanceDate": "%s", "paymentMethod": "CASH" }
                         """.formatted(delegateId, LocalDate.now()))
                 .when().post("/api/v1/collector-advances").then().statusCode(201)

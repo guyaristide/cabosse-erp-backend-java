@@ -113,7 +113,7 @@ class QualityGradeReferentialTest extends AbstractIntegrationTest {
         // La même garde sert au contrôle qualité, qui classe un lot.
         givenAs(a).contentType("application/json")
                 .body("""
-                        { "label": "Campagne", "startDate": "%s", "basePricePerKgFcfa": 900,
+                        { "label": "Campagne", "startDate": "%s", "basePricePerKg": 900,
                           "qualityPremiums": [ { "grade": "gr1", "premiumPerKg": 50 } ] }
                         """.formatted(today))
                 .when().post("/api/v1/campaigns")
@@ -132,7 +132,7 @@ class QualityGradeReferentialTest extends AbstractIntegrationTest {
         // découvrir au moment de payer un producteur.
         givenAs(a).contentType("application/json")
                 .body("""
-                        { "label": "Campagne", "startDate": "%s", "basePricePerKgFcfa": 900,
+                        { "label": "Campagne", "startDate": "%s", "basePricePerKg": 900,
                           "qualityPremiums": [ { "grade": "SG", "premiumPerKg": 50 } ] }
                         """.formatted(today))
                 .when().post("/api/v1/campaigns")
@@ -140,7 +140,7 @@ class QualityGradeReferentialTest extends AbstractIntegrationTest {
 
         givenAs(a).contentType("application/json")
                 .body("""
-                        { "label": "Campagne", "startDate": "%s", "basePricePerKgFcfa": 900,
+                        { "label": "Campagne", "startDate": "%s", "basePricePerKg": 900,
                           "qualityPremiums": [ { "grade": "GR1", "premiumPerKg": 50 } ] }
                         """.formatted(today))
                 .when().post("/api/v1/campaigns")
@@ -161,7 +161,7 @@ class QualityGradeReferentialTest extends AbstractIntegrationTest {
         // on ne l'attribue plus.
         givenAs(a).contentType("application/json")
                 .body("""
-                        { "label": "Campagne", "startDate": "%s", "basePricePerKgFcfa": 900,
+                        { "label": "Campagne", "startDate": "%s", "basePricePerKg": 900,
                           "qualityPremiums": [ { "grade": "GR2", "premiumPerKg": 50 } ] }
                         """.formatted(today))
                 .when().post("/api/v1/campaigns")

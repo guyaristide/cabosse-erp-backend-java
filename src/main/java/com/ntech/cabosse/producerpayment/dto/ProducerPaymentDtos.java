@@ -52,7 +52,7 @@ public final class ProducerPaymentDtos {
              * soldée du montant entier.</p>
              */
             @DecimalMin(value = "0", message = "{v.montant-positif-requis}")
-            BigDecimal bankFeesFcfa,
+            BigDecimal bankFees,
 
             @NotEmpty(message = "{v.au-moins-une-livraison-a-regler}")
             List<@Valid AllocationDto> allocations,
@@ -65,38 +65,38 @@ public final class ProducerPaymentDtos {
             @NotNull(message = "{v.livraison-requise}") UUID purchaseId,
             @NotNull(message = "{v.montant-requis}")
             @DecimalMin(value = "0", inclusive = false, message = "{v.montant-0-requis}")
-            BigDecimal amountFcfa
+            BigDecimal amount
     ) {}
 
     @Schema(description = "Règlement fournisseur")
     public record PaymentResponseDto(
             UUID id, String ref, LocalDate date,
             String beneficiaryKind, UUID memberId, UUID delegateSupplierId, String beneficiaryName,
-            BigDecimal totalAmountFcfa,
+            BigDecimal totalAmount,
             String paymentMethod, String paymentRef,
             /** Frais bancaires du règlement, à la charge de la structure. */
-            BigDecimal bankFeesFcfa,
+            BigDecimal bankFees,
             List<AllocationView> allocations,
             String pieceRef, String notes, Instant createdAt, String createdByEmail
     ) {
         @Schema(description = "Livraison réglée par ce versement")
         public record AllocationView(UUID purchaseId, String purchaseRef, LocalDate purchaseDate,
-                                     BigDecimal amountDueFcfa, BigDecimal amountFcfa,
-                                     BigDecimal remainingAfterFcfa) {}
+                                     BigDecimal amountDue, BigDecimal amount,
+                                     BigDecimal remainingAfter) {}
 
         public static PaymentResponseDto from(ProducerPaymentEntity e) {
             List<AllocationView> lines = e.allocations == null ? List.of()
                     : e.allocations.stream()
                             .map(a -> new AllocationView(a.purchaseId, a.purchaseRef, a.purchaseDate,
-                                    a.amountDueFcfa, a.amountFcfa, a.remainingAfterFcfa))
+                                    a.amountDue, a.amount, a.remainingAfter))
                             .toList();
             return new PaymentResponseDto(
                     e.id, e.ref, e.date,
                     e.beneficiaryKind != null ? e.beneficiaryKind.name() : null,
                     e.memberId, e.delegateSupplierId, e.beneficiaryName,
-                    e.totalAmountFcfa,
+                    e.totalAmount,
                     e.paymentMethod != null ? e.paymentMethod.name() : null,
-                    e.paymentRef, e.bankFeesFcfa, lines, e.pieceRef, e.notes, e.createdAt, e.createdByEmail);
+                    e.paymentRef, e.bankFees, lines, e.pieceRef, e.notes, e.createdAt, e.createdByEmail);
         }
     }
 
@@ -107,17 +107,17 @@ public final class ProducerPaymentDtos {
      */
     @Schema(description = "Livraisons non soldées")
     public record OutstandingDto(
-            BigDecimal totalRemainingFcfa,
+            BigDecimal totalRemaining,
             int beneficiaryCount,
             List<Beneficiary> beneficiaries
     ) {
         @Schema(description = "Fournisseur et ses livraisons non soldées")
         public record Beneficiary(String kind, UUID memberId, UUID delegateSupplierId,
-                                  String name, BigDecimal remainingFcfa, List<Line> lines) {}
+                                  String name, BigDecimal remaining, List<Line> lines) {}
 
         @Schema(description = "Livraison partiellement ou non réglée")
         public record Line(UUID purchaseId, String purchaseRef, LocalDate date,
-                           BigDecimal amountFcfa, BigDecimal creditImputedFcfa,
-                           BigDecimal amountPaidFcfa, BigDecimal remainingFcfa) {}
+                           BigDecimal amount, BigDecimal creditImputed,
+                           BigDecimal amountPaid, BigDecimal remaining) {}
     }
 }

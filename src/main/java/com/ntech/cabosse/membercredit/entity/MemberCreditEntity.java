@@ -54,7 +54,25 @@ public class MemberCreditEntity {
     /** Objet du financement, tel que déclaré (saisie libre ou référentiel). */
     public String purpose;
 
-    public BigDecimal amountFcfa;
+    public BigDecimal amount;
+
+    /**
+     * Contrepartie attendue du producteur : la quantité qu'il livrera en
+     * face de la somme avancée.
+     *
+     * <p>Proposée au barème de la campagne, saisie par la coopérative, et
+     * figée avec le prix qui l'a proposée. Une prévision, jamais un
+     * contrôle : rien ne s'y compare pour bloquer une livraison, le point
+     * se fait au retour.</p>
+     */
+    public BigDecimal expectedQuantity;
+
+    /** Unité de {@link #expectedQuantity}, portée par la donnée. */
+    public String expectedQuantityUnit;
+
+    /** Prix unitaire qui a proposé la contrepartie, figé avec elle. */
+    public BigDecimal counterpartUnitPrice;
+
 
     public LocalDate requestedAt;
     public String requestedByEmail;
@@ -68,6 +86,18 @@ public class MemberCreditEntity {
      * cours.
      */
     public boolean governanceApprovalRequired;
+
+    /**
+     * Montant réellement accordé, qui peut être inférieur au montant
+     * sollicité.
+     *
+     * <p>Le document liste « Approbation Oui/Partiel » et « Montant
+     * approuvé » des deux côtés : le directeur accorde parfois moins que
+     * ce que le producteur demande. C'est lui, et non le sollicité, qui
+     * sort de la caisse. Nul tant que la décision n'est pas prise ; voir
+     * {@link #effectiveAmount()}.</p>
+     */
+    public BigDecimal approvedAmount;
 
     public Instant approvedAt;
     public UUID approvedBy;
@@ -98,15 +128,15 @@ public class MemberCreditEntity {
      * n'entrent pas dans le montant du crédit et ne pèsent donc pas sur la
      * créance du producteur.
      */
-    public java.math.BigDecimal bankFeesFcfa;
+    public java.math.BigDecimal bankFees;
     /** Pièce comptable du décaissement. */
     public String pieceRef;
 
     // ─── Remboursement ───
     /** Cumul retenu sur les livraisons. */
-    public BigDecimal imputedAmountFcfa = BigDecimal.ZERO;
+    public BigDecimal imputedAmount = BigDecimal.ZERO;
     /** Reste dû par le producteur = montant − imputé. */
-    public BigDecimal remainingFcfa;
+    public BigDecimal remaining;
 
     public List<Imputation> imputations = new ArrayList<>();
 
@@ -129,7 +159,7 @@ public class MemberCreditEntity {
         public UUID purchaseId;
         public String purchaseRef;
         public LocalDate date;
-        public BigDecimal amountFcfa;
+        public BigDecimal amount;
         public String decidedByEmail;
         public Instant decidedAt;
         public String notes;
@@ -142,6 +172,17 @@ public class MemberCreditEntity {
      */
     public java.util.List<com.ntech.cabosse.shared.storage.AttachmentRef> attachments =
             new java.util.ArrayList<>();
+
+    /**
+     * Le montant qui fait foi pour l'argent : celui accordé, ou celui
+     * demandé tant que la décision n'est pas prise.
+     *
+     * <p>Les dossiers antérieurs à l'approbation partielle n'ont pas de
+     * montant accordé : pour eux les deux se confondent, et c'est exact.</p>
+     */
+    public BigDecimal effectiveAmount() {
+        return approvedAmount != null ? approvedAmount : amount;
+    }
 
     public MemberCreditEntity() {}
 }

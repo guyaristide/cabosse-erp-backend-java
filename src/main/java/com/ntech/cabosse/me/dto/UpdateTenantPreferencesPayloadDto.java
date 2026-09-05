@@ -44,9 +44,9 @@ public record UpdateTenantPreferencesPayloadDto(
         @jakarta.validation.constraints.DecimalMin(value = "0", message = "{v.pourcentage-negatif-interdit}") @jakarta.validation.constraints.DecimalMax(value = "100", message = "{v.pourcentage-superieur-a-100}") java.math.BigDecimal inventoryAlertThresholdPct,
 
         @jakarta.validation.constraints.DecimalMin(value = "0",
-                message = "{v.seuil-en-fcfa-negatif-interdit}")
+                message = "{v.seuil-en-amount-negatif-interdit}")
         @Schema(description = "Seuil d'écart d'inventaire significatif, en valeur absolue FCFA.")
-        java.math.BigDecimal inventoryAlertThresholdFcfa,
+        java.math.BigDecimal inventoryAlertThresholdAmount,
 
         @jakarta.validation.constraints.Pattern(regexp = "^$|^(TENANT_ADMIN|PLATFORM_ONLY)$",
                 message = "{v.politique-de-reouverture-tenant-admin-ou-platform-only}")
@@ -88,7 +88,7 @@ public record UpdateTenantPreferencesPayloadDto(
 
         @jakarta.validation.constraints.DecimalMin(value = "0", message = "{v.seuil-negatif-interdit}")
         @Schema(description = "Seuil FCFA au-dessus duquel une demande d'achat approuvée est exigée.")
-        java.math.BigDecimal purchaseRequestThresholdFcfa,
+        java.math.BigDecimal purchaseRequestThreshold,
 
         @jakarta.validation.constraints.Pattern(regexp = "^$|^[0-9]{2,8}$",
                 message = "{v.compte-d-avance-2-a-8-chiffres}")
@@ -148,12 +148,12 @@ public record UpdateTenantPreferencesPayloadDto(
 
         @jakarta.validation.constraints.DecimalMin(value = "0", message = "{v.seuil-negatif-interdit}")
         @Schema(description = "Seuil d'approbation de gouvernance des crédits producteurs.")
-        java.math.BigDecimal memberCreditApprovalThresholdFcfa,
+        java.math.BigDecimal memberCreditApprovalThreshold,
 
         @jakarta.validation.constraints.DecimalMin(value = "0", message = "{v.seuil-negatif-interdit}")
         @Schema(description = "Seuil d'approbation de gouvernance des avances aux délégués. "
                 + "Réglage distinct de celui des producteurs.")
-        java.math.BigDecimal collectorAdvanceApprovalThresholdFcfa,
+        java.math.BigDecimal collectorAdvanceApprovalThreshold,
 
         @jakarta.validation.constraints.Pattern(regexp = "^$|^[0-9]{2,8}$",
                 message = "{v.compte-de-creance-2-a-8-chiffres}")
@@ -207,6 +207,11 @@ public record UpdateTenantPreferencesPayloadDto(
         String producerWeightMode,
 
         @Schema(description = "Site imposé au reçu producteur.")
-        Boolean producerPurchaseSiteRequired
+        Boolean producerPurchaseSiteRequired,
+
+        @jakarta.validation.constraints.Pattern(regexp = "^$|^(AUTO|MANUAL)$",
+                message = "{v.compta-reception-auto-ou-manuel}")
+        @Schema(description = "Écriture du reçu producteur : AUTO ou MANUAL.")
+        String receiptAccountingMode
 
 ) {}

@@ -84,7 +84,7 @@ public record SaleImportDto(
          * (qui refuse les paiements > reste dû).
          */
         @DecimalMin(value = "0", message = "{v.montant-paye-negatif-interdit}")
-        BigDecimal totalPaidFcfa,
+        BigDecimal totalPaid,
 
         /**
          * Statut cible après import. {@code null}/QUOTE/DRAFT = devis créé,
@@ -155,7 +155,7 @@ public record SaleImportDto(
 
             @NotNull(message = "{v.prix-unitaire-requis}")
             @DecimalMin(value = "0", message = "{v.prix-negatif-interdit}")
-            BigDecimal unitPriceFcfa,
+            BigDecimal unitPrice,
 
             /** Remise ligne 0..100. Optionnel. */
             @DecimalMin(value = "0", message = "{v.remise-negative-interdite}")

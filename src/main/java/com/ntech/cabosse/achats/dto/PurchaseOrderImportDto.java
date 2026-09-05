@@ -57,7 +57,7 @@ public record PurchaseOrderImportDto(
         List<@Valid ImportedLine> lines,
 
         @DecimalMin(value = "0", message = "{v.transport-negatif-interdit}")
-        BigDecimal transportFcfa,
+        BigDecimal transport,
 
         @NotNull(message = "{v.taux-de-tva-requis}")
         @DecimalMin(value = "0", message = "{v.tva-negative-interdite}")
@@ -128,7 +128,7 @@ public record PurchaseOrderImportDto(
 
             @NotNull(message = "{v.prix-unitaire-requis}")
             @DecimalMin(value = "0")
-            BigDecimal unitPriceFcfa,
+            BigDecimal unitPrice,
 
             @DecimalMin(value = "0")
             @DecimalMax(value = "100")

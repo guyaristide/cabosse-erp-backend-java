@@ -15,8 +15,8 @@ import java.util.UUID;
  * finis.
  *
  * <p>Sortie de stock = {@link Weights#declaredKg} (poids départ) au CMUP.
- * CA facturé = {@code acceptedKg × pricePerKgFcfa} + primes. Marge =
- * {@code amountInvoicedFcfa − (declaredKg × cmupAtSaleFcfa)} : les pertes
+ * CA facturé = {@code acceptedKg × pricePerKg} + primes. Marge =
+ * {@code amountInvoiced − (declaredKg × cmupAtSale)} : les pertes
  * (écarts de poids, réfactions) tombent dans le coût des ventes.</p>
  */
 public class CommoditySaleEntity {
@@ -41,6 +41,15 @@ public class CommoditySaleEntity {
     /** Contrat de vente ayant pré-rempli prix/primes (optionnel). */
     public UUID contractId;
 
+    /**
+     * Bordereau de sortie appelé par la vente (CE-194, modèle de l'expert
+     * du 05/09/2026). Présent, la sortie de stock appartient au bordereau,
+     * fait au chargement : la vente ne sort plus rien, elle facture le
+     * poids accepté.
+     */
+    public UUID dispatchNoteId;
+    public String dispatchNoteRef;
+
     // ─── Article vendu (matière première négociée / produit fini) ───
     public UUID articleId;
     public String articleCode;
@@ -58,29 +67,34 @@ public class CommoditySaleEntity {
 
     // ─── Prix & primes ───
     /** Prix de vente unitaire (prix bord champ campagne + marge), FCFA/kg. */
-    public BigDecimal pricePerKgFcfa = BigDecimal.ZERO;
-    /** CA commercial = acceptedKg × pricePerKgFcfa. */
-    public BigDecimal commercialFcfa = BigDecimal.ZERO;
+    public BigDecimal pricePerKg = BigDecimal.ZERO;
+    /** CA commercial = acceptedKg × pricePerKg. */
+    public BigDecimal commercial = BigDecimal.ZERO;
 
-    public BigDecimal coopPrimeFcfa = BigDecimal.ZERO;
-    public BigDecimal producerPrimeFcfa = BigDecimal.ZERO;
-    public BigDecimal socialPrimeFcfa = BigDecimal.ZERO;
-    public BigDecimal totalPrimeFcfa = BigDecimal.ZERO;
+    public BigDecimal coopPrime = BigDecimal.ZERO;
+    public BigDecimal producerPrime = BigDecimal.ZERO;
+    public BigDecimal socialPrime = BigDecimal.ZERO;
+    public BigDecimal totalPrime = BigDecimal.ZERO;
 
     /** Total facturé au client HT = commercial + primes (MVP : primes sur facture). */
-    public BigDecimal amountInvoicedHtFcfa = BigDecimal.ZERO;
+    public BigDecimal amountInvoicedHt = BigDecimal.ZERO;
     public BigDecimal vatRatePct = BigDecimal.ZERO;
-    public BigDecimal vatFcfa = BigDecimal.ZERO;
-    public BigDecimal amountInvoicedTtcFcfa = BigDecimal.ZERO;
+    public BigDecimal vat = BigDecimal.ZERO;
+    public BigDecimal amountInvoicedTtc = BigDecimal.ZERO;
 
     // ─── Coût des ventes & marge (dérivés du CMUP) ───
-    public BigDecimal cmupAtSaleFcfa = BigDecimal.ZERO;
-    public BigDecimal cogsFcfa = BigDecimal.ZERO;
-    public BigDecimal marginFcfa = BigDecimal.ZERO;
+    public BigDecimal cmupAtSale = BigDecimal.ZERO;
+    public BigDecimal cogs = BigDecimal.ZERO;
+    public BigDecimal margin = BigDecimal.ZERO;
 
     // ─── Traces ───
     public String movementRef;
     public String pieceRef;
+
+    // ─── Encaissements client (page 3 du modèle de l'expert) ───
+    public java.util.List<CommoditySalePayment> payments;
+    /** Cumul encaissé ; le solde client vaut TTC moins ce cumul. */
+    public BigDecimal totalPaid = BigDecimal.ZERO;
 
     // ─── Audit ───
     public Instant createdAt;

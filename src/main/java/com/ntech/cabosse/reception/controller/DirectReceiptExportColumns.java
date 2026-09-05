@@ -25,8 +25,8 @@ final class DirectReceiptExportColumns {
                 ExportColumn.of(Messages.msg("m.imp-h-article-unit"),         DirectReceiptResponseDto::articleUnit),
                 ExportColumn.of(Messages.msg("m.imp-h-producteurs"),   r -> r.lines() == null ? 0 : r.lines().size()),
                 ExportColumn.of(Messages.msg("m.imp-h-status"),        r -> humanStatus(r.status() == null ? null : r.status().name())),
-                ExportColumn.of(Messages.msg("m.imp-h-total-ht"),      DirectReceiptResponseDto::subtotalHtFcfa),
-                ExportColumn.of(Messages.msg("m.imp-h-total-paye"),    DirectReceiptResponseDto::totalPaidFcfa),
+                ExportColumn.of(Messages.msg("m.imp-h-total-ht"),      DirectReceiptResponseDto::subtotalHt),
+                ExportColumn.of(Messages.msg("m.imp-h-total-paye"),    DirectReceiptResponseDto::totalPaid),
                 ExportColumn.of(Messages.msg("m.imp-h-n-bl-session"), DirectReceiptResponseDto::deliveryNoteRef),
                 ExportColumn.of(Messages.msg("m.imp-h-receptionne-par"), DirectReceiptResponseDto::receiverEmail),
                 ExportColumn.of(Messages.msg("m.imp-h-cree-le"),       DirectReceiptResponseDto::createdAt)

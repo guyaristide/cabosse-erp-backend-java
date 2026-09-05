@@ -44,9 +44,9 @@ public class FiscalYearResource {
     @Inject FiscalYearService service;
     @Inject FiscalYearDocumentService documents;
 
-    public record WipLinePayload(String label, BigDecimal amountFcfa) {}
-    public record ClosePayload(BigDecimal taxFcfa, List<WipLinePayload> wipLines) {}
-    public record AllocationLinePayload(String account, BigDecimal amountFcfa) {}
+    public record WipLinePayload(String label, BigDecimal amount) {}
+    public record ClosePayload(BigDecimal tax, List<WipLinePayload> wipLines) {}
+    public record AllocationLinePayload(String account, BigDecimal amount) {}
     public record AllocatePayload(List<AllocationLinePayload> lines) {}
 
     @GET
@@ -74,10 +74,10 @@ public class FiscalYearResource {
     public Response close(ClosePayload payload) {
         List<FiscalYearService.WipLine> wip = payload != null && payload.wipLines() != null
                 ? payload.wipLines().stream()
-                        .map(l -> new FiscalYearService.WipLine(l.label(), l.amountFcfa()))
+                        .map(l -> new FiscalYearService.WipLine(l.label(), l.amount()))
                         .toList()
                 : List.of();
-        var created = service.close(payload != null ? payload.taxFcfa() : null, wip);
+        var created = service.close(payload != null ? payload.tax() : null, wip);
         return Response.status(Response.Status.CREATED)
                 .entity(ApiResponse.created(FiscalYearDto.from(created)))
                 .build();
@@ -90,7 +90,7 @@ public class FiscalYearResource {
     public Response allocate(@PathParam("id") UUID id, AllocatePayload payload) {
         List<FiscalYearService.AllocationInput> lines = payload != null && payload.lines() != null
                 ? payload.lines().stream()
-                        .map(l -> new FiscalYearService.AllocationInput(l.account(), l.amountFcfa()))
+                        .map(l -> new FiscalYearService.AllocationInput(l.account(), l.amount()))
                         .toList()
                 : List.of();
         return Response.ok(ApiResponse.ok(FiscalYearDto.from(service.allocate(id, lines)))).build();

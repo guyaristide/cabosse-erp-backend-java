@@ -30,7 +30,7 @@ public class BankStatementLineEntity {
     public String label;
 
     /** Montant positif. Le sens est porté par {@link #direction}. */
-    public BigDecimal amountFcfa;
+    public BigDecimal amount;
 
     /** {@code CREDIT} = entrée d'argent ; {@code DEBIT} = sortie. */
     public String direction;

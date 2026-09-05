@@ -17,11 +17,11 @@ import java.util.UUID;
 public record MemberDebtDto(
         UUID memberId,
         String memberName,
-        BigDecimal totalRemainingFcfa,
+        BigDecimal totalRemaining,
         List<Line> lines
 ) {
     @Schema(description = "Engagement décaissé qui reste à rembourser")
     public record Line(UUID creditId, String ref, String kind, String purpose,
-                       LocalDate disbursedAt, BigDecimal amountFcfa,
-                       BigDecimal imputedAmountFcfa, BigDecimal remainingFcfa) {}
+                       LocalDate disbursedAt, BigDecimal amount,
+                       BigDecimal imputedAmount, BigDecimal remaining) {}
 }

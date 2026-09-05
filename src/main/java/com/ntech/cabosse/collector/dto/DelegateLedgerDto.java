@@ -29,7 +29,7 @@ public record DelegateLedgerDto(
         UUID campaignId,
         String campaignLabel,
         /** (A) Solde laissé par les campagnes antérieures. */
-        BigDecimal previousBalanceFcfa,
+        BigDecimal previousBalance,
         List<Line> lines,
         Totals totals
 ) {
@@ -43,28 +43,28 @@ public record DelegateLedgerDto(
             /** (N° brousse) Référence du bordereau, absente hors livraison. */
             String fieldNoteRef,
             /** (B) Avances cumulées à cette date. */
-            BigDecimal advancedFcfa,
+            BigDecimal advanced,
             /** (C) = A + B */
-            BigDecimal grossBalanceFcfa,
+            BigDecimal grossBalance,
             /** (D) Poids net livré cumulé. */
             BigDecimal weightKg,
             /** (E) = F / D */
-            BigDecimal averagePricePerKgFcfa,
+            BigDecimal averagePricePerKg,
             /** (F) Valeur livrée cumulée. */
-            BigDecimal deliveredFcfa,
+            BigDecimal delivered,
             /** (G) Mise en compte cumulée. */
-            BigDecimal retentionFcfa,
+            BigDecimal retention,
             /** (H) = C − (F + G) */
-            BigDecimal netBalanceFcfa,
+            BigDecimal netBalance,
             /** (I) = H / C, en pourcentage. */
             BigDecimal repaymentRatePct,
             /** Montant propre à l'opération, hors cumul. */
-            BigDecimal amountFcfa) {}
+            BigDecimal amount) {}
 
     public record Totals(
-            BigDecimal advancedFcfa,
-            BigDecimal deliveredFcfa,
-            BigDecimal retentionFcfa,
+            BigDecimal advanced,
+            BigDecimal delivered,
+            BigDecimal retention,
             BigDecimal weightKg,
-            BigDecimal netBalanceFcfa) {}
+            BigDecimal netBalance) {}
 }

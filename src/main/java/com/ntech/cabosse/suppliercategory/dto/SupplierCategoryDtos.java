@@ -55,7 +55,7 @@ public final class SupplierCategoryDtos {
     @Schema(description = "État des apports et rémunérations par catégorie de fournisseur")
     public record CategoryReportDto(
             UUID campaignId, String campaignLabel,
-            BigDecimal totalWeightKg, BigDecimal totalAmountFcfa, BigDecimal totalMarginFcfa,
+            BigDecimal totalWeightKg, BigDecimal totalAmount, BigDecimal totalMargin,
             List<Line> lines
     ) {
         @Schema(description = "Ligne d'une catégorie, ou des fournisseurs sans catégorie")
@@ -67,10 +67,10 @@ public final class SupplierCategoryDtos {
                 int newSupplierCount,
                 int receiptCount,
                 BigDecimal weightKg,
-                BigDecimal amountFcfa,
-                BigDecimal marginFcfa,
+                BigDecimal amount,
+                BigDecimal margin,
                 /** Rémunération rapportée au kilo apporté. */
-                BigDecimal marginPerKgFcfa,
+                BigDecimal marginPerKg,
                 /** Part du volume total de la période. */
                 BigDecimal weightSharePct
         ) {}

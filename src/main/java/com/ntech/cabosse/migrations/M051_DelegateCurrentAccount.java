@@ -47,8 +47,8 @@ public class M051_DelegateCurrentAccount {
         for (Document p : purchases.find()) {
             List<org.bson.conversions.Bson> updates = new ArrayList<>();
 
-            if (p.get("amountPaidFcfa") == null && p.get("amountFcfa") != null) {
-                updates.add(Updates.set("amountPaidFcfa", p.get("amountFcfa")));
+            if (p.get("amountPaid") == null && p.get("amount") != null) {
+                updates.add(Updates.set("amountPaid", p.get("amount")));
             }
             if (p.get("delegateSupplierId") == null && p.get("collectorAdvanceId") != null) {
                 Document advance = advancesById.get(p.get("collectorAdvanceId"));
@@ -59,11 +59,11 @@ public class M051_DelegateCurrentAccount {
                     }
                 }
             }
-            if (p.get("delegateMarginFcfa") == null) {
+            if (p.get("delegateMargin") == null) {
                 // Aucune rémunération n'était constatée avant ce paramétrage.
                 // Le zéro doit être un décimal : un montant entier est
                 // illisible par le modèle, qui attend un Decimal128.
-                updates.add(Updates.set("delegateMarginFcfa",
+                updates.add(Updates.set("delegateMargin",
                         new org.bson.types.Decimal128(java.math.BigDecimal.ZERO)));
             }
             if (updates.isEmpty()) continue;
@@ -87,6 +87,6 @@ public class M051_DelegateCurrentAccount {
                 Updates.combine(
                         Updates.unset("delegateSupplierId"),
                         Updates.unset("delegateName"),
-                        Updates.unset("delegateMarginFcfa")));
+                        Updates.unset("delegateMargin")));
     }
 }

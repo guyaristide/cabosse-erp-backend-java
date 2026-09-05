@@ -74,6 +74,22 @@ class TenantProviderCascadeTest extends AbstractIntegrationTest {
         settings.invalidateAll();
     }
 
+    /**
+     * Rend au socle sa configuration d'envoi.
+     *
+     * <p>Ces réglages vivent dans le <strong>plan contrôle</strong>, que
+     * toute la suite partage : un serveur laissé derrière soi avec
+     * {@code mockMode: false} fait tenter un envoi réel à chaque test
+     * suivant qui poste un courriel. La résolution de {@code smtp.socle.ci}
+     * n'aboutit pas, l'appel HTTP expire, et des tests sans rapport
+     * tombent par intermittence selon l'ordre d'exécution.</p>
+     */
+    @org.junit.jupiter.api.AfterEach
+    void restorePlatformSettings() {
+        settings.writeSection("email", java.util.Map.of(), Set.of(), "test");
+        settings.invalidateAll();
+    }
+
     private String declareOwnSmtp(UserEntity who, String label, String host) {
         return givenAs(who).contentType("application/json")
                 .body("""

@@ -21,7 +21,12 @@ public class CollectorAdvanceEntity {
     @BsonId
     public UUID id;
 
-    /** Référence affichable {@code AV-YYYY-NNNN}. Unique par tenant. */
+    /**
+     * Référence affichable {@code DA-DEL-YYYY-NNNN}. Unique par tenant.
+     *
+     * <p>Les demandes émises avant le 03/09/2026 portent {@code AV-YYYY-NNNN}
+     * et gardent leur forme : une référence imprimée ne se réécrit pas.</p>
+     */
     public String ref;
 
     /** Délégué (fournisseur {@code collector=true}). */
@@ -46,13 +51,13 @@ public class CollectorAdvanceEntity {
     public UUID siteId;
 
     public LocalDate advanceDate;
-    public BigDecimal advanceAmountFcfa;
+    public BigDecimal advanceAmount;
     public PaymentMethod paymentMethod;
 
     /** Cumul consommé par les livraisons. */
-    public BigDecimal consumedAmountFcfa = BigDecimal.ZERO;
+    public BigDecimal consumedAmount = BigDecimal.ZERO;
     /** Reste à livrer = avance − consommé. */
-    public BigDecimal remainingFcfa;
+    public BigDecimal remaining;
 
     public CollectorAdvanceStatus status = CollectorAdvanceStatus.PENDING_APPROVAL;
 
@@ -70,12 +75,12 @@ public class CollectorAdvanceEntity {
      * Montant réellement approuvé, qui peut être inférieur au montant
      * sollicité quand la gouvernance ne suit pas entièrement.
      *
-     * <p>C'est lui, et non {@link #advanceAmountFcfa}, qui commande tout
+     * <p>C'est lui, et non {@link #advanceAmount}, qui commande tout
      * ce qui suit : les fonds remis, l'écriture, le compte courant du
      * délégué et l'imputation des livraisons. Nul tant que la demande
-     * n'est pas approuvée ; voir {@link #effectiveAmountFcfa()}.</p>
+     * n'est pas approuvée ; voir {@link #effectiveAmount()}.</p>
      */
-    public BigDecimal approvedAmountFcfa;
+    public BigDecimal approvedAmount;
 
     /**
      * Commentaire de l'approbateur, à côté de celui de l'émetteur.
@@ -106,7 +111,7 @@ public class CollectorAdvanceEntity {
     public String expectedQuantityUnit;
 
     /** Prix unitaire qui a produit la contrepartie, figé avec elle. */
-    public BigDecimal counterpartUnitPriceFcfa;
+    public BigDecimal counterpartUnitPrice;
 
     // ─── Traces des trois gestes du circuit ─────────────────────────
     // Qui a demandé se lit dans createdBy. Approbation et décaissement
@@ -143,10 +148,10 @@ public class CollectorAdvanceEntity {
 
     /**
      * Frais bancaires du décaissement. À la charge de la structure : ils
-     * n'entrent pas dans {@link #advanceAmountFcfa} et ne pèsent donc pas
+     * n'entrent pas dans {@link #advanceAmount} et ne pèsent donc pas
      * sur le compte courant du délégué.
      */
-    public BigDecimal bankFeesFcfa;
+    public BigDecimal bankFees;
 
     /** Référence de la pièce comptable de l'avance. */
     public String pieceRef;
@@ -171,9 +176,9 @@ public class CollectorAdvanceEntity {
         public String articleName;
         public String articleUnit;
         public BigDecimal quantity;
-        public BigDecimal unitPriceFcfa;
-        /** {@code quantity × unitPriceFcfa}. */
-        public BigDecimal amountFcfa;
+        public BigDecimal unitPrice;
+        /** {@code quantity × unitPrice}. */
+        public BigDecimal amount;
         public String movementRef;
         public String pieceRef;
         public Instant recordedAt;
@@ -195,8 +200,8 @@ public class CollectorAdvanceEntity {
      * montant approuvé : pour eux, les deux se confondent, et c'est
      * exact.</p>
      */
-    public BigDecimal effectiveAmountFcfa() {
-        return approvedAmountFcfa != null ? approvedAmountFcfa : advanceAmountFcfa;
+    public BigDecimal effectiveAmount() {
+        return approvedAmount != null ? approvedAmount : advanceAmount;
     }
 
     public CollectorAdvanceEntity() {}

@@ -93,9 +93,9 @@ class ProgramBudgetTest extends AbstractIntegrationTest {
         String odId = createOd(admin, """
                 { "date": "%s", "libelle": "Charge programme",
                   "lines": [
-                    { "account": "601", "libelle": "Achat", "debitFcfa": 25000,
+                    { "account": "601", "libelle": "Achat", "debit": 25000,
                       "program": "DURAB", "project": "CERT" },
-                    { "account": "401", "libelle": "Dette", "creditFcfa": 25000 }
+                    { "account": "401", "libelle": "Dette", "credit": 25000 }
                   ] }
                 """.formatted(today));
 
@@ -115,7 +115,7 @@ class ProgramBudgetTest extends AbstractIntegrationTest {
         givenAs(admin)
                 .when().get("/api/v1/accounting/analytics/programs")
                 .then().statusCode(200)
-                .body("data.find { it.program == 'DURAB' && it.project == 'CERT' }.chargesFcfa",
+                .body("data.find { it.program == 'DURAB' && it.project == 'CERT' }.charges",
                         equalTo(25000));
     }
 
@@ -127,8 +127,8 @@ class ProgramBudgetTest extends AbstractIntegrationTest {
         String odId = createOd(admin, """
                 { "date": "%s", "libelle": "Mauvaise imputation",
                   "lines": [
-                    { "account": "601", "libelle": "Achat", "debitFcfa": 1000 },
-                    { "account": "401", "libelle": "Dette", "creditFcfa": 1000, "program": "DURAB" }
+                    { "account": "601", "libelle": "Achat", "debit": 1000 },
+                    { "account": "401", "libelle": "Dette", "credit": 1000, "program": "DURAB" }
                   ] }
                 """.formatted(today));
         givenAs(admin)
@@ -145,9 +145,9 @@ class ProgramBudgetTest extends AbstractIntegrationTest {
         String odId = createOd(admin, """
                 { "date": "%s", "libelle": "Projet incohérent",
                   "lines": [
-                    { "account": "601", "libelle": "Achat", "debitFcfa": 1000,
+                    { "account": "601", "libelle": "Achat", "debit": 1000,
                       "program": "DURAB", "project": "INEXISTANT" },
-                    { "account": "401", "libelle": "Dette", "creditFcfa": 1000 }
+                    { "account": "401", "libelle": "Dette", "credit": 1000 }
                   ] }
                 """.formatted(today));
         givenAs(admin)
@@ -165,8 +165,8 @@ class ProgramBudgetTest extends AbstractIntegrationTest {
         String odId = createOd(admin, """
                 { "date": "%s", "libelle": "Produit programme",
                   "lines": [
-                    { "account": "411", "libelle": "Client", "debitFcfa": 30000 },
-                    { "account": "701", "libelle": "Vente", "creditFcfa": 30000, "program": "DURAB" }
+                    { "account": "411", "libelle": "Client", "debit": 30000 },
+                    { "account": "701", "libelle": "Vente", "credit": 30000, "program": "DURAB" }
                   ] }
                 """.formatted(today));
         givenAs(admin)
@@ -177,7 +177,7 @@ class ProgramBudgetTest extends AbstractIntegrationTest {
         givenAs(admin)
                 .when().get("/api/v1/accounting/analytics/programs")
                 .then().statusCode(200)
-                .body("data.find { it.program == 'DURAB' && it.project == null }.produitsFcfa",
+                .body("data.find { it.program == 'DURAB' && it.project == null }.produits",
                         equalTo(30000));
     }
 }

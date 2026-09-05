@@ -80,10 +80,10 @@ public class ManufacturingOrderEntity {
 
     // ─── Consommation matière (snapshotée au démarrage) ───
     public List<ConsumptionLine> consumptionLines = new ArrayList<>();
-    /** Somme des {@code totalCostFcfa} des lignes — figée au démarrage. */
-    public BigDecimal totalMaterialCostFcfa;
+    /** Somme des {@code totalCost} des lignes — figée au démarrage. */
+    public BigDecimal totalMaterialCost;
     /** CMUP appliqué au mouvement IN du PF à la complétion. */
-    public BigDecimal cmupAtCompletionFcfa;
+    public BigDecimal cmupAtCompletion;
 
     // ─── KPIs production (saisis à la complétion) ───
     /**

@@ -72,7 +72,7 @@ class ProductionPotentialTest extends AbstractIntegrationTest {
                 .body("""
                         { "label": "Campagne principale 2026",
                           "startDate": "2025-09-01", "endDate": "2026-02-28",
-                          "basePricePerKgFcfa": 1500 }
+                          "basePricePerKg": 1500 }
                         """)
                 .when().post("/api/v1/campaigns")
                 .then().statusCode(201)

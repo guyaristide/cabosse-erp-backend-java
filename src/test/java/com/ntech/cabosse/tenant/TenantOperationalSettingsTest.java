@@ -67,7 +67,7 @@ class TenantOperationalSettingsTest extends AbstractIntegrationTest {
                 .body("data.memberCapitalAccount", equalTo("101000"))
                 .body("data.postStockTransferEntries", equalTo(false))
                 .body("data.inventoryAlertThresholdPct", equalTo(5))
-                .body("data.inventoryAlertThresholdFcfa", equalTo(100000))
+                .body("data.inventoryAlertThresholdAmount", equalTo(100000))
                 .body("data.periodReopenPolicy", equalTo("TENANT_ADMIN"))
                 .body("data.vatDeductibleAccount", equalTo("445660"))
                 .body("data.memberCapitalFlow", equalTo("DIRECT"))
@@ -144,7 +144,7 @@ class TenantOperationalSettingsTest extends AbstractIntegrationTest {
                 .when().get("/api/v1/accounting/journal")
                 .then().statusCode(200)
                 .body("data.total", equalTo(1))
-                .body("data.items[0].totalDebitFcfa", equalTo(25000))
+                .body("data.items[0].totalDebit", equalTo(25000))
                 .body("data.items[0].sourceType", equalTo("MEMBER_CAPITAL"));
     }
 

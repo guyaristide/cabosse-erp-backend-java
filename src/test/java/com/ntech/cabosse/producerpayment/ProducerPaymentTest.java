@@ -102,8 +102,8 @@ class ProducerPaymentTest extends AbstractIntegrationTest {
         return givenAs(admin).contentType("application/json")
                 .body("""
                         { "date": "%s", "memberId": "%s", "articleId": "%s", "siteId": "%s",
-                          "weightKg": %d, "guaranteedPricePerKgFcfa": %d,
-                          "paymentMethod": "BANK_TRANSFER", "amountPaidFcfa": 0%s }
+                          "weightKg": %d, "guaranteedPricePerKg": %d,
+                          "paymentMethod": "BANK_TRANSFER", "amountPaid": 0%s }
                         """.formatted(LocalDate.now(), memberId, articleId, siteId,
                         weightKg, pricePerKg, delegatePart))
                 .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
@@ -116,7 +116,7 @@ class ProducerPaymentTest extends AbstractIntegrationTest {
                 .body("""
                         { "delegateSupplierId": "%s", "paymentMethod": "BANK_TRANSFER",
                           "date": "%s", "paymentRef": "%s",
-                          "allocations": [ { "purchaseId": "%s", "amountFcfa": %d } ] }
+                          "allocations": [ { "purchaseId": "%s", "amount": %d } ] }
                         """.formatted(delegateId, LocalDate.now(), ref, purchaseId, amount))
                 .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                 .when().post("/api/v1/producer-payments").then().statusCode(201);
@@ -135,32 +135,32 @@ class ProducerPaymentTest extends AbstractIntegrationTest {
 
         givenAs(admin).when().get("/api/v1/producer-purchases/" + purchaseId)
                 .then().statusCode(200)
-                .body("data.amountFcfa", equalTo(40000000))
-                .body("data.amountPaidFcfa", equalTo(0))
-                .body("data.remainderFcfa", equalTo(40000000));
+                .body("data.amount", equalTo(40000000))
+                .body("data.amountPaid", equalTo(0))
+                .body("data.remainder", equalTo(40000000));
 
         pay(admin, delegateId, purchaseId, 15000000, "VIR-001");
         pay(admin, delegateId, purchaseId, 15000000, "VIR-002");
 
         givenAs(admin).when().get("/api/v1/producer-purchases/" + purchaseId)
                 .then().statusCode(200)
-                .body("data.amountPaidFcfa", equalTo(30000000))
-                .body("data.remainderFcfa", equalTo(10000000));
+                .body("data.amountPaid", equalTo(30000000))
+                .body("data.remainder", equalTo(10000000));
 
         // L'échéancier ne montre plus que le solde.
         givenAs(admin).when().get("/api/v1/producer-payments/outstanding")
                 .then().statusCode(200)
-                .body("data.totalRemainingFcfa", equalTo(10000000))
+                .body("data.totalRemaining", equalTo(10000000))
                 .body("data.beneficiaries", hasSize(1))
                 .body("data.beneficiaries[0].name", equalTo("Délégué Bangolo"))
-                .body("data.beneficiaries[0].lines[0].remainingFcfa", equalTo(10000000));
+                .body("data.beneficiaries[0].lines[0].remaining", equalTo(10000000));
 
         pay(admin, delegateId, purchaseId, 10000000, "VIR-003");
 
         // Soldée, la livraison quitte l'échéancier.
         givenAs(admin).when().get("/api/v1/producer-payments/outstanding")
                 .then().statusCode(200)
-                .body("data.totalRemainingFcfa", equalTo(0))
+                .body("data.totalRemaining", equalTo(0))
                 .body("data.beneficiaries", hasSize(0));
 
         // Les trois versements restent lisibles depuis la livraison.
@@ -168,7 +168,7 @@ class ProducerPaymentTest extends AbstractIntegrationTest {
                 .then().statusCode(200)
                 .body("data", hasSize(3))
                 .body("data.paymentRef", hasItem("VIR-002"))
-                .body("data[2].allocations[0].remainingAfterFcfa", equalTo(0));
+                .body("data[2].allocations[0].remainingAfter", equalTo(0));
     }
 
     @Test
@@ -185,7 +185,7 @@ class ProducerPaymentTest extends AbstractIntegrationTest {
         givenAs(admin).contentType("application/json")
                 .body("""
                         { "delegateSupplierId": "%s", "paymentMethod": "CASH", "date": "%s",
-                          "allocations": [ { "purchaseId": "%s", "amountFcfa": 200000 } ] }
+                          "allocations": [ { "purchaseId": "%s", "amount": 200000 } ] }
                         """.formatted(delegateId, LocalDate.now(), purchaseId))
                 .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                 .when().post("/api/v1/producer-payments")
@@ -195,8 +195,8 @@ class ProducerPaymentTest extends AbstractIntegrationTest {
         // Le refus n'a rien consommé.
         givenAs(admin).when().get("/api/v1/producer-purchases/" + purchaseId)
                 .then().statusCode(200)
-                .body("data.amountPaidFcfa", equalTo(900000))
-                .body("data.remainderFcfa", equalTo(100000));
+                .body("data.amountPaid", equalTo(900000))
+                .body("data.remainder", equalTo(100000));
     }
 
     @Test
@@ -212,7 +212,7 @@ class ProducerPaymentTest extends AbstractIntegrationTest {
         givenAs(admin).contentType("application/json")
                 .body("""
                         { "memberId": "%s", "paymentMethod": "CASH", "date": "%s",
-                          "allocations": [ { "purchaseId": "%s", "amountFcfa": 500000 } ] }
+                          "allocations": [ { "purchaseId": "%s", "amount": 500000 } ] }
                         """.formatted(memberId, LocalDate.now(), purchaseId))
                 .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                 .when().post("/api/v1/producer-payments")
@@ -234,20 +234,20 @@ class ProducerPaymentTest extends AbstractIntegrationTest {
                 .body("""
                         { "memberId": "%s", "paymentMethod": "MOBILE_MONEY", "date": "%s",
                           "paymentRef": "MM-77",
-                          "allocations": [ { "purchaseId": "%s", "amountFcfa": 300000 },
-                                           { "purchaseId": "%s", "amountFcfa": 150000 } ] }
+                          "allocations": [ { "purchaseId": "%s", "amount": 300000 },
+                                           { "purchaseId": "%s", "amount": 150000 } ] }
                         """.formatted(memberId, LocalDate.now(), first, second))
                 .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                 .when().post("/api/v1/producer-payments")
                 .then().statusCode(201)
-                .body("data.totalAmountFcfa", equalTo(450000))
+                .body("data.totalAmount", equalTo(450000))
                 .body("data.allocations", hasSize(2))
                 .body("data.ref", containsString("REG-"));
 
         // Le producteur reste créancier de la seule fraction non versée.
         givenAs(admin).when().get("/api/v1/producer-payments/outstanding")
                 .then().statusCode(200)
-                .body("data.totalRemainingFcfa", equalTo(50000));
+                .body("data.totalRemaining", equalTo(50000));
 
         // L'écriture solde la dette constituée au reçu.
         givenAs(admin).when().get("/api/v1/accounting/journal")
@@ -296,18 +296,18 @@ class ProducerPaymentTest extends AbstractIntegrationTest {
 
         givenAs(admin).when().get("/api/v1/collector-advances/delegates/" + delegateId)
                 .then().statusCode(200)
-                .body("data.totalDeliveredFcfa", equalTo(2000000))
-                .body("data.totalPaidFcfa", equalTo(0))
-                .body("data.balanceFcfa", equalTo(-2000000));
+                .body("data.totalDelivered", equalTo(2000000))
+                .body("data.totalPaid", equalTo(0))
+                .body("data.balance", equalTo(-2000000));
 
         pay(admin, delegateId, purchaseId, 2000000, "VIR-500");
 
         givenAs(admin).when().get("/api/v1/collector-advances/delegates/" + delegateId)
                 .then().statusCode(200)
-                .body("data.totalPaidFcfa", equalTo(2000000))
+                .body("data.totalPaid", equalTo(2000000))
                 .body("data.payments", hasSize(1))
                 .body("data.payments[0].paymentRef", equalTo("VIR-500"))
-                .body("data.balanceFcfa", equalTo(0));
+                .body("data.balance", equalTo(0));
     }
 
     @Test
@@ -329,7 +329,7 @@ class ProducerPaymentTest extends AbstractIntegrationTest {
         String body = """
                 { "delegateSupplierId": "%s", "paymentMethod": "BANK_TRANSFER",
                   "date": "%s", "paymentRef": "VIR-700",
-                  "allocations": [ { "purchaseId": "%s", "amountFcfa": 2000000 } ] }
+                  "allocations": [ { "purchaseId": "%s", "amount": 2000000 } ] }
                 """.formatted(delegateId, LocalDate.now(), purchaseId);
 
         String firstRef = givenAs(admin).contentType("application/json")
@@ -350,8 +350,8 @@ class ProducerPaymentTest extends AbstractIntegrationTest {
         // Un seul versement imputé : le reste dû prouve l'unicité.
         givenAs(admin).when().get("/api/v1/producer-purchases/" + purchaseId)
                 .then().statusCode(200)
-                .body("data.amountPaidFcfa", equalTo(2000000))
-                .body("data.remainderFcfa", equalTo(3000000));
+                .body("data.amountPaid", equalTo(2000000))
+                .body("data.remainder", equalTo(3000000));
         givenAs(admin).when().get("/api/v1/producer-payments/by-purchase/" + purchaseId)
                 .then().statusCode(200)
                 .body("data", hasSize(1));
@@ -372,7 +372,7 @@ class ProducerPaymentTest extends AbstractIntegrationTest {
                 .body("""
                         { "delegateSupplierId": "%s", "paymentMethod": "BANK_TRANSFER",
                           "date": "%s",
-                          "allocations": [ { "purchaseId": "%s", "amountFcfa": 500000 } ] }
+                          "allocations": [ { "purchaseId": "%s", "amount": 500000 } ] }
                         """.formatted(delegateId, LocalDate.now(), purchaseId))
                 .when().post("/api/v1/producer-payments")
                 .then().statusCode(400)
@@ -380,7 +380,7 @@ class ProducerPaymentTest extends AbstractIntegrationTest {
 
         givenAs(admin).when().get("/api/v1/producer-purchases/" + purchaseId)
                 .then().statusCode(200)
-                .body("data.amountPaidFcfa", equalTo(0));
+                .body("data.amountPaid", equalTo(0));
     }
 }
 

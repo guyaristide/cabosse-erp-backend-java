@@ -85,11 +85,11 @@ public class SalesContractService {
     }
 
     private void apply(SalesContractEntity e, SalesContractUpsertDto p) {
-        e.marginPerKgFcfa = nz(p.marginPerKgFcfa());
+        e.marginPerKg = nz(p.marginPerKg());
         e.label = (p.label() == null || p.label().isBlank()) ? null : p.label().trim();
-        e.coopPrimePerKgFcfa = nz(p.coopPrimePerKgFcfa());
-        e.producerPrimePerKgFcfa = nz(p.producerPrimePerKgFcfa());
-        e.socialPrimePerKgFcfa = nz(p.socialPrimePerKgFcfa());
+        e.coopPrimePerKg = nz(p.coopPrimePerKg());
+        e.producerPrimePerKg = nz(p.producerPrimePerKg());
+        e.socialPrimePerKg = nz(p.socialPrimePerKg());
         e.notes = (p.notes() == null || p.notes().isBlank()) ? null : p.notes().trim();
     }
 

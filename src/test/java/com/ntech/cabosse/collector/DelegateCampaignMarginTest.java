@@ -79,7 +79,7 @@ class DelegateCampaignMarginTest extends AbstractIntegrationTest {
         return givenAs(who).contentType("application/json")
                 .body("""
                         { "label": "%s", "kind": "MAIN", "startDate": "%s", "endDate": "%s",
-                          "basePricePerKgFcfa": 900 }
+                          "basePricePerKg": 900 }
                         """.formatted(label, start, end))
                 .when().post("/api/v1/campaigns").then().statusCode(201)
                 .extract().path("data.id");
@@ -313,13 +313,13 @@ class DelegateCampaignMarginTest extends AbstractIntegrationTest {
                 .body("""
                         { "date": "%s", "memberId": "%s", "articleId": "%s", "siteId": "%s",
                           "campaignId": "%s", "delegateSupplierId": "%s",
-                          "weightKg": %d, "guaranteedPricePerKgFcfa": 900,
+                          "weightKg": %d, "guaranteedPricePerKg": 900,
                           "paymentMethod": "CASH" }
                         """.formatted(LocalDate.now(), producerId, articleId, siteId,
                         campaignId, delegateSupplierId, weightKg))
                 .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                 .when().post("/api/v1/producer-purchases")
-                .then().statusCode(201).extract().path("data.delegateMarginFcfa");
+                .then().statusCode(201).extract().path("data.delegateMargin");
         return margin.doubleValue();
     }
 }

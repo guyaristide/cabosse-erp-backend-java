@@ -89,7 +89,7 @@ class LegacyAmountTypeTest extends AbstractIntegrationTest {
         String purchaseId = givenAs(admin).contentType("application/json")
                 .body("""
                         { "date": "%s", "memberId": "%s", "articleId": "%s", "siteId": "%s",
-                          "weightKg": 100, "guaranteedPricePerKgFcfa": 1000,
+                          "weightKg": 100, "guaranteedPricePerKg": 1000,
                           "paymentMethod": "CASH" }
                         """.formatted(LocalDate.now(), memberId, articleId, siteId))
                 .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
@@ -101,20 +101,20 @@ class LegacyAmountTypeTest extends AbstractIntegrationTest {
                 .getCollection("producer_purchases")
                 .updateOne(Filters.eq("_id", java.util.UUID.fromString(purchaseId)),
                         Updates.combine(
-                                Updates.set("delegateMarginFcfa", 0),
-                                Updates.set("amountPaidFcfa", 100000L),
-                                Updates.set("creditImputedFcfa", 0.0)));
+                                Updates.set("delegateMargin", 0),
+                                Updates.set("amountPaid", 100000L),
+                                Updates.set("creditImputed", 0.0)));
 
         givenAs(admin).queryParam("page", 0).queryParam("perPage", 20)
                 .when().get("/api/v1/producer-purchases")
                 .then().statusCode(200)
                 .body("data.items", hasSize(1))
-                .body("data.items[0].delegateMarginFcfa", equalTo(0))
-                .body("data.items[0].amountPaidFcfa", equalTo(100000));
+                .body("data.items[0].delegateMargin", equalTo(0))
+                .body("data.items[0].amountPaid", equalTo(100000));
 
         givenAs(admin).when().get("/api/v1/producer-purchases/" + purchaseId)
                 .then().statusCode(200)
-                .body("data.remainderFcfa", equalTo(0.0F));
+                .body("data.remainder", equalTo(0.0F));
     }
 
     @Test

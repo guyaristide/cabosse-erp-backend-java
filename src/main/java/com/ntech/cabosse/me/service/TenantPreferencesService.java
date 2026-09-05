@@ -53,13 +53,13 @@ public class TenantPreferencesService {
                 p.currency, p.language, p.timezone, p.vatRecoverable(),
                 p.postMemberCapitalEntries(), p.memberCapitalAccount(),
                 p.postStockTransferEntries(),
-                p.inventoryAlertThresholdPct(), p.inventoryAlertThresholdFcfa(),
+                p.inventoryAlertThresholdPct(), p.inventoryAlertThresholdAmount(),
                 p.periodReopenPolicy(),
                 p.vatDeductibleAccount(), p.vatCollectedAccount(), p.memberCapitalFlow(),
                 p.analyticsIncludeStockTransfers(),
                 p.fiscalYearStartMonth(), p.incomeTaxRatePct(),
                 p.costCenterRequired(),
-                p.purchaseRequestEnabled(), p.purchaseRequestThresholdFcfa(),
+                p.purchaseRequestEnabled(), p.purchaseRequestThreshold(),
                 p.collectorAdvanceAccount(),
                 p.collectorDeliveryValuation(),
                 p.blockProductionOnStockShortage(),
@@ -74,8 +74,8 @@ public class TenantPreferencesService {
                 p.producerPayableAccount(),
                 p.delegatePayableAccount(),
                 p.producerReferenceCodeType,
-                p.memberCreditApprovalThresholdFcfa(),
-                p.collectorAdvanceApprovalThresholdFcfa(),
+                p.memberCreditApprovalThreshold(),
+                p.collectorAdvanceApprovalThreshold,
                 p.memberCreditAccount(),
                 p.cashDiscrepancyAccount(),
                 p.productionPotentialBasis(),
@@ -87,7 +87,8 @@ public class TenantPreferencesService {
                 p.producerPriceSource(),
                 p.producerAmountMode(),
                 p.producerWeightMode(),
-                p.producerPurchaseSiteRequired()
+                p.producerPurchaseSiteRequired(),
+                p.receiptAccountingMode()
         );
     }
 
@@ -141,13 +142,13 @@ public class TenantPreferencesService {
                     "to", payload.inventoryAlertThresholdPct()));
             t.preferences.inventoryAlertThresholdPct = payload.inventoryAlertThresholdPct();
         }
-        if (payload.inventoryAlertThresholdFcfa() != null
-                && payload.inventoryAlertThresholdFcfa()
-                        .compareTo(t.preferences.inventoryAlertThresholdFcfa()) != 0) {
-            diffs.put("inventoryAlertThresholdFcfa", Map.of(
-                    "from", t.preferences.inventoryAlertThresholdFcfa(),
-                    "to", payload.inventoryAlertThresholdFcfa()));
-            t.preferences.inventoryAlertThresholdFcfa = payload.inventoryAlertThresholdFcfa();
+        if (payload.inventoryAlertThresholdAmount() != null
+                && payload.inventoryAlertThresholdAmount()
+                        .compareTo(t.preferences.inventoryAlertThresholdAmount()) != 0) {
+            diffs.put("inventoryAlertThresholdAmount", Map.of(
+                    "from", t.preferences.inventoryAlertThresholdAmount(),
+                    "to", payload.inventoryAlertThresholdAmount()));
+            t.preferences.inventoryAlertThresholdAmount = payload.inventoryAlertThresholdAmount();
         }
         if (payload.periodReopenPolicy() != null && !payload.periodReopenPolicy().isBlank()
                 && !payload.periodReopenPolicy().equals(t.preferences.periodReopenPolicy())) {
@@ -216,13 +217,13 @@ public class TenantPreferencesService {
                     "to", payload.purchaseRequestEnabled()));
             t.preferences.purchaseRequestEnabled = payload.purchaseRequestEnabled();
         }
-        if (payload.purchaseRequestThresholdFcfa() != null
-                && payload.purchaseRequestThresholdFcfa()
-                        .compareTo(t.preferences.purchaseRequestThresholdFcfa()) != 0) {
-            diffs.put("purchaseRequestThresholdFcfa", Map.of(
-                    "from", t.preferences.purchaseRequestThresholdFcfa(),
-                    "to", payload.purchaseRequestThresholdFcfa()));
-            t.preferences.purchaseRequestThresholdFcfa = payload.purchaseRequestThresholdFcfa();
+        if (payload.purchaseRequestThreshold() != null
+                && payload.purchaseRequestThreshold()
+                        .compareTo(t.preferences.purchaseRequestThreshold()) != 0) {
+            diffs.put("purchaseRequestThreshold", Map.of(
+                    "from", t.preferences.purchaseRequestThreshold(),
+                    "to", payload.purchaseRequestThreshold()));
+            t.preferences.purchaseRequestThreshold = payload.purchaseRequestThreshold();
         }
 
         if (payload.collectorAdvanceAccount() != null && !payload.collectorAdvanceAccount().isBlank()
@@ -345,24 +346,32 @@ public class TenantPreferencesService {
                             ? null : payload.producerReferenceCodeType().trim();
         }
 
-        if (payload.memberCreditApprovalThresholdFcfa() != null
-                && payload.memberCreditApprovalThresholdFcfa()
-                        .compareTo(t.preferences.memberCreditApprovalThresholdFcfa()) != 0) {
-            diffs.put("memberCreditApprovalThresholdFcfa", Map.of(
-                    "from", t.preferences.memberCreditApprovalThresholdFcfa(),
-                    "to", payload.memberCreditApprovalThresholdFcfa()));
-            t.preferences.memberCreditApprovalThresholdFcfa =
-                    payload.memberCreditApprovalThresholdFcfa();
+        if (payload.memberCreditApprovalThreshold() != null
+                && payload.memberCreditApprovalThreshold()
+                        .compareTo(t.preferences.memberCreditApprovalThreshold()) != 0) {
+            diffs.put("memberCreditApprovalThreshold", Map.of(
+                    "from", t.preferences.memberCreditApprovalThreshold(),
+                    "to", payload.memberCreditApprovalThreshold()));
+            t.preferences.memberCreditApprovalThreshold =
+                    payload.memberCreditApprovalThreshold();
         }
 
-        if (payload.collectorAdvanceApprovalThresholdFcfa() != null
-                && payload.collectorAdvanceApprovalThresholdFcfa()
-                        .compareTo(t.preferences.collectorAdvanceApprovalThresholdFcfa()) != 0) {
-            diffs.put("collectorAdvanceApprovalThresholdFcfa", Map.of(
-                    "from", t.preferences.collectorAdvanceApprovalThresholdFcfa(),
-                    "to", payload.collectorAdvanceApprovalThresholdFcfa()));
-            t.preferences.collectorAdvanceApprovalThresholdFcfa =
-                    payload.collectorAdvanceApprovalThresholdFcfa();
+        // Comparé au champ brut, jamais à son accesseur. L'accesseur rend
+        // zéro quand rien n'est réglé : comparer contre lui faisait passer
+        // « poser zéro » pour un non-changement, et la valeur n'était
+        // jamais écrite. Or ici zéro est une décision, celle de faire
+        // remonter toute avance au conseil.
+        java.math.BigDecimal currentThreshold =
+                t.preferences.collectorAdvanceApprovalThreshold;
+        if (payload.collectorAdvanceApprovalThreshold() != null
+                && (currentThreshold == null
+                    || payload.collectorAdvanceApprovalThreshold()
+                        .compareTo(currentThreshold) != 0)) {
+            diffs.put("collectorAdvanceApprovalThreshold", Map.of(
+                    "from", currentThreshold != null ? currentThreshold : "non réglé",
+                    "to", payload.collectorAdvanceApprovalThreshold()));
+            t.preferences.collectorAdvanceApprovalThreshold =
+                    payload.collectorAdvanceApprovalThreshold();
         }
 
         if (payload.memberCreditAccount() != null && !payload.memberCreditAccount().isBlank()
@@ -413,6 +422,15 @@ public class TenantPreferencesService {
                     "from", t.preferences.closedPeriodPolicy(),
                     "to", payload.closedPeriodPolicy()));
             t.preferences.closedPeriodPolicy = payload.closedPeriodPolicy().trim();
+        }
+
+        if (payload.receiptAccountingMode() != null
+                && !payload.receiptAccountingMode().isBlank()
+                && !payload.receiptAccountingMode().equals(t.preferences.receiptAccountingMode())) {
+            diffs.put("receiptAccountingMode", Map.of(
+                    "from", t.preferences.receiptAccountingMode(),
+                    "to", payload.receiptAccountingMode()));
+            t.preferences.receiptAccountingMode = payload.receiptAccountingMode().trim();
         }
 
         if (payload.producerPriceSource() != null

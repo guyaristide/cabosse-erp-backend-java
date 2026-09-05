@@ -29,46 +29,47 @@ public record ProducerPurchaseResponseDto(
         UUID siteId,
         UUID campaignId,
         Integer campaignYear,
+        /** Camion qui a livré, tel que le carnet le note. */
+        String truckNumber,
+        /** Pesées du bordereau, vide pour les reçus saisis sans le détail. */
+        java.util.List<PurchaseWeighingView> weighings,
         Integer nbSacs,
         BigDecimal weightKg,
-        BigDecimal guaranteedPricePerKgFcfa,
-        BigDecimal amountFcfa,
-        BigDecimal amountPaidFcfa,
+        BigDecimal guaranteedPricePerKg,
+        BigDecimal amount,
+        BigDecimal amountPaid,
         /** Total retenu sur cette livraison au titre des crédits du producteur. */
-        BigDecimal creditImputedFcfa,
+        BigDecimal creditImputed,
         /** Reliquat dû au producteur = montant dû moins montant payé. */
-        BigDecimal remainderFcfa,
+        BigDecimal remainder,
         PaymentMethod paymentMethod,
         String paymentRef,
         UUID payerMemberId,
         String payerName,
         UUID delegateSupplierId,
         String delegateName,
-        BigDecimal delegateMarginFcfa,
+        BigDecimal delegateMargin,
         /** Catégorie de reprise de l'apporteur, figée au reçu. */
         UUID supplierCategoryId,
         String supplierCategoryName,
         String deliveryRef,
         UUID collectorAdvanceId,
+        /** Kilos nets déjà appelés par des bordereaux de sortie (CE-195). */
+        BigDecimal dispatchedKg,
+        /** Ce qu'un chargement peut encore appeler : poids moins appelé. */
+        BigDecimal availableKg,
         String movementRef,
         String pieceRef,
+        /** POSTED, ou PENDING quand la livraison attend le comptable. */
+        String accountingStatus,
         /** ACTIVE ou CANCELLED. Un reçu annulé reste lisible. */
         ProducerPurchaseStatus status,
         /** Renseigné quand le reçu a été contre-passé. */
-        CancellationView cancellation,
+        ProducerPurchaseCancellationView cancellation,
         Instant createdAt,
         Instant updatedAt
 ) {
 
-    /** Ce que la contre-passation a défait, pour un contrôle sans requête. */
-    public record CancellationView(
-            String reason,
-            String cancelledByEmail,
-            Instant cancelledAt,
-            String reversalPieceRef,
-            BigDecimal advanceCreditedBackFcfa,
-            BigDecimal creditRestoredFcfa
-    ) {}
     public static ProducerPurchaseResponseDto from(ProducerPurchaseEntity e) {
         return new ProducerPurchaseResponseDto(
                 e.id, e.ref, e.date, e.officialReceiptRef,
@@ -76,32 +77,40 @@ public record ProducerPurchaseResponseDto(
                 e.producerExternalCode, e.village, e.producerPhone, e.sectionId, e.sectionName,
                 e.articleId, e.articleCode, e.articleName, e.articleUnit,
                 e.siteId, e.campaignId, e.campaignYear,
-                e.nbSacs, e.weightKg, e.guaranteedPricePerKgFcfa, e.amountFcfa,
-                paid(e), nz(e.creditImputedFcfa), remainder(e),
+                e.truckNumber, weighingsOf(e),
+                e.nbSacs, e.weightKg, e.guaranteedPricePerKg, e.amount,
+                paid(e), nz(e.creditImputed), remainder(e),
                 e.paymentMethod, e.paymentRef, e.payerMemberId, e.payerName,
-                e.delegateSupplierId, e.delegateName, e.delegateMarginFcfa,
+                e.delegateSupplierId, e.delegateName, e.delegateMargin,
                 e.supplierCategoryId, e.supplierCategoryName,
                 e.deliveryRef, e.collectorAdvanceId,
+                nz(e.dispatchedKg), nz(e.weightKg).subtract(nz(e.dispatchedKg)),
                 e.movementRef, e.pieceRef,
+                e.accountingStatusOrPosted(),
                 e.statusOrActive(), cancellationOf(e),
                 e.createdAt, e.updatedAt
         );
     }
 
-    private static CancellationView cancellationOf(ProducerPurchaseEntity e) {
+    private static java.util.List<PurchaseWeighingView> weighingsOf(ProducerPurchaseEntity e) {
+        if (e.weighings == null || e.weighings.isEmpty()) return java.util.List.of();
+        return e.weighings.stream().map(PurchaseWeighingView::from).toList();
+    }
+
+    private static ProducerPurchaseCancellationView cancellationOf(ProducerPurchaseEntity e) {
         if (e.cancellation == null) return null;
-        return new CancellationView(
+        return new ProducerPurchaseCancellationView(
                 e.cancellation.reason,
                 e.cancellation.cancelledByEmail,
                 e.cancellation.cancelledAt,
                 e.cancellation.reversalPieceRef,
-                e.cancellation.advanceCreditedBackFcfa,
-                e.cancellation.creditRestoredFcfa);
+                e.cancellation.advanceCreditedBack,
+                e.cancellation.creditRestored);
     }
 
     /** Reçus antérieurs au paiement partiel : payé = dû. */
     private static BigDecimal paid(ProducerPurchaseEntity e) {
-        return e.amountPaidFcfa != null ? e.amountPaidFcfa : e.amountFcfa;
+        return e.amountPaid != null ? e.amountPaid : e.amount;
     }
 
     /**
@@ -109,8 +118,8 @@ public record ProducerPurchaseResponseDto(
      * retenues. Une retenue n'est pas un impayé, c'est un remboursement.
      */
     private static BigDecimal remainder(ProducerPurchaseEntity e) {
-        if (e.amountFcfa == null) return BigDecimal.ZERO;
-        return e.amountFcfa.subtract(paid(e)).subtract(nz(e.creditImputedFcfa));
+        if (e.amount == null) return BigDecimal.ZERO;
+        return e.amount.subtract(paid(e)).subtract(nz(e.creditImputed));
     }
 
     private static BigDecimal nz(BigDecimal v) {

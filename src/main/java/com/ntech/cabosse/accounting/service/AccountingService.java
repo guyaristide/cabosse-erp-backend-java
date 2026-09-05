@@ -172,8 +172,8 @@ public class AccountingService {
         q.date = effective;
         q.libelle = request.libelle();
         q.entries = new java.util.ArrayList<>(request.entries());
-        q.totalDebitFcfa = sumSide(request.entries(), true);
-        q.totalCreditFcfa = sumSide(request.entries(), false);
+        q.totalDebit = sumSide(request.entries(), true);
+        q.totalCredit = sumSide(request.entries(), false);
         q.lockedPeriod = period;
         q.status = QuarantineStatus.PENDING;
         q.createdAt = java.time.Instant.now();
@@ -184,7 +184,7 @@ public class AccountingService {
     private static BigDecimal sumSide(List<JournalEntry> entries, boolean debit) {
         BigDecimal total = BigDecimal.ZERO;
         for (JournalEntry e : entries) {
-            BigDecimal v = debit ? e.debitFcfa : e.creditFcfa;
+            BigDecimal v = debit ? e.debit : e.credit;
             if (v != null) total = total.add(v);
         }
         return total;
@@ -223,8 +223,8 @@ public class AccountingService {
         BigDecimal totalDebit = BigDecimal.ZERO;
         BigDecimal totalCredit = BigDecimal.ZERO;
         for (JournalEntry e : request.entries()) {
-            BigDecimal d = e.debitFcfa;
-            BigDecimal c = e.creditFcfa;
+            BigDecimal d = e.debit;
+            BigDecimal c = e.credit;
             if ((d != null && c != null) || (d == null && c == null)) {
                 throw new BusinessException(Messages.msg(
                         "m.acc-entry-debit-or-credit", e.syscohadaAccount));
@@ -278,8 +278,8 @@ public class AccountingService {
         piece.sourceRef = request.sourceRef();
         piece.libelle = request.libelle();
         piece.entries = new ArrayList<>(request.entries());
-        piece.totalDebitFcfa = totalDebit;
-        piece.totalCreditFcfa = totalCredit;
+        piece.totalDebit = totalDebit;
+        piece.totalCredit = totalCredit;
         piece.createdAt = Instant.now();
         piece.createdBy = actorUserId();
         piece.createdByEmail = null;
@@ -321,10 +321,10 @@ public class AccountingService {
 
         List<JournalEntry> mirrored = new ArrayList<>(src.entries.size());
         for (JournalEntry e : src.entries) {
-            if (e.debitFcfa != null) {
-                mirrored.add(JournalEntry.credit(e.syscohadaAccount, e.libelle, e.debitFcfa));
+            if (e.debit != null) {
+                mirrored.add(JournalEntry.credit(e.syscohadaAccount, e.libelle, e.debit));
             } else {
-                mirrored.add(JournalEntry.debit(e.syscohadaAccount, e.libelle, e.creditFcfa));
+                mirrored.add(JournalEntry.debit(e.syscohadaAccount, e.libelle, e.credit));
             }
         }
         String libelle = "Contre-passation " + src.ref
@@ -402,7 +402,7 @@ public class AccountingService {
         java.util.Map<String, String[]> groupMeta = new java.util.HashMap<>();
         BigDecimal sumHt = BigDecimal.ZERO;
         for (SaleLine line : sale.lines) {
-            BigDecimal lineHt = nz(line.lineTotalHtFcfa);
+            BigDecimal lineHt = nz(line.lineTotalHt);
             if (lineHt.signum() == 0) continue;
             String[] apg = articleCache.computeIfAbsent(line.articleId, id -> {
                 if (id == null) {
@@ -553,15 +553,49 @@ public class AccountingService {
                 "Crédit producteur " + ref + " : " + nullSafe(memberName), entries));
     }
 
+    /**
+     * Règlement du reliquat créditeur d'un compte d'avance (CE-187) :
+     * l'écriture de l'expert, compte d'avance au débit (« solde compte
+     * avances faites au délégué »), trésorerie du moyen réel au crédit,
+     * la référence du règlement portée sur les libellés pour que le
+     * rapprochement la retrouve.
+     */
+    public Optional<JournalPieceEntity> postFromAdvanceRefund(
+            UUID refundId, String ref, String delegateName,
+            String partyAccount, String treasuryAccount,
+            BigDecimal amount, BigDecimal bankFees, LocalDate date, String paymentRef) {
+        if (amount == null || amount.signum() <= 0) return Optional.empty();
+        String settlement = paymentRef != null ? " (" + paymentRef + ")" : "";
+        List<JournalEntry> entries = withBankFees(List.of(
+                JournalEntry.debit(partyAccount,
+                        "Solde compte avances " + nullSafe(delegateName) + settlement, amount),
+                JournalEntry.credit(treasuryAccount,
+                        "Règlement reliquat " + ref + settlement, amount)),
+                bankFees, treasuryAccount, ref);
+        return postPiece(new PostingRequest(
+                date != null ? date : LocalDate.now(),
+                PostingSourceType.ADVANCE_REFUND, refundId, ref,
+                "Reliquat d'avance " + ref + " : " + nullSafe(delegateName), entries));
+    }
+
+    /**
+     * @param partyAccount compte d'avance propre au délégué, quand sa fiche
+     *                     en porte un. Absent : le compte collectif du
+     *                     tenant. Une avance ne se bloque pas parce qu'une
+     *                     fiche est incomplète.
+     */
     public Optional<JournalPieceEntity> postFromCollectorAdvance(
             UUID advanceId, String ref, String delegateLabel, BigDecimal amount,
             com.ntech.cabosse.reception.entity.PaymentMethod method,
-            UUID bankAccountId, BigDecimal bankFees, LocalDate date) {
+            UUID bankAccountId, BigDecimal bankFees, LocalDate date, String partyAccount) {
         if (amount == null || amount.signum() <= 0) return Optional.empty();
-        String advanceAccount = preferencesLookup.current().collectorAdvanceAccount();
+        String advanceAccount = partyAccount != null && !partyAccount.isBlank()
+                ? partyAccount.trim()
+                : preferencesLookup.current().collectorAdvanceAccount();
         String treasury = treasuryAccountFor(method, bankAccountId);
         List<JournalEntry> entries = withBankFees(List.of(
-                JournalEntry.debit(advanceAccount, "Avance " + nullSafe(delegateLabel), amount),
+                JournalEntry.debit(advanceAccount,
+                        "Avances faite au " + nullSafe(delegateLabel), amount),
                 JournalEntry.credit(treasury, "Décaissement avance " + ref, amount)),
                 bankFees, treasury, ref);
         return postPiece(new PostingRequest(
@@ -676,6 +710,27 @@ public class AccountingService {
                 date != null ? date : LocalDate.now(),
                 PostingSourceType.COMMODITY_SALE, saleId, ref,
                 "Vente en gros " + ref + " : " + nullSafe(customerName), entries));
+    }
+
+    /**
+     * Encaissement client sur une vente négoce (CE-194, page 3 du modèle
+     * de l'expert) : trésorerie du moyen réel au débit, client au crédit,
+     * la référence du chèque ou du virement sur les libellés. Un règlement
+     * partiel laisse le solde au 411.
+     */
+    public Optional<JournalPieceEntity> postFromCommoditySalePayment(
+            UUID paymentId, String saleRef, String customerName,
+            String treasuryAccount, BigDecimal amount, LocalDate date, String paymentRef) {
+        if (amount == null || amount.signum() <= 0) return Optional.empty();
+        String settlement = paymentRef != null ? " (" + paymentRef + ")" : "";
+        List<JournalEntry> entries = List.of(
+                JournalEntry.debit(treasuryAccount, "Encaissement " + saleRef + settlement, amount),
+                JournalEntry.credit(SyscohadaAccounts.CLIENTS,
+                        "Règlement client " + nullSafe(customerName) + settlement, amount));
+        return postPiece(new PostingRequest(
+                date != null ? date : LocalDate.now(),
+                PostingSourceType.COMMODITY_SALE_PAYMENT, paymentId, saleRef,
+                "Encaissement vente " + saleRef + " : " + nullSafe(customerName), entries));
     }
 
     public Optional<JournalPieceEntity> postFromCollectorDelivery(
@@ -839,18 +894,18 @@ public class AccountingService {
         Map<UUID, String> ccCache = new java.util.HashMap<>();
         Map<String, com.ntech.cabosse.analytics.entity.CostCenterEntity> centersByCode = costCenters.byCode();
         BigDecimal vatRate = nz(bc.vatRatePct);
-        BigDecimal totalTtc = nz(bc.totalTtcFcfa);
+        BigDecimal totalTtc = nz(bc.totalTtc);
 
-        if (vatRecoverable && vatRate.signum() > 0 && nz(bc.vatFcfa).signum() > 0) {
+        if (vatRecoverable && vatRate.signum() > 0 && nz(bc.vat).signum() > 0) {
             // Débit TVA déductible globale (compte paramétrable, défaut 44566)
             entries.add(JournalEntry.debit(
                     preferencesLookup.current().vatDeductibleAccount(),
                     "TVA déductible " + vatRate + "%",
-                    nz(bc.vatFcfa)
+                    nz(bc.vat)
             ));
             // Débit comptes de charges = HT par ligne
             for (PurchaseOrderLine line : bc.lines) {
-                BigDecimal lineHt = nz(line.totalLineFcfa);
+                BigDecimal lineHt = nz(line.totalLine);
                 if (lineHt.signum() == 0) continue;
                 String account = chargeAccountFor(line.articleId, parseArticleType(line.articleType), accountCache);
                 entries.add(imputeCharge(JournalEntry.debit(account, libelleLine(line), lineHt),
@@ -864,7 +919,7 @@ public class AccountingService {
             BigDecimal sumEnriched = BigDecimal.ZERO;
             List<JournalEntry> lineEntries = new ArrayList<>();
             for (PurchaseOrderLine line : bc.lines) {
-                BigDecimal lineHt = nz(line.totalLineFcfa);
+                BigDecimal lineHt = nz(line.totalLine);
                 if (lineHt.signum() == 0) continue;
                 BigDecimal enriched = lineHt.multiply(coefficient).setScale(MONEY_SCALE, RoundingMode.HALF_UP);
                 sumEnriched = sumEnriched.add(enriched);
@@ -876,7 +931,7 @@ public class AccountingService {
             if (!lineEntries.isEmpty() && sumEnriched.compareTo(totalTtc) != 0) {
                 JournalEntry last = lineEntries.get(lineEntries.size() - 1);
                 BigDecimal diff = totalTtc.subtract(sumEnriched);
-                last.debitFcfa = last.debitFcfa.add(diff);
+                last.debit = last.debit.add(diff);
             }
             entries.addAll(lineEntries);
         }
@@ -913,7 +968,7 @@ public class AccountingService {
         BigDecimal totalCharge = BigDecimal.ZERO;
         BigDecimal totalDue = BigDecimal.ZERO;
         for (DirectReceiptLine line : rd.lines) {
-            BigDecimal lineHt = nz(line.totalLineFcfa);
+            BigDecimal lineHt = nz(line.totalLine);
             if (lineHt.signum() == 0) continue;
             BigDecimal lineTtc = lineHt.multiply(coefficient).setScale(MONEY_SCALE, RoundingMode.HALF_UP);
             totalCharge = totalCharge.add(vatRecoverable ? lineHt : lineTtc);
@@ -960,9 +1015,9 @@ public class AccountingService {
      */
     public Optional<JournalPieceEntity> postFromSale(SaleEntity sale) {
         List<JournalEntry> entries = new ArrayList<>();
-        BigDecimal ht = nz(sale.subtotalHtFcfa).subtract(nz(sale.discountFcfa));
-        BigDecimal vat = nz(sale.vatFcfa);
-        BigDecimal ttc = nz(sale.totalTtcFcfa);
+        BigDecimal ht = nz(sale.subtotalHt).subtract(nz(sale.discount));
+        BigDecimal vat = nz(sale.vat);
+        BigDecimal ttc = nz(sale.totalTtc);
 
         entries.add(JournalEntry.debit(
                 SyscohadaAccounts.CLIENTS,
@@ -997,8 +1052,8 @@ public class AccountingService {
     public Optional<JournalPieceEntity> postFromSalePayment(SaleEntity sale, SalePayment payment) {
         String treasury = treasuryAccountFor(payment.method);
         List<JournalEntry> entries = List.of(
-                JournalEntry.debit(treasury, "Encaissement " + sale.ref, nz(payment.amountFcfa)),
-                JournalEntry.credit(SyscohadaAccounts.CLIENTS, "Apurement " + nullSafe(sale.customerName), nz(payment.amountFcfa))
+                JournalEntry.debit(treasury, "Encaissement " + sale.ref, nz(payment.amount)),
+                JournalEntry.credit(SyscohadaAccounts.CLIENTS, "Apurement " + nullSafe(sale.customerName), nz(payment.amount))
         );
         return postPiece(new PostingRequest(
                 payment.paidOn != null ? payment.paidOn : LocalDate.now(),
@@ -1033,8 +1088,8 @@ public class AccountingService {
         String treasury = treasuryAccountFor(line.payment.method);
         UUID paymentSurrogateId = directReceiptPaymentSurrogateId(rd.id, line.id);
         List<JournalEntry> entries = List.of(
-                JournalEntry.debit(SyscohadaAccounts.FOURNISSEURS, "Apurement " + nullSafe(line.supplierName), nz(line.payment.amountFcfa)),
-                JournalEntry.credit(treasury, "Décaissement " + rd.ref, nz(line.payment.amountFcfa))
+                JournalEntry.debit(SyscohadaAccounts.FOURNISSEURS, "Apurement " + nullSafe(line.supplierName), nz(line.payment.amount)),
+                JournalEntry.credit(treasury, "Décaissement " + rd.ref, nz(line.payment.amount))
         );
         return postPiece(new PostingRequest(
                 line.payment.paidOn != null ? line.payment.paidOn : LocalDate.now(),
@@ -1048,10 +1103,10 @@ public class AccountingService {
 
     /**
      * Écart de valeur d'inventaire agrégé par nature d'article.
-     * {@code deltaValueFcfa} signé : positif = boni (compté supérieur au
+     * {@code deltaValue} signé : positif = boni (compté supérieur au
      * théorique), négatif = mali.
      */
-    public record InventoryValueDelta(ArticleType articleType, BigDecimal deltaValueFcfa) {}
+    public record InventoryValueDelta(ArticleType articleType, BigDecimal deltaValue) {}
 
     /**
      * Régularisation d'inventaire : pour chaque nature d'article, boni =
@@ -1064,7 +1119,7 @@ public class AccountingService {
                                                                  List<InventoryValueDelta> deltas) {
         List<JournalEntry> entries = new ArrayList<>();
         for (InventoryValueDelta delta : deltas) {
-            BigDecimal value = nz(delta.deltaValueFcfa()).setScale(MONEY_SCALE, RoundingMode.HALF_UP);
+            BigDecimal value = nz(delta.deltaValue()).setScale(MONEY_SCALE, RoundingMode.HALF_UP);
             if (value.signum() == 0) continue;
             String stockAccount = SyscohadaAccounts.stockAccountFor(delta.articleType());
             String variationAccount = SyscohadaAccounts.stockVariationAccountFor(delta.articleType());
@@ -1177,12 +1232,12 @@ public class AccountingService {
      */
     public Optional<JournalPieceEntity> postFromStockReclassification(
             UUID reclassificationId, ArticleType fromType, ArticleType toType,
-            String fromName, String toName, BigDecimal valueFcfa, LocalDate date) {
-        if (valueFcfa == null || valueFcfa.signum() <= 0) return Optional.empty();
+            String fromName, String toName, BigDecimal rawValue, LocalDate date) {
+        if (rawValue == null || rawValue.signum() <= 0) return Optional.empty();
         String fromAccount = SyscohadaAccounts.purchaseChargeAccountFor(fromType);
         String toAccount = SyscohadaAccounts.purchaseChargeAccountFor(toType);
         if (fromAccount.equals(toAccount)) return Optional.empty();
-        BigDecimal value = valueFcfa.setScale(MONEY_SCALE, RoundingMode.HALF_UP);
+        BigDecimal value = rawValue.setScale(MONEY_SCALE, RoundingMode.HALF_UP);
         List<JournalEntry> entries = List.of(
                 JournalEntry.debit(toAccount, "Requalification vers " + nullSafe(toName), value),
                 JournalEntry.credit(fromAccount, "Requalification depuis " + nullSafe(fromName), value)
@@ -1197,14 +1252,14 @@ public class AccountingService {
     public Optional<JournalPieceEntity> postFromStockTransfer(UUID transferId,
                                                               ArticleType articleType,
                                                               String articleName,
-                                                              BigDecimal valueFcfa,
+                                                              BigDecimal rawValue,
                                                               String fromSiteName,
                                                               String toSiteName,
                                                               LocalDate date) {
-        if (valueFcfa == null || valueFcfa.signum() <= 0) return Optional.empty();
+        if (rawValue == null || rawValue.signum() <= 0) return Optional.empty();
         String stockAccount = SyscohadaAccounts.stockAccountFor(articleType);
         if (stockAccount == null) return Optional.empty();
-        BigDecimal value = valueFcfa.setScale(MONEY_SCALE, RoundingMode.HALF_UP);
+        BigDecimal value = rawValue.setScale(MONEY_SCALE, RoundingMode.HALF_UP);
         List<JournalEntry> entries = List.of(
                 JournalEntry.debit(stockAccount,
                         "Stock " + nullSafe(toSiteName) + " : " + nullSafe(articleName), value),
@@ -1248,7 +1303,7 @@ public class AccountingService {
         Map<String, BigDecimal> outflow = new HashMap<>();
         for (JournalEntry e : request.entries()) {
             if (e.syscohadaAccount == null) continue;
-            BigDecimal net = nz(e.creditFcfa).subtract(nz(e.debitFcfa));
+            BigDecimal net = nz(e.credit).subtract(nz(e.debit));
             if (net.signum() == 0) continue;
             outflow.merge(e.syscohadaAccount, net, BigDecimal::add);
         }

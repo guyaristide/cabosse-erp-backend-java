@@ -4,7 +4,7 @@ package com.ntech.cabosse.producerpurchase.entity;
  * État d'un reçu d'achat producteur.
  *
  * <p>Volontairement binaire. Le règlement d'un reçu se lit déjà dans les
- * montants ({@code amountPaidFcfa}, {@code creditImputedFcfa}), et en
+ * montants ({@code amountPaid}, {@code creditImputed}), et en
  * faire un statut obligerait à le maintenir en double. Le seul état qui
  * ne se déduit d'aucun montant est l'annulation.</p>
  */

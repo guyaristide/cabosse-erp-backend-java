@@ -144,7 +144,8 @@ public class TenantTechnicalService {
             new MigrationDescriptor("narrow_system_accounts", "080", "neiba"),
             new MigrationDescriptor("grant_audit_read_to_admin_profiles", "081", "neiba"),
             new MigrationDescriptor("keep_administrator_profile_complete", "082", "neiba"),
-            new MigrationDescriptor("scope_notification_providers", "083", "neiba")
+            new MigrationDescriptor("scope_notification_providers", "083", "neiba"),
+            new MigrationDescriptor("drop_fcfa_from_field_names", "084", "neiba")
     );
 
     /** Fréquence de backup par plan tarifaire (cf. plans.json catalogue). */
@@ -273,8 +274,20 @@ public class TenantTechnicalService {
                 Boolean systemChange = doc.getBoolean("systemChange");
                 if (Boolean.TRUE.equals(systemChange)) continue;
                 if (changeId.startsWith("system-change-")) continue;
-                // On garde la première entrée vue (la plus récente grâce au tri).
-                latestByChangeId.putIfAbsent(changeId, doc);
+                // La plus récente entrée qui dit quelque chose, et non la
+                // plus récente tout court.
+                //
+                // À chaque relance, Mongock réinscrit en IGNORED tout
+                // changeUnit déjà appliqué. Garder cette entrée-là faisait
+                // basculer des dizaines de migrations de « appliquée » à
+                // « ignorée » : l'agent qui venait de cliquer sur
+                // « relancer » lisait que la base avait perdu ses
+                // migrations, et cliquait de nouveau. Une exécution passée
+                // ne s'efface pas parce qu'on a rejoué par-dessus.
+                Document kept = latestByChangeId.get(changeId);
+                if (kept == null || (!decisive(kept) && decisive(doc))) {
+                    latestByChangeId.put(changeId, doc);
+                }
             }
         } catch (RuntimeException ignored) {
             // mongockChangeLog n'existe pas encore — base jamais migrée.
@@ -330,6 +343,19 @@ public class TenantTechnicalService {
                 durationMs,
                 errorMessage
         );
+    }
+
+    /**
+     * L'entrée porte-t-elle un verdict sur la migration ?
+     *
+     * <p>Une exécution et un échec en portent un. Un IGNORED n'en porte
+     * pas : il dit seulement que Mongock est repassé et n'a rien eu à
+     * faire, ce qui n'apprend rien sur l'état de la base.</p>
+     */
+    private static boolean decisive(Document log) {
+        String state = log.getString("state");
+        return "EXECUTED".equals(state) || "FAILED".equals(state)
+                || "ROLLED_BACK".equals(state) || "ROLLBACK_FAILED".equals(state);
     }
 
     private static String mapMongockState(String state) {

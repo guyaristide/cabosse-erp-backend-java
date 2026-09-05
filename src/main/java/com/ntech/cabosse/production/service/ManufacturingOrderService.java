@@ -215,15 +215,15 @@ public class ManufacturingOrderService {
         Instant when = Instant.now();
         for (ConsumptionLine line : e.consumptionLines) {
             BigDecimal cmupNow = stockItems.findByArticleAndSite(line.articleId, e.siteId)
-                    .map(it -> it.cmupFcfa)
+                    .map(it -> it.cmup)
                     .orElse(BigDecimal.ZERO);
-            line.cmupAtConsumptionFcfa = cmupNow;
-            line.totalCostFcfa = line.consumedQty
+            line.cmupAtConsumption = cmupNow;
+            line.totalCost = line.consumedQty
                     .multiply(cmupNow)
                     .setScale(4, RoundingMode.HALF_UP);
-            totalCost = totalCost.add(line.totalCostFcfa);
+            totalCost = totalCost.add(line.totalCost);
         }
-        e.totalMaterialCostFcfa = totalCost;
+        e.totalMaterialCost = totalCost;
         e.startedAt = when;
         e.status = OfStatus.IN_PROGRESS;
 
@@ -248,7 +248,7 @@ public class ManufacturingOrderService {
             stockService.applyMovement(new MovementInput(
                     line.articleId, e.siteId,
                     MovementKind.OUT,
-                    line.consumedQty, line.cmupAtConsumptionFcfa,
+                    line.consumedQty, line.cmupAtConsumption,
                     MovementSource.PRODUCTION, e.ref, e.id,
                     null, "Consommation OF " + e.ref,
                     null, when, /* force */ !blockOnShortage
@@ -324,10 +324,10 @@ public class ManufacturingOrderService {
         }
 
         // CMUP du PF = coût matière total / qté produite
-        BigDecimal cmupPF = e.totalMaterialCostFcfa
+        BigDecimal cmupPF = e.totalMaterialCost
                 .divide(producedQty, 4, RoundingMode.HALF_UP);
         e.producedQty = producedQty;
-        e.cmupAtCompletionFcfa = cmupPF;
+        e.cmupAtCompletion = cmupPF;
 
         // KPIs production (optionnels — alimentent les rapports)
         e.actualDurationHours = payload.actualDurationHours();
@@ -386,7 +386,7 @@ public class ManufacturingOrderService {
                 stockService.applyMovement(new MovementInput(
                         line.articleId, e.siteId,
                         MovementKind.IN,
-                        line.consumedQty, line.cmupAtConsumptionFcfa,
+                        line.consumedQty, line.cmupAtConsumption,
                         MovementSource.PRODUCTION, e.ref, e.id,
                         null, "Contre-passation OF " + e.ref + " : " + reason,
                         null, when, true
@@ -397,7 +397,7 @@ public class ManufacturingOrderService {
             stockService.applyMovement(new MovementInput(
                     e.finishedProductId, e.siteId,
                     MovementKind.OUT,
-                    e.producedQty, e.cmupAtCompletionFcfa,
+                    e.producedQty, e.cmupAtCompletion,
                     MovementSource.PRODUCTION, e.ref, e.id,
                     null, "Contre-passation OF " + e.ref + " : " + reason,
                     null, when, true, e.lotRef

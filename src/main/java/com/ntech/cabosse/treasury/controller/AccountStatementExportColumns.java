@@ -2,7 +2,7 @@ package com.ntech.cabosse.treasury.controller;
 
 import com.ntech.cabosse.shared.export.ExportColumn;
 import com.ntech.cabosse.shared.i18n.Messages;
-import com.ntech.cabosse.treasury.dto.AccountStatementDtos.MovementDto;
+import com.ntech.cabosse.treasury.dto.MovementDto;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -25,10 +25,10 @@ final class AccountStatementExportColumns {
                 ExportColumn.of(Messages.msg("m.imp-h-libelle"), MovementDto::libelle),
                 ExportColumn.of(Messages.msg("m.imp-h-operation"), MovementDto::sourceType),
                 ExportColumn.of(Messages.msg("m.imp-h-reference-source"), MovementDto::sourceRef),
-                ExportColumn.of(Messages.msg("m.imp-h-entree-fcfa"),
-                        m -> "IN".equals(m.direction()) ? m.amountFcfa() : BigDecimal.ZERO),
-                ExportColumn.of(Messages.msg("m.imp-h-sortie-fcfa"),
-                        m -> "OUT".equals(m.direction()) ? m.amountFcfa() : BigDecimal.ZERO),
-                ExportColumn.of(Messages.msg("m.imp-h-solde-progressif"), MovementDto::balanceFcfa));
+                ExportColumn.of(Messages.msg("m.imp-h-entree-amount"),
+                        m -> "IN".equals(m.direction()) ? m.amount() : BigDecimal.ZERO),
+                ExportColumn.of(Messages.msg("m.imp-h-sortie-amount"),
+                        m -> "OUT".equals(m.direction()) ? m.amount() : BigDecimal.ZERO),
+                ExportColumn.of(Messages.msg("m.imp-h-solde-progressif"), MovementDto::balance));
     }
 }

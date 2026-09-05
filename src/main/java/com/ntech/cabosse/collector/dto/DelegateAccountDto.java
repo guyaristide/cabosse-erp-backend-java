@@ -12,7 +12,7 @@ import java.util.UUID;
  *
  * <p>La coopérative lui avance des fonds plusieurs fois et il livre entre
  * les versements : le solde oscille dans les deux sens jusqu'au décompte de
- * fin de campagne. {@link #balanceFcfa()} est exprimé du point de vue de la
+ * fin de campagne. {@link #balance()} est exprimé du point de vue de la
  * coopérative : positif, le délégué doit encore livrer ; négatif, elle lui
  * doit de l'argent. Les versements faits en règlement des livraisons entrent
  * dans ce solde au même titre que les avances : ce sont des fonds sortis
@@ -34,24 +34,24 @@ public record DelegateAccountDto(
          * délégué doit encore à la coopérative ; négatif : elle lui doit.
          * Null quand aucune campagne antérieure n'existe.
          */
-        BigDecimal previousBalanceFcfa,
+        BigDecimal previousBalance,
         /** (B) Avances consenties sur la campagne en cours. */
-        BigDecimal totalAdvancedFcfa,
+        BigDecimal totalAdvanced,
         /** (C) = A + B, ce que le délégué a en main. */
-        BigDecimal grossBalanceFcfa,
+        BigDecimal grossBalance,
         /** (D) Poids net livré, en kilos. */
         BigDecimal totalWeightKg,
         /** (E) = F / D, prix moyen d'achat aux producteurs. */
-        BigDecimal averagePricePerKgFcfa,
+        BigDecimal averagePricePerKg,
         /** (F) Valeur du cacao livré. */
-        BigDecimal totalDeliveredFcfa,
-        BigDecimal totalMarginFcfa,
+        BigDecimal totalDelivered,
+        BigDecimal totalMargin,
         /** (G) Mise en compte retenue sur les livraisons. */
-        BigDecimal totalRetentionFcfa,
+        BigDecimal totalRetention,
         /** Versements faits au délégué en règlement de ses livraisons. */
-        BigDecimal totalPaidFcfa,
+        BigDecimal totalPaid,
         /** (H) = C − (F + G), ce qu'il reste à apurer. */
-        BigDecimal netBalanceFcfa,
+        BigDecimal netBalance,
         /**
          * (I) = H / C. Part du solde brut qui reste à apurer, exprimée en
          * pourcentage. Null quand le solde brut est nul, faute de
@@ -63,27 +63,27 @@ public record DelegateAccountDto(
          * suit pas la formule de l'état récapitulatif et reste exposé pour
          * l'écran de compte courant, qui le montre depuis l'origine.
          */
-        BigDecimal balanceFcfa,
+        BigDecimal balance,
         List<AdvanceLine> advances,
         List<PaymentLine> payments,
         List<DeliveryNote> deliveryNotes
 ) {
     public record AdvanceLine(
             UUID id, String ref, LocalDate date,
-            BigDecimal amountFcfa, BigDecimal remainingFcfa, String status) {}
+            BigDecimal amount, BigDecimal remaining, String status) {}
 
     public record PaymentLine(
-            UUID id, String ref, LocalDate date, BigDecimal amountFcfa,
+            UUID id, String ref, LocalDate date, BigDecimal amount,
             String paymentMethod, String paymentRef, int allocationCount) {}
 
     public record DeliveryNote(
             String deliveryRef, LocalDate date, int receiptCount,
-            BigDecimal weightKg, BigDecimal amountFcfa, BigDecimal marginFcfa,
-            BigDecimal retentionFcfa,
+            BigDecimal weightKg, BigDecimal amount, BigDecimal margin,
+            BigDecimal retention,
             List<Receipt> receipts) {}
 
     public record Receipt(
             UUID id, String ref, String officialReceiptRef, String producerName,
-            LocalDate date, BigDecimal weightKg, BigDecimal amountFcfa, BigDecimal marginFcfa,
-            BigDecimal retentionFcfa) {}
+            LocalDate date, BigDecimal weightKg, BigDecimal amount, BigDecimal margin,
+            BigDecimal retention) {}
 }

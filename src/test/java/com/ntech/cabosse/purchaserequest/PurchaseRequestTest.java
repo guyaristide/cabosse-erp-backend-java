@@ -74,7 +74,7 @@ class PurchaseRequestTest extends AbstractIntegrationTest {
                 .contentType("application/json")
                 .body("""
                         { "requestDate": "%s", %s "justification": "Besoin campagne",
-                          "lines": [ { "articleId": "%s", "quantity": %d, "estimatedUnitPriceFcfa": %d } ] }
+                          "lines": [ { "articleId": "%s", "quantity": %d, "estimatedUnitPrice": %d } ] }
                         """.formatted(LocalDate.now(), supplierField, articleId, qty, pu))
                 .when().post("/api/v1/purchase-requests")
                 .then().statusCode(201).extract().path("data.id");
@@ -127,7 +127,7 @@ class PurchaseRequestTest extends AbstractIntegrationTest {
 
         // Active le circuit avec un seuil bas.
         givenAs(admin).contentType("application/json")
-                .body("{\"purchaseRequestEnabled\":true,\"purchaseRequestThresholdFcfa\":10000}")
+                .body("{\"purchaseRequestEnabled\":true,\"purchaseRequestThreshold\":10000}")
                 .when().put("/api/v1/me/tenant/preferences")
                 .then().statusCode(200)
                 .body("data.purchaseRequestEnabled", equalTo(true));
@@ -136,7 +136,7 @@ class PurchaseRequestTest extends AbstractIntegrationTest {
         String bcId = givenAs(admin).contentType("application/json")
                 .body("""
                         { "supplierId": "%s", "orderDate": "%s", "vatRatePct": 0,
-                          "lines": [ { "articleId": "%s", "quantity": 1, "unitPriceFcfa": 500000 } ] }
+                          "lines": [ { "articleId": "%s", "quantity": 1, "unitPrice": 500000 } ] }
                         """.formatted(supplierId, LocalDate.now(), articleId))
                 .when().post("/api/v1/purchase-orders")
                 .then().statusCode(201).extract().path("data.id");
@@ -168,7 +168,7 @@ class PurchaseRequestTest extends AbstractIntegrationTest {
         String bcId = givenAs(admin).contentType("application/json")
                 .body("""
                         { "supplierId": "%s", "orderDate": "%s", "vatRatePct": 0,
-                          "lines": [ { "articleId": "%s", "quantity": 1, "unitPriceFcfa": 999999 } ] }
+                          "lines": [ { "articleId": "%s", "quantity": 1, "unitPrice": 999999 } ] }
                         """.formatted(supplierId, LocalDate.now(), articleId))
                 .when().post("/api/v1/purchase-orders")
                 .then().statusCode(201).extract().path("data.id");

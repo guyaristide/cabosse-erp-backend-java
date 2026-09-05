@@ -203,7 +203,7 @@ public class CollectorAdvanceResource {
      * avec lui, et la conversion entre volume et montant dans les deux
      * sens.
      *
-     * <p>{@code volumeKg} donne le montant à avancer, {@code amountFcfa}
+     * <p>{@code volumeKg} donne le montant à avancer, {@code amount}
      * donne le volume que cette somme représente. Le second est le cas
      * courant : le délégué demande de l'argent, pas un tonnage.</p>
      */
@@ -212,9 +212,9 @@ public class CollectorAdvanceResource {
     public Response delegateTerms(@PathParam("supplierId") UUID supplierId,
                                   @QueryParam("campaignId") UUID campaignId,
                                   @QueryParam("volumeKg") java.math.BigDecimal volumeKg,
-                                  @QueryParam("amountFcfa") java.math.BigDecimal amountFcfa) {
+                                  @QueryParam("amount") java.math.BigDecimal amount) {
         return Response.ok(ApiResponse.ok(
-                accountService.terms(supplierId, campaignId, volumeKg, amountFcfa))).build();
+                accountService.terms(supplierId, campaignId, volumeKg, amount))).build();
     }
 
     @GET

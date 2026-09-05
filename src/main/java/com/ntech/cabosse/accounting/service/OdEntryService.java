@@ -52,8 +52,8 @@ public class OdEntryService {
     @Inject com.ntech.cabosse.tenant.service.TenantPreferencesLookup preferences;
 
     public record OdLineInput(String account, String libelle,
-                              java.math.BigDecimal debitFcfa,
-                              java.math.BigDecimal creditFcfa,
+                              java.math.BigDecimal debit,
+                              java.math.BigDecimal credit,
                               String costCenter, String program, String project) {}
 
     // ─── Lecture ────────────────────────────────────────────────────
@@ -228,15 +228,15 @@ public class OdEntryService {
         List<JournalEntry> entries = new ArrayList<>();
         if (lines == null) return entries;
         for (OdLineInput line : lines) {
-            boolean hasDebit = line.debitFcfa() != null && line.debitFcfa().signum() != 0;
-            boolean hasCredit = line.creditFcfa() != null && line.creditFcfa().signum() != 0;
+            boolean hasDebit = line.debit() != null && line.debit().signum() != 0;
+            boolean hasCredit = line.credit() != null && line.credit().signum() != 0;
             if (!hasDebit && !hasCredit) continue; // ligne vide ignorée
             if (hasDebit && hasCredit) {
                 throw new BusinessException(Messages.msg(
                         "m.acc-od-debit-or-credit", line.account()));
             }
-            if ((hasDebit && line.debitFcfa().signum() < 0)
-                    || (hasCredit && line.creditFcfa().signum() < 0)) {
+            if ((hasDebit && line.debit().signum() < 0)
+                    || (hasCredit && line.credit().signum() < 0)) {
                 throw new BusinessException(Messages.msg("m.acc-od-negative-amount", line.account()));
             }
             if (line.account() == null || line.account().isBlank()) {
@@ -245,8 +245,8 @@ public class OdEntryService {
             String label = line.libelle() != null && !line.libelle().isBlank()
                     ? line.libelle().trim() : "OD";
             JournalEntry entry = hasDebit
-                    ? JournalEntry.debit(line.account().trim(), label, line.debitFcfa())
-                    : JournalEntry.credit(line.account().trim(), label, line.creditFcfa());
+                    ? JournalEntry.debit(line.account().trim(), label, line.debit())
+                    : JournalEntry.credit(line.account().trim(), label, line.credit());
             entries.add(entry.costCenter(line.costCenter()).program(line.program(), line.project()));
         }
         return entries;

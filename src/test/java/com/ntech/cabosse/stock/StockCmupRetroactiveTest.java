@@ -89,7 +89,7 @@ class StockCmupRetroactiveTest extends AbstractIntegrationTest {
                 .contentType("application/json")
                 .body("""
                         { "siteId": "%s", "occurredAt": "%s",
-                          "lines": [ { "articleId": "%s", "quantity": %d, "unitPriceFcfa": %d } ] }
+                          "lines": [ { "articleId": "%s", "quantity": %d, "unitPrice": %d } ] }
                         """.formatted(siteId, occurredAt, articleId, qty, unitPrice))
                 .when().post("/api/v1/stocks/opening")
                 .then().statusCode(201);
@@ -101,7 +101,7 @@ class StockCmupRetroactiveTest extends AbstractIntegrationTest {
                 .append("\", \"siteId\": \"").append(siteId)
                 .append("\", \"kind\": \"").append(kind)
                 .append("\", \"quantity\": ").append(quantity);
-        if (unitPrice != null) body.append(", \"unitPriceFcfa\": ").append(unitPrice);
+        if (unitPrice != null) body.append(", \"unitPrice\": ").append(unitPrice);
         if (occurredAt != null) body.append(", \"occurredAt\": \"").append(occurredAt).append("\"");
         if ("ADJUSTMENT".equals(kind)) body.append(", \"reason\": \"test\"");
         body.append(" }");
@@ -150,7 +150,7 @@ class StockCmupRetroactiveTest extends AbstractIntegrationTest {
 
         JsonPath stock = stockOf(admin, articleId, siteId);
         assertEquals(90f, f(stock.get("data.quantity")), 0.0001f);
-        assertEquals(600f, f(stock.get("data.cmupFcfa")), 0.0001f);
+        assertEquals(600f, f(stock.get("data.cmup")), 0.0001f);
 
         // Les instantanés du journal sont réécrits dans l'ordre des dates :
         // la sortie est désormais valorisée au CMUP chronologique (600).
@@ -158,14 +158,14 @@ class StockCmupRetroactiveTest extends AbstractIntegrationTest {
         assertEquals(3, journal.size());
         Map<String, Object> out = journal.stream()
                 .filter(m -> "OUT".equals(m.get("kind"))).findFirst().orElseThrow();
-        assertEquals(600f, f(out.get("unitPriceFcfa")), 0.0001f);
-        assertEquals(600f, f(out.get("cmupAfterFcfa")), 0.0001f);
+        assertEquals(600f, f(out.get("unitPrice")), 0.0001f);
+        assertEquals(600f, f(out.get("cmupAfter")), 0.0001f);
         assertEquals(90f, f(out.get("quantityAfter")), 0.0001f);
-        assertEquals(36000f, f(out.get("totalFcfa")), 0.01f);
+        assertEquals(36000f, f(out.get("total")), 0.01f);
         Map<String, Object> retroIn = journal.stream()
                 .filter(m -> "IN".equals(m.get("kind"))).findFirst().orElseThrow();
         assertEquals(150f, f(retroIn.get("quantityAfter")), 0.0001f);
-        assertEquals(600f, f(retroIn.get("cmupAfterFcfa")), 0.0001f);
+        assertEquals(600f, f(retroIn.get("cmupAfter")), 0.0001f);
     }
 
     @Test
@@ -191,8 +191,8 @@ class StockCmupRetroactiveTest extends AbstractIntegrationTest {
         JsonPath sa = stockOf(admin, a, siteId);
         JsonPath sb = stockOf(admin, b, siteId);
         assertEquals(f(sa.get("data.quantity")), f(sb.get("data.quantity")), 0.0001f);
-        assertEquals(f(sa.get("data.cmupFcfa")), f(sb.get("data.cmupFcfa")), 0.0001f);
-        assertEquals(600f, f(sb.get("data.cmupFcfa")), 0.0001f);
+        assertEquals(f(sa.get("data.cmup")), f(sb.get("data.cmup")), 0.0001f);
+        assertEquals(600f, f(sb.get("data.cmup")), 0.0001f);
     }
 
     @Test
@@ -249,7 +249,7 @@ class StockCmupRetroactiveTest extends AbstractIntegrationTest {
 
         JsonPath stock = stockOf(admin, articleId, siteId);
         assertEquals(qty.floatValue(), f(stock.get("data.quantity")), 0.0001f);
-        assertEquals(cmup.floatValue(), f(stock.get("data.cmupFcfa")), 0.001f);
+        assertEquals(cmup.floatValue(), f(stock.get("data.cmup")), 0.001f);
 
         // Le dernier instantané chronologique du journal porte le même état
         // que la position agrégée.
@@ -257,6 +257,6 @@ class StockCmupRetroactiveTest extends AbstractIntegrationTest {
         assertEquals(7, journal.size());
         Map<String, Object> latest = journal.get(0); // tri occurredAt desc
         assertEquals(qty.floatValue(), f(latest.get("quantityAfter")), 0.0001f);
-        assertEquals(cmup.floatValue(), f(latest.get("cmupAfterFcfa")), 0.001f);
+        assertEquals(cmup.floatValue(), f(latest.get("cmupAfter")), 0.001f);
     }
 }

@@ -26,11 +26,11 @@ public record PurchaseOrderResponseDto(
         String invoiceNumber,
         String paymentTerms,
         List<LineDto> lines,
-        BigDecimal subtotalHtFcfa,
-        BigDecimal transportFcfa,
+        BigDecimal subtotalHt,
+        BigDecimal transport,
         BigDecimal vatRatePct,
-        BigDecimal vatFcfa,
-        BigDecimal totalTtcFcfa,
+        BigDecimal vat,
+        BigDecimal totalTtc,
         List<String> activityCodes,
         boolean hasAttachment,
         /** URL relative à utiliser pour récupérer la facture jointe (authentifié). */
@@ -68,16 +68,16 @@ public record PurchaseOrderResponseDto(
             String articleType,
             BigDecimal quantity,
             String unit,
-            BigDecimal unitPriceFcfa,
+            BigDecimal unitPrice,
             BigDecimal discountPct,
-            BigDecimal totalLineFcfa,
+            BigDecimal totalLine,
             List<String> activityCodes
     ) {
         static LineDto from(PurchaseOrderLine l) {
             return new LineDto(
                     l.id, l.articleId, l.articleCode, l.designation, l.articleType,
-                    l.quantity, l.unit, l.unitPriceFcfa, l.discountPct,
-                    l.totalLineFcfa, l.activityCodes
+                    l.quantity, l.unit, l.unitPrice, l.discountPct,
+                    l.totalLine, l.activityCodes
             );
         }
     }
@@ -116,7 +116,7 @@ public record PurchaseOrderResponseDto(
                 e.orderDate, e.deliveryDate, e.invoiceDate, e.invoiceNumber,
                 e.paymentTerms,
                 e.lines == null ? List.of() : e.lines.stream().map(LineDto::from).toList(),
-                e.subtotalHtFcfa, e.transportFcfa, e.vatRatePct, e.vatFcfa, e.totalTtcFcfa,
+                e.subtotalHt, e.transport, e.vatRatePct, e.vat, e.totalTtc,
                 e.activityCodes == null ? List.of() : e.activityCodes,
                 hasAttachment, attachmentUrl,
                 e.notes,

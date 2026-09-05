@@ -175,4 +175,36 @@ class MessageCatalogTest {
                         + "en double, ce message ne passant pas par MessageFormat")
                 .isEmpty();
     }
+
+    /**
+     * La devise ne s'écrit jamais en dur dans un message rendu.
+     *
+     * <p>Règle de la maison, rappelée le 04/09/2026 : c'est un SaaS, la
+     * devise est une préférence du tenant. Un en-tête qui veut la citer
+     * écrit {@code {currency}}, résolu par {@code Messages} sur la devise
+     * de la requête. Vingt-sept messages l'écrivaient en dur.</p>
+     */
+    @Test
+    void no_message_hardcodes_the_currency() throws IOException {
+        List<String> offenders = new ArrayList<>();
+        // Les messages de validation Jakarta comptent aussi : ils ont
+        // échappé au premier passage du 04/09/2026 (« Seuil en FCFA
+        // négatif interdit »). Leur interpolation ne connaît pas
+        // {currency} : un message de validation ne nomme simplement pas
+        // la devise.
+        for (String bundle : List.of("messages.properties", "messages_en.properties",
+                "ValidationMessages.properties", "ValidationMessages_en.properties")) {
+            Properties props = load(bundle);
+            for (String key : props.stringPropertyNames()) {
+                String value = props.getProperty(key);
+                if (value.contains("FCFA") || value.contains("XOF")) {
+                    offenders.add(bundle + " : " + key + " = " + value);
+                }
+            }
+        }
+        assertThat(offenders)
+                .as("devise en dur dans un message : écrire {currency}, résolu sur la "
+                        + "devise du tenant par Messages")
+                .isEmpty();
+    }
 }

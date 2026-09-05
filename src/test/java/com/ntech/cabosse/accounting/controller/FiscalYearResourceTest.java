@@ -87,15 +87,15 @@ class FiscalYearResourceTest extends AbstractIntegrationTest {
         postOd(admin, midYear, """
                 { "date": "%s", "libelle": "Vente cacao",
                   "lines": [
-                    { "account": "411", "libelle": "Client", "debitFcfa": 500000 },
-                    { "account": "701", "libelle": "Vente", "creditFcfa": 500000 }
+                    { "account": "411", "libelle": "Client", "debit": 500000 },
+                    { "account": "701", "libelle": "Vente", "credit": 500000 }
                   ] }
                 """);
         postOd(admin, midYear, """
                 { "date": "%s", "libelle": "Achat cacao",
                   "lines": [
-                    { "account": "601", "libelle": "Achat", "debitFcfa": 200000 },
-                    { "account": "401", "libelle": "Fournisseur", "creditFcfa": 200000 }
+                    { "account": "601", "libelle": "Achat", "debit": 200000 },
+                    { "account": "401", "libelle": "Fournisseur", "credit": 200000 }
                   ] }
                 """);
 
@@ -112,24 +112,24 @@ class FiscalYearResourceTest extends AbstractIntegrationTest {
         givenAs(admin)
                 .when().get("/api/v1/accounting/fiscal-years/preview")
                 .then().statusCode(200)
-                .body("data.resultBeforeTaxFcfa", equalTo(300000))
-                .body("data.proposedTaxFcfa", equalTo(0))
+                .body("data.resultBeforeTax", equalTo(300000))
+                .body("data.proposedTax", equalTo(0))
                 .body("data.unlockedPeriods", equalTo(java.util.List.of()));
 
         // Arrêté avec un en-cours de 50 000 et un impôt de 30 000.
         givenAs(admin)
                 .contentType("application/json")
                 .body("""
-                        { "taxFcfa": 30000,
-                          "wipLines": [ { "label": "OF tablettes en cours", "amountFcfa": 50000 } ] }
+                        { "tax": 30000,
+                          "wipLines": [ { "label": "OF tablettes en cours", "amount": 50000 } ] }
                         """)
                 .when().post("/api/v1/accounting/fiscal-years/close")
                 .then().statusCode(201)
                 .body("data.status", equalTo("ARRETE"))
-                .body("data.resultBeforeTaxFcfa", equalTo(350000))
-                .body("data.taxFcfa", equalTo(30000))
-                .body("data.resultNetFcfa", equalTo(320000))
-                .body("data.wipTotalFcfa", equalTo(50000))
+                .body("data.resultBeforeTax", equalTo(350000))
+                .body("data.tax", equalTo(30000))
+                .body("data.resultNet", equalTo(320000))
+                .body("data.wipTotal", equalTo(50000))
                 .body("data.snapshot.statement", hasItem("BILAN"));
 
         // 2 OD + en-cours + contre-passation + impôt + 2 clôtures = 7 pièces.
@@ -156,7 +156,7 @@ class FiscalYearResourceTest extends AbstractIntegrationTest {
         givenAs(admin)
                 .contentType("application/json")
                 .body("""
-                        { "lines": [ { "account": "121", "amountFcfa": 100000 } ] }
+                        { "lines": [ { "account": "121", "amount": 100000 } ] }
                         """)
                 .when().post("/api/v1/accounting/fiscal-years/" + yearId + "/allocate")
                 .then().statusCode(422);
@@ -166,8 +166,8 @@ class FiscalYearResourceTest extends AbstractIntegrationTest {
                 .contentType("application/json")
                 .body("""
                         { "lines": [
-                            { "account": "101", "amountFcfa": 100000 },
-                            { "account": "121", "amountFcfa": 220000 } ] }
+                            { "account": "101", "amount": 100000 },
+                            { "account": "121", "amount": 220000 } ] }
                         """)
                 .when().post("/api/v1/accounting/fiscal-years/" + yearId + "/allocate")
                 .then().statusCode(200)
@@ -182,7 +182,7 @@ class FiscalYearResourceTest extends AbstractIntegrationTest {
         givenAs(admin)
                 .contentType("application/json")
                 .body("""
-                        { "lines": [ { "account": "121", "amountFcfa": 320000 } ] }
+                        { "lines": [ { "account": "121", "amount": 320000 } ] }
                         """)
                 .when().post("/api/v1/accounting/fiscal-years/" + yearId + "/allocate")
                 .then().statusCode(422);

@@ -238,7 +238,7 @@ public class SaleService {
             stockService.applyMovement(new MovementInput(
                     line.articleId, e.siteId,
                     MovementKind.OUT,
-                    line.quantity, line.cmupAtSaleFcfa,
+                    line.quantity, line.cmupAtSale,
                     MovementSource.SALE, e.ref, e.id,
                     null, "Vente " + e.ref + " · " + e.customerName,
                     null, when, false, line.lotRef
@@ -259,7 +259,7 @@ public class SaleService {
         if (e.status == SaleStatus.QUOTE) {
             throw new BusinessException(Messages.msg("m.sal-quote-no-payment"));
         }
-        BigDecimal amount = payload.amountFcfa();
+        BigDecimal amount = payload.amount();
         if (amount == null || amount.signum() <= 0) {
             throw new BusinessException(Messages.msg("m.sal-amount-positive-required"));
         }
@@ -271,7 +271,7 @@ public class SaleService {
         SalePayment p = new SalePayment();
         p.id = UuidCreator.getTimeOrderedEpoch();
         p.paidOn = payload.paidOn() != null ? payload.paidOn() : LocalDate.now();
-        p.amountFcfa = amount;
+        p.amount = amount;
         p.method = payload.method() != null ? payload.method() : PaymentMethod.CASH;
         p.paymentNoteRef = blankToNull(payload.paymentNoteRef());
         p.notes = blankToNull(payload.notes());
@@ -338,7 +338,7 @@ public class SaleService {
                 stockService.applyMovement(new MovementInput(
                         line.articleId, e.siteId,
                         MovementKind.IN,
-                        line.quantity, line.cmupAtSaleFcfa,
+                        line.quantity, line.cmupAtSale,
                         MovementSource.SALE, e.ref, e.id,
                         null, "Contre-passation vente " + e.ref + " : " + reason,
                         null, when, true, line.lotRef
@@ -392,27 +392,27 @@ public class SaleService {
                 line.articleName = art.name;
                 line.articleUnit = art.unit;
                 line.quantity = nz(raw.quantity());
-                line.unitPriceFcfa = nz(raw.unitPriceFcfa());
-                line.standardPriceFcfa = art.standardSalePrice;
+                line.unitPrice = nz(raw.unitPrice());
+                line.standardPrice = art.standardSalePrice;
                 line.discountPct = nz(raw.discountPct());
-                BigDecimal gross = line.quantity.multiply(line.unitPriceFcfa);
+                BigDecimal gross = line.quantity.multiply(line.unitPrice);
                 BigDecimal lineDiscount = gross.multiply(line.discountPct)
                         .divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP);
-                line.lineTotalHtFcfa = gross.subtract(lineDiscount)
+                line.lineTotalHt = gross.subtract(lineDiscount)
                         .setScale(2, RoundingMode.HALF_UP);
 
                 // Snapshot CMUP courant du PF au site de la vente
                 BigDecimal cmup = stockItems.findByArticleAndSite(line.articleId, e.siteId)
-                        .map(it -> it.cmupFcfa)
+                        .map(it -> it.cmup)
                         .orElse(BigDecimal.ZERO);
-                line.cmupAtSaleFcfa = cmup;
+                line.cmupAtSale = cmup;
                 BigDecimal lineCost = line.quantity.multiply(cmup)
                         .setScale(2, RoundingMode.HALF_UP);
-                line.lineMarginFcfa = line.lineTotalHtFcfa.subtract(lineCost);
+                line.lineMargin = line.lineTotalHt.subtract(lineCost);
                 line.lotRef = blankToNull(raw.lotRef());
 
                 lines.add(line);
-                subtotal = subtotal.add(line.lineTotalHtFcfa);
+                subtotal = subtotal.add(line.lineTotalHt);
                 totalCost = totalCost.add(lineCost);
             }
         }
@@ -420,26 +420,26 @@ public class SaleService {
             throw new BusinessException(Messages.msg("m.sal-line-required"));
         }
         e.lines = lines;
-        e.subtotalHtFcfa = subtotal;
-        e.discountFcfa = subtotal.multiply(e.discountPct)
+        e.subtotalHt = subtotal;
+        e.discount = subtotal.multiply(e.discountPct)
                 .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-        BigDecimal afterDiscount = subtotal.subtract(e.discountFcfa);
-        e.vatFcfa = afterDiscount.multiply(e.vatRatePct)
+        BigDecimal afterDiscount = subtotal.subtract(e.discount);
+        e.vat = afterDiscount.multiply(e.vatRatePct)
                 .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-        e.totalTtcFcfa = afterDiscount.add(e.vatFcfa);
-        e.totalCostFcfa = totalCost;
-        e.grossMarginFcfa = e.totalTtcFcfa.subtract(totalCost);
+        e.totalTtc = afterDiscount.add(e.vat);
+        e.totalCost = totalCost;
+        e.grossMargin = e.totalTtc.subtract(totalCost);
     }
 
     private void recomputePaymentStatus(SaleEntity e) {
         BigDecimal paid = BigDecimal.ZERO;
         for (SalePayment p : e.payments) {
-            if (p.amountFcfa != null) paid = paid.add(p.amountFcfa);
+            if (p.amount != null) paid = paid.add(p.amount);
         }
-        e.totalPaidFcfa = paid;
+        e.totalPaid = paid;
         if (paid.signum() == 0) {
             e.paymentStatus = PaymentStatus.UNPAID;
-        } else if (paid.compareTo(e.totalTtcFcfa) >= 0) {
+        } else if (paid.compareTo(e.totalTtc) >= 0) {
             e.paymentStatus = PaymentStatus.PAID;
         } else {
             e.paymentStatus = PaymentStatus.PARTIAL;
@@ -447,7 +447,7 @@ public class SaleService {
     }
 
     private BigDecimal balance(SaleEntity e) {
-        return e.totalTtcFcfa.subtract(e.totalPaidFcfa != null ? e.totalPaidFcfa : BigDecimal.ZERO);
+        return e.totalTtc.subtract(e.totalPaid != null ? e.totalPaid : BigDecimal.ZERO);
     }
 
     private SaleEntity loadOrFail(UUID id) {

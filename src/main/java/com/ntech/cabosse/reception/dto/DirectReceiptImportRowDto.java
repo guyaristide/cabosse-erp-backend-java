@@ -23,7 +23,7 @@ public record DirectReceiptImportRowDto(
         /** Quantité (format FR ou US). */
         String quantity,
         /** Prix unitaire FCFA (entier ou décimal). */
-        String unitPriceFcfa,
+        String unitPrice,
         /** N° bon de livraison de la ligne, optionnel. */
         String deliveryNoteRef,
         /** Notes ligne, optionnel. */

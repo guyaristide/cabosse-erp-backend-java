@@ -193,9 +193,9 @@ public class PurchaseOrderService {
         var prefs = preferencesLookup.current();
         if (prefs.purchaseRequestEnabled()) {
             PurchaseOrderEntity e = loadOrFail(id);
-            java.math.BigDecimal total = e.totalTtcFcfa != null
-                    ? e.totalTtcFcfa : java.math.BigDecimal.ZERO;
-            if (total.compareTo(prefs.purchaseRequestThresholdFcfa()) >= 0
+            java.math.BigDecimal total = e.totalTtc != null
+                    ? e.totalTtc : java.math.BigDecimal.ZERO;
+            if (total.compareTo(prefs.purchaseRequestThreshold()) >= 0
                     && e.purchaseRequestId == null) {
                 throw new BusinessException(Messages.msg("m.ach-bc-over-threshold"));
             }
@@ -252,7 +252,7 @@ public class PurchaseOrderService {
      * <em>après</em> la ventilation transport (coefficient sur le total
      * matière + quote-part transport), ce qui revient à dire qu'on
      * incorpore la TVA payée sur l'ensemble des frais d'acquisition.
-     * Le stockage en base reste inchangé — {@code unitPriceFcfa} sur la
+     * Le stockage en base reste inchangé — {@code unitPrice} sur la
      * ligne demeure HT, seul le {@code unitCost} dérivé pour le stock
      * est ajusté.</p>
      */
@@ -265,11 +265,11 @@ public class PurchaseOrderService {
         // Sous-total HT des lignes éligibles à l'incorporation (= tout sauf TRANSPORT).
         BigDecimal materialHt = e.lines.stream()
                 .filter(l -> !ArticleType.TRANSPORT.name().equals(l.articleType))
-                .map(l -> l.totalLineFcfa == null ? BigDecimal.ZERO : l.totalLineFcfa)
+                .map(l -> l.totalLine == null ? BigDecimal.ZERO : l.totalLine)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         boolean incorporate = e.incorporateFreightInCmup
-                && e.transportFcfa != null
-                && e.transportFcfa.signum() > 0
+                && e.transport != null
+                && e.transport.signum() > 0
                 && materialHt.signum() > 0;
 
         boolean vatRecoverable = resolveVatRecoverable(e);
@@ -289,11 +289,11 @@ public class PurchaseOrderService {
             if (ArticleType.TRANSPORT.name().equals(line.articleType)) {
                 continue; // pas de mouvement stock pour une prestation
             }
-            BigDecimal unitCost = line.unitPriceFcfa;
+            BigDecimal unitCost = line.unitPrice;
             if (incorporate) {
                 // Quote-part du transport pour cette ligne, au prorata HT.
-                BigDecimal share = e.transportFcfa
-                        .multiply(line.totalLineFcfa)
+                BigDecimal share = e.transport
+                        .multiply(line.totalLine)
                         .divide(materialHt, UNIT_COST_SCALE, RoundingMode.HALF_UP);
                 // On la ramène en coût unitaire à ajouter au PU.
                 BigDecimal unitShare = share.divide(line.quantity, UNIT_COST_SCALE, RoundingMode.HALF_UP);
@@ -352,7 +352,7 @@ public class PurchaseOrderService {
             stockService.applyMovement(new MovementInput(
                     line.articleId, e.siteId,
                     MovementKind.OUT,
-                    line.quantity, line.unitPriceFcfa,
+                    line.quantity, line.unitPrice,
                     MovementSource.PURCHASE_ORDER, e.ref, e.id,
                     null, "Contre-passation BC " + e.ref + " : " + reason,
                     null, when,
@@ -440,36 +440,36 @@ public class PurchaseOrderService {
                 line.articleType = art.type;
                 line.quantity = nonNull(in.quantity());
                 line.unit = art.unit;
-                line.unitPriceFcfa = nonNull(in.unitPriceFcfa());
+                line.unitPrice = nonNull(in.unitPrice());
                 line.discountPct = in.discountPct();
-                BigDecimal gross = line.quantity.multiply(line.unitPriceFcfa);
+                BigDecimal gross = line.quantity.multiply(line.unitPrice);
                 BigDecimal discount = line.discountPct == null
                         ? BigDecimal.ZERO
                         : gross.multiply(line.discountPct).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-                line.totalLineFcfa = gross.subtract(discount).setScale(2, RoundingMode.HALF_UP);
+                line.totalLine = gross.subtract(discount).setScale(2, RoundingMode.HALF_UP);
                 line.activityCodes = art.activityCode != null
                         ? List.of(art.activityCode)
                         : List.of();
                 activities.addAll(line.activityCodes);
                 lines.add(line);
                 if (ArticleType.TRANSPORT.name().equals(art.type)) {
-                    subtotalTransport = subtotalTransport.add(line.totalLineFcfa);
+                    subtotalTransport = subtotalTransport.add(line.totalLine);
                     hasTransportLine = true;
                 } else {
-                    subtotalMaterial = subtotalMaterial.add(line.totalLineFcfa);
+                    subtotalMaterial = subtotalMaterial.add(line.totalLine);
                 }
             }
         }
         e.lines = lines;
         e.activityCodes = new ArrayList<>(activities);
-        e.subtotalHtFcfa = subtotalMaterial;
+        e.subtotalHt = subtotalMaterial;
         // Transport : dérivé des lignes TRANSPORT si présentes, sinon respecte
         // la saisie legacy du payload (compat avec UI non encore migrée).
-        e.transportFcfa = hasTransportLine ? subtotalTransport : nonNull(p.transportFcfa());
-        BigDecimal taxable = e.subtotalHtFcfa.add(e.transportFcfa);
-        e.vatFcfa = taxable.multiply(e.vatRatePct)
+        e.transport = hasTransportLine ? subtotalTransport : nonNull(p.transport());
+        BigDecimal taxable = e.subtotalHt.add(e.transport);
+        e.vat = taxable.multiply(e.vatRatePct)
                 .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-        e.totalTtcFcfa = taxable.add(e.vatFcfa);
+        e.totalTtc = taxable.add(e.vat);
     }
 
     private void record(PurchaseOrderEntity e, AuditEventType event, String label) {

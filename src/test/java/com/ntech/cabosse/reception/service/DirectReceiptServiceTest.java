@@ -108,8 +108,8 @@ class DirectReceiptServiceTest {
         l.supplierCode = "S-" + supplierId.toString().substring(0, 4);
         l.supplierName = "Producteur " + l.supplierCode;
         l.quantity = qty;
-        l.unitPriceFcfa = pu;
-        l.totalLineFcfa = qty.multiply(pu).setScale(2, RoundingMode.HALF_UP);
+        l.unitPrice = pu;
+        l.totalLine = qty.multiply(pu).setScale(2, RoundingMode.HALF_UP);
         return l;
     }
 
@@ -148,7 +148,7 @@ class DirectReceiptServiceTest {
         invokePostStockEntries(rd);
 
         MovementInput m = captureSingleMovement();
-        assertThat(m.unitPriceFcfa())
+        assertThat(m.unitPrice())
                 .as("CMUP doit être le PU HT brut sans coefficient TVA")
                 .isEqualByComparingTo(new BigDecimal("1000"));
     }
@@ -168,7 +168,7 @@ class DirectReceiptServiceTest {
 
         MovementInput m = captureSingleMovement();
         // 1000 × 1.18 = 1180
-        assertThat(m.unitPriceFcfa())
+        assertThat(m.unitPrice())
                 .as("CMUP doit être le PU HT majoré du coefficient TVA")
                 .isEqualByComparingTo(new BigDecimal("1180.0000"));
     }
@@ -188,7 +188,7 @@ class DirectReceiptServiceTest {
 
         MovementInput m = captureSingleMovement();
         // 2000 × 1.18 = 2360
-        assertThat(m.unitPriceFcfa())
+        assertThat(m.unitPrice())
                 .isEqualByComparingTo(new BigDecimal("2360.0000"));
     }
 
@@ -206,7 +206,7 @@ class DirectReceiptServiceTest {
         invokePostStockEntries(rd);
 
         MovementInput m = captureSingleMovement();
-        assertThat(m.unitPriceFcfa())
+        assertThat(m.unitPrice())
                 .as("Override true force le retour au HT")
                 .isEqualByComparingTo(new BigDecimal("2000"));
     }
@@ -225,7 +225,7 @@ class DirectReceiptServiceTest {
         invokePostStockEntries(rd);
 
         MovementInput m = captureSingleMovement();
-        assertThat(m.unitPriceFcfa())
+        assertThat(m.unitPrice())
                 .as("Taux 0 → pas de multiplication même si TVA non récupérable")
                 .isEqualByComparingTo(new BigDecimal("500"));
     }
@@ -250,7 +250,7 @@ class DirectReceiptServiceTest {
         invokePostStockEntries(rd);
 
         List<MovementInput> moves = captureAllMovements(3);
-        assertThat(moves).extracting(MovementInput::unitPriceFcfa)
+        assertThat(moves).extracting(MovementInput::unitPrice)
                 .containsExactly(
                         new BigDecimal("590.0000"),   // 500 × 1.18
                         new BigDecimal("885.0000"),   // 750 × 1.18

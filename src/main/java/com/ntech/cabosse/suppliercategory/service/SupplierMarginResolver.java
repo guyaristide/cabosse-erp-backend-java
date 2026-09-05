@@ -53,12 +53,12 @@ public class SupplierMarginResolver {
         }
 
         /** Rémunération due sur un apport, dans le mode retenu. */
-        public BigDecimal on(BigDecimal weightKg, BigDecimal amountFcfa) {
+        public BigDecimal on(BigDecimal weightKg, BigDecimal amount) {
             if (none()) return BigDecimal.ZERO;
             if (TenantPreferences.DELEGATE_MARGIN_PER_KG.equals(mode)) {
                 return weightKg.multiply(rate).setScale(2, RoundingMode.HALF_UP);
             }
-            return amountFcfa.multiply(rate)
+            return amount.multiply(rate)
                     .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
         }
     }

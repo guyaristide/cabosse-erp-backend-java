@@ -81,7 +81,7 @@ class CostCenterUnitCostTest extends AbstractIntegrationTest {
         givenAs(admin).contentType("application/json")
                 .body("""
                         { "articleId": "%s", "receivedDate": "%s",
-                          "lines": [ { "supplierId": "%s", "quantity": %d, "unitPriceFcfa": %d } ] }
+                          "lines": [ { "supplierId": "%s", "quantity": %d, "unitPrice": %d } ] }
                         """.formatted(articleId, LocalDate.now(), supplierId, qty, price))
                 .when().post("/api/v1/direct-receipts?siteId=" + siteId).then().statusCode(201);
     }
@@ -100,10 +100,10 @@ class CostCenterUnitCostTest extends AbstractIntegrationTest {
                 .get("/api/v1/accounting/analytics/cost-centers?volumeBasis=PURCHASED")
                 .then().statusCode(200).extract().jsonPath();
 
-        Assertions.assertEquals(150000.0, jp.getDouble("data.find { it.code == 'COL' }.chargesFcfa"), 0.01);
+        Assertions.assertEquals(150000.0, jp.getDouble("data.find { it.code == 'COL' }.charges"), 0.01);
         Assertions.assertEquals(100.0, jp.getDouble("data.find { it.code == 'COL' }.volumeQuantity"), 0.01);
         Assertions.assertEquals("kg", jp.getString("data.find { it.code == 'COL' }.unit"));
-        Assertions.assertEquals(1500.0, jp.getDouble("data.find { it.code == 'COL' }.unitCostFcfa"), 0.01);
+        Assertions.assertEquals(1500.0, jp.getDouble("data.find { it.code == 'COL' }.unitCost"), 0.01);
         Assertions.assertEquals(false, jp.getBoolean("data.find { it.code == 'COL' }.mixedUnits"));
     }
 
@@ -125,7 +125,7 @@ class CostCenterUnitCostTest extends AbstractIntegrationTest {
 
         // COL mélange kg et pcs : pas de coût unitaire, drapeau posé.
         Assertions.assertEquals(true, jp.getBoolean("data.find { it.code == 'COL' }.mixedUnits"));
-        Assertions.assertNull(jp.get("data.find { it.code == 'COL' }.unitCostFcfa"));
+        Assertions.assertNull(jp.get("data.find { it.code == 'COL' }.unitCost"));
         Assertions.assertNull(jp.get("data.find { it.code == 'COL' }.volumeQuantity"));
     }
 }

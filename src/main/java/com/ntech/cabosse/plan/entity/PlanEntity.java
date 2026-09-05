@@ -34,8 +34,8 @@ public class PlanEntity extends PanacheMongoEntityBase {
     public String name;
     public String description;
 
-    public BigDecimal monthlyPriceFcfa;
-    public BigDecimal yearlyPriceFcfa;
+    public BigDecimal monthlyPrice;
+    public BigDecimal yearlyPrice;
 
     public int maxUsers;
     public int maxSites;

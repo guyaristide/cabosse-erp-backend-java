@@ -105,7 +105,7 @@ public class DirectReceiptImportService {
             if (r.status == DirectReceiptStatus.CANCELLED) continue;
             for (DirectReceiptLine line : r.lines) {
                 existingFingerprints.add(fingerprint(
-                        r.receivedDate, line.supplierId, line.quantity, line.unitPriceFcfa
+                        r.receivedDate, line.supplierId, line.quantity, line.unitPrice
                 ));
             }
         }
@@ -129,9 +129,9 @@ public class DirectReceiptImportService {
                 issues.add(new FieldIssue("quantity", Messages.msg("m.imp-quantity-positive-required")));
                 qty = null;
             }
-            BigDecimal pu = parseDecimal(raw.unitPriceFcfa(), (f, m) -> issues.add(new FieldIssue(f, m)), "unitPriceFcfa");
+            BigDecimal pu = parseDecimal(raw.unitPrice(), (f, m) -> issues.add(new FieldIssue(f, m)), "unitPrice");
             if (pu != null && pu.signum() < 0) {
-                issues.add(new FieldIssue("unitPriceFcfa", Messages.msg("m.imp-unit-price-negative")));
+                issues.add(new FieldIssue("unitPrice", Messages.msg("m.imp-unit-price-negative")));
                 pu = null;
             }
 
@@ -254,13 +254,13 @@ public class DirectReceiptImportService {
         for (Row row : rows) {
             if (row.status() != Status.READY) continue;
             LocalDate d = row.normalized().date();
-            BigDecimal lineTotal = row.normalized().totalLineFcfa();
+            BigDecimal lineTotal = row.normalized().totalLine();
             Group prev = groupAccum.get(d);
             if (prev == null) {
                 groupAccum.put(d, new Group(d, 1, lineTotal));
             } else {
                 groupAccum.put(d, new Group(d, prev.lineCount() + 1,
-                        prev.subtotalHtFcfa().add(lineTotal)));
+                        prev.subtotalHt().add(lineTotal)));
             }
         }
         List<Group> groups = new ArrayList<>(groupAccum.values());
@@ -300,7 +300,7 @@ public class DirectReceiptImportService {
                         key,
                         n.resolvedSupplierName() != null ? n.resolvedSupplierName() : key,
                         null, null, null, null, null, null, null, null, null, null, null, null, null,
-                        null, null, null
+                        null, null, null, null
                 ));
                 createdSupplierByKey.put(key, s.id());
                 createdSupplierIds.add(s.id());
@@ -345,7 +345,7 @@ public class DirectReceiptImportService {
                 lines.add(new DirectReceiptLineDto(
                         rr.supplierId,
                         n.quantity(),
-                        n.unitPriceFcfa(),
+                        n.unitPrice(),
                         n.deliveryNoteRef(),
                         n.notes(),
                         null  // paiement saisi ultérieurement dans l'UI

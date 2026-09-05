@@ -57,6 +57,14 @@ import java.util.UUID;
 @ApplicationScoped
 public class MemberCreditService {
 
+    /**
+     * Unité de la contrepartie attendue, celle du barème, qui s'exprime au
+     * kilo. Portée par la donnée plutôt qu'écrite dans l'affichage : les
+     * demandes déjà déposées gardent l'unité dans laquelle elles ont été
+     * convenues.
+     */
+    static final String COUNTERPART_UNIT = "kg";
+
     @Inject MemberCreditRepository repo;
     @Inject MemberCreditRefService refService;
     @Inject MemberRepository members;
@@ -71,6 +79,7 @@ public class MemberCreditService {
     @Inject JsonWebToken jwt;
     @Inject com.ntech.cabosse.shared.storage.AttachmentService attachments;
     @Inject com.ntech.cabosse.shared.security.CurrentActor currentActor;
+    @Inject com.ntech.cabosse.collector.service.AdvanceNotifier notifier;
 
     private String actor() {
         try { return jwt.getName(); } catch (Exception e) { return null; }
@@ -114,12 +123,12 @@ public class MemberCreditService {
         BigDecimal total = BigDecimal.ZERO;
         List<MemberDebtDto.Line> lines = new java.util.ArrayList<>();
         for (MemberCreditEntity c : outstanding) {
-            BigDecimal remaining = nz(c.remainingFcfa);
+            BigDecimal remaining = nz(c.remaining);
             if (remaining.signum() <= 0) continue;
             total = total.add(remaining);
             lines.add(new MemberDebtDto.Line(
                     c.id, c.ref, c.kind != null ? c.kind.name() : null, c.purpose,
-                    c.disbursedAt, nz(c.amountFcfa), nz(c.imputedAmountFcfa), remaining));
+                    c.disbursedAt, nz(c.amount), nz(c.imputedAmount), remaining));
         }
         return new MemberDebtDto(m.id, m.name, total, lines);
     }
@@ -133,7 +142,7 @@ public class MemberCreditService {
             throw new BusinessException(Messages.msg("m.mcr-member-retired", m.name));
         }
         TenantPreferences prefs = preferences.current();
-        BigDecimal threshold = prefs.memberCreditApprovalThresholdFcfa();
+        BigDecimal threshold = prefs.memberCreditApprovalThreshold();
 
         MemberCreditEntity e = new MemberCreditEntity();
         e.id = idGenerator.newId();
@@ -152,7 +161,25 @@ public class MemberCreditService {
         e.campaignLabel = campaign != null ? campaign.label : null;
 
         e.purpose = blankToNull(p.purpose());
-        e.amountFcfa = p.amountFcfa();
+        e.amount = p.amount();
+
+        // La contrepartie attendue : ce que le producteur livrera en face
+        // de la somme avancée. Le prix bord champ de la campagne la
+        // propose, la coopérative la saisit.
+        //
+        // Le prix bord champ et non un barème délégué : le producteur vend
+        // au prix de la campagne, la marge du délégué rémunère la collecte
+        // et ne le concerne pas.
+        BigDecimal basePrice = campaign != null ? campaign.basePricePerKg : null;
+        e.counterpartUnitPrice = basePrice != null && basePrice.signum() > 0 ? basePrice : null;
+        BigDecimal proposed = e.counterpartUnitPrice != null
+                ? p.amount().divide(e.counterpartUnitPrice, 3, java.math.RoundingMode.HALF_UP)
+                : null;
+        e.expectedQuantity = p.expectedQuantity() != null ? p.expectedQuantity() : proposed;
+        // Sans campagne il n'y a pas de barème, donc pas de proposition :
+        // le champ reste vide plutôt qu'à zéro, qui se lirait comme un
+        // engagement nul.
+        e.expectedQuantityUnit = e.expectedQuantity != null ? COUNTERPART_UNIT : null;
         e.requestedAt = p.requestedAt() != null ? p.requestedAt() : LocalDate.now();
         e.requestedByEmail = actor();
         e.notes = blankToNull(p.notes());
@@ -160,23 +187,90 @@ public class MemberCreditService {
         // Le seuil est figé à la demande : le relever ensuite ne doit pas
         // effacer l'exigence qui pesait sur un dossier déjà déposé.
         e.governanceApprovalRequired = threshold.signum() > 0
-                && p.amountFcfa().compareTo(threshold) >= 0;
+                && p.amount().compareTo(threshold) >= 0;
         e.status = MemberCreditStatus.PENDING_APPROVAL;
 
-        e.imputedAmountFcfa = BigDecimal.ZERO;
-        e.remainingFcfa = p.amountFcfa();
+        e.imputedAmount = BigDecimal.ZERO;
+        e.remaining = p.amount();
         e.createdAt = Instant.now();
         e.updatedAt = e.createdAt;
         e.createdBy = safeUserId();
         e.createdByEmail = actor();
+        // Le directeur tranche seul, et d'un seul geste.
+        //
+        // « Le directeur valide une demande d'avance sans attendre la
+        // validation du PCA, car c'est lui seul qui décide vu le montant »
+        // (document du 03/09/2026). Lui imposer deux clics pour une avance
+        // de cent cinquante mille francs consentie devant le producteur ne
+        // protège de rien : c'est la même personne qui cliquerait deux
+        // fois.
+        //
+        // La garde n'est levée que là où elle ne sert pas. Au-dessus du
+        // seuil, la gouvernance se prononce et le circuit reste entier. Et
+        // le décaissement demeure une main distincte dans tous les cas :
+        // c'est la caisse qui remet les fonds, et c'est là que se joue
+        // l'essentiel du contrôle interne.
+        //
+        // L'approbation n'est jamais tacite : elle nomme son auteur et
+        // porte son horodatage, comme si elle avait été donnée au second
+        // clic. Une décision qui ne laisserait rien au dossier serait pire
+        // que deux clics.
+        // Une avance seulement, jamais un crédit. Le document justifie le
+        // geste unique par le montant, « vu le montant qui est faible »,
+        // et il parle d'avances de fonds contre livraison. Un crédit est
+        // un prêt : il s'apprécie, et la coopérative peut vouloir qu'une
+        // seconde main le regarde même pour une petite somme.
+        boolean canApproveAlone = e.kind == MemberCreditKind.ADVANCE
+                && !e.governanceApprovalRequired
+                && (permissions.currentIsTenantAdmin()
+                    || permissions.can(Permission.MEMBER_CREDIT_APPROVE));
+        if (canApproveAlone) {
+            e.status = MemberCreditStatus.APPROVED;
+            e.approvedAt = Instant.now();
+            e.approvedBy = safeUserId();
+            e.approvedByEmail = actor();
+            e.approvalNote = blankToNull(p.notes());
+            // Accordé au dépôt : le directeur écrit d'emblée ce qu'il
+            // consent, et c'est ce montant qui sort de la caisse. Les
+            // mêmes bornes qu'à l'approbation ordinaire : le geste unique
+            // n'est pas une voie de contournement.
+            BigDecimal grantedAtCreation = p.approvedAmount() != null
+                    ? p.approvedAmount() : e.amount;
+            if (grantedAtCreation.compareTo(e.amount) > 0) {
+                throw new BusinessException(
+                        Messages.msg("m.mcr-approved-above-requested", e.amount));
+            }
+            e.approvedAmount = grantedAtCreation;
+            e.remaining = grantedAtCreation;
+        }
+
         repo.insert(e);
 
         audit(e, AuditEventType.MEMBER_CREDIT_REQUESTED,
-                "Demande " + e.ref + " : " + e.amountFcfa + " pour " + e.memberName);
+                "Demande " + e.ref + " : " + e.amount + " pour " + e.memberName);
+        if (canApproveAlone) {
+            audit(e, AuditEventType.MEMBER_CREDIT_APPROVED,
+                    "Approbation " + e.ref + " (" + e.amount + ") au dépôt de la demande");
+            notifier.memberCreditAwaitsDisbursement(
+                    e.ref, e.memberName, e.amount, e.approvedBy);
+        }
         return MemberCreditResponseDto.from(e);
     }
 
     public MemberCreditResponseDto approve(UUID id, String note) {
+        return approve(id, note, null);
+    }
+
+    /**
+     * Approuve, en accordant éventuellement moins que ce qui est demandé.
+     *
+     * <p>Le document liste « Approbation Oui/Partiel » et « Montant
+     * approuvé » des deux côtés : le directeur accorde parfois moins que
+     * ce que le producteur sollicite. C'est le montant accordé, et non le
+     * sollicité, qui sort de la caisse, passe au journal et forme la
+     * créance sur le producteur.</p>
+     */
+    public MemberCreditResponseDto approve(UUID id, String note, BigDecimal grantedAmount) {
         MemberCreditEntity e = loadOrFail(id);
         if (e.status != MemberCreditStatus.PENDING_APPROVAL) {
             throw new BusinessException(Messages.msg("m.mcr-approve-requires-pending", e.status));
@@ -193,6 +287,19 @@ public class MemberCreditService {
             throw new ForbiddenException(
                     Messages.msg("m.mcr-governance-approval-required", e.ref));
         }
+        BigDecimal granted = grantedAmount != null ? grantedAmount : e.amount;
+        // Accorder plus que demandé créerait un engagement que personne
+        // n'a sollicité ; zéro est un refus, et un refus a son motif.
+        if (granted.compareTo(e.amount) > 0) {
+            throw new BusinessException(
+                    Messages.msg("m.mcr-approved-above-requested", e.amount));
+        }
+        if (granted.signum() <= 0) {
+            throw new BusinessException(Messages.msg("m.mcr-approved-zero-is-a-refusal"));
+        }
+        e.approvedAmount = granted;
+        // Rien n'a encore été retenu : la créance suit le montant accordé.
+        e.remaining = granted;
         e.status = MemberCreditStatus.APPROVED;
         e.approvedAt = Instant.now();
         e.approvedBy = safeUserId();
@@ -202,7 +309,10 @@ public class MemberCreditService {
         repo.replace(e);
 
         audit(e, AuditEventType.MEMBER_CREDIT_APPROVED,
-                "Approbation " + e.ref + " (" + e.amountFcfa + ")");
+                "Approbation " + e.ref + " (" + e.amount + ")");
+        // La caisse peut préparer les espèces. Après l'enregistrement et
+        // sans pouvoir le remettre en cause.
+        notifier.memberCreditAwaitsDisbursement(e.ref, e.memberName, e.amount, e.approvedBy);
         return MemberCreditResponseDto.from(e);
     }
 
@@ -249,20 +359,28 @@ public class MemberCreditService {
         e.paymentMethod = p.paymentMethod();
         e.paymentRef = blankToNull(p.paymentRef());
         // Zéro et « pas de frais » se valent : on ne garde que ce qui pèse.
-        e.bankFeesFcfa = (p.bankFeesFcfa() != null && p.bankFeesFcfa().signum() > 0)
-                ? p.bankFeesFcfa() : null;
+        e.bankFees = (p.bankFees() != null && p.bankFees().signum() > 0)
+                ? p.bankFees() : null;
         e.updatedAt = Instant.now();
 
+        // Le compte d'avance du producteur quand sa fiche en porte un,
+        // sinon le collectif du tenant. Les comptes sont ouverts par la
+        // structure dans son plan : nous les rattachons.
+        String partyAccount = members.findById(e.memberId)
+                .map(m -> m.advanceAccount).orElse(null);
         accounting.postFromMemberCredit(
                         e.id, e.ref, e.memberName,
-                        preferences.current().memberCreditAccount(),
+                        partyAccount != null && !partyAccount.isBlank()
+                                ? partyAccount.trim()
+                                : preferences.current().memberCreditAccount(),
                         accounting.treasuryAccountFor(p.paymentMethod(), p.bankAccountId()),
-                        nz(e.amountFcfa), e.bankFeesFcfa, date)
+                        nz(e.effectiveAmount()), e.bankFees, date)
                 .ifPresent(piece -> e.pieceRef = piece.ref);
 
         repo.replace(e);
         audit(e, AuditEventType.MEMBER_CREDIT_DISBURSED,
-                "Décaissement " + e.ref + " : " + e.amountFcfa + " à " + e.memberName);
+                "Décaissement " + e.ref + " : " + e.effectiveAmount()
+                        + " à " + e.memberName);
         return MemberCreditResponseDto.from(e);
     }
 
@@ -311,7 +429,7 @@ public class MemberCreditService {
         }
         if (!repo.tryImpute(creditId, amount)) {
             throw new BusinessException(Messages.msg("m.mcr-withholding-exceeds-remaining",
-                    amount, e.ref, nz(e.remainingFcfa)));
+                    amount, e.ref, nz(e.remaining)));
         }
         return e;
     }
@@ -324,12 +442,12 @@ public class MemberCreditService {
         imputation.purchaseId = purchaseId;
         imputation.purchaseRef = purchaseRef;
         imputation.date = date;
-        imputation.amountFcfa = amount;
+        imputation.amount = amount;
         imputation.decidedByEmail = actor();
         imputation.decidedAt = Instant.now();
         imputation.notes = blankToNull(notes);
 
-        boolean settled = nz(credit.remainingFcfa).subtract(amount).signum() <= 0;
+        boolean settled = nz(credit.remaining).subtract(amount).signum() <= 0;
         repo.appendImputation(credit.id, imputation, settled);
 
         audit(credit, AuditEventType.MEMBER_CREDIT_IMPUTED,

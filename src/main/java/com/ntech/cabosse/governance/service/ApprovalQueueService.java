@@ -3,9 +3,9 @@ package com.ntech.cabosse.governance.service;
 import com.ntech.cabosse.collector.entity.CollectorAdvanceStatus;
 import com.ntech.cabosse.collector.repository.CollectorAdvanceRepository;
 import com.ntech.cabosse.collector.service.DelegateAccountService;
-import com.ntech.cabosse.governance.dto.ApprovalDtos.ApprovalKind;
-import com.ntech.cabosse.governance.dto.ApprovalDtos.ApprovalQueueDto;
-import com.ntech.cabosse.governance.dto.ApprovalDtos.PendingApprovalDto;
+import com.ntech.cabosse.governance.dto.ApprovalKind;
+import com.ntech.cabosse.governance.dto.ApprovalQueueDto;
+import com.ntech.cabosse.governance.dto.PendingApprovalDto;
 import com.ntech.cabosse.membercredit.entity.MemberCreditStatus;
 import com.ntech.cabosse.membercredit.repository.MemberCreditRepository;
 import com.ntech.cabosse.permission.entity.Permission;
@@ -61,7 +61,7 @@ public class ApprovalQueueService {
                 .thenComparing(p -> p.sourceRef() == null ? "" : p.sourceRef()));
 
         BigDecimal total = all.stream()
-                .map(PendingApprovalDto::amountFcfa)
+                .map(PendingApprovalDto::amount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         int from = Math.min(pr.skip(), all.size());
@@ -113,7 +113,7 @@ public class ApprovalQueueService {
             out.add(new PendingApprovalDto(
                     ApprovalKind.COLLECTOR_ADVANCE.name(), a.id, a.ref,
                     a.delegateSupplierId, a.delegateName,
-                    a.advanceAmountFcfa, a.advanceDate, ageOf(a.advanceDate),
+                    a.advanceAmount, a.advanceDate, ageOf(a.advanceDate),
                     balance, a.expectedQuantity, a.expectedQuantityUnit,
                     a.notes, a.createdByEmail,
                     a.governanceApprovalRequired,
@@ -135,8 +135,12 @@ public class ApprovalQueueService {
                 new PendingApprovalDto(
                         ApprovalKind.MEMBER_CREDIT.name(), c.id, c.ref,
                         c.memberId, c.memberName,
-                        c.amountFcfa, c.requestedAt, ageOf(c.requestedAt),
-                        null, null, null,
+                        c.amount, c.requestedAt, ageOf(c.requestedAt),
+                        // Pas de compte courant pour un producteur : la
+                        // notion n'existe pas de ce côté, et zéro se
+                        // lirait comme un compte soldé. La contrepartie,
+                        // elle, existe depuis le 03/09.
+                        null, c.expectedQuantity, c.expectedQuantityUnit,
                         c.notes, c.requestedByEmail,
                         c.governanceApprovalRequired,
                         false,

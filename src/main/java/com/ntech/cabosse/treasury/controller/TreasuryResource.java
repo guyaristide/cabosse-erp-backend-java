@@ -1,4 +1,7 @@
 package com.ntech.cabosse.treasury.controller;
+import com.ntech.cabosse.treasury.dto.ReceiveTransferDto;
+import com.ntech.cabosse.treasury.dto.CreateTransferDto;
+import com.ntech.cabosse.treasury.dto.CreateCashCountDto;
 
 import com.ntech.cabosse.shared.api.ApiResponse;
 import com.ntech.cabosse.shared.api.PageRequest;
@@ -8,7 +11,6 @@ import com.ntech.cabosse.shared.export.ExportFormat;
 import com.ntech.cabosse.shared.export.ExportResponses;
 import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.security.Roles;
-import com.ntech.cabosse.treasury.dto.TreasuryDtos;
 import com.ntech.cabosse.treasury.service.TreasuryService;
 import com.ntech.cabosse.permission.entity.Permission;
 import com.ntech.cabosse.permission.service.RequiresPermission;
@@ -206,7 +208,7 @@ public class TreasuryResource {
     @Path("/transfers")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     @RequiresPermission(Permission.TREASURY_WRITE)
-    public Response send(@Valid TreasuryDtos.CreateTransferDto payload) {
+    public Response send(@Valid CreateTransferDto payload) {
         return Response.status(Response.Status.CREATED)
                 .entity(ApiResponse.created(service.send(payload))).build();
     }
@@ -216,7 +218,7 @@ public class TreasuryResource {
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     @RequiresPermission(Permission.TREASURY_WRITE)
     public Response receive(@PathParam("id") UUID id,
-                            @Valid TreasuryDtos.ReceiveTransferDto payload) {
+                            @Valid ReceiveTransferDto payload) {
         return Response.ok(ApiResponse.ok(service.receive(id, payload))).build();
     }
 
@@ -244,7 +246,7 @@ public class TreasuryResource {
     @Path("/cash-counts")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     @RequiresPermission(Permission.TREASURY_WRITE)
-    public Response count(@Valid TreasuryDtos.CreateCashCountDto payload) {
+    public Response count(@Valid CreateCashCountDto payload) {
         return Response.status(Response.Status.CREATED)
                 .entity(ApiResponse.created(service.count(payload))).build();
     }

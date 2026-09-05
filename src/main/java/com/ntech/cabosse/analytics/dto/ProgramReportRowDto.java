@@ -14,6 +14,6 @@ public record ProgramReportRowDto(
         String program,
         String programName,
         String project,
-        BigDecimal chargesFcfa,
-        BigDecimal produitsFcfa
+        BigDecimal charges,
+        BigDecimal produits
 ) {}

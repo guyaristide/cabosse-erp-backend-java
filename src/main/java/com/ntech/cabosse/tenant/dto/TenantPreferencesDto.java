@@ -34,7 +34,7 @@ public record TenantPreferencesDto(
 
         @Schema(description = "Seuil d'écart d'inventaire significatif, en valeur absolue FCFA.",
                 example = "100000", defaultValue = "100000")
-        java.math.BigDecimal inventoryAlertThresholdFcfa,
+        java.math.BigDecimal inventoryAlertThresholdAmount,
 
         @Schema(description = "Qui peut rouvrir une période comptable clôturée.",
                 example = "TENANT_ADMIN", defaultValue = "TENANT_ADMIN",
@@ -75,7 +75,7 @@ public record TenantPreferencesDto(
 
         @Schema(description = "Seuil FCFA au-dessus duquel une demande d'achat approuvée est exigée.",
                 example = "0", defaultValue = "0")
-        java.math.BigDecimal purchaseRequestThresholdFcfa,
+        java.math.BigDecimal purchaseRequestThreshold,
 
         @Schema(description = "Compte SYSCOHADA des avances aux délégués collecteurs.",
                 example = "409100", defaultValue = "409100")
@@ -133,13 +133,14 @@ public record TenantPreferencesDto(
         @Schema(description = "Montant à partir duquel un crédit producteur exige l'approbation "
                 + "de l'organe de gouvernance. Zéro : aucune approbation imposée.",
                 example = "500000", defaultValue = "0")
-        java.math.BigDecimal memberCreditApprovalThresholdFcfa,
+        java.math.BigDecimal memberCreditApprovalThreshold,
 
         @Schema(description = "Montant à partir duquel une avance à un délégué exige l'approbation "
                 + "de l'organe de gouvernance. Réglage distinct de celui des producteurs, les ordres "
-                + "de grandeur différant. Zéro : la gouvernance se prononce sur tout.",
-                example = "2000000", defaultValue = "0")
-        java.math.BigDecimal collectorAdvanceApprovalThresholdFcfa,
+                + "de grandeur différant. Trois états : absent, la direction tranche seule ; zéro, "
+                + "la gouvernance se prononce sur tout ; au-delà, le montant départage.",
+                example = "2000000")
+        java.math.BigDecimal collectorAdvanceApprovalThreshold,
 
         @Schema(description = "Compte de créance sur les producteurs (crédits et avances).",
                 example = "409200", defaultValue = "409200")
@@ -192,6 +193,11 @@ public record TenantPreferencesDto(
 
         @Schema(description = "Site imposé au reçu producteur plutôt que déduit du site actif.",
                 defaultValue = "false")
-        boolean producerPurchaseSiteRequired
+        boolean producerPurchaseSiteRequired,
+
+        @Schema(description = "Écriture du reçu d'achat producteur : AUTO (à la réception, défaut) "
+                + "ou MANUAL (le comptable clique « Comptabiliser maintenant »).",
+                example = "AUTO", defaultValue = "AUTO")
+        String receiptAccountingMode
 
 ) {}

@@ -27,8 +27,8 @@ public record DirectReceiptResponseDto(
         String articleUnit,
         String deliveryNoteRef,
         List<LineDto> lines,
-        BigDecimal subtotalHtFcfa,
-        BigDecimal totalPaidFcfa,
+        BigDecimal subtotalHt,
+        BigDecimal totalPaid,
         BigDecimal vatRatePct,
         /**
          * Surcharge tenant {@code vatRecoverable} pour cette RD. {@code null}
@@ -55,8 +55,8 @@ public record DirectReceiptResponseDto(
             String supplierCode,
             String supplierName,
             BigDecimal quantity,
-            BigDecimal unitPriceFcfa,
-            BigDecimal totalLineFcfa,
+            BigDecimal unitPrice,
+            BigDecimal totalLine,
             String deliveryNoteRef,
             PaymentDto payment,
             String notes
@@ -64,7 +64,7 @@ public record DirectReceiptResponseDto(
         static LineDto from(DirectReceiptLine l) {
             return new LineDto(
                     l.id, l.supplierId, l.supplierCode, l.supplierName,
-                    l.quantity, l.unitPriceFcfa, l.totalLineFcfa,
+                    l.quantity, l.unitPrice, l.totalLine,
                     l.deliveryNoteRef,
                     l.payment == null ? null : PaymentDto.from(l.payment),
                     l.notes
@@ -74,7 +74,7 @@ public record DirectReceiptResponseDto(
 
     public record PaymentDto(
             LocalDate paidOn,
-            BigDecimal amountFcfa,
+            BigDecimal amount,
             String paymentNoteRef,
             PaymentMethod method,
             String recordedByEmail,
@@ -83,7 +83,7 @@ public record DirectReceiptResponseDto(
     ) {
         static PaymentDto from(DirectReceiptPayment p) {
             return new PaymentDto(
-                    p.paidOn, p.amountFcfa, p.paymentNoteRef, p.method,
+                    p.paidOn, p.amount, p.paymentNoteRef, p.method,
                     p.recordedByEmail, p.recordedAt, p.notes
             );
         }
@@ -118,7 +118,7 @@ public record DirectReceiptResponseDto(
                 e.articleId, e.articleCode, e.articleName, e.articleUnit,
                 e.deliveryNoteRef,
                 e.lines == null ? List.of() : e.lines.stream().map(LineDto::from).toList(),
-                e.subtotalHtFcfa, e.totalPaidFcfa,
+                e.subtotalHt, e.totalPaid,
                 e.vatRatePct,
                 e.vatRecoverableOverride,
                 effective,

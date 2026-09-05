@@ -84,7 +84,7 @@ class CampaignYearDerivationTest extends AbstractIntegrationTest {
         return givenAs(admin).contentType("application/json")
                 .body("""
                         { "label": "%s", "kind": "%s", "startDate": "%s", "endDate": "%s",
-                          "basePricePerKgFcfa": 1500 }
+                          "basePricePerKg": 1500 }
                         """.formatted(label, kind, start, end))
                 .when().post("/api/v1/campaigns")
                 .then().statusCode(201)
@@ -167,7 +167,7 @@ class CampaignYearDerivationTest extends AbstractIntegrationTest {
         givenAs(admin).contentType("application/json")
                 .body("""
                         { "label": "Campagne intermédiaire", "startDate": "2026-03-01",
-                          "endDate": "2026-08-31", "basePricePerKgFcfa": 1500 }
+                          "endDate": "2026-08-31", "basePricePerKg": 1500 }
                         """)
                 .when().put("/api/v1/campaigns/" + id)
                 .then().statusCode(200)

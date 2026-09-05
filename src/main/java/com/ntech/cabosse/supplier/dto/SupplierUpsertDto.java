@@ -47,13 +47,22 @@ public record SupplierUpsertDto(
         @jakarta.validation.constraints.DecimalMin(value = "0", message = "{v.taux-negatif-interdit}")
         java.math.BigDecimal collectorMarginRate,
 
+        @jakarta.validation.constraints.Pattern(regexp = "^$|^[0-9]{3,20}$",
+                message = "{v.numero-de-compte-invalide}")
+        @org.eclipse.microprofile.openapi.annotations.media.Schema(
+                description = "Compte comptable d'avance propre à ce tiers, ouvert par la "
+                        + "structure dans son plan. Absent : l'écriture retombe sur le compte "
+                        + "collectif.", example = "409101")
+        String advanceAccount,
+
+
         /**
          * Mise en compte : retenue en FCFA/kg sur chaque livraison. Usage
          * courant entre 10 et 35 FCFA/kg, sans borne dure : une entente
          * hors fourchette reste une entente.
          */
         @jakarta.validation.constraints.DecimalMin(value = "0", message = "{v.mise-en-compte-negative-interdite}")
-        java.math.BigDecimal collectorRetentionPerKgFcfa,
+        java.math.BigDecimal collectorRetentionPerKg,
         /** Catégorie de reprise (backlog ACH-07). Vide : aucune. */
         java.util.UUID categoryId
 ) {}

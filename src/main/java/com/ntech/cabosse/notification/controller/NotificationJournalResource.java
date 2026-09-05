@@ -3,7 +3,6 @@ package com.ntech.cabosse.notification.controller;
 import com.ntech.cabosse.notification.dto.DeliveryResponseDto;
 import com.ntech.cabosse.notification.entity.DeliveryStatus;
 import com.ntech.cabosse.notification.entity.NotificationChannel;
-import com.ntech.cabosse.notification.repository.NotificationDeliveryRepository;
 import com.ntech.cabosse.permission.entity.Permission;
 import com.ntech.cabosse.permission.service.RequiresPermission;
 import com.ntech.cabosse.shared.api.ApiResponse;
@@ -35,7 +34,7 @@ import java.util.List;
 @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
 public class NotificationJournalResource {
 
-    @Inject NotificationDeliveryRepository deliveries;
+    @Inject com.ntech.cabosse.notification.service.NotificationJournalService journal;
 
     @GET
     @RequiresPermission(Permission.SETTINGS_READ)
@@ -45,10 +44,8 @@ public class NotificationJournalResource {
                          @QueryParam("to") String to,
                          @QueryParam("limit") @DefaultValue("50") int limit,
                          @QueryParam("skip") @DefaultValue("0") int skip) {
-        List<DeliveryResponseDto> rows = deliveries
-                .search(channel, status, parse(from), parse(to), limit, skip).stream()
-                .map(DeliveryResponseDto::from)
-                .toList();
+        List<DeliveryResponseDto> rows =
+                journal.search(channel, status, parse(from), parse(to), limit, skip);
         return Response.ok(ApiResponse.ok(rows)).build();
     }
 

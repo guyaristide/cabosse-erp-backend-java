@@ -8,7 +8,7 @@ import java.util.UUID;
  * Calculée à la création depuis {@code recipe.ingredients × ratio}, où
  * {@code ratio = of.plannedQty / recipe.yieldQty}.
  *
- * <p>Les valeurs {@code cmupAtConsumptionFcfa} et {@code totalCostFcfa}
+ * <p>Les valeurs {@code cmupAtConsumption} et {@code totalCost}
  * sont figées au démarrage de l'OF (transition DRAFT → IN_PROGRESS).
  * Elles servent à la fois à la contre-passation (re-créditer au PU
  * initial) et au calcul du CMUP du produit fini à la complétion.</p>
@@ -30,10 +30,10 @@ public class ConsumptionLine {
     public BigDecimal consumedQty;
 
     /** CMUP courant snapshoté à l'instant de la consommation. */
-    public BigDecimal cmupAtConsumptionFcfa;
+    public BigDecimal cmupAtConsumption;
 
-    /** {@code consumedQty × cmupAtConsumptionFcfa}. */
-    public BigDecimal totalCostFcfa;
+    /** {@code consumedQty × cmupAtConsumption}. */
+    public BigDecimal totalCost;
 
     public ConsumptionLine() {}
 }

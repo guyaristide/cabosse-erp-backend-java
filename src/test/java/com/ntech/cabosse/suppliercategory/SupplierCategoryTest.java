@@ -122,7 +122,7 @@ class SupplierCategoryTest extends AbstractIntegrationTest {
         return givenAs(admin).contentType("application/json")
                 .body("""
                         { "date": "%s", "memberId": "%s", "articleId": "%s", "siteId": "%s",
-                          "weightKg": %d, "guaranteedPricePerKgFcfa": 1000,
+                          "weightKg": %d, "guaranteedPricePerKg": 1000,
                           "paymentMethod": "CASH"%s }
                         """.formatted(LocalDate.now(), memberId, articleId, siteId,
                         weightKg, delegatePart))
@@ -150,14 +150,14 @@ class SupplierCategoryTest extends AbstractIntegrationTest {
         String r1 = receipt(admin, p1, articleId, siteId, 100, ordinary);
         givenAs(admin).when().get("/api/v1/producer-purchases/" + r1)
                 .then().statusCode(200)
-                .body("data.delegateMarginFcfa", equalTo(2500F))
+                .body("data.delegateMargin", equalTo(2500F))
                 .body("data.supplierCategoryName", equalTo("Délégué collecteur"));
 
         // Le taux propre au délégué chevronné prime sur celui de sa catégorie.
         String r2 = receipt(admin, p2, articleId, siteId, 100, senior);
         givenAs(admin).when().get("/api/v1/producer-purchases/" + r2)
                 .then().statusCode(200)
-                .body("data.delegateMarginFcfa", equalTo(4000F));
+                .body("data.delegateMargin", equalTo(4000F));
     }
 
     @Test
@@ -175,7 +175,7 @@ class SupplierCategoryTest extends AbstractIntegrationTest {
         // 200 × 10, le taux du tenant.
         givenAs(admin).when().get("/api/v1/producer-purchases/" + r)
                 .then().statusCode(200)
-                .body("data.delegateMarginFcfa", equalTo(2000F))
+                .body("data.delegateMargin", equalTo(2000F))
                 .body("data.supplierCategoryName", equalTo("Pisteur"));
     }
 
@@ -199,19 +199,19 @@ class SupplierCategoryTest extends AbstractIntegrationTest {
         givenAs(admin).when().get("/api/v1/supplier-categories/report")
                 .then().statusCode(200)
                 .body("data.totalWeightKg", equalTo(1800))
-                .body("data.totalMarginFcfa", equalTo(37500.00F))
+                .body("data.totalMargin", equalTo(37500.00F))
                 .body("data.lines", hasSize(2))
                 // Le canal délégué porte le plus gros volume : il vient en tête.
                 .body("data.lines[0].categoryName", equalTo("Délégué collecteur"))
                 .body("data.lines[0].supplierCount", equalTo(1))
                 .body("data.lines[0].receiptCount", equalTo(2))
                 .body("data.lines[0].weightKg", equalTo(1500))
-                .body("data.lines[0].marginFcfa", equalTo(37500.00F))
-                .body("data.lines[0].marginPerKgFcfa", equalTo(25.00F))
+                .body("data.lines[0].margin", equalTo(37500.00F))
+                .body("data.lines[0].marginPerKg", equalTo(25.00F))
                 // Les apports sans catégorie ne disparaissent pas de l'état.
                 .body("data.lines[1].categoryId", equalTo(null))
                 .body("data.lines[1].weightKg", equalTo(300))
-                .body("data.lines[1].marginFcfa", equalTo(0));
+                .body("data.lines[1].margin", equalTo(0));
     }
 
     @Test

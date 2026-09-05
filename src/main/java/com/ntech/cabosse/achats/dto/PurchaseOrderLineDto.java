@@ -26,7 +26,7 @@ public record PurchaseOrderLineDto(
 
         @NotNull(message = "{v.prix-unitaire-requis}")
         @DecimalMin(value = "0", message = "{v.prix-unitaire-negatif-interdit}")
-        BigDecimal unitPriceFcfa,
+        BigDecimal unitPrice,
 
         @DecimalMin(value = "0", message = "{v.remise-negative-interdite}")
         @DecimalMax(value = "100", message = "{v.remise-superieure-a-100-interdite}")

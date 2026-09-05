@@ -75,7 +75,7 @@ class StockCmupTest extends AbstractIntegrationTest {
                 .contentType("application/json")
                 .body("""
                         { "siteId": "%s",
-                          "lines": [ { "articleId": "%s", "quantity": %d, "unitPriceFcfa": %d } ] }
+                          "lines": [ { "articleId": "%s", "quantity": %d, "unitPrice": %d } ] }
                         """.formatted(siteId, articleId, qty, unitPrice))
                 .when().post("/api/v1/stocks/opening")
                 .then().statusCode(201);
@@ -93,14 +93,14 @@ class StockCmupTest extends AbstractIntegrationTest {
                 .when().get("/api/v1/stocks/" + articleId + "/sites/" + siteId)
                 .then().statusCode(200)
                 .body("data.quantity", equalTo(100))
-                .body("data.cmupFcfa", equalTo(500.0F));
+                .body("data.cmup", equalTo(500.0F));
 
         // Entrée : 50 kg à 800 → CMUP pondéré (100×500 + 50×800)/150 = 600.
         givenAs(admin)
                 .contentType("application/json")
                 .body("""
                         { "articleId": "%s", "siteId": "%s", "kind": "IN",
-                          "quantity": 50, "unitPriceFcfa": 800 }
+                          "quantity": 50, "unitPrice": 800 }
                         """.formatted(articleId, siteId))
                 .when().post("/api/v1/stocks/movements")
                 .then().statusCode(201);
@@ -108,7 +108,7 @@ class StockCmupTest extends AbstractIntegrationTest {
                 .when().get("/api/v1/stocks/" + articleId + "/sites/" + siteId)
                 .then().statusCode(200)
                 .body("data.quantity", equalTo(150))
-                .body("data.cmupFcfa", equalTo(600.0F));
+                .body("data.cmup", equalTo(600.0F));
 
         // Sortie : 30 kg → quantité 120, CMUP inchangé.
         givenAs(admin)
@@ -122,7 +122,7 @@ class StockCmupTest extends AbstractIntegrationTest {
                 .when().get("/api/v1/stocks/" + articleId + "/sites/" + siteId)
                 .then().statusCode(200)
                 .body("data.quantity", equalTo(120))
-                .body("data.cmupFcfa", equalTo(600.0F));
+                .body("data.cmup", equalTo(600.0F));
     }
 
     @Test
@@ -173,11 +173,11 @@ class StockCmupTest extends AbstractIntegrationTest {
                 .when().get("/api/v1/stocks/" + articleId + "/sites/" + from)
                 .then().statusCode(200)
                 .body("data.quantity", equalTo(50))
-                .body("data.cmupFcfa", equalTo(750.0F));
+                .body("data.cmup", equalTo(750.0F));
         givenAs(admin)
                 .when().get("/api/v1/stocks/" + articleId + "/sites/" + to)
                 .then().statusCode(200)
                 .body("data.quantity", equalTo(30))
-                .body("data.cmupFcfa", equalTo(750.0F));
+                .body("data.cmup", equalTo(750.0F));
     }
 }

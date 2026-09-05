@@ -43,7 +43,7 @@ public class ProducerPaymentEntity {
     /** Nom du bénéficiaire, figé au règlement. */
     public String beneficiaryName;
 
-    public BigDecimal totalAmountFcfa;
+    public BigDecimal totalAmount;
 
     public PaymentMethod paymentMethod;
     public String paymentRef;
@@ -53,7 +53,7 @@ public class ProducerPaymentEntity {
      * n'entrent pas dans le montant réglé et ne soldent donc aucune dette
      * envers le bénéficiaire.
      */
-    public java.math.BigDecimal bankFeesFcfa;
+    public java.math.BigDecimal bankFees;
 
     public List<Allocation> allocations = new ArrayList<>();
 
@@ -89,11 +89,11 @@ public class ProducerPaymentEntity {
         public String purchaseRef;
         public LocalDate purchaseDate;
         /** Montant dû par la coopérative sur cette livraison. */
-        public BigDecimal amountDueFcfa;
+        public BigDecimal amountDue;
         /** Ce que ce règlement y affecte. */
-        public BigDecimal amountFcfa;
+        public BigDecimal amount;
         /** Reste à payer sur la livraison après ce règlement. */
-        public BigDecimal remainingAfterFcfa;
+        public BigDecimal remainingAfter;
     }
 
     public ProducerPaymentEntity() {}

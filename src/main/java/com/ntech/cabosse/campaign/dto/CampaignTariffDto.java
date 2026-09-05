@@ -24,7 +24,7 @@ public record CampaignTariffDto(
 
         @NotNull(message = "{v.prix-de-base-requis}")
         @DecimalMin(value = "0", message = "{v.valeur-negative-interdite}")
-        BigDecimal basePricePerKgFcfa,
+        BigDecimal basePricePerKg,
 
         @Valid List<CampaignUpsertDto.QualityPremiumPayload> qualityPremiums,
 

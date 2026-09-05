@@ -123,10 +123,10 @@ public class MemberCreditRepository {
                 Filters.and(
                         Filters.eq("_id", id),
                         Filters.eq("status", "DISBURSED"),
-                        Filters.gte("remainingFcfa", amount)),
+                        Filters.gte("remaining", amount)),
                 Updates.combine(
-                        Updates.inc("remainingFcfa", amount.negate()),
-                        Updates.inc("imputedAmountFcfa", amount),
+                        Updates.inc("remaining", amount.negate()),
+                        Updates.inc("imputedAmount", amount),
                         Updates.inc("version", 1L),
                         Updates.set("updatedAt", Instant.now())));
         return result.getModifiedCount() > 0;
@@ -137,8 +137,8 @@ public class MemberCreditRepository {
         coll().updateOne(
                 Filters.eq("_id", id),
                 Updates.combine(
-                        Updates.inc("remainingFcfa", amount),
-                        Updates.inc("imputedAmountFcfa", amount.negate()),
+                        Updates.inc("remaining", amount),
+                        Updates.inc("imputedAmount", amount.negate()),
                         Updates.inc("version", 1L),
                         Updates.set("updatedAt", Instant.now())));
     }

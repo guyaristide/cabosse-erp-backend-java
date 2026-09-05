@@ -19,6 +19,9 @@ import com.ntech.cabosse.membercredit.entity.MemberCreditEntity;
 import com.ntech.cabosse.membercredit.service.MemberCreditService;
 import com.ntech.cabosse.producerpurchase.dto.ProducerPurchaseResponseDto;
 import com.ntech.cabosse.producerpurchase.dto.ProducerPurchaseUpsertDto;
+import com.ntech.cabosse.producerpurchase.dto.CreditImputationDto;
+import com.ntech.cabosse.producerpurchase.dto.PurchaseWeighingDto;
+import com.ntech.cabosse.producerpurchase.entity.PurchaseWeighing;
 import com.ntech.cabosse.producerpurchase.entity.ProducerPurchaseCancellation;
 import com.ntech.cabosse.producerpurchase.entity.ProducerPurchaseStatus;
 import com.ntech.cabosse.producerpayment.entity.ProducerPaymentEntity;
@@ -189,19 +192,19 @@ public class ProducerPurchaseService {
         // kilo livré. Symétrique de la marge, qu'elle lui verse. Le taux
         // est celui de sa fiche, figé ici pour que les états d'une
         // campagne close ne bougent plus.
-        BigDecimal retention = delegate != null && delegate.collectorRetentionPerKgFcfa != null
-                ? delegate.collectorRetentionPerKgFcfa.multiply(weight).setScale(2, RoundingMode.HALF_UP)
+        BigDecimal retention = delegate != null && delegate.collectorRetentionPerKg != null
+                ? delegate.collectorRetentionPerKg.multiply(weight).setScale(2, RoundingMode.HALF_UP)
                 : BigDecimal.ZERO;
         // Retenues décidées sur les crédits du producteur. Une retenue
         // n'est pas un impayé : la livraison est intégralement soldée, une
         // part en espèces, l'autre en remboursement de dette. Elle réduit
         // donc le versement quel que soit le paramétrage du paiement
         // partiel.
-        List<ProducerPurchaseUpsertDto.CreditImputationDto> imputations =
+        List<CreditImputationDto> imputations =
                 p.creditImputations() == null ? List.of()
                         : p.creditImputations().stream().filter(java.util.Objects::nonNull).toList();
         BigDecimal creditImputed = imputations.stream()
-                .map(ProducerPurchaseUpsertDto.CreditImputationDto::amountFcfa)
+                .map(CreditImputationDto::amount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         if (creditImputed.compareTo(amount) > 0) {
             throw new BusinessException(ErrorCode.CREDIT_INSUFFICIENT,
@@ -232,14 +235,17 @@ public class ProducerPurchaseService {
         e.siteId = siteId;
         e.campaignId = campaign != null ? campaign.id : null;
         e.campaignYear = campaign != null ? campaign.campaignYear : null;
-        e.nbSacs = p.nbSacs();
+        e.truckNumber = blankToNull(p.truckNumber());
+        e.weighings = weighingsOf(p.weighings());
+        e.nbSacs = bagsFromWeighings(e.weighings, p.nbSacs());
         e.weightKg = weight;
-        e.guaranteedPricePerKgFcfa = price;
-        e.amountFcfa = amount;
+        e.guaranteedPricePerKg = price;
+        e.amount = amount;
         e.officialReceiptRef = officialReceipt;
-        e.amountPaidFcfa = paid;
-        e.creditImputedFcfa = creditImputed;
+        e.amountPaid = paid;
+        e.creditImputed = creditImputed;
         e.paymentMethod = p.paymentMethod();
+        e.bankAccountId = p.bankAccountId();
         e.paymentRef = blankToNull(p.paymentRef());
         e.deliveryRef = blankToNull(p.deliveryRef());
         if (categoryOfCarrier != null) {
@@ -249,8 +255,8 @@ public class ProducerPurchaseService {
         if (delegate != null) {
             e.delegateSupplierId = delegate.id;
             e.delegateName = delegate.name;
-            e.delegateMarginFcfa = margin;
-            e.delegateRetentionFcfa = retention;
+            e.delegateMargin = margin;
+            e.delegateRetention = retention;
             e.payerName = delegate.name;
         } else if (p.payerMemberId() != null) {
             e.payerMemberId = p.payerMemberId();
@@ -299,13 +305,13 @@ public class ProducerPurchaseService {
         //    arrête l'opération avant tout effet de bord.
         List<MemberCreditEntity> imputedCredits = new java.util.ArrayList<>();
         try {
-            for (ProducerPurchaseUpsertDto.CreditImputationDto imputation : imputations) {
+            for (CreditImputationDto imputation : imputations) {
                 imputedCredits.add(memberCredits.impute(
-                        imputation.creditId(), imputation.amountFcfa(), m.id));
+                        imputation.creditId(), imputation.amount(), m.id));
             }
         } catch (RuntimeException ex) {
             for (int i = 0; i < imputedCredits.size(); i++) {
-                memberCredits.creditBack(imputedCredits.get(i).id, imputations.get(i).amountFcfa());
+                memberCredits.creditBack(imputedCredits.get(i).id, imputations.get(i).amount());
             }
             if (advance != null) advances.creditBack(advance.id, imputed);
             repo.deleteById(e.id);
@@ -314,52 +320,23 @@ public class ProducerPurchaseService {
 
         // 2) Écriture EN PREMIER : échoue tôt (période close, pièce déséquilibrée)
         //    avant tout mouvement de stock. En cas d'échec, on recrédite l'avance.
-        List<AccountingService.PurchaseLeg> credits = new java.util.ArrayList<>();
-        if (delegate != null) {
-            credits.add(new AccountingService.PurchaseLeg(
-                    prefs.collectorAdvanceAccount(),
-                    "Apurement délégué " + delegate.name, paid));
+        //    En mode MANUAL (DEC-36, V2 de l'expert), la livraison attend le
+        //    clic « Comptabiliser maintenant » du comptable : le stock et le
+        //    compte courant sont constatés, la pièce seule diffère.
+        if (TenantPreferences.RECEIPT_ACCOUNTING_MANUAL.equals(prefs.receiptAccountingMode())) {
+            e.accountingStatus = "PENDING";
         } else {
-            credits.add(new AccountingService.PurchaseLeg(
-                    accounting.treasuryAccountFor(p.paymentMethod(), p.bankAccountId()),
-                    "Règlement achat " + e.ref, paid));
-        }
-        if (creditImputed.signum() > 0) {
-            credits.add(new AccountingService.PurchaseLeg(
-                    prefs.memberCreditAccount(),
-                    "Remboursement crédit " + e.producerName, creditImputed));
-        }
-        // Reliquat : la coopérative doit encore. À qui, dépend de qui a
-        // apporté la matière. Le délégué a déjà payé le producteur sur son
-        // avance ; c'est lui le créancier, et c'est son compte que le
-        // règlement viendra solder.
-        BigDecimal remainder = amount.subtract(paid).subtract(creditImputed);
-        if (remainder.signum() > 0) {
-            credits.add(delegate != null
-                    ? new AccountingService.PurchaseLeg(prefs.delegatePayableAccount(),
-                            "Reliquat dû à " + delegate.name, remainder)
-                    : new AccountingService.PurchaseLeg(prefs.producerPayableAccount(),
-                            "Reliquat dû à " + e.producerName, remainder));
-        }
-        AccountingService.PurchaseLeg marginCharge = null;
-        AccountingService.PurchaseLeg marginCredit = null;
-        if (margin.signum() > 0) {
-            marginCharge = new AccountingService.PurchaseLeg(
-                    prefs.delegateMarginAccount(), "Rémunération délégué " + delegate.name, margin);
-            marginCredit = new AccountingService.PurchaseLeg(
-                    prefs.collectorAdvanceAccount(), "Rémunération délégué " + delegate.name, margin);
-        }
-        try {
-            accounting.postFromProducerPurchase(e.id, e.ref, article.id, parseType(article.type),
-                            article.name, amount, p.date(), credits, marginCharge, marginCredit)
-                    .ifPresent(piece -> e.pieceRef = piece.ref);
-        } catch (RuntimeException ex) {
-            if (advance != null) advances.creditBack(advance.id, imputed);
-            for (int i = 0; i < imputedCredits.size(); i++) {
-                memberCredits.creditBack(imputedCredits.get(i).id, imputations.get(i).amountFcfa());
+            try {
+                postPurchaseAccounting(e, prefs, article, delegate);
+                e.accountingStatus = "POSTED";
+            } catch (RuntimeException ex) {
+                if (advance != null) advances.creditBack(advance.id, imputed);
+                for (int i = 0; i < imputedCredits.size(); i++) {
+                    memberCredits.creditBack(imputedCredits.get(i).id, imputations.get(i).amount());
+                }
+                repo.deleteById(e.id);
+                throw ex;
             }
-            repo.deleteById(e.id);
-            throw ex;
         }
 
         // 3) Entrée de stock au coût du reçu (montant ÷ poids), datée du reçu.
@@ -384,7 +361,7 @@ public class ProducerPurchaseService {
         // pièce que le producteur peut venir contester.
         for (int i = 0; i < imputedCredits.size(); i++) {
             memberCredits.recordImputation(imputedCredits.get(i), e.id, e.ref, e.date,
-                    imputations.get(i).amountFcfa(), imputations.get(i).notes());
+                    imputations.get(i).amount(), imputations.get(i).notes());
         }
 
         audit.event(AuditEventType.PRODUCER_PURCHASE_CREATED)
@@ -398,9 +375,116 @@ public class ProducerPurchaseService {
         return ProducerPurchaseResponseDto.from(e);
     }
 
+    /**
+     * L'écriture du reçu, construite depuis l'entité seule : la même pour
+     * la comptabilisation immédiate et pour le clic différé du comptable,
+     * un seul chemin d'écriture pour que les deux modes rendent la même
+     * pièce.
+     */
+    private void postPurchaseAccounting(ProducerPurchaseEntity e, TenantPreferences prefs,
+                                        ArticleEntity article, SupplierEntity delegate) {
+        BigDecimal amount = nz(e.amount);
+        BigDecimal paid = e.amountPaid != null ? e.amountPaid : amount;
+        BigDecimal creditImputed = nz(e.creditImputed);
+        BigDecimal margin = nz(e.delegateMargin);
+
+        List<AccountingService.PurchaseLeg> credits = new java.util.ArrayList<>();
+        if (delegate != null) {
+            credits.add(new AccountingService.PurchaseLeg(
+                    prefs.collectorAdvanceAccount(),
+                    "Apurement délégué " + delegate.name, paid));
+        } else {
+            credits.add(new AccountingService.PurchaseLeg(
+                    accounting.treasuryAccountFor(e.paymentMethod, e.bankAccountId),
+                    "Règlement achat " + e.ref, paid));
+        }
+        if (creditImputed.signum() > 0) {
+            credits.add(new AccountingService.PurchaseLeg(
+                    prefs.memberCreditAccount(),
+                    "Remboursement crédit " + e.producerName, creditImputed));
+        }
+        // Reliquat : la coopérative doit encore. À qui, dépend de qui a
+        // apporté la matière. Le délégué a déjà payé le producteur sur son
+        // avance ; c'est lui le créancier, et c'est son compte que le
+        // règlement viendra solder.
+        BigDecimal remainder = amount.subtract(paid).subtract(creditImputed);
+        if (remainder.signum() > 0) {
+            credits.add(delegate != null
+                    ? new AccountingService.PurchaseLeg(prefs.delegatePayableAccount(),
+                            "Reliquat dû à " + delegate.name, remainder)
+                    : new AccountingService.PurchaseLeg(prefs.producerPayableAccount(),
+                            "Reliquat dû à " + e.producerName, remainder));
+        }
+        AccountingService.PurchaseLeg marginCharge = null;
+        AccountingService.PurchaseLeg marginCredit = null;
+        if (margin.signum() > 0 && delegate != null) {
+            marginCharge = new AccountingService.PurchaseLeg(
+                    prefs.delegateMarginAccount(), "Rémunération délégué " + delegate.name, margin);
+            marginCredit = new AccountingService.PurchaseLeg(
+                    prefs.collectorAdvanceAccount(), "Rémunération délégué " + delegate.name, margin);
+        }
+        accounting.postFromProducerPurchase(e.id, e.ref, article.id, parseType(article.type),
+                        article.name, amount, e.date, credits, marginCharge, marginCredit)
+                .ifPresent(piece -> e.pieceRef = piece.ref);
+    }
+
+    /**
+     * Le clic « Comptabiliser maintenant » du comptable (DEC-36, V2) :
+     * il a consulté le compte du fournisseur, il est d'accord avec la
+     * livraison, l'écriture part. Un reçu annulé ou déjà comptabilisé
+     * n'a rien à passer.
+     */
+    public ProducerPurchaseResponseDto postAccounting(UUID id) {
+        ProducerPurchaseEntity e = loadOrFail(id);
+        if (e.isCancelled()) {
+            throw new BusinessException(Messages.msg("m.ppu-already-cancelled", e.ref));
+        }
+        if (!"PENDING".equals(e.accountingStatusOrPosted())) {
+            throw new BusinessException(Messages.msg("m.ppu-already-posted", e.ref));
+        }
+        TenantPreferences prefs = preferences.current();
+        ArticleEntity article = articles.findById(e.articleId).orElseThrow(
+                () -> new NotFoundException(Messages.msg("m.ach-article-not-found", e.articleId)));
+        SupplierEntity delegate = e.delegateSupplierId != null
+                ? suppliers.findById(e.delegateSupplierId).orElse(null) : null;
+
+        postPurchaseAccounting(e, prefs, article, delegate);
+        e.accountingStatus = "POSTED";
+        e.accountingPostedAt = Instant.now();
+        e.accountingPostedByEmail = actor();
+        e.updatedAt = e.accountingPostedAt;
+        repo.replace(e);
+
+        audit.event(AuditEventType.PRODUCER_PURCHASE_CREATED)
+                .actorEmail(actor())
+                .target("producer_purchase", e.id.toString(), e.ref)
+                .tenant(tenantContext.tenantId(), null)
+                .description("Livraison " + e.ref + " comptabilisée : "
+                        + (e.delegateName != null ? e.delegateName : e.producerName)
+                        + " (" + nz(e.amount) + " " + Messages.currencyLabel() + ")")
+                .record();
+        return ProducerPurchaseResponseDto.from(e);
+    }
+
+    /** Les livraisons qui attendent le comptable, la plus ancienne d'abord. */
+    public Pagination<ProducerPurchaseResponseDto> pendingAccounting(PageRequest pr) {
+        long total = repo.countPendingAccounting();
+        List<ProducerPurchaseResponseDto> items = repo
+                .listPendingAccounting(pr.skip(), pr.perPage())
+                .stream().map(ProducerPurchaseResponseDto::from).toList();
+        return Pagination.of(total, pr, new String[]{"date"}, "asc",
+                new java.util.HashMap<>(), items);
+    }
+
     // ─── Résolutions paramétrables ──────────────────────────────────
 
     private BigDecimal resolveWeight(TenantPreferences prefs, ProducerPurchaseUpsertDto p) {
+        // Les pesées du bordereau priment sur tout mode de poids : quand
+        // la bascule a parlé, ni la saisie directe ni le forfait par sac
+        // n'ont voix au chapitre (CE-183).
+        if (p.weighings() != null && !p.weighings().isEmpty()) {
+            return weightFromWeighings(p.weighings());
+        }
         BigDecimal weight;
         if (TenantPreferences.PRODUCER_WEIGHT_FROM_BAGS.equals(prefs.producerWeightMode())) {
             if (p.nbSacs() == null || prefs.producerStandardBagKg == null) {
@@ -416,14 +500,75 @@ public class ProducerPurchaseService {
         return weight;
     }
 
+    /**
+     * Somme des nets du bordereau, chaque pesée vérifiée : le net vaut
+     * brut moins décote quand il n'est pas saisi, et ne dépasse jamais le
+     * brut quand il l'est, la bascule ne créant pas de matière.
+     */
+    private BigDecimal weightFromWeighings(List<PurchaseWeighingDto> weighings) {
+        BigDecimal total = BigDecimal.ZERO;
+        for (PurchaseWeighingDto w : weighings) {
+            BigDecimal deduction = deductionOf(w);
+            if (deduction.compareTo(w.grossKg()) > 0) {
+                throw new BusinessException(Messages.msg("m.ppu-weighing-deduction-exceeds-gross",
+                        String.valueOf(deduction), String.valueOf(w.grossKg())));
+            }
+            BigDecimal net = w.netKg() != null ? w.netKg() : w.grossKg().subtract(deduction);
+            if (net.compareTo(w.grossKg()) > 0) {
+                throw new BusinessException(Messages.msg("m.ppu-weighing-net-exceeds-gross",
+                        String.valueOf(net), String.valueOf(w.grossKg())));
+            }
+            total = total.add(net);
+        }
+        if (total.signum() <= 0) {
+            throw new BusinessException(Messages.msg("m.ppu-weight-required"));
+        }
+        return total;
+    }
+
+    /**
+     * La décote d'une pesée : saisie, elle fait foi ; sinon le nombre de
+     * sacs, un kilo de tare par sac, la règle du carnet (DEC-34).
+     */
+    private static BigDecimal deductionOf(PurchaseWeighingDto w) {
+        if (w.deductionKg() != null) return w.deductionKg();
+        if (w.bagsCount() != null) return BigDecimal.valueOf(w.bagsCount());
+        return BigDecimal.ZERO;
+    }
+
+    /** Les pesées telles qu'elles seront écrites, nets résolus. */
+    private List<PurchaseWeighing> weighingsOf(List<PurchaseWeighingDto> weighings) {
+        if (weighings == null || weighings.isEmpty()) return null;
+        List<PurchaseWeighing> out = new java.util.ArrayList<>(weighings.size());
+        for (PurchaseWeighingDto w : weighings) {
+            PurchaseWeighing entity = new PurchaseWeighing();
+            entity.grossKg = w.grossKg();
+            entity.bagsCount = w.bagsCount();
+            entity.deductionKg = deductionOf(w);
+            entity.netKg = w.netKg() != null ? w.netKg() : w.grossKg().subtract(entity.deductionKg);
+            out.add(entity);
+        }
+        return out;
+    }
+
+    /** Les sacs du reçu : la somme des pesées quand elles les portent. */
+    private static Integer bagsFromWeighings(List<PurchaseWeighing> weighings, Integer fallback) {
+        if (weighings == null || weighings.stream().noneMatch(w -> w.bagsCount != null)) {
+            return fallback;
+        }
+        return weighings.stream()
+                .map(w -> w.bagsCount != null ? w.bagsCount : 0)
+                .reduce(0, Integer::sum);
+    }
+
     private BigDecimal resolvePrice(TenantPreferences prefs, ProducerPurchaseUpsertDto p, CampaignEntity campaign) {
         BigDecimal price;
         if (TenantPreferences.PRODUCER_PRICE_MANUAL.equals(prefs.producerPriceSource())) {
-            price = p.guaranteedPricePerKgFcfa();
+            price = p.guaranteedPricePerKg();
         } else {
-            price = p.guaranteedPricePerKgFcfa() != null
-                    ? p.guaranteedPricePerKgFcfa()
-                    : (campaign != null ? campaign.basePricePerKgFcfa : null);
+            price = p.guaranteedPricePerKg() != null
+                    ? p.guaranteedPricePerKg()
+                    : (campaign != null ? campaign.basePricePerKg : null);
         }
         if (price == null || price.signum() < 0) {
             throw new BusinessException(Messages.msg("m.ppu-price-required"));
@@ -435,7 +580,7 @@ public class ProducerPurchaseService {
                                      BigDecimal weight, BigDecimal price) {
         BigDecimal amount;
         if (TenantPreferences.PRODUCER_AMOUNT_MANUAL.equals(prefs.producerAmountMode())) {
-            amount = p.amountFcfa();
+            amount = p.amount();
         } else {
             amount = weight.multiply(price);
         }
@@ -540,8 +685,8 @@ public class ProducerPurchaseService {
      */
     private static BigDecimal resolvePaid(TenantPreferences prefs, ProducerPurchaseUpsertDto p,
                                           BigDecimal payable) {
-        if (!prefs.producerPartialPaymentEnabled() || p.amountPaidFcfa() == null) return payable;
-        BigDecimal paid = p.amountPaidFcfa();
+        if (!prefs.producerPartialPaymentEnabled() || p.amountPaid() == null) return payable;
+        BigDecimal paid = p.amountPaid();
         if (paid.signum() < 0) {
             throw new BusinessException(Messages.msg("m.ppu-paid-negative"));
         }
@@ -611,7 +756,7 @@ public class ProducerPurchaseService {
                     .filter(m -> m.kind == MovementKind.IN)
                     .findFirst()
                     .orElse(null);
-            BigDecimal unitCost = nz(e.amountFcfa).divide(weight, 6, RoundingMode.HALF_UP);
+            BigDecimal unitCost = nz(e.amount).divide(weight, 6, RoundingMode.HALF_UP);
             MovementInput compensation = new MovementInput(
                     e.articleId, e.siteId, MovementKind.OUT, weight, unitCost,
                     MovementSource.PRODUCER_PURCHASE, e.ref, e.id, null,
@@ -626,9 +771,9 @@ public class ProducerPurchaseService {
 
         // 2. Avance du délégué : le montant imputé lui revient.
         if (e.collectorAdvanceId != null) {
-            BigDecimal imputed = nz(e.amountFcfa).add(nz(e.delegateMarginFcfa));
+            BigDecimal imputed = nz(e.amount).add(nz(e.delegateMargin));
             advances.creditBack(e.collectorAdvanceId, imputed);
-            c.advanceCreditedBackFcfa = imputed;
+            c.advanceCreditedBack = imputed;
         }
 
         // 3. Retenues sur crédits membres : le solde revient au membre et la
@@ -638,14 +783,14 @@ public class ProducerPurchaseService {
             BigDecimal amount = credit.imputations == null ? BigDecimal.ZERO
                     : credit.imputations.stream()
                             .filter(i -> e.id.equals(i.purchaseId))
-                            .map(i -> nz(i.amountFcfa))
+                            .map(i -> nz(i.amount))
                             .reduce(BigDecimal.ZERO, BigDecimal::add);
             if (amount.signum() > 0) {
                 memberCredits.reverseImputation(credit.id, e.id, amount);
                 restored = restored.add(amount);
             }
         }
-        if (restored.signum() > 0) c.creditRestoredFcfa = restored;
+        if (restored.signum() > 0) c.creditRestored = restored;
 
         // 4. Comptabilité : contre-passation idempotente, no-op si la pièce
         //    d'origine était partie en quarantaine.

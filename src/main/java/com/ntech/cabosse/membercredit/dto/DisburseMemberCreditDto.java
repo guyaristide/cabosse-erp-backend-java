@@ -39,5 +39,5 @@ public record DisburseMemberCreditDto(
          * banque, pas de toutes.</p>
          */
         @DecimalMin(value = "0", message = "{v.montant-positif-requis}")
-        BigDecimal bankFeesFcfa
+        BigDecimal bankFees
 ) {}

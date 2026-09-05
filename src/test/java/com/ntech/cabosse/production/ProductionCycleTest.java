@@ -87,7 +87,7 @@ class ProductionCycleTest extends AbstractIntegrationTest {
         givenAs(admin).contentType("application/json")
                 .body("""
                         { "articleId": "%s", "siteId": "%s", "kind": "IN", "quantity": 500,
-                          "unitPriceFcfa": 1200 }
+                          "unitPrice": 1200 }
                         """.formatted(cacaoId, siteId))
                 .when().post("/api/v1/stocks/movements").then().statusCode(201);
         recipeId = givenAs(admin).contentType("application/json")
@@ -142,7 +142,7 @@ class ProductionCycleTest extends AbstractIntegrationTest {
                         "La consommation matière doit laisser un mouvement OUT au journal"));
         assertEquals("PRODUCTION", out.get("sourceType"),
                 "La sortie matière doit être imputable à la production, pas anonyme");
-        assertEquals(1200.0, asDouble(out.get("unitPriceFcfa")), 0.001,
+        assertEquals(1200.0, asDouble(out.get("unitPrice")), 0.001,
                 "La sortie matière se valorise au CMUP de la matière");
         assertEquals(12.0, Math.abs(asDouble(out.get("quantitySigned"))), 0.001);
 
@@ -157,9 +157,9 @@ class ProductionCycleTest extends AbstractIntegrationTest {
         assertEquals(lotRef, in.get("lotRef"),
                 "Le mouvement d'entrée doit porter le lot de l'ordre de fabrication");
         // 12 kg à 1 200 pour 10 kg produits : 1 440 le kilo.
-        assertEquals(1440.0, asDouble(in.get("unitPriceFcfa")), 0.001,
+        assertEquals(1440.0, asDouble(in.get("unitPrice")), 0.001,
                 "Le produit fini entre au coût matière réellement consommé");
-        assertEquals(1440.0, asDouble(in.get("cmupAfterFcfa")), 0.001);
+        assertEquals(1440.0, asDouble(in.get("cmupAfter")), 0.001);
     }
 
     @Test
@@ -210,8 +210,8 @@ class ProductionCycleTest extends AbstractIntegrationTest {
                 .filter(m -> "IN".equals(m.get("kind")))
                 .findFirst().orElseThrow();
         assertEquals(12.0, asDouble(in.get("quantitySigned")), 0.001);
-        assertEquals(1200.0, asDouble(in.get("unitPriceFcfa")), 0.001,
+        assertEquals(1200.0, asDouble(in.get("unitPrice")), 0.001,
                 "Produire plus que prévu ne crée pas de valeur : le coût suit la matière");
-        assertTrue(asDouble(in.get("totalFcfa")) > 0);
+        assertTrue(asDouble(in.get("total")) > 0);
     }
 }

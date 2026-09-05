@@ -30,7 +30,7 @@ public record OpeningBatchDto(
 
             @NotNull(message = "{v.prix-unitaire-requis}")
             @DecimalMin(value = "0", message = "{v.prix-negatif-interdit}")
-            BigDecimal unitPriceFcfa,
+            BigDecimal unitPrice,
 
             @Size(max = 500) String notes
     ) {}

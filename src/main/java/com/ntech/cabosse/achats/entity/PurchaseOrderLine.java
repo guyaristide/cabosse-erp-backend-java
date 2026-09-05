@@ -9,7 +9,7 @@ import java.util.UUID;
  *
  * <p>Snapshots des champs catalogue ({@code articleCode},
  * {@code designation}, {@code activityCodes}) pour rester lisible même si
- * l'article est renommé ou désactivé plus tard. {@code totalLineFcfa} est
+ * l'article est renommé ou désactivé plus tard. {@code totalLine} est
  * pré-calculé et persisté pour faciliter l'audit et les exports.</p>
  */
 public class PurchaseOrderLine {
@@ -34,12 +34,12 @@ public class PurchaseOrderLine {
     /** Snapshot {@code ArticleEntity.unit}. */
     public String unit;
 
-    public BigDecimal unitPriceFcfa;
+    public BigDecimal unitPrice;
     /** Remise en % (0–100). {@code null} = pas de remise. */
     public BigDecimal discountPct;
 
-    /** {@code quantity × unitPriceFcfa × (1 − discountPct/100)}. Pré-calculé. */
-    public BigDecimal totalLineFcfa;
+    /** {@code quantity × unitPrice × (1 − discountPct/100)}. Pré-calculé. */
+    public BigDecimal totalLine;
 
     /** Snapshot {@code ArticleEntity.activityCode} (en liste pour préparer le multi-activité). */
     public List<String> activityCodes;

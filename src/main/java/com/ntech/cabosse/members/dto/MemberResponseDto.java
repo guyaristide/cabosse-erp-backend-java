@@ -57,6 +57,7 @@ public record MemberResponseDto(
         String email,
         LocalDate joinedAt,
         BigDecimal partsSocialesAmount,
+        String advanceAccount,
         MemberStatus status,
         UUID supplierId,
         List<UUID> parcels,
@@ -122,7 +123,7 @@ public record MemberResponseDto(
                 e.externalProducerCodes == null ? List.of() : e.externalProducerCodes.stream()
                         .map(MemberExternalCodeDto::from).toList(),
                 e.village, e.localityId, delegateSupplierId, delegateName, e.phone, e.email,
-                e.joinedAt, e.partsSocialesAmount, e.status,
+                e.joinedAt, e.partsSocialesAmount, e.advanceAccount, e.status,
                 e.supplierId,
                 e.parcels != null ? List.copyOf(e.parcels) : List.of(),
                 e.preferredPaymentMethod, e.mobileMoneyNumber,

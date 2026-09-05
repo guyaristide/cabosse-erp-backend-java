@@ -37,16 +37,16 @@ public class FiscalYearEntity {
     public String status;
 
     /** Produits − charges (classes 6/7, en-cours inclus), avant impôt. */
-    public BigDecimal resultBeforeTaxFcfa;
+    public BigDecimal resultBeforeTax;
 
     /** Impôt sur le résultat comptabilisé (891/441). Zéro si exonéré. */
-    public BigDecimal taxFcfa;
+    public BigDecimal tax;
 
     /** Résultat net après impôt — solde du compte 13 à l'arrêté. */
-    public BigDecimal resultNetFcfa;
+    public BigDecimal resultNet;
 
     /** Total des en-cours constatés (34/734), contre-passés à l'ouverture. */
-    public BigDecimal wipTotalFcfa;
+    public BigDecimal wipTotal;
 
     /**
      * Snapshot officiel figé à l'arrêté : lignes du compte de résultat
@@ -73,13 +73,13 @@ public class FiscalYearEntity {
         public String statement;
         public String section;
         public String rubrique;
-        public BigDecimal montantFcfa;
+        public BigDecimal montant;
     }
 
     public static class AllocationLine {
         /** Compte SYSCOHADA de classe 1 (101, 11x, 121…). */
         public String account;
-        public BigDecimal amountFcfa;
+        public BigDecimal amount;
     }
 
     public static class Document {

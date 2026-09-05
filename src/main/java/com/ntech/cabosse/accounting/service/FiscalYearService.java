@@ -68,14 +68,14 @@ public class FiscalYearService {
     @Inject AuditService audit;
     @Inject JsonWebToken jwt;
 
-    public record WipLine(String label, BigDecimal amountFcfa) {}
-    public record AllocationInput(String account, BigDecimal amountFcfa) {}
+    public record WipLine(String label, BigDecimal amount) {}
+    public record AllocationInput(String account, BigDecimal amount) {}
     public record Bounds(LocalDate start, LocalDate end, String label) {}
     public record Preview(Bounds bounds,
-                          BigDecimal totalProduitsFcfa,
-                          BigDecimal totalChargesFcfa,
-                          BigDecimal resultBeforeTaxFcfa,
-                          BigDecimal proposedTaxFcfa,
+                          BigDecimal totalProduits,
+                          BigDecimal totalCharges,
+                          BigDecimal resultBeforeTax,
+                          BigDecimal proposedTax,
                           BigDecimal taxRatePct,
                           List<WipLine> wipProposals,
                           List<String> unlockedPeriods) {}
@@ -140,7 +140,7 @@ public class FiscalYearService {
             if (of.status != OfStatus.IN_PROGRESS) continue;
             wip.add(new WipLine(
                     "En-cours " + of.ref + " · " + nullSafe(of.finishedProductName),
-                    of.totalMaterialCostFcfa != null ? of.totalMaterialCostFcfa : BigDecimal.ZERO));
+                    of.totalMaterialCost != null ? of.totalMaterialCost : BigDecimal.ZERO));
         }
 
         List<String> unlocked = unlockedPeriods(b);
@@ -149,7 +149,7 @@ public class FiscalYearService {
 
     // ─── Arrêté ─────────────────────────────────────────────────────
 
-    public FiscalYearEntity close(BigDecimal taxFcfa, List<WipLine> wipLines) {
+    public FiscalYearEntity close(BigDecimal taxInput, List<WipLine> wipLines) {
         Bounds b = nextBounds();
         List<String> unlocked = unlockedPeriods(b);
         if (!unlocked.isEmpty()) {
@@ -159,7 +159,7 @@ public class FiscalYearService {
         if (years.findByEndDate(b.end()).isPresent()) {
             throw new BusinessException(Messages.msg("m.acc-fy-already-closed", b.label()));
         }
-        if (taxFcfa != null && taxFcfa.signum() < 0) {
+        if (taxInput != null && taxInput.signum() < 0) {
             throw new BusinessException(Messages.msg("m.acc-fy-negative-tax"));
         }
 
@@ -174,13 +174,13 @@ public class FiscalYearService {
         BigDecimal wipTotal = BigDecimal.ZERO;
         List<JournalEntry> wipEntries = new ArrayList<>();
         for (WipLine line : wipLines != null ? wipLines : List.<WipLine>of()) {
-            if (line.amountFcfa() == null || line.amountFcfa().signum() <= 0) continue;
-            if (line.amountFcfa().signum() < 0) {
+            if (line.amount() == null || line.amount().signum() <= 0) continue;
+            if (line.amount().signum() < 0) {
                 throw new BusinessException(Messages.msg("m.acc-fy-negative-wip"));
             }
-            wipTotal = wipTotal.add(line.amountFcfa());
+            wipTotal = wipTotal.add(line.amount());
             wipEntries.add(JournalEntry.debit(SyscohadaAccounts.EN_COURS,
-                    nullSafe(line.label()), line.amountFcfa()));
+                    nullSafe(line.label()), line.amount()));
         }
         if (wipTotal.signum() > 0) {
             wipEntries.add(JournalEntry.credit(SyscohadaAccounts.VARIATION_EN_COURS,
@@ -191,19 +191,19 @@ public class FiscalYearService {
 
             List<JournalEntry> mirrored = new ArrayList<>();
             for (JournalEntry we : wipEntries) {
-                mirrored.add(we.debitFcfa != null
-                        ? JournalEntry.credit(we.syscohadaAccount, we.libelle, we.debitFcfa)
-                        : JournalEntry.debit(we.syscohadaAccount, we.libelle, we.creditFcfa));
+                mirrored.add(we.debit != null
+                        ? JournalEntry.credit(we.syscohadaAccount, we.libelle, we.debit)
+                        : JournalEntry.debit(we.syscohadaAccount, we.libelle, we.credit));
             }
             accounting.postPiece(new PostingRequest(
                     b.end().plusDays(1), PostingSourceType.EXERCISE_WIP_REVERSAL, e.id, e.label,
                     "Contre-passation des en-cours : ouverture " + b.end().plusDays(1), mirrored));
         }
-        e.wipTotalFcfa = wipTotal;
+        e.wipTotal = wipTotal;
 
         // 2. Impôt sur le résultat (891/441). Montant fourni par le
         //    comptable (proposé = résultat × taux tenant), zéro = exonéré.
-        BigDecimal tax = taxFcfa != null ? taxFcfa : BigDecimal.ZERO;
+        BigDecimal tax = taxInput != null ? taxInput : BigDecimal.ZERO;
         if (tax.signum() > 0) {
             accounting.postPiece(new PostingRequest(
                     b.end(), PostingSourceType.EXERCISE_TAX, e.id, e.label,
@@ -215,7 +215,7 @@ public class FiscalYearService {
                                     "État, impôt sur les bénéfices " + e.label, tax)
                     )));
         }
-        e.taxFcfa = tax;
+        e.tax = tax;
 
         // 3. Soldes de l'exercice (en-cours et impôt inclus, pièces de
         //    clôture d'un éventuel re-run exclues par soldesByAccount).
@@ -271,8 +271,8 @@ public class FiscalYearService {
                     "Clôture des charges : exercice " + e.label, expenseEntries));
         }
 
-        e.resultBeforeTaxFcfa = produits.subtract(charges6);
-        e.resultNetFcfa = e.resultBeforeTaxFcfa.subtract(tax);
+        e.resultBeforeTax = produits.subtract(charges6);
+        e.resultNet = e.resultBeforeTax.subtract(tax);
 
         // 6. Snapshot officiel : CR de la période (pièces de clôture
         //    exclues par l'export) + bilan à la date d'arrêté.
@@ -296,7 +296,8 @@ public class FiscalYearService {
                 .actorEmail(actor())
                 .target("fiscal_year", e.id.toString(), e.label)
                 .description("Exercice " + e.label + " arrêté : résultat net "
-                        + e.resultNetFcfa + " FCFA (impôt " + tax + ", en-cours " + wipTotal + ")")
+                        + e.resultNet + " " + Messages.currencyLabel()
+                        + " (impôt " + tax + ", en-cours " + wipTotal + ")")
                 .record();
         return e;
     }
@@ -318,19 +319,19 @@ public class FiscalYearService {
                 throw new BusinessException(Messages.msg(
                         "m.acc-fy-allocation-class1-only", line.account()));
             }
-            if (line.amountFcfa() == null || line.amountFcfa().signum() <= 0) {
+            if (line.amount() == null || line.amount().signum() <= 0) {
                 throw new BusinessException(Messages.msg("m.acc-fy-allocation-positive-amount"));
             }
-            total = total.add(line.amountFcfa());
+            total = total.add(line.amount());
         }
-        BigDecimal target = e.resultNetFcfa.abs();
+        BigDecimal target = e.resultNet.abs();
         if (total.compareTo(target) != 0) {
             throw new BusinessException(Messages.msg("m.acc-fy-allocation-total-mismatch",
                     String.valueOf(total), String.valueOf(target)));
         }
 
         // Bénéfice : débit 13, crédit classe 1. Perte : miroir.
-        boolean benefice = e.resultNetFcfa.signum() >= 0;
+        boolean benefice = e.resultNet.signum() >= 0;
         List<JournalEntry> entries = new ArrayList<>();
         entries.add(benefice
                 ? JournalEntry.debit(SyscohadaAccounts.RESULTAT_EXERCICE,
@@ -339,8 +340,8 @@ public class FiscalYearService {
                         "Résorption de la perte " + e.label, target));
         for (AllocationInput line : lines) {
             entries.add(benefice
-                    ? JournalEntry.credit(line.account(), "Affectation " + e.label, line.amountFcfa())
-                    : JournalEntry.debit(line.account(), "Affectation " + e.label, line.amountFcfa()));
+                    ? JournalEntry.credit(line.account(), "Affectation " + e.label, line.amount())
+                    : JournalEntry.debit(line.account(), "Affectation " + e.label, line.amount()));
         }
         accounting.postPiece(new PostingRequest(
                 LocalDate.now(), PostingSourceType.EXERCISE_ALLOCATION, e.id, e.label,
@@ -350,7 +351,7 @@ public class FiscalYearService {
         for (AllocationInput line : lines) {
             FiscalYearEntity.AllocationLine al = new FiscalYearEntity.AllocationLine();
             al.account = line.account();
-            al.amountFcfa = line.amountFcfa();
+            al.amount = line.amount();
             e.allocations.add(al);
         }
         e.status = FiscalYearEntity.STATUS_CLOTURE;
@@ -363,7 +364,8 @@ public class FiscalYearService {
                 .actorEmail(actor())
                 .target("fiscal_year", e.id.toString(), e.label)
                 .description("Résultat de l'exercice " + e.label + " affecté ("
-                        + lines.size() + " ligne(s), " + target + " FCFA) : exercice clôturé")
+                        + lines.size() + " ligne(s), " + target + " "
+                        + Messages.currencyLabel() + ") : exercice clôturé")
                 .record();
         return e;
     }
@@ -380,8 +382,8 @@ public class FiscalYearService {
         for (JournalPieceEntity p : pieces.list(from, to, null, 0, Integer.MAX_VALUE)) {
             if (isClosingType(p.sourceType)) continue;
             for (JournalEntry en : p.entries) {
-                BigDecimal d = en.debitFcfa != null ? en.debitFcfa : BigDecimal.ZERO;
-                BigDecimal c = en.creditFcfa != null ? en.creditFcfa : BigDecimal.ZERO;
+                BigDecimal d = en.debit != null ? en.debit : BigDecimal.ZERO;
+                BigDecimal c = en.credit != null ? en.credit : BigDecimal.ZERO;
                 soldes.merge(en.syscohadaAccount, d.subtract(c), BigDecimal::add);
             }
         }
@@ -411,7 +413,7 @@ public class FiscalYearService {
         s.statement = statement;
         s.section = row.section();
         s.rubrique = row.rubrique();
-        s.montantFcfa = row.montantFcfa();
+        s.montant = row.montant();
         return s;
     }
 

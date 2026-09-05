@@ -71,8 +71,8 @@ class OdEntryResourceTest extends AbstractIntegrationTest {
         String id = createDraft(admin, today, """
                 { "date": "%s", "libelle": "Dotation amortissements",
                   "lines": [
-                    { "account": "681", "libelle": "Dotation", "debitFcfa": 50000 },
-                    { "account": "284", "libelle": "Amortissements cumulés", "creditFcfa": 40000 }
+                    { "account": "681", "libelle": "Dotation", "debit": 50000 },
+                    { "account": "284", "libelle": "Amortissements cumulés", "credit": 40000 }
                   ] }
                 """.formatted(today));
 
@@ -88,8 +88,8 @@ class OdEntryResourceTest extends AbstractIntegrationTest {
                 .body("""
                         { "date": "%s", "libelle": "Régularisation",
                           "lines": [
-                            { "account": "601", "libelle": "Charge", "debitFcfa": 50000 },
-                            { "account": "401", "libelle": "Dette", "creditFcfa": 50000 }
+                            { "account": "601", "libelle": "Charge", "debit": 50000 },
+                            { "account": "401", "libelle": "Dette", "credit": 50000 }
                           ] }
                         """.formatted(today))
                 .when().put("/api/v1/accounting/od/" + id)
@@ -115,7 +115,7 @@ class OdEntryResourceTest extends AbstractIntegrationTest {
         YearMonth lastMonth = YearMonth.now().minusMonths(1);
         createDraft(admin, lastMonth.atDay(15), """
                 { "date": "%s", "libelle": "OD en attente",
-                  "lines": [ { "account": "601", "libelle": "x", "debitFcfa": 1000 } ] }
+                  "lines": [ { "account": "601", "libelle": "x", "debit": 1000 } ] }
                 """.formatted(lastMonth.atDay(15)));
 
         givenAs(admin)
@@ -131,8 +131,8 @@ class OdEntryResourceTest extends AbstractIntegrationTest {
         String id = createDraft(admin, today, """
                 { "date": "%s", "libelle": "Dotation avec justificatif",
                   "lines": [
-                    { "account": "601", "libelle": "d", "debitFcfa": 1000 },
-                    { "account": "401", "libelle": "c", "creditFcfa": 1000 }
+                    { "account": "601", "libelle": "d", "debit": 1000 },
+                    { "account": "401", "libelle": "c", "credit": 1000 }
                   ] }
                 """.formatted(today));
 
@@ -179,8 +179,8 @@ class OdEntryResourceTest extends AbstractIntegrationTest {
         String id = createDraft(admin, today, """
                 { "date": "%s", "libelle": "OD figée",
                   "lines": [
-                    { "account": "601", "libelle": "d", "debitFcfa": 1000 },
-                    { "account": "401", "libelle": "c", "creditFcfa": 1000 }
+                    { "account": "601", "libelle": "d", "debit": 1000 },
+                    { "account": "401", "libelle": "c", "credit": 1000 }
                   ] }
                 """.formatted(today));
         givenAs(admin)

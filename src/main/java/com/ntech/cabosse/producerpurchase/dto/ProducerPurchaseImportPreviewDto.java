@@ -52,10 +52,10 @@ public record ProducerPurchaseImportPreviewDto(
             String delegateName,
             int receiptCount,
             BigDecimal totalWeightKg,
-            BigDecimal totalAmountFcfa,
-            BigDecimal totalMarginFcfa,
-            BigDecimal balanceBeforeFcfa,
-            BigDecimal balanceAfterFcfa
+            BigDecimal totalAmount,
+            BigDecimal totalMargin,
+            BigDecimal balanceBefore,
+            BigDecimal balanceAfter
     ) {}
 
     public record FieldIssue(String field, String message) {}

@@ -22,11 +22,11 @@ final class DelegateStatementExportColumns {
                 ExportColumn.of(Messages.msg("m.imp-h-code"),                DelegateStatementDto.Row::delegateCode),
                 ExportColumn.of(Messages.msg("m.imp-h-delegue"),             DelegateStatementDto.Row::delegateName),
                 ExportColumn.of(Messages.msg("m.imp-h-section"),             DelegateStatementDto.Row::sectionName),
-                ExportColumn.of(Messages.msg("m.exp-h-mise-en-compte-kg"),   DelegateStatementDto.Row::retentionPerKgFcfa),
-                ExportColumn.of(Messages.msg("m.exp-h-mise-en-compte"),      DelegateStatementDto.Row::retentionAmountFcfa),
-                ExportColumn.of(Messages.msg("m.exp-h-marge-kg"),            DelegateStatementDto.Row::marginPerKgFcfa),
-                ExportColumn.of(Messages.msg("m.exp-h-marge"),               DelegateStatementDto.Row::marginAmountFcfa),
+                ExportColumn.of(Messages.msg("m.exp-h-mise-en-compte-kg"),   DelegateStatementDto.Row::retentionPerKg),
+                ExportColumn.of(Messages.msg("m.exp-h-mise-en-compte"),      DelegateStatementDto.Row::retentionAmount),
+                ExportColumn.of(Messages.msg("m.exp-h-marge-kg"),            DelegateStatementDto.Row::marginPerKg),
+                ExportColumn.of(Messages.msg("m.exp-h-marge"),               DelegateStatementDto.Row::marginAmount),
                 ExportColumn.of(Messages.msg("m.imp-h-poids-kg"),            DelegateStatementDto.Row::weightKg),
-                ExportColumn.of(Messages.msg("m.exp-h-valeur-livree"),       DelegateStatementDto.Row::deliveredFcfa));
+                ExportColumn.of(Messages.msg("m.exp-h-valeur-livree"),       DelegateStatementDto.Row::delivered));
     }
 }

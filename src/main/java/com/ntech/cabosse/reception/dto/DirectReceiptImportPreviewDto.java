@@ -45,8 +45,8 @@ public record DirectReceiptImportPreviewDto(
             /** {@code true} si le fournisseur sera créé au commit. */
             boolean supplierWillBeCreated,
             BigDecimal quantity,
-            BigDecimal unitPriceFcfa,
-            BigDecimal totalLineFcfa,
+            BigDecimal unitPrice,
+            BigDecimal totalLine,
             String deliveryNoteRef,
             String notes
     ) {}
@@ -55,7 +55,7 @@ public record DirectReceiptImportPreviewDto(
     public record Group(
             LocalDate date,
             int lineCount,
-            BigDecimal subtotalHtFcfa
+            BigDecimal subtotalHt
     ) {}
 
     public record FieldIssue(String field, String message) {}

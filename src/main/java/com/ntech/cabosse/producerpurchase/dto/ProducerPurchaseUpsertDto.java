@@ -38,12 +38,21 @@ public record ProducerPurchaseUpsertDto(
         UUID siteId,
         UUID campaignId,
 
+        /** Camion qui a livré, tel que le carnet le note. */
+        @Size(max = 40) String truckNumber,
+
+        /**
+         * Pesées du bordereau (CE-183). Renseignées, leur somme de nets
+         * fait le poids du reçu et prime sur {@link #weightKg}.
+         */
+        java.util.List<@jakarta.validation.Valid PurchaseWeighingDto> weighings,
+
         Integer nbSacs,
         @DecimalMin("0.0") BigDecimal weightKg,
-        @DecimalMin("0.0") BigDecimal guaranteedPricePerKgFcfa,
-        @DecimalMin("0.0") BigDecimal amountFcfa,
+        @DecimalMin("0.0") BigDecimal guaranteedPricePerKg,
+        @DecimalMin("0.0") BigDecimal amount,
         /** Montant remis au producteur. Vide : le montant dû est réputé payé. */
-        @DecimalMin("0.0") BigDecimal amountPaidFcfa,
+        @DecimalMin("0.0") BigDecimal amountPaid,
 
         @NotNull PaymentMethod paymentMethod,
 
@@ -74,15 +83,4 @@ public record ProducerPurchaseUpsertDto(
          * personne qui fixe, engagement par engagement, ce qu'elle prélève.
          */
         java.util.List<@jakarta.validation.Valid CreditImputationDto> creditImputations
-) {
-
-    /** Retenue sur un engagement précis. */
-    @Schema(description = "Retenue décidée au titre d'un crédit ou d'une avance")
-    public record CreditImputationDto(
-            @NotNull(message = "{v.engagement-requis}") UUID creditId,
-            @NotNull(message = "{v.montant-requis}")
-            @DecimalMin(value = "0", inclusive = false, message = "{v.montant-0-requis}")
-            BigDecimal amountFcfa,
-            @Size(max = 500) String notes
-    ) {}
-}
+) {}

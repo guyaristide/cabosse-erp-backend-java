@@ -719,6 +719,7 @@ public class MemberImportService {
                 n.email() != null ? n.email() : cur.email,
                 n.joinedAt() != null ? LocalDate.parse(n.joinedAt()) : cur.joinedAt,
                 n.partsSocialesAmount() != null ? n.partsSocialesAmount() : cur.partsSocialesAmount,
+                cur.advanceAccount,
                 cur.status,
                 n.paymentMethod() != null ? n.paymentMethod() : cur.preferredPaymentMethod,
                 n.mobileMoneyNumber() != null ? n.mobileMoneyNumber() : cur.mobileMoneyNumber,
@@ -871,6 +872,7 @@ public class MemberImportService {
                 n.village(), localityId, n.phone(), n.email(),
                 n.joinedAt() != null ? LocalDate.parse(n.joinedAt()) : null,
                 n.partsSocialesAmount(),
+                /* advanceAccount */ null,
                 MemberStatus.ACTIVE,
                 n.paymentMethod(), n.mobileMoneyNumber(),
                 // Titulaire du compte et mandat ne se saisissent pas en masse :

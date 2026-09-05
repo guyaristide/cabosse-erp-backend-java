@@ -74,7 +74,46 @@ public final class Messages {
     public static String msg(Locale locale, String key, Object... args) {
         ResourceBundle bundle = ResourceBundle.getBundle("messages", locale, NO_FALLBACK);
         String template = bundle.containsKey(key) ? bundle.getString(key) : key;
+        // La devise se résout avant MessageFormat : un {currency} qui lui
+        // parviendrait le ferait échouer, l'index n'étant pas numérique.
+        if (template.contains(CURRENCY_PLACEHOLDER)) {
+            template = template.replace(CURRENCY_PLACEHOLDER, currentCurrencyLabel());
+        }
         return args.length == 0 ? template : MessageFormat.format(template, args);
+    }
+
+    /**
+     * Marqueur de devise dans les catalogues : {@code {currency}}.
+     *
+     * <p>La devise ne s'écrit jamais en dur dans un message (règle de la
+     * maison, 04/09/2026). Un en-tête d'export s'écrit
+     * {@code Montant ({currency})} et rend « Montant (FCFA) » pour un
+     * tenant en XOF, « Montant (GHS) » pour un tenant au cedi.</p>
+     */
+    public static final String CURRENCY_PLACEHOLDER = "{currency}";
+
+    /**
+     * Devise du tenant de la requête en cours, FCFA hors requête.
+     *
+     * <p>Pour les textes assemblés hors catalogue, descriptions d'audit en
+     * tête, qui citent un montant et doivent nommer la devise du tenant.</p>
+     */
+    public static String currencyLabel() {
+        return currentCurrencyLabel();
+    }
+
+    private static String currentCurrencyLabel() {
+        try {
+            ArcContainer container = Arc.container();
+            if (container != null && container.requestContext().isActive()) {
+                return CurrencyLabels.display(container
+                        .instance(com.ntech.cabosse.shared.tenant.TenantContext.class)
+                        .get().currency());
+            }
+        } catch (RuntimeException ignored) {
+            // Contexte indisponible (démarrage, tâche de fond) : défaut.
+        }
+        return CurrencyLabels.display(null);
     }
 
     /** Langue de la requête en cours, français hors contexte de requête. */

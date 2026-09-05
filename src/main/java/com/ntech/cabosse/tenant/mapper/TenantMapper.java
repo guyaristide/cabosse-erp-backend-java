@@ -145,7 +145,7 @@ public final class TenantMapper {
                 entity.preferences.memberCapitalAccount(),
                 entity.preferences.postStockTransferEntries(),
                 entity.preferences.inventoryAlertThresholdPct(),
-                entity.preferences.inventoryAlertThresholdFcfa(),
+                entity.preferences.inventoryAlertThresholdAmount(),
                 entity.preferences.periodReopenPolicy(),
                 entity.preferences.vatDeductibleAccount(),
                 entity.preferences.vatCollectedAccount(),
@@ -155,7 +155,7 @@ public final class TenantMapper {
                 entity.preferences.incomeTaxRatePct(),
                 entity.preferences.costCenterRequired(),
                 entity.preferences.purchaseRequestEnabled(),
-                entity.preferences.purchaseRequestThresholdFcfa(),
+                entity.preferences.purchaseRequestThreshold(),
                 entity.preferences.collectorAdvanceAccount(),
                 entity.preferences.collectorDeliveryValuation(),
                 entity.preferences.blockProductionOnStockShortage(),
@@ -170,8 +170,8 @@ public final class TenantMapper {
                 entity.preferences.producerPayableAccount(),
                 entity.preferences.delegatePayableAccount(),
                 entity.preferences.producerReferenceCodeType,
-                entity.preferences.memberCreditApprovalThresholdFcfa(),
-                entity.preferences.collectorAdvanceApprovalThresholdFcfa(),
+                entity.preferences.memberCreditApprovalThreshold(),
+                entity.preferences.collectorAdvanceApprovalThreshold,
                 entity.preferences.memberCreditAccount(),
                 entity.preferences.cashDiscrepancyAccount(),
                 entity.preferences.productionPotentialBasis(),
@@ -183,7 +183,8 @@ public final class TenantMapper {
                 entity.preferences.producerPriceSource(),
                 entity.preferences.producerAmountMode(),
                 entity.preferences.producerWeightMode(),
-                entity.preferences.producerPurchaseSiteRequired()
+                entity.preferences.producerPurchaseSiteRequired(),
+                entity.preferences.receiptAccountingMode()
         );
     }
 

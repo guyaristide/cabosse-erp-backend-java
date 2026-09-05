@@ -29,6 +29,6 @@ public class MemberCreditRefService {
                 Updates.inc("seq", 1L),
                 new FindOneAndUpdateOptions().upsert(true).returnDocument(ReturnDocument.AFTER));
         long seq = updated != null ? updated.getLong("seq") : 1L;
-        return String.format("CRE-%d-%04d", year, seq);
+        return String.format("DA-PRO-%d-%04d", year, seq);
     }
 }

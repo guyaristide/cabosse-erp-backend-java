@@ -2,7 +2,7 @@ package com.ntech.cabosse.treasury.controller;
 
 import com.ntech.cabosse.shared.export.ExportColumn;
 import com.ntech.cabosse.shared.i18n.Messages;
-import com.ntech.cabosse.treasury.dto.SettlementDtos.SettlementDto;
+import com.ntech.cabosse.treasury.dto.SettlementDto;
 
 import java.util.List;
 
@@ -28,9 +28,9 @@ final class SettlementExportColumns {
                 ExportColumn.of(Messages.msg("m.imp-h-reference-source"), SettlementDto::sourceRef),
                 ExportColumn.of(Messages.msg("m.imp-h-beneficiaire"),
                         SettlementDto::beneficiaryName),
-                ExportColumn.of(Messages.msg("m.imp-h-montant-fcfa"), SettlementDto::amountFcfa),
+                ExportColumn.of(Messages.msg("m.imp-h-montant-amount"), SettlementDto::amount),
                 ExportColumn.of(Messages.msg("m.imp-h-frais-bancaires"),
-                        SettlementDto::bankFeesFcfa),
+                        SettlementDto::bankFees),
                 ExportColumn.of(Messages.msg("m.imp-h-purchase-payment-method"),
                         SettlementDto::paymentMethod),
                 ExportColumn.of(Messages.msg("m.imp-h-purchase-payment-ref"),

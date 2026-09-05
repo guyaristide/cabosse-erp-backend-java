@@ -14,7 +14,7 @@ public record PurchaseRequestResponseDto(
         UUID id, String ref, UUID siteId,
         UUID supplierId, String supplierName,
         LocalDate requestDate, String justification,
-        List<LineView> lines, BigDecimal estimatedTotalFcfa,
+        List<LineView> lines, BigDecimal estimatedTotal,
         String status, String decisionReason,
         Instant submittedAt, Instant decidedAt, String decidedByEmail,
         UUID convertedOrderId, String convertedOrderRef,
@@ -22,16 +22,16 @@ public record PurchaseRequestResponseDto(
 ) {
     public record LineView(UUID articleId, String articleCode, String designation,
                            String unit, BigDecimal quantity,
-                           BigDecimal estimatedUnitPriceFcfa, BigDecimal estimatedLineFcfa) {}
+                           BigDecimal estimatedUnitPrice, BigDecimal estimatedLine) {}
 
     public static PurchaseRequestResponseDto from(PurchaseRequestEntity e) {
         List<LineView> lines = e.lines == null ? List.of() : e.lines.stream()
                 .map(l -> new LineView(l.articleId, l.articleCode, l.designation, l.unit,
-                        l.quantity, l.estimatedUnitPriceFcfa, l.estimatedLineFcfa))
+                        l.quantity, l.estimatedUnitPrice, l.estimatedLine))
                 .toList();
         return new PurchaseRequestResponseDto(
                 e.id, e.ref, e.siteId, e.supplierId, e.supplierName,
-                e.requestDate, e.justification, lines, e.estimatedTotalFcfa,
+                e.requestDate, e.justification, lines, e.estimatedTotal,
                 e.status != null ? e.status.name() : null, e.decisionReason,
                 e.submittedAt, e.decidedAt, e.decidedByEmail,
                 e.convertedOrderId, e.convertedOrderRef,

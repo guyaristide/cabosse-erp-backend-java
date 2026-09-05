@@ -25,10 +25,10 @@ public class ProducerPurchaseCancellation {
     public String reversalPieceRef;
 
     /** Montant recrédité sur l'avance du délégué, le cas échéant. */
-    public BigDecimal advanceCreditedBackFcfa;
+    public BigDecimal advanceCreditedBack;
 
     /** Montant de retenue restitué au crédit du membre, le cas échéant. */
-    public BigDecimal creditRestoredFcfa;
+    public BigDecimal creditRestored;
 
     public ProducerPurchaseCancellation() {}
 }

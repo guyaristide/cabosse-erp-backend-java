@@ -88,8 +88,8 @@ class CostCenterAnalyticsTest extends AbstractIntegrationTest {
         String odId = createOd(admin, """
                 { "date": "%s", "libelle": "Dépense collecte",
                   "lines": [
-                    { "account": "601", "libelle": "Achat", "debitFcfa": 40000, "costCenter": "COL" },
-                    { "account": "401", "libelle": "Dette", "creditFcfa": 40000 }
+                    { "account": "601", "libelle": "Achat", "debit": 40000, "costCenter": "COL" },
+                    { "account": "401", "libelle": "Dette", "credit": 40000 }
                   ] }
                 """.formatted(today));
 
@@ -109,7 +109,7 @@ class CostCenterAnalyticsTest extends AbstractIntegrationTest {
         givenAs(admin)
                 .when().get("/api/v1/accounting/analytics/cost-centers")
                 .then().statusCode(200)
-                .body("data.find { it.code == 'COL' }.chargesFcfa", equalTo(40000.0F));
+                .body("data.find { it.code == 'COL' }.charges", equalTo(40000.0F));
     }
 
     @Test
@@ -120,8 +120,8 @@ class CostCenterAnalyticsTest extends AbstractIntegrationTest {
         String odId = createOd(admin, """
                 { "date": "%s", "libelle": "Mauvaise imputation",
                   "lines": [
-                    { "account": "601", "libelle": "Achat", "debitFcfa": 1000 },
-                    { "account": "401", "libelle": "Dette", "creditFcfa": 1000, "costCenter": "COL" }
+                    { "account": "601", "libelle": "Achat", "debit": 1000 },
+                    { "account": "401", "libelle": "Dette", "credit": 1000, "costCenter": "COL" }
                   ] }
                 """.formatted(today));
         givenAs(admin)
@@ -138,8 +138,8 @@ class CostCenterAnalyticsTest extends AbstractIntegrationTest {
         String odId = createOd(admin, """
                 { "date": "%s", "libelle": "Centre inexistant",
                   "lines": [
-                    { "account": "601", "libelle": "Achat", "debitFcfa": 1000, "costCenter": "ZZZ" },
-                    { "account": "401", "libelle": "Dette", "creditFcfa": 1000 }
+                    { "account": "601", "libelle": "Achat", "debit": 1000, "costCenter": "ZZZ" },
+                    { "account": "401", "libelle": "Dette", "credit": 1000 }
                   ] }
                 """.formatted(today));
         givenAs(admin)
@@ -163,8 +163,8 @@ class CostCenterAnalyticsTest extends AbstractIntegrationTest {
         String odId = createOd(admin, """
                 { "date": "%s", "libelle": "Charge sans centre",
                   "lines": [
-                    { "account": "601", "libelle": "Achat", "debitFcfa": 1000 },
-                    { "account": "401", "libelle": "Dette", "creditFcfa": 1000 }
+                    { "account": "601", "libelle": "Achat", "debit": 1000 },
+                    { "account": "401", "libelle": "Dette", "credit": 1000 }
                   ] }
                 """.formatted(today));
         givenAs(admin)

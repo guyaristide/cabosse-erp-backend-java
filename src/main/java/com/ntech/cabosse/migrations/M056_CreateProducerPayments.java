@@ -46,13 +46,13 @@ public class M056_CreateProducerPayments {
         // ressurgir comme dus. On fige donc la lecture d'origine : payé =
         // montant dû, retenues déduites.
         database.getCollection("producer_purchases").updateMany(
-                com.mongodb.client.model.Filters.exists("amountPaidFcfa", false),
+                com.mongodb.client.model.Filters.exists("amountPaid", false),
                 java.util.List.of(new org.bson.Document("$set", new org.bson.Document(
-                        "amountPaidFcfa", new org.bson.Document("$subtract", java.util.List.of(
+                        "amountPaid", new org.bson.Document("$subtract", java.util.List.of(
                                 new org.bson.Document("$ifNull",
-                                        java.util.List.of("$amountFcfa", ZERO)),
+                                        java.util.List.of("$amount", ZERO)),
                                 new org.bson.Document("$ifNull",
-                                        java.util.List.of("$creditImputedFcfa", ZERO))))))));
+                                        java.util.List.of("$creditImputed", ZERO))))))));
     }
 
     @RollbackExecution

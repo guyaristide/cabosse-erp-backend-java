@@ -17,7 +17,7 @@ final class ProducerPaymentExportColumns {
                 ExportColumn.of(Messages.msg("m.imp-h-date"),             ProducerPaymentDtos.PaymentResponseDto::date),
                 ExportColumn.of(Messages.msg("m.imp-h-beneficiaire"),     ProducerPaymentDtos.PaymentResponseDto::beneficiaryName),
                 ExportColumn.of(Messages.msg("m.imp-h-type"),             ProducerPaymentDtos.PaymentResponseDto::beneficiaryKind),
-                ExportColumn.of(Messages.msg("m.imp-h-montant-fcfa"),   ProducerPaymentDtos.PaymentResponseDto::totalAmountFcfa),
+                ExportColumn.of(Messages.msg("m.imp-h-montant-amount"),   ProducerPaymentDtos.PaymentResponseDto::totalAmount),
                 ExportColumn.of(Messages.msg("m.imp-h-purchase-payment-method"), ProducerPaymentDtos.PaymentResponseDto::paymentMethod),
                 ExportColumn.of(Messages.msg("m.imp-h-purchase-payment-ref"), ProducerPaymentDtos.PaymentResponseDto::paymentRef),
                 ExportColumn.of(Messages.msg("m.imp-h-piece-comptable"),  ProducerPaymentDtos.PaymentResponseDto::pieceRef),

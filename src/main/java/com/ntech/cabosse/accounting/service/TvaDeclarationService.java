@@ -64,8 +64,8 @@ public class TvaDeclarationService {
      * dupliquer la logique d'agrégation.
      */
     public TvaDeclarationEntity markReady(String yearMonth,
-                                          BigDecimal collectedFcfa,
-                                          BigDecimal deductibleFcfa) {
+                                          BigDecimal collected,
+                                          BigDecimal deductible) {
         YearMonth ym = parseYearMonth(yearMonth);
         Optional<TvaDeclarationEntity> existing = repo.findByYearMonth(yearMonth);
         if (existing.isPresent() && existing.get().status == TvaDeclarationStatus.DEPOSE) {
@@ -81,9 +81,9 @@ public class TvaDeclarationService {
         e.periodStart = ym.atDay(1);
         e.periodEnd = ym.atEndOfMonth();
         e.dueDate = ym.plusMonths(1).atDay(DUE_DAY);
-        e.collectedFcfa = collectedFcfa;
-        e.deductibleFcfa = deductibleFcfa;
-        e.toPayFcfa = collectedFcfa.subtract(deductibleFcfa);
+        e.collected = collected;
+        e.deductible = deductible;
+        e.toPay = collected.subtract(deductible);
         e.status = TvaDeclarationStatus.PRET_A_DEPOSER;
         e.updatedAt = Instant.now();
         if (isNew) repo.insert(e); else repo.replace(e);
@@ -119,9 +119,9 @@ public class TvaDeclarationService {
         return new TvaDeclarationDto(
                 label,
                 e.periodStart, e.periodEnd,
-                e.collectedFcfa != null ? e.collectedFcfa : BigDecimal.ZERO,
-                e.deductibleFcfa != null ? e.deductibleFcfa : BigDecimal.ZERO,
-                e.toPayFcfa != null ? e.toPayFcfa : BigDecimal.ZERO,
+                e.collected != null ? e.collected : BigDecimal.ZERO,
+                e.deductible != null ? e.deductible : BigDecimal.ZERO,
+                e.toPay != null ? e.toPay : BigDecimal.ZERO,
                 e.dueDate,
                 e.status.name()
         );

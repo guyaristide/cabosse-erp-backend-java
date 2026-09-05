@@ -84,7 +84,7 @@ class AccountStatementTest extends AbstractIntegrationTest {
         return givenAs(who).contentType("application/json")
                 .body("""
                         { "label": "Campagne %s", "kind": "MAIN", "startDate": "%s",
-                          "endDate": "%s", "basePricePerKgFcfa": 900 }
+                          "endDate": "%s", "basePricePerKg": 900 }
                         """.formatted(TestFixtures.randomSlugSuffix(),
                         LocalDate.now().minusMonths(1), LocalDate.now().plusMonths(5)))
                 .when().post("/api/v1/campaigns").then().statusCode(201)
@@ -104,7 +104,7 @@ class AccountStatementTest extends AbstractIntegrationTest {
         String id = givenAs(who).contentType("application/json")
                 .body("""
                         { "delegateSupplierId": "%s", "advanceDate": "%s",
-                          "advanceAmountFcfa": %d, "paymentMethod": "CHEQUE",
+                          "advanceAmount": %d, "paymentMethod": "CHEQUE",
                           "campaignId": "%s" }
                         """.formatted(delegateId, LocalDate.now(), amount, campaignId))
                 .when().post("/api/v1/collector-advances").then().statusCode(201)
@@ -114,7 +114,7 @@ class AccountStatementTest extends AbstractIntegrationTest {
         givenAs(who).contentType("application/json")
                 .body("""
                         { "paymentMethod": "CHEQUE", "bankAccountId": "%s",
-                          "paymentRef": "CHQ-001", "bankFeesFcfa": %d }
+                          "paymentRef": "CHQ-001", "bankFees": %d }
                         """.formatted(bankAccountId, fees))
                 .when().post("/api/v1/collector-advances/" + id + "/disburse")
                 .then().statusCode(200);
@@ -155,7 +155,7 @@ class AccountStatementTest extends AbstractIntegrationTest {
         // La banque les débite séparément : fondus dans le décaissement,
         // ils ne se rapprocheraient d'aucune des deux lignes du relevé.
         List<Object> amounts = statement(admin, bank, "").extract()
-                .path("data.page.items.amountFcfa");
+                .path("data.page.items.amount");
         assertThat(amounts).hasSize(2);
         assertThat(((Number) amounts.get(1)).doubleValue()).isEqualTo(15_000d);
     }
@@ -169,9 +169,9 @@ class AccountStatementTest extends AbstractIntegrationTest {
 
         var response = statement(admin, bank, "?from=" + LocalDate.now().minusDays(1)
                 + "&to=" + LocalDate.now());
-        Number out = response.extract().path("data.totalOutFcfa");
+        Number out = response.extract().path("data.totalOut");
         assertThat(out.doubleValue()).isEqualTo(1_020_000d);
-        Number closing = response.extract().path("data.closingBalanceFcfa");
+        Number closing = response.extract().path("data.closingBalance");
         // Rien n'est entré, tout est sorti : le compte est à découvert,
         // ce qu'un compte de banque a le droit d'être.
         assertThat(closing.doubleValue()).isEqualTo(-1_020_000d);
@@ -206,7 +206,7 @@ class AccountStatementTest extends AbstractIntegrationTest {
         // sens ferait apparaître le compte plus riche qu'il n'est.
         Number opening = statement(admin, bank,
                 "?from=" + LocalDate.now().plusDays(1) + "&direction=IN")
-                .extract().path("data.openingBalanceFcfa");
+                .extract().path("data.openingBalance");
         assertThat(opening.doubleValue()).isEqualTo(-600_000d);
     }
 
@@ -222,7 +222,7 @@ class AccountStatementTest extends AbstractIntegrationTest {
         // Deux lignes, une par page. Repartir du solde d'ouverture de la
         // période sur la seconde page rendrait une colonne fausse.
         Number second = statement(admin, bank, "?perPage=1&page=1")
-                .extract().path("data.page.items[0].balanceFcfa");
+                .extract().path("data.page.items[0].balance");
         assertThat(second.doubleValue()).isEqualTo(-530_000d);
     }
 
@@ -254,7 +254,9 @@ class AccountStatementTest extends AbstractIntegrationTest {
         String csv = givenAs(admin).when()
                 .get("/api/v1/treasury/accounts/" + bank + "/statement/export?format=csv")
                 .then().statusCode(200).extract().asString();
-        long dataLines = csv.lines().filter(l -> l.contains("AV-")).count();
+        // La référence des demandes d'avance est passée de « AV- » à
+        // « DA-DEL- » le 03/09/2026, à la demande de l'expert.
+        long dataLines = csv.lines().filter(l -> l.contains("DA-DEL-")).count();
         assertThat(dataLines).isEqualTo(2);
         assertThat(csv).contains("Frais bancaires");
     }

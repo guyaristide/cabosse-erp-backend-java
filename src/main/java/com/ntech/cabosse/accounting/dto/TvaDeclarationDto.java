@@ -13,9 +13,9 @@ public record TvaDeclarationDto(
         String periodLabel,
         LocalDate periodStart,
         LocalDate periodEnd,
-        BigDecimal collectedFcfa,
-        BigDecimal deductibleFcfa,
-        BigDecimal toPayFcfa,
+        BigDecimal collected,
+        BigDecimal deductible,
+        BigDecimal toPay,
         LocalDate dueDate,
         String status
 ) {}

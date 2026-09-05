@@ -59,20 +59,20 @@ public class SaleEntity {
     public List<SaleLine> lines = new ArrayList<>();
 
     // ─── Totaux ───
-    public BigDecimal subtotalHtFcfa;     // Σ lineTotalHt
+    public BigDecimal subtotalHt;     // Σ lineTotalHt
     public BigDecimal discountPct;        // remise globale 0..100
-    public BigDecimal discountFcfa;       // dérivée
+    public BigDecimal discount;       // dérivée
     public BigDecimal vatRatePct;
-    public BigDecimal vatFcfa;
-    public BigDecimal totalTtcFcfa;       // HT - remise + TVA
+    public BigDecimal vat;
+    public BigDecimal totalTtc;       // HT - remise + TVA
 
     // ─── Coût & marge ───
-    public BigDecimal totalCostFcfa;      // Σ(qty × cmupAtSale)
-    public BigDecimal grossMarginFcfa;    // totalTtc - totalCost
+    public BigDecimal totalCost;      // Σ(qty × cmupAtSale)
+    public BigDecimal grossMargin;    // totalTtc - totalCost
 
     // ─── Paiements (embed) ───
     public List<SalePayment> payments = new ArrayList<>();
-    public BigDecimal totalPaidFcfa = BigDecimal.ZERO;
+    public BigDecimal totalPaid = BigDecimal.ZERO;
     public PaymentStatus paymentStatus = PaymentStatus.UNPAID;
 
     // ─── Statut macro + cancellation ───

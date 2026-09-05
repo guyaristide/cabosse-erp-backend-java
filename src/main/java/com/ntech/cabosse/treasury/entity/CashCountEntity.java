@@ -31,13 +31,13 @@ public class CashCountEntity {
     public LocalDate countedAt;
 
     /** Solde attendu d'après les écritures, à la date du comptage. */
-    public BigDecimal theoreticalFcfa;
+    public BigDecimal theoretical;
 
     /** Somme réellement comptée en caisse. */
-    public BigDecimal countedFcfa;
+    public BigDecimal counted;
 
     /** Compté moins théorique. Négatif quand il manque de l'argent. */
-    public BigDecimal discrepancyFcfa;
+    public BigDecimal discrepancy;
 
     /**
      * Écriture de régularisation, lorsque l'écart a été constaté

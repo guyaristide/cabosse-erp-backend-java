@@ -78,7 +78,15 @@ public class JournalPieceRepository {
                                          String syscohadaAccount,
                                          UUID campaignId,
                                          int skip, int limit) {
-        List<Bson> filters = journalFilters(from, to, syscohadaAccount, campaignId);
+        return list(from, to, syscohadaAccount, campaignId, null, skip, limit);
+    }
+
+    public List<JournalPieceEntity> list(LocalDate from, LocalDate to,
+                                         String syscohadaAccount,
+                                         UUID campaignId,
+                                         java.util.List<String> sourceTypes,
+                                         int skip, int limit) {
+        List<Bson> filters = journalFilters(from, to, syscohadaAccount, campaignId, sourceTypes);
         Bson filter = filters.isEmpty() ? new Document() : Filters.and(filters);
         return coll().find(filter)
                 .sort(new Document("date", -1).append("createdAt", -1))
@@ -88,7 +96,12 @@ public class JournalPieceRepository {
     }
 
     public long count(LocalDate from, LocalDate to, String syscohadaAccount, UUID campaignId) {
-        List<Bson> filters = journalFilters(from, to, syscohadaAccount, campaignId);
+        return count(from, to, syscohadaAccount, campaignId, null);
+    }
+
+    public long count(LocalDate from, LocalDate to, String syscohadaAccount, UUID campaignId,
+                      java.util.List<String> sourceTypes) {
+        List<Bson> filters = journalFilters(from, to, syscohadaAccount, campaignId, sourceTypes);
         return coll().countDocuments(filters.isEmpty() ? new Document() : Filters.and(filters));
     }
 
@@ -99,9 +112,20 @@ public class JournalPieceRepository {
      * les bornes de la campagne : une pièce que l'on a rattachée à la main
      * doit suivre son rattachement, pas sa date.</p>
      */
+    /**
+     * @param sourceTypes natures d'opération retenues, vide pour toutes.
+     *                    Sert la lecture depuis la trésorerie, qui ne
+     *                    montre que ce qu'elle a produit : le journal
+     *                    entier a déjà son écran, et le dupliquer ferait
+     *                    diverger les deux.
+     */
     private static List<Bson> journalFilters(LocalDate from, LocalDate to,
-                                             String syscohadaAccount, UUID campaignId) {
+                                             String syscohadaAccount, UUID campaignId,
+                                             java.util.List<String> sourceTypes) {
         List<Bson> filters = new ArrayList<>();
+        if (sourceTypes != null && !sourceTypes.isEmpty()) {
+            filters.add(Filters.in("sourceType", sourceTypes));
+        }
         if (from != null) filters.add(Filters.gte("date", from));
         if (to != null) filters.add(Filters.lte("date", to));
         if (syscohadaAccount != null && !syscohadaAccount.isBlank()) {
@@ -134,8 +158,8 @@ public class JournalPieceRepository {
         // d'autres lignes, sur d'autres comptes, qu'il ne faut pas sommer.
         stages.add(Aggregates.match(Filters.eq("entries.syscohadaAccount", syscohadaAccount)));
         stages.add(Aggregates.group(null,
-                Accumulators.sum("debit", "$entries.debitFcfa"),
-                Accumulators.sum("credit", "$entries.creditFcfa")));
+                Accumulators.sum("debit", "$entries.debit"),
+                Accumulators.sum("credit", "$entries.credit")));
 
         Document row = coll().withDocumentClass(Document.class).aggregate(stages).first();
         if (row == null) return BigDecimal.ZERO;
@@ -195,8 +219,8 @@ public class JournalPieceRepository {
         }
         List<Bson> stages = movementStages(syscohadaAccount, from, to, direction);
         stages.add(Aggregates.group(null,
-                Accumulators.sum("debit", "$entries.debitFcfa"),
-                Accumulators.sum("credit", "$entries.creditFcfa")));
+                Accumulators.sum("debit", "$entries.debit"),
+                Accumulators.sum("credit", "$entries.credit")));
         Document row = coll().withDocumentClass(Document.class).aggregate(stages).first();
         if (row == null) return new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO};
         return new BigDecimal[]{decimal(row.get("debit")), decimal(row.get("credit"))};
@@ -216,8 +240,8 @@ public class JournalPieceRepository {
         // ce compte-ci.
         List<Bson> onAccount = new ArrayList<>();
         onAccount.add(Filters.eq("entries.syscohadaAccount", syscohadaAccount));
-        if ("IN".equals(direction)) onAccount.add(Filters.gt("entries.debitFcfa", 0));
-        if ("OUT".equals(direction)) onAccount.add(Filters.gt("entries.creditFcfa", 0));
+        if ("IN".equals(direction)) onAccount.add(Filters.gt("entries.debit", 0));
+        if ("OUT".equals(direction)) onAccount.add(Filters.gt("entries.credit", 0));
         stages.add(Aggregates.match(Filters.and(onAccount)));
         return stages;
     }

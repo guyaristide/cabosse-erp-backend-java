@@ -78,9 +78,9 @@ class TvaWorkflowTest extends AbstractIntegrationTest {
         postValidatedOd(admin, """
                 { "date": "%s", "libelle": "Vente TTC",
                   "lines": [
-                    { "account": "411000", "libelle": "Client", "debitFcfa": 11800 },
-                    { "account": "701000", "libelle": "Vente", "creditFcfa": 10000 },
-                    { "account": "445700", "libelle": "TVA collectée", "creditFcfa": 1800 }
+                    { "account": "411000", "libelle": "Client", "debit": 11800 },
+                    { "account": "701000", "libelle": "Vente", "credit": 10000 },
+                    { "account": "445700", "libelle": "TVA collectée", "credit": 1800 }
                   ] }
                 """.formatted(LocalDate.now()));
     }
@@ -90,9 +90,9 @@ class TvaWorkflowTest extends AbstractIntegrationTest {
         postValidatedOd(admin, """
                 { "date": "%s", "libelle": "Achat TTC",
                   "lines": [
-                    { "account": "601000", "libelle": "Achat", "debitFcfa": 5000 },
-                    { "account": "445600", "libelle": "TVA déductible", "debitFcfa": 900 },
-                    { "account": "401000", "libelle": "Fournisseur", "creditFcfa": 5900 }
+                    { "account": "601000", "libelle": "Achat", "debit": 5000 },
+                    { "account": "445600", "libelle": "TVA déductible", "debit": 900 },
+                    { "account": "401000", "libelle": "Fournisseur", "credit": 5900 }
                   ] }
                 """.formatted(LocalDate.now()));
     }
@@ -110,9 +110,9 @@ class TvaWorkflowTest extends AbstractIntegrationTest {
                 .when().post("/api/v1/accounting/tva/" + month + "/mark-ready")
                 .then().statusCode(200)
                 .body("data.status", equalTo("PRET_A_DEPOSER"))
-                .body("data.collectedFcfa", equalTo(1800.0F))
-                .body("data.deductibleFcfa", equalTo(900.0F))
-                .body("data.toPayFcfa", equalTo(900.0F))
+                .body("data.collected", equalTo(1800.0F))
+                .body("data.deductible", equalTo(900.0F))
+                .body("data.toPay", equalTo(900.0F))
                 .body("data.dueDate", notNullValue());
 
         // Persisté : l'historique du workflow doit le restituer tel quel.
@@ -125,7 +125,7 @@ class TvaWorkflowTest extends AbstractIntegrationTest {
                 .body("data.periodStart", hasItem(firstDay))
                 .body("data.find { it.periodStart == '" + firstDay + "' }.status",
                         equalTo("PRET_A_DEPOSER"))
-                .body("data.find { it.periodStart == '" + firstDay + "' }.toPayFcfa",
+                .body("data.find { it.periodStart == '" + firstDay + "' }.toPay",
                         equalTo(900.0F));
     }
 
@@ -170,7 +170,7 @@ class TvaWorkflowTest extends AbstractIntegrationTest {
                 .when().post("/api/v1/accounting/tva/" + month + "/mark-ready")
                 .then().statusCode(200)
                 .extract().jsonPath();
-        for (String field : new String[] { "collectedFcfa", "deductibleFcfa", "toPayFcfa" }) {
+        for (String field : new String[] { "collected", "deductible", "toPay" }) {
             Number v = body.get("data." + field);
             org.junit.jupiter.api.Assertions.assertEquals(0.0, v.doubleValue(), 0.001,
                     "Un mois sans TVA doit se déclarer à zéro (" + field + ")");
@@ -203,9 +203,9 @@ class TvaWorkflowTest extends AbstractIntegrationTest {
         postValidatedOd(admin, """
                 { "date": "%s", "libelle": "Vente TTC",
                   "lines": [
-                    { "account": "411000", "libelle": "Client", "debitFcfa": 11800 },
-                    { "account": "701000", "libelle": "Vente", "creditFcfa": 10000 },
-                    { "account": "445710", "libelle": "TVA collectée", "creditFcfa": 1800 }
+                    { "account": "411000", "libelle": "Client", "debit": 11800 },
+                    { "account": "701000", "libelle": "Vente", "credit": 10000 },
+                    { "account": "445710", "libelle": "TVA collectée", "credit": 1800 }
                   ] }
                 """.formatted(LocalDate.now()));
 
@@ -214,7 +214,7 @@ class TvaWorkflowTest extends AbstractIntegrationTest {
         givenAs(admin).contentType("application/json")
                 .when().post("/api/v1/accounting/tva/" + YearMonth.now() + "/mark-ready")
                 .then().statusCode(200)
-                .body("data.collectedFcfa", org.hamcrest.Matchers.comparesEqualTo(1800.0f));
+                .body("data.collected", org.hamcrest.Matchers.comparesEqualTo(1800.0f));
     }
 
     /**
@@ -236,6 +236,6 @@ class TvaWorkflowTest extends AbstractIntegrationTest {
         givenAs(admin).contentType("application/json")
                 .when().post("/api/v1/accounting/tva/" + YearMonth.now() + "/mark-ready")
                 .then().statusCode(200)
-                .body("data.collectedFcfa", org.hamcrest.Matchers.comparesEqualTo(1800.0f));
+                .body("data.collected", org.hamcrest.Matchers.comparesEqualTo(1800.0f));
     }
 }

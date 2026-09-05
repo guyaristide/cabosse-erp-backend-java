@@ -14,7 +14,7 @@ import java.util.UUID;
  * sociales) du label.
  *
  * <p>Le prix de vente d'une expédition en découle : prix bord champ de la
- * campagne ({@code CampaignEntity.basePricePerKgFcfa}) + {@link #marginPerKgFcfa},
+ * campagne ({@code CampaignEntity.basePricePerKg}) + {@link #marginPerKg},
  * primes selon le label. Le contrat <strong>pré-remplit</strong> la vente,
  * qui reste surchargeable (décision « hybride » du 22/07/2026).</p>
  */
@@ -34,17 +34,17 @@ public class SalesContractEntity {
     public Integer campaignYear;
 
     /** Marge négociée ajoutée au prix bord champ (FCFA/kg). */
-    public BigDecimal marginPerKgFcfa = BigDecimal.ZERO;
+    public BigDecimal marginPerKg = BigDecimal.ZERO;
 
     /** Label de certification du contrat (ex. {@code "RA"}, {@code "FT"}), ou null. */
     public String label;
 
     /** Prime label revenant à la coopérative (FCFA/kg). */
-    public BigDecimal coopPrimePerKgFcfa = BigDecimal.ZERO;
+    public BigDecimal coopPrimePerKg = BigDecimal.ZERO;
     /** Prime label destinée aux producteurs (FCFA/kg). */
-    public BigDecimal producerPrimePerKgFcfa = BigDecimal.ZERO;
+    public BigDecimal producerPrimePerKg = BigDecimal.ZERO;
     /** Prime label destinée aux actions sociales (FCFA/kg). */
-    public BigDecimal socialPrimePerKgFcfa = BigDecimal.ZERO;
+    public BigDecimal socialPrimePerKg = BigDecimal.ZERO;
 
     public String notes;
     public boolean active = true;

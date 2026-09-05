@@ -23,9 +23,9 @@ public record DelegateTermsDto(
         /** Le délégué traîne-t-il un solde d'une campagne antérieure ? */
         boolean hasPriorDebt,
         /** Montant de cette dette, positif quand il doit à la coopérative. */
-        BigDecimal priorDebtFcfa,
+        BigDecimal priorDebt,
         /** Mise en compte convenue, en FCFA par kilo livré. */
-        BigDecimal retentionPerKgFcfa,
+        BigDecimal retentionPerKg,
         /**
          * Le délégué traîne une dette et aucune mise en compte n'est
          * convenue avec lui.
@@ -38,9 +38,9 @@ public record DelegateTermsDto(
          */
         boolean retentionMissingOnPriorDebt,
         /** Marge de fonctionnement, en FCFA par kilo livré. */
-        BigDecimal marginPerKgFcfa,
+        BigDecimal marginPerKg,
         /** Prix bord champ de la campagne, en FCFA par kilo. */
-        BigDecimal basePricePerKgFcfa,
+        BigDecimal basePricePerKg,
         /**
          * Prix barème délégué = prix bord champ + marge de fonctionnement.
          *
@@ -48,12 +48,12 @@ public record DelegateTermsDto(
          * pourcentage ne s'ajoute pas à un prix unitaire, et afficher une
          * somme fausse serait pire que de ne rien afficher.</p>
          */
-        BigDecimal scalePricePerKgFcfa,
+        BigDecimal scalePricePerKg,
         /**
          * Ce qu'il faudrait avancer pour un volume donné, quand l'appelant
          * en propose un : prix barème × volume.
          */
-        BigDecimal suggestedAdvanceFcfa,
+        BigDecimal suggestedAdvance,
         /**
          * Le volume qu'un montant demandé représente : montant ÷ prix
          * barème.
@@ -73,5 +73,5 @@ public record DelegateTermsDto(
          * le logiciel arbitre : il montre ce qu'il faut pour décider, et
          * s'arrête là.</p>
          */
-        BigDecimal outstandingFcfa
+        BigDecimal outstanding
 ) {}

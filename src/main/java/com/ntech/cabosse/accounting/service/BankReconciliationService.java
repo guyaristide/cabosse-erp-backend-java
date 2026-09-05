@@ -102,7 +102,7 @@ public class BankReconciliationService {
     }
 
     private List<JournalPieceEntity> findCandidates(BankAccountEntity bank, BankStatementLineEntity line) {
-        BigDecimal target = line.amountFcfa;
+        BigDecimal target = line.amount;
         boolean lineIsCredit = "CREDIT".equals(line.direction);
 
         // Période recherche : ± DATE_WINDOW_DAYS jours.
@@ -117,8 +117,8 @@ public class BankReconciliationService {
         for (JournalPieceEntity p : windowPieces) {
             for (JournalEntry e : p.entries) {
                 if (!bank.syscohadaAccount.equals(e.syscohadaAccount)) continue;
-                BigDecimal d = e.debitFcfa;
-                BigDecimal c = e.creditFcfa;
+                BigDecimal d = e.debit;
+                BigDecimal c = e.credit;
                 if (lineIsCredit && d != null && d.compareTo(target) == 0) {
                     matching.add(p);
                     break;
@@ -244,7 +244,7 @@ public class BankReconciliationService {
         String bankAccount = bank.syscohadaAccount != null && !bank.syscohadaAccount.isBlank()
                 ? bank.syscohadaAccount
                 : SyscohadaAccounts.BANQUE_DEFAULT;
-        BigDecimal amount = line.amountFcfa.abs();
+        BigDecimal amount = line.amount.abs();
         boolean outflow = "DEBIT".equalsIgnoreCase(line.direction);
         List<JournalEntry> entries = outflow
                 ? List.of(

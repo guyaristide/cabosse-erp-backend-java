@@ -11,6 +11,6 @@ import java.time.LocalDate;
 public record CashFlowPointDto(
         String bucket,
         LocalDate bucketStart,
-        BigDecimal inflowFcfa,
-        BigDecimal outflowFcfa
+        BigDecimal inflow,
+        BigDecimal outflow
 ) {}

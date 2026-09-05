@@ -136,7 +136,8 @@ public class SupplierImportService {
                         n.email(), n.phone(), n.addressLine(), n.cityName(), n.countryCode(),
                         n.contactName(), n.paymentTerms(), n.notes(),
                         /* collector */ null, /* sectionId */ null, /* localityIds */ null,
-                        /* collectorMarginRate */ null, /* collectorRetentionPerKgFcfa */ null,
+                        /* collectorMarginRate */ null, /* advanceAccount */ null,
+                        /* collectorRetentionPerKg */ null,
                         /* categoryId */ null
                 );
                 SupplierResponseDto created = supplierService.create(payload);

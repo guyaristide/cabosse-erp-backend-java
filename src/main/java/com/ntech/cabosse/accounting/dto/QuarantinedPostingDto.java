@@ -21,8 +21,8 @@ public record QuarantinedPostingDto(
         LocalDate date,
         String libelle,
         String lockedPeriod,
-        BigDecimal totalDebitFcfa,
-        BigDecimal totalCreditFcfa,
+        BigDecimal totalDebit,
+        BigDecimal totalCredit,
         List<LineDto> lines,
         QuarantineStatus status,
         Instant createdAt,
@@ -33,15 +33,15 @@ public record QuarantinedPostingDto(
 ) {
     @Schema(description = "Ligne de l'écriture retenue")
     public record LineDto(String account, String libelle,
-                          BigDecimal debitFcfa, BigDecimal creditFcfa) {}
+                          BigDecimal debit, BigDecimal credit) {}
 
     public static QuarantinedPostingDto from(QuarantinedPostingEntity e) {
         List<LineDto> lines = e.entries == null ? List.of()
                 : e.entries.stream()
-                    .map(l -> new LineDto(l.syscohadaAccount, l.libelle, l.debitFcfa, l.creditFcfa))
+                    .map(l -> new LineDto(l.syscohadaAccount, l.libelle, l.debit, l.credit))
                     .toList();
         return new QuarantinedPostingDto(e.id, e.sourceType, e.sourceId, e.sourceRef,
-                e.date, e.libelle, e.lockedPeriod, e.totalDebitFcfa, e.totalCreditFcfa,
+                e.date, e.libelle, e.lockedPeriod, e.totalDebit, e.totalCredit,
                 lines, e.status, e.createdAt, e.resolvedAt, e.resolvedByEmail,
                 e.resultingPieceRef, e.discardReason);
     }

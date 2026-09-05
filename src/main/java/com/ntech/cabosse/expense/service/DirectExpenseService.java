@@ -111,12 +111,12 @@ public class DirectExpenseService {
         }
 
         // Montants : TVA = HT × taux ; TTC = HT + TVA (FCFA arrondi à l'unité).
-        e.amountHtFcfa = nz(p.amountHtFcfa());
+        e.amountHt = nz(p.amountHt());
         e.vatRatePct = nz(p.vatRatePct());
-        e.vatAmountFcfa = e.amountHtFcfa
+        e.vatAmount = e.amountHt
                 .multiply(e.vatRatePct)
                 .divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
-        e.amountTtcFcfa = e.amountHtFcfa.add(e.vatAmountFcfa);
+        e.amountTtc = e.amountHt.add(e.vatAmount);
 
         e.paymentMethod = method.name();
         e.treasuryAccount = accounting.treasuryAccountFor(method, p.bankAccountId());
@@ -127,7 +127,7 @@ public class DirectExpenseService {
 
         accounting.postFromDirectExpense(
                 e.id, e.ref, e.expenseDate, e.chargeAccount, e.label,
-                e.amountHtFcfa, e.vatAmountFcfa, e.amountTtcFcfa, e.treasuryAccount,
+                e.amountHt, e.vatAmount, e.amountTtc, e.treasuryAccount,
                 e.allocationKeyCode)
                 .ifPresent(piece -> e.pieceRef = piece.ref);
 
@@ -136,7 +136,7 @@ public class DirectExpenseService {
                 .actorEmail(actor())
                 .target("direct_expense", e.id.toString(), e.ref)
                 .tenant(tenantContext.tenantId(), null)
-                .description(kind.name() + " " + e.label + " — " + e.amountTtcFcfa + " (" + e.ref + ")")
+                .description(kind.name() + " " + e.label + " — " + e.amountTtc + " (" + e.ref + ")")
                 .record();
         return DirectExpenseResponseDto.from(e);
     }

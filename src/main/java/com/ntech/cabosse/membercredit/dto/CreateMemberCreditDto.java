@@ -18,9 +18,18 @@ public record CreateMemberCreditDto(
 
         @NotNull(message = "{v.montant-requis}")
         @DecimalMin(value = "0", inclusive = false, message = "{v.montant-0-requis}")
-        BigDecimal amountFcfa,
+        BigDecimal amount,
 
         @Size(max = 200, message = "{v.objet-trop-long}") String purpose,
+        /** Contrepartie attendue, proposée au barème et saisie par la coop. */
+        @DecimalMin(value = "0", inclusive = false, message = "{v.quantite-0-requise}")
+        BigDecimal expectedQuantity,
+        /**
+         * Montant accordé quand le directeur tranche au dépôt. Absent : le
+         * montant sollicité est accordé en entier, cas courant.
+         */
+        @DecimalMin(value = "0", inclusive = false, message = "{v.montant-0-requis}")
+        BigDecimal approvedAmount,
         LocalDate requestedAt,
         UUID campaignId,
         @Size(max = 1000) String notes

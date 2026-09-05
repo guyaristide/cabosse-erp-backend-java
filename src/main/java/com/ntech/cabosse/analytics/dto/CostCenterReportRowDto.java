@@ -11,7 +11,7 @@ import java.math.BigDecimal;
  * coût unitaire (charges / volume). Le code {@code null} regroupe les
  * charges non affectées.
  *
- * <p>{@code volumeQuantity}/{@code unit}/{@code unitCostFcfa} sont
+ * <p>{@code volumeQuantity}/{@code unit}/{@code unitCost} sont
  * {@code null} si le centre n'a pas de volume sur la base choisie, ou si
  * ses articles mélangent des unités ({@code mixedUnits = true}) — auquel
  * cas un coût unitaire agrégé n'aurait pas de sens.</p>
@@ -20,14 +20,14 @@ import java.math.BigDecimal;
 public record CostCenterReportRowDto(
         String code,
         String name,
-        BigDecimal chargesFcfa,
+        BigDecimal charges,
         BigDecimal volumeQuantity,
         String unit,
-        BigDecimal unitCostFcfa,
+        BigDecimal unitCost,
         boolean mixedUnits
 ) {
     /** Ligne sans volume d'activité (compat CPT-09). */
-    public static CostCenterReportRowDto charges(String code, String name, BigDecimal chargesFcfa) {
-        return new CostCenterReportRowDto(code, name, chargesFcfa, null, null, null, false);
+    public static CostCenterReportRowDto charges(String code, String name, BigDecimal charges) {
+        return new CostCenterReportRowDto(code, name, charges, null, null, null, false);
     }
 }

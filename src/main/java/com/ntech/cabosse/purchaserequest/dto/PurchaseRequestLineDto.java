@@ -14,5 +14,5 @@ public record PurchaseRequestLineDto(
         @DecimalMin(value = "0", inclusive = false, message = "{v.quantite-doit-etre-0}")
         BigDecimal quantity,
         @DecimalMin(value = "0", message = "{v.prix-estime-negatif-interdit}")
-        BigDecimal estimatedUnitPriceFcfa
+        BigDecimal estimatedUnitPrice
 ) {}

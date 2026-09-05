@@ -6,9 +6,9 @@ import com.ntech.cabosse.accounting.repository.JournalPieceRepository;
 import com.ntech.cabosse.shared.api.PageRequest;
 import com.ntech.cabosse.shared.api.Pagination;
 import com.ntech.cabosse.shared.i18n.Messages;
-import com.ntech.cabosse.treasury.dto.AccountStatementDtos.AccountStatementDto;
-import com.ntech.cabosse.treasury.dto.AccountStatementDtos.Direction;
-import com.ntech.cabosse.treasury.dto.AccountStatementDtos.MovementDto;
+import com.ntech.cabosse.treasury.dto.AccountStatementDto;
+import com.ntech.cabosse.treasury.dto.Direction;
+import com.ntech.cabosse.treasury.dto.MovementDto;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.NotFoundException;
@@ -167,12 +167,12 @@ public class AccountStatementService {
 
     private BigDecimal debitOf(Document row) {
         Document entry = (Document) row.get("entries");
-        return entry == null ? BigDecimal.ZERO : decimal(entry.get("debitFcfa"));
+        return entry == null ? BigDecimal.ZERO : decimal(entry.get("debit"));
     }
 
     private BigDecimal creditOf(Document row) {
         Document entry = (Document) row.get("entries");
-        return entry == null ? BigDecimal.ZERO : decimal(entry.get("creditFcfa"));
+        return entry == null ? BigDecimal.ZERO : decimal(entry.get("credit"));
     }
 
     private static LocalDate dateOf(Object value) {

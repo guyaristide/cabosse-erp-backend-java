@@ -2,6 +2,7 @@ package com.ntech.cabosse.producerpurchase.controller;
 
 import com.ntech.cabosse.producerpurchase.service.ProducerPurchaseImportService;
 import com.ntech.cabosse.producerpurchase.service.ProducerPurchaseService;
+import com.ntech.cabosse.producerpurchase.service.ReceptionNoteService;
 import com.ntech.cabosse.producerpurchase.dto.ProducerPurchaseImportRowDto;
 import com.ntech.cabosse.producerpurchase.dto.CancelProducerPurchaseDto;
 import com.ntech.cabosse.producerpurchase.dto.ProducerPurchaseUpsertDto;
@@ -50,6 +51,8 @@ public class ProducerPurchaseResource {
 
     @Inject ExportAudit exportAudit;
     @Inject ProducerPurchaseService service;
+    @Inject ReceptionNoteService receptionNotes;
+    @Inject com.ntech.cabosse.producerpurchase.service.DayIntakeSheetService daySheets;
     @Inject ProducerPurchaseImportService importService;
     @Inject ProducerPurchaseImportTemplate importTemplate;
     @Inject TenantCapabilityService capabilities;
@@ -94,6 +97,90 @@ public class ProducerPurchaseResource {
     public Response getById(@PathParam("id") UUID id) {
         ensureCapability();
         return Response.ok(ApiResponse.ok(service.getById(id))).build();
+    }
+
+    /** Les livraisons qui attendent le comptable (DEC-36, mode MANUAL). */
+    @GET
+    @Path("/pending-accounting")
+    @RequiresPermission(Permission.ACCOUNTING_READ)
+    public Response pendingAccounting(@QueryParam("page") @DefaultValue("0") int page,
+                                      @QueryParam("perPage") @DefaultValue("20") int perPage) {
+        ensureCapability();
+        return Response.ok(ApiResponse.ok(
+                service.pendingAccounting(PageRequest.of(page, perPage)))).build();
+    }
+
+    /** Le clic « Comptabiliser maintenant » du comptable (DEC-36, V2). */
+    @POST
+    @Path("/{id}/post-accounting")
+    @RequiresPermission(Permission.ACCOUNTING_WRITE)
+    public Response postAccounting(@PathParam("id") UUID id) {
+        ensureCapability();
+        return Response.ok(ApiResponse.ok(service.postAccounting(id))).build();
+    }
+
+    /** Fiche de stock des entrées du jour (CE-185), la vue journal du magasinier. */
+    @GET
+    @Path("/day-sheet")
+    public Response daySheet(@QueryParam("date") String dateRaw,
+                             @QueryParam("siteId") UUID siteId,
+                             @QueryParam("articleId") UUID articleId) {
+        ensureCapability();
+        java.time.LocalDate date = dateRaw != null && !dateRaw.isBlank()
+                ? java.time.LocalDate.parse(dateRaw) : java.time.LocalDate.now();
+        return Response.ok(ApiResponse.ok(daySheets.build(date, siteId, articleId))).build();
+    }
+
+    /**
+     * Export de la fiche du jour. L'ouverture et les totaux entrent dans
+     * le jeu de lignes, comme les états comptables le font déjà : le
+     * document exporté se suffit, sans renvoi à l'écran.
+     */
+    @GET
+    @Path("/day-sheet/export")
+    @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/pdf" })
+    public Response daySheetExport(@QueryParam("date") String dateRaw,
+                                   @QueryParam("siteId") UUID siteId,
+                                   @QueryParam("articleId") UUID articleId,
+                                   @QueryParam("format") String formatRaw) {
+        ensureCapability();
+        java.time.LocalDate date = dateRaw != null && !dateRaw.isBlank()
+                ? java.time.LocalDate.parse(dateRaw) : java.time.LocalDate.now();
+        ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
+        com.ntech.cabosse.producerpurchase.dto.DayIntakeSheetDto sheet =
+                daySheets.build(date, siteId, articleId);
+        java.util.List<com.ntech.cabosse.producerpurchase.dto.DayIntakeRowDto> rows =
+                new java.util.ArrayList<>();
+        if (sheet.openingQuantity() != null) {
+            rows.add(new com.ntech.cabosse.producerpurchase.dto.DayIntakeRowDto(
+                    null, date, Messages.msg("m.pds-opening-label"), null, null, null,
+                    null, null, null, null, sheet.openingQuantity(), null));
+        }
+        rows.addAll(sheet.rows());
+        rows.add(new com.ntech.cabosse.producerpurchase.dto.DayIntakeRowDto(
+                null, date, Messages.msg("m.pds-total-label"), null, null, null,
+                sheet.totalBags(), sheet.totalWeightKg(), null, sheet.totalAmount(),
+                sheet.closingQuantity(), sheet.totalBags()));
+        ExportDataset<com.ntech.cabosse.producerpurchase.dto.DayIntakeRowDto> dataset =
+                new ExportDataset<>(Messages.msg("m.pds-export-title", String.valueOf(date)),
+                        DayIntakeSheetExportColumns.all(), rows);
+        exportAudit.record("fiche-entrees-jour", "Fiche des entrées du jour", format, sheet.rows().size());
+        return ExportResponses.build("fiche-entrees-jour", format, dataset);
+    }
+
+    /**
+     * Bordereau de réception PDF (CE-184), la pièce que le magasinier
+     * imprime en deux copies et fait viser sur place.
+     */
+    @GET
+    @Path("/{id}/reception-note")
+    @jakarta.ws.rs.Produces("application/pdf")
+    public Response receptionNote(@PathParam("id") UUID id) {
+        ensureCapability();
+        byte[] pdf = receptionNotes.build(id);
+        return Response.ok(pdf)
+                .header("Content-Disposition", "attachment; filename=\"bordereau-reception.pdf\"")
+                .build();
     }
 
     @POST

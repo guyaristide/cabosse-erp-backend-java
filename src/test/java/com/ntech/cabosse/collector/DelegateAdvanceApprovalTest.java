@@ -100,7 +100,7 @@ class DelegateAdvanceApprovalTest extends AbstractIntegrationTest {
         return givenAs(who).contentType("application/json")
                 .body("""
                         { "delegateSupplierId": "%s", "advanceDate": "%s",
-                          "advanceAmountFcfa": %d, "paymentMethod": "CASH" }
+                          "advanceAmount": %d, "paymentMethod": "CASH" }
                         """.formatted(delegateId, LocalDate.now(), amount))
                 .when().post("/api/v1/collector-advances").then().statusCode(201)
                 .body("data.status", equalTo("PENDING_APPROVAL"))
@@ -141,7 +141,7 @@ class DelegateAdvanceApprovalTest extends AbstractIntegrationTest {
         givenAs(approbateur).contentType("application/json")
                 .body("""
                         { "delegateSupplierId": "%s", "advanceDate": "%s",
-                          "advanceAmountFcfa": 500000, "paymentMethod": "CASH" }
+                          "advanceAmount": 500000, "paymentMethod": "CASH" }
                         """.formatted(delegateId, LocalDate.now()))
                 .when().post("/api/v1/collector-advances").then().statusCode(403);
 
@@ -211,7 +211,7 @@ class DelegateAdvanceApprovalTest extends AbstractIntegrationTest {
                 .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                 .body("""
                         { "date": "%s", "memberId": "%s", "articleId": "%s", "siteId": "%s",
-                          "weightKg": 100, "guaranteedPricePerKgFcfa": 1000,
+                          "weightKg": 100, "guaranteedPricePerKg": 1000,
                           "paymentMethod": "CASH", "delegateSupplierId": "%s" }
                         """.formatted(LocalDate.now(), memberId, articleId, siteId, delegateId))
                 .when().post("/api/v1/producer-purchases").then().statusCode(201);
@@ -219,8 +219,8 @@ class DelegateAdvanceApprovalTest extends AbstractIntegrationTest {
         givenAs(admin).when().get("/api/v1/collector-advances/" + id)
                 .then().statusCode(200)
                 .body("data.status", equalTo("PENDING_APPROVAL"))
-                .body("data.consumedAmountFcfa", equalTo(0))
-                .body("data.remainingFcfa", equalTo(1000000));
+                .body("data.consumedAmount", equalTo(0))
+                .body("data.remaining", equalTo(1000000));
     }
 
     // ─── Le refus ───────────────────────────────────────────────────
@@ -353,7 +353,7 @@ class DelegateAdvanceApprovalTest extends AbstractIntegrationTest {
         // compter gonflerait son solde d'un argent qu'il n'a jamais eu.
         givenAs(admin).when().get("/api/v1/collector-advances/delegates/" + delegateId)
                 .then().statusCode(200)
-                .body("data.totalAdvancedFcfa", equalTo(400000))
+                .body("data.totalAdvanced", equalTo(400000))
                 .body("data.advances", org.hamcrest.Matchers.hasSize(1));
     }
 }

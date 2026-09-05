@@ -67,8 +67,8 @@ class AccountingDashboardTest extends AbstractIntegrationTest {
                 .body("""
                         { "date": "%s", "libelle": "Régularisation",
                           "lines": [
-                            { "account": "601000", "libelle": "Charge", "debitFcfa": %d },
-                            { "account": "401000", "libelle": "Dette", "creditFcfa": %d }
+                            { "account": "601000", "libelle": "Charge", "debit": %d },
+                            { "account": "401000", "libelle": "Dette", "credit": %d }
                           ] }
                         """.formatted(today, amount, amount))
                 .when().post("/api/v1/accounting/od").then().statusCode(201)
@@ -104,6 +104,6 @@ class AccountingDashboardTest extends AbstractIntegrationTest {
                 .when().get("/api/v1/accounting/chart")
                 .then().statusCode(200)
                 .body("data.find { it.number == '601000' }.movementsCount", equalTo(1))
-                .body("data.find { it.number == '601000' }.balanceFcfa", equalTo(40000F));
+                .body("data.find { it.number == '601000' }.balance", equalTo(40000F));
     }
 }

@@ -75,7 +75,7 @@ class CampaignAssignmentByDateTest extends AbstractIntegrationTest {
         return givenAs(admin).contentType("application/json")
                 .body("""
                         { "label": "%s", "startDate": "%s", "endDate": "%s",
-                          "basePricePerKgFcfa": 1500 }
+                          "basePricePerKg": 1500 }
                         """.formatted(label, start, end))
                 .when().post("/api/v1/campaigns")
                 .then().statusCode(201)

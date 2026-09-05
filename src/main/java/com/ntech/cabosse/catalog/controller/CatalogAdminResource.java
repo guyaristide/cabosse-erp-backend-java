@@ -484,10 +484,10 @@ public class CatalogAdminResource {
     @Path("/plans")
     public Response listPlans() {
         List<PlanAdminDto> body = plans.listAll().stream()
-                .sorted(Comparator.comparing((PlanEntity p) -> p.monthlyPriceFcfa))
+                .sorted(Comparator.comparing((PlanEntity p) -> p.monthlyPrice))
                 .map(p -> new PlanAdminDto(
                         p.code, p.name, p.description,
-                        p.monthlyPriceFcfa, p.yearlyPriceFcfa,
+                        p.monthlyPrice, p.yearlyPrice,
                         p.maxUsers, p.maxMembers, p.maxSites,
                         p.includedModules, p.features,
                         p.active
@@ -544,8 +544,8 @@ public class CatalogAdminResource {
     private static void applyPlan(PlanEntity entity, PlanUpsertDto p) {
         entity.name = p.name().trim();
         entity.description = p.description() != null ? p.description().trim() : null;
-        entity.monthlyPriceFcfa = p.monthlyPriceFcfa();
-        entity.yearlyPriceFcfa = p.yearlyPriceFcfa();
+        entity.monthlyPrice = p.monthlyPrice();
+        entity.yearlyPrice = p.yearlyPrice();
         entity.maxUsers = p.maxUsers();
         entity.maxMembers = p.maxMembers();
         entity.maxSites = p.maxSites();
@@ -557,7 +557,7 @@ public class CatalogAdminResource {
     private static PlanAdminDto toPlanDto(PlanEntity p) {
         return new PlanAdminDto(
                 p.code, p.name, p.description,
-                p.monthlyPriceFcfa, p.yearlyPriceFcfa,
+                p.monthlyPrice, p.yearlyPrice,
                 p.maxUsers, p.maxMembers, p.maxSites,
                 p.includedModules, p.features,
                 p.active

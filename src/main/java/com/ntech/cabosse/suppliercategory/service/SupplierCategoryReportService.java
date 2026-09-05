@@ -71,12 +71,12 @@ public class SupplierCategoryReportService {
             if (first != null && withinPeriod(first, from, to)) acc.newCarriers.add(key);
             acc.receiptCount++;
             acc.weight = acc.weight.add(nz(r.weightKg));
-            acc.amount = acc.amount.add(nz(r.amountFcfa));
-            acc.margin = acc.margin.add(nz(r.delegateMarginFcfa));
+            acc.amount = acc.amount.add(nz(r.amount));
+            acc.margin = acc.margin.add(nz(r.delegateMargin));
 
             totalWeight = totalWeight.add(nz(r.weightKg));
-            totalAmount = totalAmount.add(nz(r.amountFcfa));
-            totalMargin = totalMargin.add(nz(r.delegateMarginFcfa));
+            totalAmount = totalAmount.add(nz(r.amount));
+            totalMargin = totalMargin.add(nz(r.delegateMargin));
         }
 
         Map<UUID, SupplierCategoryEntity> refs = categories.byId();

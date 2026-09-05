@@ -48,17 +48,17 @@ public class PurchaseOrderEntity {
     public List<PurchaseOrderLine> lines;
 
     // ─── Totaux ───
-    public BigDecimal subtotalHtFcfa;
+    public BigDecimal subtotalHt;
     /**
      * Frais de transport totaux du BC. Calculé automatiquement comme la
      * somme des lignes {@code articleType=TRANSPORT} si présentes ; sinon
      * respecte la valeur fournie par le payload (compat legacy).
      */
-    public BigDecimal transportFcfa;
+    public BigDecimal transport;
     /** Taux TVA en % (0–100). */
     public BigDecimal vatRatePct;
-    public BigDecimal vatFcfa;
-    public BigDecimal totalTtcFcfa;
+    public BigDecimal vat;
+    public BigDecimal totalTtc;
 
     /**
      * Activités du tenant touchées par ce BC. Dérivé des lignes —

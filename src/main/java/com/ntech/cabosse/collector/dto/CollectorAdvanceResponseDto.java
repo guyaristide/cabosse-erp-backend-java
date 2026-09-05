@@ -15,13 +15,13 @@ public record CollectorAdvanceResponseDto(
         UUID delegateSupplierId, String delegateName,
         UUID sectionId, String sectionName,
         Integer campaignYear, UUID siteId,
-        LocalDate advanceDate, BigDecimal advanceAmountFcfa, String paymentMethod,
+        LocalDate advanceDate, BigDecimal advanceAmount, String paymentMethod,
         /**
          * Montant réellement accordé, quand la décision est prise. Nul tant
          * que la demande attend : c'est lui, et non le montant sollicité,
          * qui sort de la caisse.
          */
-        BigDecimal approvedAmountFcfa,
+        BigDecimal approvedAmount,
         /** Appréciation de l'approbateur, à côté de celle de l'émetteur. */
         String approvalNote,
         /** La demande attend-elle l'organe de gouvernance, ou la direction seule ? */
@@ -29,11 +29,11 @@ public record CollectorAdvanceResponseDto(
         /** Contrepartie attendue du délégué, figée à la demande, et son unité. */
         BigDecimal expectedQuantity, String expectedQuantityUnit,
         /** Prix barème qui a produit la contrepartie, figé avec elle. */
-        BigDecimal counterpartUnitPriceFcfa,
-        BigDecimal consumedAmountFcfa, BigDecimal remainingFcfa,
+        BigDecimal counterpartUnitPrice,
+        BigDecimal consumedAmount, BigDecimal remaining,
         String status, String pieceRef, String notes,
         /** Ce que le décaissement a réellement mouvementé : compte, référence, frais. */
-        UUID bankAccountId, String paymentRef, BigDecimal bankFeesFcfa,
+        UUID bankAccountId, String paymentRef, BigDecimal bankFees,
         List<DeliveryView> deliveries,
         Instant closedAt, Instant createdAt, String createdByEmail,
         /** Qui a approuvé, refusé ou décaissé, et quand. Vide tant que le
@@ -45,22 +45,22 @@ public record CollectorAdvanceResponseDto(
 ) {
     public record DeliveryView(UUID id, LocalDate date, UUID articleId, String articleCode,
                                String articleName, String articleUnit, BigDecimal quantity,
-                               BigDecimal unitPriceFcfa, BigDecimal amountFcfa, String pieceRef) {}
+                               BigDecimal unitPrice, BigDecimal amount, String pieceRef) {}
 
     public static CollectorAdvanceResponseDto from(CollectorAdvanceEntity e) {
         List<DeliveryView> deliveries = e.deliveries == null ? List.of() : e.deliveries.stream()
                 .map(d -> new DeliveryView(d.id, d.date, d.articleId, d.articleCode, d.articleName,
-                        d.articleUnit, d.quantity, d.unitPriceFcfa, d.amountFcfa, d.pieceRef))
+                        d.articleUnit, d.quantity, d.unitPrice, d.amount, d.pieceRef))
                 .toList();
         return new CollectorAdvanceResponseDto(
                 e.id, e.ref, e.delegateSupplierId, e.delegateName, e.sectionId, e.sectionName,
-                e.campaignYear, e.siteId, e.advanceDate, e.advanceAmountFcfa,
+                e.campaignYear, e.siteId, e.advanceDate, e.advanceAmount,
                 e.paymentMethod != null ? e.paymentMethod.name() : null,
-                e.approvedAmountFcfa, e.approvalNote, e.governanceApprovalRequired,
-                e.expectedQuantity, e.expectedQuantityUnit, e.counterpartUnitPriceFcfa,
-                e.consumedAmountFcfa, e.remainingFcfa,
+                e.approvedAmount, e.approvalNote, e.governanceApprovalRequired,
+                e.expectedQuantity, e.expectedQuantityUnit, e.counterpartUnitPrice,
+                e.consumedAmount, e.remaining,
                 e.status != null ? e.status.name() : null, e.pieceRef, e.notes,
-                e.bankAccountId, e.paymentRef, e.bankFeesFcfa,
+                e.bankAccountId, e.paymentRef, e.bankFees,
                 deliveries, e.closedAt, e.createdAt, e.createdByEmail,
                 e.approvedAt, e.approvedByEmail,
                 e.rejectionReason, e.rejectedAt, e.rejectedByEmail,

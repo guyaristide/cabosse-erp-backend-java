@@ -79,6 +79,13 @@ public record MemberUpsertDto(
         @Email @Size(max = 120) String email,
         LocalDate joinedAt,
         @DecimalMin(value = "0", message = "{v.valeur-negative-interdite}") BigDecimal partsSocialesAmount,
+        @jakarta.validation.constraints.Pattern(regexp = "^$|^[0-9]{3,20}$",
+                message = "{v.numero-de-compte-invalide}")
+        @org.eclipse.microprofile.openapi.annotations.media.Schema(
+                description = "Compte comptable d'avance propre à ce producteur, ouvert par la "
+                        + "structure dans son plan. Absent : l'écriture retombe sur le compte "
+                        + "collectif.", example = "409201")
+        String advanceAccount,
         @NotNull MemberStatus status,
         @Size(max = 60) String preferredPaymentMethod,
         @Size(max = 30) String mobileMoneyNumber,

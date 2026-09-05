@@ -97,7 +97,7 @@ class ProducerPurchaseCancellationTest extends AbstractIntegrationTest {
                 .header("Idempotency-Key", UUID.randomUUID().toString())
                 .body("""
                         { "date": "%s", "memberId": "%s", "articleId": "%s", "siteId": "%s",
-                          "weightKg": %d, "guaranteedPricePerKgFcfa": %d,
+                          "weightKg": %d, "guaranteedPricePerKg": %d,
                           "paymentMethod": "CASH" }
                         """.formatted(LocalDate.now(), memberId, articleId, siteId, weight, price))
                 .when().post("/api/v1/producer-purchases")
@@ -141,9 +141,9 @@ class ProducerPurchaseCancellationTest extends AbstractIntegrationTest {
         // Une seconde, saisie par erreur à 3 000 F/kg, le tire vers le haut.
         String wrong = createReceipt(admin, producer, articleId, siteId, 100, 3000);
         org.bson.Document polluted = stockItem(articleId, siteId);
-        assertThat(decimal(polluted, "cmupFcfa"))
+        assertThat(decimal(polluted, "cmup"))
                 .as("le coût moyen a bien bougé avant l'annulation")
-                .isNotEqualByComparingTo(decimal(before, "cmupFcfa"));
+                .isNotEqualByComparingTo(decimal(before, "cmup"));
 
         cancel(admin, wrong, 200);
 
@@ -151,9 +151,9 @@ class ProducerPurchaseCancellationTest extends AbstractIntegrationTest {
         assertThat(decimal(after, "quantity"))
                 .as("la quantité revient à ce qu'elle était")
                 .isEqualByComparingTo(decimal(before, "quantity"));
-        assertThat(decimal(after, "cmupFcfa"))
+        assertThat(decimal(after, "cmup"))
                 .as("le coût moyen aussi : c'est tout l'enjeu, une sortie seule ne le corrige pas")
-                .isEqualByComparingTo(decimal(before, "cmupFcfa"));
+                .isEqualByComparingTo(decimal(before, "cmup"));
     }
 
     @Test

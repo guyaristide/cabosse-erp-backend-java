@@ -28,17 +28,24 @@ public record CommoditySaleUpsertDto(
         @Size(max = 20) String campaignType,
         UUID contractId,
 
+        /**
+         * Bordereau de sortie appelé : la zone A de l'expert. Présent, le
+         * poids déclaré et les sacs viennent du bordereau, et la sortie de
+         * stock lui appartient déjà.
+         */
+        UUID dispatchNoteId,
+
         @Valid LogisticsDto logistics,
         @Valid @NotNull WeightsDto weights,
         @Valid RefactionsDto refactions,
         @Valid QualityDto quality,
 
         /** Surcharge du prix (sinon prix bord champ campagne + marge du contrat). */
-        @DecimalMin(value = "0", message = "{v.valeur-negative-interdite}") BigDecimal pricePerKgFcfa,
+        @DecimalMin(value = "0", message = "{v.valeur-negative-interdite}") BigDecimal pricePerKg,
         /** Surcharges des primes (sinon taux du contrat × poids accepté). */
-        @DecimalMin(value = "0", message = "{v.valeur-negative-interdite}") BigDecimal coopPrimeFcfa,
-        @DecimalMin(value = "0", message = "{v.valeur-negative-interdite}") BigDecimal producerPrimeFcfa,
-        @DecimalMin(value = "0", message = "{v.valeur-negative-interdite}") BigDecimal socialPrimeFcfa,
+        @DecimalMin(value = "0", message = "{v.valeur-negative-interdite}") BigDecimal coopPrime,
+        @DecimalMin(value = "0", message = "{v.valeur-negative-interdite}") BigDecimal producerPrime,
+        @DecimalMin(value = "0", message = "{v.valeur-negative-interdite}") BigDecimal socialPrime,
         /** Surcharge du taux de TVA (sinon préférence tenant). */
         @DecimalMin(value = "0", message = "{v.pourcentage-negatif-interdit}")
         @DecimalMax(value = "100", message = "{v.pourcentage-superieur-a-100}") BigDecimal vatRatePct

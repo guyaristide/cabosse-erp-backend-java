@@ -98,4 +98,17 @@ public class SupplierRepository {
                         .append("updatedAt", Instant.now()))
         );
     }
+    /**
+     * Le tiers qui porte déjà ce compte d'avance, s'il en existe un.
+     *
+     * <p>Deux tiers qui partageraient le même compte rendraient le grand
+     * livre muet sur ce que chacun doit, ce qui est précisément la raison
+     * d'ouvrir un compte par tiers.</p>
+     */
+    public java.util.Optional<SupplierEntity> findByAdvanceAccount(String account) {
+        if (account == null || account.isBlank()) return java.util.Optional.empty();
+        return java.util.Optional.ofNullable(
+                coll().find(com.mongodb.client.model.Filters.eq("advanceAccount", account.trim()))
+                        .first());
+    }
 }

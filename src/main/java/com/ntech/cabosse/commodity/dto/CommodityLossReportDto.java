@@ -25,7 +25,7 @@ public record CommodityLossReportDto(
         BigDecimal avgHumidityPct,
         /** Grainage moyen, simple moyenne des ventes renseignées. */
         BigDecimal avgGrainage,
-        BigDecimal totalCommercialFcfa,
-        BigDecimal totalInvoicedTtcFcfa,
-        BigDecimal totalMarginFcfa
+        BigDecimal totalCommercial,
+        BigDecimal totalInvoicedTtc,
+        BigDecimal totalMargin
 ) {}

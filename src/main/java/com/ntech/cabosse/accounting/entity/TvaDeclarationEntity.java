@@ -16,7 +16,7 @@ import java.util.UUID;
  * n'existe : la lecture du dashboard agrège alors les soldes à la volée
  * et présente la déclaration en {@link TvaDeclarationStatus#A_PREPARER}.</p>
  *
- * <p>Les montants {@link #collectedFcfa} / {@link #deductibleFcfa} sont
+ * <p>Les montants {@link #collected} / {@link #deductible} sont
  * <strong>snapshotés</strong> au moment du verrouillage
  * ({@link TvaDeclarationStatus#PRET_A_DEPOSER}) — toute écriture passée
  * ultérieurement sur la période ne modifie pas la déclaration figée.</p>
@@ -36,9 +36,9 @@ public class TvaDeclarationEntity {
     public TvaDeclarationStatus status;
 
     // Snapshots des montants au moment du verrouillage (PRET_A_DEPOSER).
-    public BigDecimal collectedFcfa;
-    public BigDecimal deductibleFcfa;
-    public BigDecimal toPayFcfa;
+    public BigDecimal collected;
+    public BigDecimal deductible;
+    public BigDecimal toPay;
 
     public LocalDate dueDate;
 

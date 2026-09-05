@@ -83,7 +83,7 @@ class AdvanceDisbursementTest extends AbstractIntegrationTest {
         return givenAs(who).contentType("application/json")
                 .body("""
                         { "delegateSupplierId": "%s", "advanceDate": "%s",
-                          "advanceAmountFcfa": %d, "paymentMethod": "%s" }
+                          "advanceAmount": %d, "paymentMethod": "%s" }
                         """.formatted(delegateId, LocalDate.now(), amount, method))
                 .when().post("/api/v1/collector-advances").then().statusCode(201)
                 .extract().path("data.id");
@@ -135,8 +135,8 @@ class AdvanceDisbursementTest extends AbstractIntegrationTest {
                 .extract().path("data.pieceRef");
 
         List<Map<String, Object>> entries = entriesOf(admin, pieceRef);
-        assertThat(sumOn(entries, "521000", "creditFcfa")).isEqualTo(200_000d);
-        assertThat(sumOn(entries, "571000", "creditFcfa")).isZero();
+        assertThat(sumOn(entries, "521000", "credit")).isEqualTo(200_000d);
+        assertThat(sumOn(entries, "571000", "credit")).isZero();
     }
 
     @Test
@@ -157,8 +157,8 @@ class AdvanceDisbursementTest extends AbstractIntegrationTest {
         // Le chèque sort de la banque, pas de la caisse : c'est ce qui le
         // distingue des espèces, et ce qu'il partage avec le virement.
         List<Map<String, Object>> entries = entriesOf(admin, pieceRef);
-        assertThat(sumOn(entries, "521000", "creditFcfa")).isEqualTo(1_000_000d);
-        assertThat(sumOn(entries, "571000", "creditFcfa")).isZero();
+        assertThat(sumOn(entries, "521000", "credit")).isEqualTo(1_000_000d);
+        assertThat(sumOn(entries, "571000", "credit")).isZero();
     }
 
     @Test
@@ -169,10 +169,10 @@ class AdvanceDisbursementTest extends AbstractIntegrationTest {
         approve(admin, id);
 
         String pieceRef = givenAs(admin).contentType("application/json")
-                .body("{ \"paymentRef\": \"VIR-990\", \"bankFeesFcfa\": 5000 }")
+                .body("{ \"paymentRef\": \"VIR-990\", \"bankFees\": 5000 }")
                 .when().post("/api/v1/collector-advances/" + id + "/disburse")
                 .then().statusCode(200)
-                .body("data.bankFeesFcfa", notNullValue())
+                .body("data.bankFees", notNullValue())
                 .extract().path("data.pieceRef");
 
         List<Map<String, Object>> entries = entriesOf(admin, pieceRef);
@@ -180,10 +180,10 @@ class AdvanceDisbursementTest extends AbstractIntegrationTest {
         // Les frais sont supportés par l'émetteur : le compte d'avance du
         // délégué ne porte que l'avance. S'ils s'y ajoutaient, il devrait
         // 1 005 000 à la clôture pour 1 000 000 reçus.
-        assertThat(sumOn(entries, "409100", "debitFcfa")).isEqualTo(1_000_000d);
-        assertThat(sumOn(entries, "631000", "debitFcfa")).isEqualTo(5_000d);
+        assertThat(sumOn(entries, "409100", "debit")).isEqualTo(1_000_000d);
+        assertThat(sumOn(entries, "631000", "debit")).isEqualTo(5_000d);
         // La banque est bien sortie de 1 005 000 au total.
-        assertThat(sumOn(entries, "521000", "creditFcfa")).isEqualTo(1_005_000d);
+        assertThat(sumOn(entries, "521000", "credit")).isEqualTo(1_005_000d);
     }
 
     @Test
@@ -194,7 +194,7 @@ class AdvanceDisbursementTest extends AbstractIntegrationTest {
         approve(admin, id);
 
         String pieceRef = givenAs(admin).contentType("application/json")
-                .body("{ \"bankFeesFcfa\": 5000 }")
+                .body("{ \"bankFees\": 5000 }")
                 .when().post("/api/v1/collector-advances/" + id + "/disburse")
                 .then().statusCode(200).extract().path("data.pieceRef");
 
@@ -205,11 +205,11 @@ class AdvanceDisbursementTest extends AbstractIntegrationTest {
         // relevé, et la ligne de frais partirait en régularisation contre
         // le 631, comptant la charge une seconde fois.
         List<Map<String, Object>> bankLines = entriesOf(admin, pieceRef).stream()
-                .filter(e -> "521000".equals(e.get("syscohadaAccount")) && e.get("creditFcfa") != null)
+                .filter(e -> "521000".equals(e.get("syscohadaAccount")) && e.get("credit") != null)
                 .toList();
         assertThat(bankLines).hasSize(2);
         assertThat(bankLines.stream()
-                .map(e -> ((Number) e.get("creditFcfa")).doubleValue()).toList())
+                .map(e -> ((Number) e.get("credit")).doubleValue()).toList())
                 .containsExactlyInAnyOrder(1_000_000d, 5_000d);
     }
 
@@ -221,15 +221,15 @@ class AdvanceDisbursementTest extends AbstractIntegrationTest {
         approve(admin, id);
 
         String pieceRef = givenAs(admin).contentType("application/json")
-                .body("{ \"bankFeesFcfa\": 0 }")
+                .body("{ \"bankFees\": 0 }")
                 .when().post("/api/v1/collector-advances/" + id + "/disburse")
                 .then().statusCode(200)
                 // Zéro et « pas de frais » se valent : un état ne doit pas
                 // montrer des lignes à 0 FCFA.
-                .body("data.bankFeesFcfa", org.hamcrest.Matchers.nullValue())
+                .body("data.bankFees", org.hamcrest.Matchers.nullValue())
                 .extract().path("data.pieceRef");
 
-        assertThat(sumOn(entriesOf(admin, pieceRef), "631000", "debitFcfa")).isZero();
+        assertThat(sumOn(entriesOf(admin, pieceRef), "631000", "debit")).isZero();
     }
 
     @Test
@@ -264,8 +264,8 @@ class AdvanceDisbursementTest extends AbstractIntegrationTest {
                 .extract().path("data.pieceRef");
 
         List<Map<String, Object>> entries = entriesOf(admin, pieceRef);
-        assertThat(sumOn(entries, "521100", "creditFcfa")).isEqualTo(400_000d);
-        assertThat(sumOn(entries, "521000", "creditFcfa")).isZero();
+        assertThat(sumOn(entries, "521100", "credit")).isEqualTo(400_000d);
+        assertThat(sumOn(entries, "521000", "credit")).isZero();
     }
 
     @Test
@@ -301,7 +301,7 @@ class AdvanceDisbursementTest extends AbstractIntegrationTest {
         approve(admin, id);
 
         givenAs(admin).contentType("application/json")
-                .body("{ \"bankFeesFcfa\": -1000 }")
+                .body("{ \"bankFees\": -1000 }")
                 .when().post("/api/v1/collector-advances/" + id + "/disburse")
                 .then().statusCode(400);
     }

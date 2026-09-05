@@ -110,7 +110,7 @@ class PartialApprovalTest extends AbstractIntegrationTest {
         return givenAs(who).contentType("application/json")
                 .body("""
                         { "delegateSupplierId": "%s", "advanceDate": "%s",
-                          "advanceAmountFcfa": %d, "paymentMethod": "CASH" }
+                          "advanceAmount": %d, "paymentMethod": "CASH" }
                         """.formatted(delegateId, LocalDate.now(), amount))
                 .when().post("/api/v1/collector-advances").then().statusCode(201)
                 .extract().path("data.id");
@@ -131,14 +131,14 @@ class PartialApprovalTest extends AbstractIntegrationTest {
 
         givenAs(approbateur).contentType("application/json")
                 .body("""
-                        { "approvedAmountFcfa": 2000000,
+                        { "approvedAmount": 2000000,
                           "note": "Bon délégué, mais la caisse est courte ce mois-ci." }
                         """)
                 .when().post("/api/v1/collector-advances/" + id + "/approve")
                 .then().statusCode(200)
                 .body("data.status", equalTo("APPROVED"))
-                .body("data.advanceAmountFcfa", equalTo(3000000))
-                .body("data.approvedAmountFcfa", equalTo(2000000))
+                .body("data.advanceAmount", equalTo(3000000))
+                .body("data.approvedAmount", equalTo(2000000))
                 .body("data.approvalNote", containsString("caisse est courte"));
     }
 
@@ -155,7 +155,7 @@ class PartialApprovalTest extends AbstractIntegrationTest {
 
         String id = requestAdvance(demandeur, delegateId, 3_000_000);
         givenAs(approbateur).contentType("application/json")
-                .body("{ \"approvedAmountFcfa\": 2000000 }")
+                .body("{ \"approvedAmount\": 2000000 }")
                 .when().post("/api/v1/collector-advances/" + id + "/approve").then().statusCode(200);
 
         // Un montant approuvé décoratif serait pire que son absence :
@@ -163,13 +163,13 @@ class PartialApprovalTest extends AbstractIntegrationTest {
         givenAs(caissier).when().post("/api/v1/collector-advances/" + id + "/disburse")
                 .then().statusCode(200)
                 .body("data.status", equalTo("OPEN"))
-                .body("data.remainingFcfa", equalTo(2000000));
+                .body("data.remaining", equalTo(2000000));
 
         // Et le compte courant du délégué ne doit pas lui réclamer le
         // montant qu'il a demandé, mais celui qu'il a reçu.
         givenAs(admin).when().get("/api/v1/collector-advances/delegates/" + delegateId)
                 .then().statusCode(200)
-                .body("data.advances.find { it.status == 'OPEN' }.amountFcfa", equalTo(2000000));
+                .body("data.advances.find { it.status == 'OPEN' }.amount", equalTo(2000000));
     }
 
     @Test
@@ -178,7 +178,7 @@ class PartialApprovalTest extends AbstractIntegrationTest {
         String delegateId = createDelegate(admin, "Délégué Yao");
         String id = requestAdvance(admin, delegateId, 3_000_000);
         givenAs(admin).contentType("application/json")
-                .body("{ \"approvedAmountFcfa\": 1250000 }")
+                .body("{ \"approvedAmount\": 1250000 }")
                 .when().post("/api/v1/collector-advances/" + id + "/approve").then().statusCode(200);
         givenAs(admin).when().post("/api/v1/collector-advances/" + id + "/disburse")
                 .then().statusCode(200);
@@ -189,7 +189,7 @@ class PartialApprovalTest extends AbstractIntegrationTest {
                 .then().statusCode(200).extract().path("data.pieceRef");
         givenAs(admin).when().get("/api/v1/accounting/journal?search=" + pieceRef)
                 .then().statusCode(200)
-                .body("data.items[0].totalDebitFcfa", equalTo(1250000));
+                .body("data.items[0].totalDebit", equalTo(1250000));
     }
 
     @Test
@@ -199,7 +199,7 @@ class PartialApprovalTest extends AbstractIntegrationTest {
         String id = requestAdvance(admin, delegateId, 1_000_000);
 
         givenAs(admin).contentType("application/json")
-                .body("{ \"approvedAmountFcfa\": 1500000 }")
+                .body("{ \"approvedAmount\": 1500000 }")
                 .when().post("/api/v1/collector-advances/" + id + "/approve")
                 .then().statusCode(422);
     }
@@ -213,7 +213,7 @@ class PartialApprovalTest extends AbstractIntegrationTest {
         // L'enregistrer comme une approbation à zéro laisserait au dossier
         // une décision sans raison, que personne ne pourrait contester.
         givenAs(admin).contentType("application/json")
-                .body("{ \"approvedAmountFcfa\": 0 }")
+                .body("{ \"approvedAmount\": 0 }")
                 .when().post("/api/v1/collector-advances/" + id + "/approve")
                 .then().statusCode(422);
     }
@@ -227,7 +227,7 @@ class PartialApprovalTest extends AbstractIntegrationTest {
         // Le cas courant reste un oui sans commentaire.
         givenAs(admin).when().post("/api/v1/collector-advances/" + id + "/approve")
                 .then().statusCode(200)
-                .body("data.approvedAmountFcfa", equalTo(800000))
+                .body("data.approvedAmount", equalTo(800000))
                 .body("data.approvalNote", nullValue());
     }
 
@@ -235,7 +235,7 @@ class PartialApprovalTest extends AbstractIntegrationTest {
 
     private void setGovernanceThreshold(UserEntity admin, int amount) {
         givenAs(admin).contentType("application/json")
-                .body("{ \"collectorAdvanceApprovalThresholdFcfa\": %d }".formatted(amount))
+                .body("{ \"collectorAdvanceApprovalThreshold\": %d }".formatted(amount))
                 .when().put("/api/v1/me/tenant/preferences").then().statusCode(200);
     }
 
@@ -307,10 +307,32 @@ class PartialApprovalTest extends AbstractIntegrationTest {
         String delegateId = createDelegate(admin, "Délégué Cissé");
         String id = requestAdvance(admin, delegateId, 50_000);
 
-        // Zéro doit rester possible : une union peut vouloir que son
-        // conseil se prononce sur tout.
+        // Le cas de SCOOPANAB, où chaque avance délégué passe par le
+        // conseil. Écrire 0 est une décision, et elle dit « tout ».
+        //
+        // La première version confondait ce zéro avec l'absence de
+        // réglage et retournait l'intention : la coopérative qui écrivait
+        // 0 obtenait que rien ne remonte au conseil. Le test portait le
+        // nom de l'exigence et affirmait le contraire.
+        givenAs(admin).when().get("/api/v1/collector-advances/" + id)
+                .then().body("data.governanceApprovalRequired", equalTo(true));
+    }
+
+    @Test
+    void a_threshold_never_set_leaves_management_deciding_alone() {
+        UserEntity admin = tenantAdmin();
+        String delegateId = createDelegate(admin, "Délégué Kamagate");
+        String id = requestAdvance(admin, delegateId, 9_000_000);
+        UserEntity approbateur = operator(admin, "approbateur",
+                "COLLECTION_READ", "COLLECTION_ADVANCE_APPROVE");
+
+        // Aucun seuil réglé : la structure n'a rien décidé, et lui imposer
+        // la gouvernance bloquerait toutes ses approbations, personne ne
+        // portant encore ce droit.
         givenAs(admin).when().get("/api/v1/collector-advances/" + id)
                 .then().body("data.governanceApprovalRequired", equalTo(false));
+        givenAs(approbateur).when().post("/api/v1/collector-advances/" + id + "/approve")
+                .then().statusCode(200);
     }
 
     // ─── La contrepartie attendue ───────────────────────────────────
@@ -322,7 +344,7 @@ class PartialApprovalTest extends AbstractIntegrationTest {
                 .body("""
                         { "label": "Campagne 2026", "campaignYear": 2026,
                           "startDate": "%s", "endDate": "%s",
-                          "basePricePerKgFcfa": 900 }
+                          "basePricePerKg": 900 }
                         """.formatted(LocalDate.now().minusDays(10), LocalDate.now().plusDays(120)))
                 .when().post("/api/v1/campaigns").then().statusCode(201).extract().path("data.id");
 
@@ -331,7 +353,7 @@ class PartialApprovalTest extends AbstractIntegrationTest {
         String id = givenAs(admin).contentType("application/json")
                 .body("""
                         { "delegateSupplierId": "%s", "advanceDate": "%s", "campaignId": "%s",
-                          "advanceAmountFcfa": 1000000, "paymentMethod": "CASH" }
+                          "advanceAmount": 1000000, "paymentMethod": "CASH" }
                         """.formatted(delegateId, LocalDate.now(), campaignId))
                 .when().post("/api/v1/collector-advances").then().statusCode(201)
                 .extract().path("data.id");
@@ -341,7 +363,7 @@ class PartialApprovalTest extends AbstractIntegrationTest {
                 .then().statusCode(200)
                 .body("data.expectedQuantity", equalTo(1000.0f))
                 .body("data.expectedQuantityUnit", equalTo("kg"))
-                .body("data.counterpartUnitPriceFcfa", equalTo(1000));
+                .body("data.counterpartUnitPrice", equalTo(1000));
     }
 
     @Test
@@ -351,7 +373,7 @@ class PartialApprovalTest extends AbstractIntegrationTest {
                 .body("""
                         { "label": "Campagne 2026", "campaignYear": 2026,
                           "startDate": "%s", "endDate": "%s",
-                          "basePricePerKgFcfa": 900 }
+                          "basePricePerKg": 900 }
                         """.formatted(LocalDate.now().minusDays(10), LocalDate.now().plusDays(120)))
                 .when().post("/api/v1/campaigns").then().statusCode(201).extract().path("data.id");
         String delegateId = delegateWithMargin(admin, "Délégué N'Guessan", 100);
@@ -359,13 +381,13 @@ class PartialApprovalTest extends AbstractIntegrationTest {
         String id = givenAs(admin).contentType("application/json")
                 .body("""
                         { "delegateSupplierId": "%s", "advanceDate": "%s", "campaignId": "%s",
-                          "advanceAmountFcfa": 1000000, "paymentMethod": "CASH" }
+                          "advanceAmount": 1000000, "paymentMethod": "CASH" }
                         """.formatted(delegateId, LocalDate.now(), campaignId))
                 .when().post("/api/v1/collector-advances").then().statusCode(201)
                 .extract().path("data.id");
 
         givenAs(admin).contentType("application/json")
-                .body("{ \"approvedAmountFcfa\": 500000 }")
+                .body("{ \"approvedAmount\": 500000 }")
                 .when().post("/api/v1/collector-advances/" + id + "/approve").then().statusCode(200);
 
         // Tranché au registre (DEC-29) : la contrepartie est une prévision

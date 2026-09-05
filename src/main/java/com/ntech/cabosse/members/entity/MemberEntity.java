@@ -212,6 +212,21 @@ public class MemberEntity {
     /** Capital social ou parts sociales souscrites (en devise tenant). */
     public BigDecimal partsSocialesAmount;
 
+
+    /**
+     * Compte comptable d'avance propre à ce tiers.
+     *
+     * <p>Demandé par l'expert le 03/09/2026 : « le numéro de compte
+     * comptable d'avance spécifique du producteur déjà créé dans le plan
+     * comptable ». La coopérative ouvre le compte dans son plan, nous le
+     * rattachons ; il n'y a ni masque à inventer ni numéro à générer.</p>
+     *
+     * <p>Nul quand rien n'est rattaché : l'écriture retombe alors sur le
+     * compte collectif du tenant. Une avance ne se bloque pas parce qu'une
+     * fiche est incomplète.</p>
+     */
+    public String advanceAccount;
+
     public MemberStatus status = MemberStatus.ACTIVE;
 
     /**

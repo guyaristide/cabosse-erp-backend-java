@@ -4,10 +4,10 @@ import com.ntech.cabosse.sale.entity.SaleEntity;
 import com.ntech.cabosse.sale.repository.SaleRepository;
 import com.ntech.cabosse.shared.api.PageRequest;
 import com.ntech.cabosse.shared.api.Pagination;
-import com.ntech.cabosse.treasury.dto.PayableDtos.BeneficiaryKind;
-import com.ntech.cabosse.treasury.dto.PayableDtos.PayableDto;
-import com.ntech.cabosse.treasury.dto.PayableDtos.PayableQueueDto;
-import com.ntech.cabosse.treasury.dto.PayableDtos.ReceivableKind;
+import com.ntech.cabosse.treasury.dto.BeneficiaryKind;
+import com.ntech.cabosse.treasury.dto.PayableDto;
+import com.ntech.cabosse.treasury.dto.PayableQueueDto;
+import com.ntech.cabosse.treasury.dto.ReceivableKind;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
@@ -52,7 +52,7 @@ public class ReceivableService {
                 .thenComparing(p -> p.sourceRef() == null ? "" : p.sourceRef()));
 
         BigDecimal total = all.stream()
-                .map(PayableDto::amountFcfa)
+                .map(PayableDto::amount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         Set<UUID> parties = new HashSet<>();
         for (PayableDto p : all) {
@@ -98,9 +98,9 @@ public class ReceivableService {
     /** Total dû moins ce qui a déjà été encaissé. */
     private BigDecimal remainingOf(SaleEntity sale) {
         BigDecimal paid = sale.payments == null ? BigDecimal.ZERO : sale.payments.stream()
-                .map(p -> p.amountFcfa == null ? BigDecimal.ZERO : p.amountFcfa)
+                .map(p -> p.amount == null ? BigDecimal.ZERO : p.amount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal total = sale.totalTtcFcfa == null ? BigDecimal.ZERO : sale.totalTtcFcfa;
+        BigDecimal total = sale.totalTtc == null ? BigDecimal.ZERO : sale.totalTtc;
         return total.subtract(paid);
     }
 

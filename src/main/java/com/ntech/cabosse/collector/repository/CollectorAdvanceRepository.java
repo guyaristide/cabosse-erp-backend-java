@@ -155,8 +155,8 @@ public class CollectorAdvanceRepository {
         coll().updateOne(
                 Filters.and(Filters.eq("_id", id), Filters.eq("status", "OPEN")),
                 Updates.combine(
-                        Updates.inc("remainingFcfa", amount.negate()),
-                        Updates.inc("consumedAmountFcfa", amount),
+                        Updates.inc("remaining", amount.negate()),
+                        Updates.inc("consumedAmount", amount),
                         Updates.inc("version", 1L),
                         Updates.set("updatedAt", Instant.now())));
     }
@@ -169,8 +169,8 @@ public class CollectorAdvanceRepository {
         coll().updateOne(
                 Filters.eq("_id", id),
                 Updates.combine(
-                        Updates.inc("remainingFcfa", amount),
-                        Updates.inc("consumedAmountFcfa", amount.negate()),
+                        Updates.inc("remaining", amount),
+                        Updates.inc("consumedAmount", amount.negate()),
                         Updates.inc("version", 1L),
                         Updates.set("updatedAt", Instant.now())));
     }

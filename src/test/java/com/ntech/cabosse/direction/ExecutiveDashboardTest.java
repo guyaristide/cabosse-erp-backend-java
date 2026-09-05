@@ -101,7 +101,7 @@ class ExecutiveDashboardTest extends AbstractIntegrationTest {
         givenAs(admin).contentType("application/json")
                 .body("""
                         { "siteId": "%s", "channel": "B2B", "customerId": "%s", "saleDate": "%s",
-                          "lines": [ { "articleId": "%s", "quantity": 1500, "unitPriceFcfa": 2000 } ] }
+                          "lines": [ { "articleId": "%s", "quantity": 1500, "unitPrice": 2000 } ] }
                         """.formatted(siteId, customerId, LocalDate.now(), articleId))
                 .when().post("/api/v1/sales?asQuote=false")
                 .then().statusCode(201);
@@ -125,7 +125,7 @@ class ExecutiveDashboardTest extends AbstractIntegrationTest {
         givenAs(admin).contentType("application/json")
                 .body("""
                         { "articleId": "%s", "siteId": "%s", "kind": "IN", "quantity": 10,
-                          "unitPriceFcfa": 500 }
+                          "unitPrice": 500 }
                         """.formatted(articleId, siteId))
                 .when().post("/api/v1/stocks/movements").then().statusCode(201);
 

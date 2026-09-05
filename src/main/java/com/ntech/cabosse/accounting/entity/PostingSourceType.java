@@ -60,6 +60,10 @@ public enum PostingSourceType {
     COLLECTOR_ADVANCE,
     /** Contre-passation d'une avance délégué. */
     COLLECTOR_ADVANCE_REVERSAL,
+    /** Règlement du reliquat créditeur d'un compte d'avance (CE-187). */
+    ADVANCE_REFUND,
+    /** Encaissement client sur une vente négoce (CE-194). */
+    COMMODITY_SALE_PAYMENT,
     /** Livraison de matière imputée sur l'avance d'un délégué. */
     COLLECTOR_DELIVERY,
     /** Constat des en-cours de production à l'arrêté d'exercice (34/734). */

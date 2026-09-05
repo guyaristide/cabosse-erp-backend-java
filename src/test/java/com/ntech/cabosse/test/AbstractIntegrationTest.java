@@ -112,9 +112,9 @@ public abstract class AbstractIntegrationTest {
                         { "date": "%s", "libelle": "Solde d'ouverture de caisse",
                           "lines": [
                             { "account": "571000", "libelle": "Espèces en caisse",
-                              "debitFcfa": %d },
+                              "debit": %d },
                             { "account": "471000", "libelle": "Contrepartie d'amorçage",
-                              "creditFcfa": %d } ] }
+                              "credit": %d } ] }
                         """.formatted(java.time.LocalDate.now().minusYears(1), amount, amount))
                 .when().post("/api/v1/accounting/od")
                 .then().statusCode(201).extract().path("data.id");

@@ -126,7 +126,7 @@ class TenantPermissionTest extends AbstractIntegrationTest {
 
         // Le droit refusé nomme ce qui manque, au lieu d'un refus muet.
         givenAs(magasinier).contentType("application/json")
-                .body("{ \"memberId\": \"%s\", \"kind\": \"CREDIT\", \"amountFcfa\": 50000 }"
+                .body("{ \"memberId\": \"%s\", \"kind\": \"CREDIT\", \"amount\": 50000 }"
                         .formatted(java.util.UUID.randomUUID()))
                 .when().post("/api/v1/member-credits")
                 .then().statusCode(403)

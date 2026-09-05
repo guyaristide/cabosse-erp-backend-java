@@ -20,7 +20,7 @@ import java.util.UUID;
  *
  * <p>Toutes les méthodes d'écriture s'attendent à ce que l'appelant ait
  * <strong>déjà calculé</strong> les nouvelles valeurs ({@code quantity},
- * {@code cmupFcfa}, etc.). La logique de calcul atomique CMUP vit dans
+ * {@code cmup}, etc.). La logique de calcul atomique CMUP vit dans
  * {@code StockService.applyMovement(...)}.</p>
  */
 @ApplicationScoped
@@ -48,7 +48,7 @@ public class StockItemRepository {
      */
     public Optional<StockItemEntity> applyRecomputedValuation(
             UUID articleId, UUID siteId, long expectedVersion,
-            java.math.BigDecimal quantity, java.math.BigDecimal cmupFcfa) {
+            java.math.BigDecimal quantity, java.math.BigDecimal cmup) {
         return Optional.ofNullable(coll().findOneAndUpdate(
                 Filters.and(
                         Filters.eq("articleId", articleId),
@@ -57,7 +57,7 @@ public class StockItemRepository {
                 ),
                 com.mongodb.client.model.Updates.combine(
                         com.mongodb.client.model.Updates.set("quantity", quantity),
-                        com.mongodb.client.model.Updates.set("cmupFcfa", cmupFcfa),
+                        com.mongodb.client.model.Updates.set("cmup", cmup),
                         com.mongodb.client.model.Updates.set("updatedAt", java.time.Instant.now()),
                         com.mongodb.client.model.Updates.inc("version", 1L)
                 ),

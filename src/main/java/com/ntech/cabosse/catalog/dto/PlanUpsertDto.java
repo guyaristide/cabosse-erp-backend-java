@@ -30,11 +30,11 @@ public record PlanUpsertDto(
 
         @NotNull(message = "{v.prix-mensuel-requis-0-pour-sur-devis}")
         @Min(value = 0, message = "{v.prix-mensuel-negatif-interdit}")
-        BigDecimal monthlyPriceFcfa,
+        BigDecimal monthlyPrice,
 
         @NotNull(message = "{v.prix-annuel-requis-0-pour-sur-devis}")
         @Min(value = 0, message = "{v.prix-annuel-negatif-interdit}")
-        BigDecimal yearlyPriceFcfa,
+        BigDecimal yearlyPrice,
 
         @Min(value = 1, message = "{v.au-moins-1-user}")
         int maxUsers,

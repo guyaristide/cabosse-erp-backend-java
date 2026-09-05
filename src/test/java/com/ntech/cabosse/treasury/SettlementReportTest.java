@@ -78,17 +78,17 @@ class SettlementReportTest extends AbstractIntegrationTest {
         String id = givenAs(admin).contentType("application/json")
                 .body("""
                         { "delegateSupplierId": "%s", "advanceDate": "%s",
-                          "advanceAmountFcfa": %d, "paymentMethod": "CASH" }
+                          "advanceAmount": %d, "paymentMethod": "CASH" }
                         """.formatted(delegateId, LocalDate.now(), asked))
                 .when().post("/api/v1/collector-advances").then().statusCode(201)
                 .extract().path("data.id");
         givenAs(admin).contentType("application/json")
-                .body("{ \"approvedAmountFcfa\": %d }".formatted(granted))
+                .body("{ \"approvedAmount\": %d }".formatted(granted))
                 .when().post("/api/v1/collector-advances/" + id + "/approve").then().statusCode(200);
         givenAs(admin).contentType("application/json")
                 .body("""
                         { "paymentMethod": "BANK_TRANSFER", "paymentRef": "CHQ-0041207",
-                          "bankFeesFcfa": 2500 }
+                          "bankFees": 2500 }
                         """)
                 .when().post("/api/v1/collector-advances/" + id + "/disburse")
                 .then().statusCode(200);
@@ -107,7 +107,7 @@ class SettlementReportTest extends AbstractIntegrationTest {
                 .body("data.page.items[0].sourceId", equalTo(id))
                 .body("data.page.items[0].beneficiaryName", equalTo("Délégué Gnahoré"))
                 // Le montant remis est celui qui a été accordé.
-                .body("data.page.items[0].amountFcfa", equalTo(2000000))
+                .body("data.page.items[0].amount", equalTo(2000000))
                 .body("data.page.items[0].settledByName", equalTo("Mariam DIALLO"));
     }
 
@@ -133,10 +133,10 @@ class SettlementReportTest extends AbstractIntegrationTest {
         // Les fondre ferait croire que le délégué a touché 997 500.
         givenAs(admin).when().get("/api/v1/treasury/settlements")
                 .then().statusCode(200)
-                .body("data.page.items[0].amountFcfa", equalTo(1000000))
-                .body("data.page.items[0].bankFeesFcfa", equalTo(2500))
-                .body("data.totalAmountFcfa", equalTo(1000000))
-                .body("data.totalBankFeesFcfa", equalTo(2500));
+                .body("data.page.items[0].amount", equalTo(1000000))
+                .body("data.page.items[0].bankFees", equalTo(2500))
+                .body("data.totalAmount", equalTo(1000000))
+                .body("data.totalBankFees", equalTo(2500));
     }
 
     @Test
@@ -146,7 +146,7 @@ class SettlementReportTest extends AbstractIntegrationTest {
         givenAs(admin).contentType("application/json")
                 .body("""
                         { "delegateSupplierId": "%s", "advanceDate": "%s",
-                          "advanceAmountFcfa": 700000, "paymentMethod": "CASH" }
+                          "advanceAmount": 700000, "paymentMethod": "CASH" }
                         """.formatted(delegateId, LocalDate.now()))
                 .when().post("/api/v1/collector-advances").then().statusCode(201);
 
@@ -156,7 +156,7 @@ class SettlementReportTest extends AbstractIntegrationTest {
         givenAs(admin).when().get("/api/v1/treasury/settlements")
                 .then().statusCode(200)
                 .body("data.page.items", hasSize(0))
-                .body("data.totalAmountFcfa", equalTo(0));
+                .body("data.totalAmount", equalTo(0));
     }
 
     @Test
@@ -198,6 +198,12 @@ class SettlementReportTest extends AbstractIntegrationTest {
                 .then().statusCode(200).extract().asString();
 
         org.hamcrest.MatcherAssert.assertThat(csv, containsString("Délégué Brou"));
+        // La devise des en-têtes n'est plus écrite dans le catalogue : le
+        // marqueur {currency} se résout sur la devise du tenant. Un tenant
+        // en XOF doit continuer de lire FCFA, et jamais le marqueur brut.
+        org.hamcrest.MatcherAssert.assertThat(csv, containsString("(FCFA)"));
+        org.hamcrest.MatcherAssert.assertThat(csv,
+                org.hamcrest.Matchers.not(containsString("{currency}")));
         org.hamcrest.MatcherAssert.assertThat(csv, containsString("CHQ-0041207"));
         org.hamcrest.MatcherAssert.assertThat(csv, containsString("Mariam DIALLO"));
     }

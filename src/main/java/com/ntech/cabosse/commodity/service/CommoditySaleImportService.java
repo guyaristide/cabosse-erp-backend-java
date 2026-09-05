@@ -110,9 +110,9 @@ public class CommoditySaleImportService {
             CommoditySaleImportRowDto raw = byRow.get(row.rowNumber());
             Normalized nrm = row.normalized();
             // Prix déduit du montant facturé (montant ÷ poids accepté).
-            BigDecimal price = (nrm.amountFcfa() != null && nrm.acceptedKg() != null
+            BigDecimal price = (nrm.amount() != null && nrm.acceptedKg() != null
                     && nrm.acceptedKg().signum() > 0)
-                    ? nrm.amountFcfa().divide(nrm.acceptedKg(), 4, RoundingMode.HALF_UP) : null;
+                    ? nrm.amount().divide(nrm.acceptedKg(), 4, RoundingMode.HALF_UP) : null;
             try {
                 var created = saleService.create(new CommoditySaleUpsertDto(
                         parseDate(raw.date()),
@@ -121,6 +121,9 @@ public class CommoditySaleImportService {
                         parseUuid(raw.siteId()),
                         parseUuid(raw.campaignId()),
                         blankToNull(raw.campaignType()),
+                        null,
+                        // L'import ne référence pas de bordereau de sortie :
+                        // c'est une reprise, la sortie de stock reste à la vente.
                         null,
                         new CommoditySaleUpsertDto.LogisticsDto(
                                 blankToNull(raw.departureLocation()), blankToNull(raw.destination()),

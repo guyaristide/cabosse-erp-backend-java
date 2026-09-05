@@ -40,7 +40,7 @@ public record PurchaseOrderUpsertDto(
         List<@Valid PurchaseOrderLineDto> lines,
 
         @DecimalMin(value = "0", message = "{v.transport-negatif-interdit}")
-        BigDecimal transportFcfa,
+        BigDecimal transport,
 
         @NotNull(message = "{v.taux-de-tva-requis}")
         @DecimalMin(value = "0", message = "{v.tva-negative-interdite}")

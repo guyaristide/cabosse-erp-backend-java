@@ -62,13 +62,13 @@ class DirectExpenseTest extends AbstractIntegrationTest {
         givenAs(admin).contentType("application/json")
                 .body("""
                         { "kind": "PETTY_CASH", "chargeAccount": "628000",
-                          "label": "Fournitures de nettoyage", "amountHtFcfa": 5000,
+                          "label": "Fournitures de nettoyage", "amountHt": 5000,
                           "paymentMethod": "CASH", "expenseDate": "%s" }
                         """.formatted(LocalDate.now()))
                 .when().post("/api/v1/direct-expenses")
                 .then().statusCode(201)
                 .body("data.ref", equalTo("DEP-" + LocalDate.now().getYear() + "-0001"))
-                .body("data.amountTtcFcfa", equalTo(5000))
+                .body("data.amountTtc", equalTo(5000))
                 .body("data.treasuryAccount", equalTo("571000"));
 
         // Deux pièces : l'amorçage de la caisse, puis la dépense. La
@@ -93,13 +93,13 @@ class DirectExpenseTest extends AbstractIntegrationTest {
                 .body("""
                         { "kind": "CONTRACT", "supplierId": "%s", "chargeAccount": "627000",
                           "label": "Électricité", "periodLabel": "Juillet 2026",
-                          "amountHtFcfa": 100000, "vatRatePct": 18,
+                          "amountHt": 100000, "vatRatePct": 18,
                           "paymentMethod": "BANK_TRANSFER", "expenseDate": "%s" }
                         """.formatted(supplierId, LocalDate.now()))
                 .when().post("/api/v1/direct-expenses")
                 .then().statusCode(201)
-                .body("data.vatAmountFcfa", equalTo(18000))
-                .body("data.amountTtcFcfa", equalTo(118000))
+                .body("data.vatAmount", equalTo(18000))
+                .body("data.amountTtc", equalTo(118000))
                 .body("data.treasuryAccount", equalTo("521000"));
 
         // Débit 627000 (HT) + 445660 (TVA) / crédit 521000 (TTC).
@@ -117,7 +117,7 @@ class DirectExpenseTest extends AbstractIntegrationTest {
         givenAs(admin).contentType("application/json")
                 .body("""
                         { "kind": "PETTY_CASH", "label": "Sans compte",
-                          "amountHtFcfa": 1000, "paymentMethod": "CASH" }
+                          "amountHt": 1000, "paymentMethod": "CASH" }
                         """)
                 .when().post("/api/v1/direct-expenses")
                 .then().statusCode(422);

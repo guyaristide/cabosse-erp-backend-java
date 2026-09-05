@@ -200,7 +200,7 @@ public class DirectReceiptService {
      * {@code false} et qu'un taux TVA &gt; 0 est saisi sur la session,
      * le coût unitaire envoyé au stock est majoré par
      * {@code (1 + vatRate/100)}. Le stockage en base reste inchangé —
-     * {@code unitPriceFcfa} sur la ligne demeure HT, seul le
+     * {@code unitPrice} sur la ligne demeure HT, seul le
      * {@code unitCost} dérivé pour le stock est ajusté. Pattern symétrique
      * à {@code PurchaseOrderService.postStockEntries}.</p>
      */
@@ -223,7 +223,7 @@ public class DirectReceiptService {
         }
 
         for (DirectReceiptLine line : e.lines) {
-            BigDecimal unitCost = line.unitPriceFcfa;
+            BigDecimal unitCost = line.unitPrice;
             if (applyVatToCmup) {
                 unitCost = unitCost.multiply(vatCoefficient)
                         .setScale(UNIT_COST_SCALE, RoundingMode.HALF_UP);
@@ -277,9 +277,9 @@ public class DirectReceiptService {
         DirectReceiptLine line = findLine(e, lineId);
         DirectReceiptPayment payment = new DirectReceiptPayment();
         payment.paidOn = payload.paidOn() != null ? payload.paidOn() : LocalDate.now();
-        payment.amountFcfa = payload.amountFcfa() != null
-                ? payload.amountFcfa()
-                : line.totalLineFcfa;
+        payment.amount = payload.amount() != null
+                ? payload.amount()
+                : line.totalLine;
         payment.paymentNoteRef = blankToNull(payload.paymentNoteRef());
         payment.method = payload.method() != null ? payload.method() : PaymentMethod.CASH;
         payment.notes = blankToNull(payload.notes());
@@ -293,7 +293,7 @@ public class DirectReceiptService {
 
         record(e, AuditEventType.DIRECT_RECEIPT_LINE_PAID,
                 "Paiement enregistré (" + line.supplierName + ", "
-                        + money.format(payment.amountFcfa, tenantContext.currency())
+                        + money.format(payment.amount, tenantContext.currency())
                         + ", BP " + payment.paymentNoteRef + ")");
         return DirectReceiptResponseDto.from(e, tenantVatRecoverable());
     }
@@ -368,7 +368,7 @@ public class DirectReceiptService {
             stockService.applyMovement(new MovementInput(
                     e.articleId, e.siteId,
                     MovementKind.OUT,
-                    line.quantity, line.unitPriceFcfa,
+                    line.quantity, line.unitPrice,
                     MovementSource.DIRECT_RECEIPT, e.ref, e.id,
                     null, "Contre-passation RD " + e.ref + " : " + reason,
                     null, when,
@@ -415,18 +415,18 @@ public class DirectReceiptService {
                 line.supplierCode = supplier.code;
                 line.supplierName = supplier.name;
                 line.quantity = nz(raw.quantity());
-                line.unitPriceFcfa = nz(raw.unitPriceFcfa());
-                line.totalLineFcfa = line.quantity.multiply(line.unitPriceFcfa)
+                line.unitPrice = nz(raw.unitPrice());
+                line.totalLine = line.quantity.multiply(line.unitPrice)
                         .setScale(2, RoundingMode.HALF_UP);
                 line.deliveryNoteRef = blankToNull(raw.deliveryNoteRef());
                 line.notes = blankToNull(raw.notes());
                 // Paiement immédiat optionnel
-                if (raw.payment() != null && raw.payment().amountFcfa() != null) {
+                if (raw.payment() != null && raw.payment().amount() != null) {
                     DirectReceiptPayment p = new DirectReceiptPayment();
                     p.paidOn = raw.payment().paidOn() != null
                             ? raw.payment().paidOn()
                             : LocalDate.now();
-                    p.amountFcfa = raw.payment().amountFcfa();
+                    p.amount = raw.payment().amount();
                     p.paymentNoteRef = blankToNull(raw.payment().paymentNoteRef());
                     p.method = raw.payment().method() != null ? raw.payment().method() : PaymentMethod.CASH;
                     p.notes = blankToNull(raw.payment().notes());
@@ -435,29 +435,29 @@ public class DirectReceiptService {
                     line.payment = p;
                 }
                 lines.add(line);
-                subtotal = subtotal.add(line.totalLineFcfa);
+                subtotal = subtotal.add(line.totalLine);
             }
         }
         if (lines.isEmpty()) {
             throw new BusinessException(Messages.msg("m.rcv-line-required"));
         }
         e.lines = lines;
-        e.subtotalHtFcfa = subtotal;
+        e.subtotalHt = subtotal;
         recomputeStatus(e);
     }
 
-    /** Recalcule {@code totalPaidFcfa} et {@code status} depuis les lignes. */
+    /** Recalcule {@code totalPaid} et {@code status} depuis les lignes. */
     private void recomputeStatus(DirectReceiptEntity e) {
         if (e.status == DirectReceiptStatus.CANCELLED) return;
         BigDecimal paid = BigDecimal.ZERO;
         int paidLines = 0;
         for (DirectReceiptLine line : e.lines) {
-            if (line.payment != null && line.payment.amountFcfa != null) {
-                paid = paid.add(line.payment.amountFcfa);
+            if (line.payment != null && line.payment.amount != null) {
+                paid = paid.add(line.payment.amount);
                 paidLines++;
             }
         }
-        e.totalPaidFcfa = paid;
+        e.totalPaid = paid;
         if (paidLines == 0) {
             e.status = DirectReceiptStatus.UNPAID;
         } else if (paidLines == e.lines.size()) {

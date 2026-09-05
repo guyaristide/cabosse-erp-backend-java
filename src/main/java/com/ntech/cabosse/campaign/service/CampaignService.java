@@ -162,13 +162,13 @@ public class CampaignService {
             throw new BusinessException(Messages.msg("m.cmp-closed-not-editable"));
         }
 
-        BigDecimal newBase = payload.basePricePerKgFcfa();
+        BigDecimal newBase = payload.basePricePerKg();
         BigDecimal newRistourne = payload.ristournePct() != null ? payload.ristournePct() : BigDecimal.ZERO;
         List<QualityPremium> newPremiums = premiumsOf(payload.qualityPremiums());
 
         // Un barème inchangé n'est pas un changement : l'écrire polluerait
         // l'historique de lignes sans décision derrière.
-        if (sameAmount(e.basePricePerKgFcfa, newBase)
+        if (sameAmount(e.basePricePerKg, newBase)
                 && sameAmount(e.ristournePct, newRistourne)
                 && samePremiums(e.qualityPremiums, newPremiums)) {
             throw new BusinessException(Messages.msg("m.cmp-tariff-unchanged"));
@@ -177,8 +177,8 @@ public class CampaignService {
         Instant now = Instant.now();
         com.ntech.cabosse.campaign.entity.TariffChange change =
                 new com.ntech.cabosse.campaign.entity.TariffChange();
-        change.previousBasePricePerKgFcfa = e.basePricePerKgFcfa;
-        change.newBasePricePerKgFcfa = newBase;
+        change.previousBasePricePerKg = e.basePricePerKg;
+        change.newBasePricePerKg = newBase;
         change.previousRistournePct = e.ristournePct;
         change.newRistournePct = newRistourne;
         change.previousQualityPremiums = new ArrayList<>(
@@ -190,7 +190,7 @@ public class CampaignService {
         change.changedByEmail = currentEmail();
 
         boolean applied = repo.applyTariff(
-                id, e.basePricePerKgFcfa, newBase, newRistourne, newPremiums, change, now);
+                id, e.basePricePerKg, newBase, newRistourne, newPremiums, change, now);
         if (!applied) {
             // Le barème a bougé entre la lecture et l'écriture : refuser
             // plutôt qu'écraser en silence la décision de quelqu'un d'autre.
@@ -202,7 +202,7 @@ public class CampaignService {
     /** Le payload touche-t-il au barème déjà enregistré ? */
     private boolean tariffDiffers(CampaignEntity e, CampaignUpsertDto p) {
         BigDecimal ristourne = p.ristournePct() != null ? p.ristournePct() : BigDecimal.ZERO;
-        return !sameAmount(e.basePricePerKgFcfa, p.basePricePerKgFcfa())
+        return !sameAmount(e.basePricePerKg, p.basePricePerKg())
                 || !sameAmount(e.ristournePct, ristourne)
                 || !samePremiums(e.qualityPremiums, premiumsOf(p.qualityPremiums()));
     }
@@ -373,8 +373,8 @@ public class CampaignService {
         if (p.endDate() != null && p.endDate().isBefore(p.startDate())) {
             throw new BusinessException(Messages.msg("m.cmp-end-before-start"));
         }
-        if (p.basePricePerKgFcfa() == null
-                || p.basePricePerKgFcfa().signum() < 0) {
+        if (p.basePricePerKg() == null
+                || p.basePricePerKg().signum() < 0) {
             throw new BusinessException(Messages.msg("m.cmp-base-price-negative"));
         }
         if (p.ristournePct() != null
@@ -393,7 +393,7 @@ public class CampaignService {
         e.kind = p.kind() != null ? p.kind() : CampaignKind.MAIN;
         e.startDate = p.startDate();
         e.endDate = p.endDate();
-        e.basePricePerKgFcfa = p.basePricePerKgFcfa();
+        e.basePricePerKg = p.basePricePerKg();
         e.ristournePct = p.ristournePct() != null ? p.ristournePct() : BigDecimal.ZERO;
         e.defaultPaymentMethod = trimOrNull(p.defaultPaymentMethod());
         e.notes = trimOrNull(p.notes());

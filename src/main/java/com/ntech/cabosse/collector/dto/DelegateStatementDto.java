@@ -38,21 +38,21 @@ public record DelegateStatementDto(
             String delegateName,
             String sectionName,
             /** Retenue convenue sur la fiche du délégué, en FCFA/kg. */
-            BigDecimal retentionPerKgFcfa,
+            BigDecimal retentionPerKg,
             /** Retenue réellement figée sur ses reçus de la période. */
-            BigDecimal retentionAmountFcfa,
+            BigDecimal retentionAmount,
             /** Marge de fonctionnement convenue, en FCFA/kg. */
-            BigDecimal marginPerKgFcfa,
+            BigDecimal marginPerKg,
             /** Marge réellement figée sur ses reçus de la période. */
-            BigDecimal marginAmountFcfa,
+            BigDecimal marginAmount,
             BigDecimal weightKg,
-            BigDecimal deliveredFcfa) {}
+            BigDecimal delivered) {}
 
     /** Totaux de la période. Les taux ne s'additionnent pas : ils sont absents. */
     public record Totals(
-            BigDecimal retentionAmountFcfa,
-            BigDecimal marginAmountFcfa,
+            BigDecimal retentionAmount,
+            BigDecimal marginAmount,
             BigDecimal weightKg,
-            BigDecimal deliveredFcfa,
+            BigDecimal delivered,
             int delegateCount) {}
 }

@@ -7,8 +7,8 @@ import java.math.BigDecimal;
  * {@link JournalPieceEntity#entries} (embed, pas de collection séparée :
  * une entry n'a aucun sens en dehors de sa pièce).
  *
- * <p>Invariant : exactement un des deux champs {@code debitFcfa} /
- * {@code creditFcfa} est renseigné, jamais les deux, jamais aucun.
+ * <p>Invariant : exactement un des deux champs {@code debit} /
+ * {@code credit} est renseigné, jamais les deux, jamais aucun.
  * Vérifié par {@code AccountingService.postPiece}.</p>
  */
 public class JournalEntry {
@@ -20,10 +20,10 @@ public class JournalEntry {
     public String libelle;
 
     /** Montant débité ou {@code null}. */
-    public BigDecimal debitFcfa;
+    public BigDecimal debit;
 
     /** Montant crédité ou {@code null}. */
-    public BigDecimal creditFcfa;
+    public BigDecimal credit;
 
     /**
      * Centre de coût analytique (code du référentiel, backlog CPT-09).
@@ -61,7 +61,7 @@ public class JournalEntry {
         JournalEntry e = new JournalEntry();
         e.syscohadaAccount = account;
         e.libelle = libelle;
-        e.debitFcfa = amount;
+        e.debit = amount;
         return e;
     }
 
@@ -69,7 +69,7 @@ public class JournalEntry {
         JournalEntry e = new JournalEntry();
         e.syscohadaAccount = account;
         e.libelle = libelle;
-        e.creditFcfa = amount;
+        e.credit = amount;
         return e;
     }
 }

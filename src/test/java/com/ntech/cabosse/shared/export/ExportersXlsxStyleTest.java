@@ -39,7 +39,7 @@ class ExportersXlsxStyleTest {
     private record DemoRow(
             String reference,
             LocalDate dateCommande,
-            BigDecimal totalFcfa,
+            BigDecimal total,
             BigDecimal quantite,
             BigDecimal tvaPct,
             String fournisseur
@@ -49,7 +49,7 @@ class ExportersXlsxStyleTest {
         List<ExportColumn<DemoRow>> cols = List.of(
                 ExportColumn.of("Référence",     DemoRow::reference),
                 ExportColumn.of("Date commande", DemoRow::dateCommande),
-                ExportColumn.of("Total FCFA",    DemoRow::totalFcfa),
+                ExportColumn.of("Total FCFA",    DemoRow::total),
                 ExportColumn.of("Quantité",      DemoRow::quantite),
                 ExportColumn.of("TVA (%)",       DemoRow::tvaPct),
                 ExportColumn.of("Fournisseur",   DemoRow::fournisseur)

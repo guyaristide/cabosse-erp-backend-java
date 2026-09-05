@@ -125,7 +125,8 @@ public class MemberCreditResource {
     public Response approve(@PathParam("id") UUID id, DecisionPayload payload) {
         ensureCapability();
         return Response.ok(ApiResponse.ok(
-                service.approve(id, payload != null ? payload.note() : null))).build();
+                service.approve(id, payload != null ? payload.note() : null,
+                        payload != null ? payload.approvedAmount() : null))).build();
     }
 
     @POST
@@ -158,7 +159,15 @@ public class MemberCreditResource {
     }
 
     /** Motif ou note accompagnant une décision. */
-    public record DecisionPayload(String note) {}
+    /**
+     * Une décision : son commentaire, et le montant accordé quand il
+     * diffère du montant sollicité.
+     *
+     * <p>Le montant ne concerne que l'approbation ; un refus et une
+     * annulation n'en portent pas, et le laisser nul les laisse
+     * inchangés.</p>
+     */
+    public record DecisionPayload(String note, java.math.BigDecimal approvedAmount) {}
 
     // ─── Pièces jointes ─────────────────────────────────────────────
 

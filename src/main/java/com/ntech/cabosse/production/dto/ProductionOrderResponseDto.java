@@ -53,8 +53,8 @@ public record ProductionOrderResponseDto(
 
         // Coûts
         List<ConsumptionLineView> consumptionLines,
-        BigDecimal totalMaterialCostFcfa,
-        BigDecimal cmupAtCompletionFcfa,
+        BigDecimal totalMaterialCost,
+        BigDecimal cmupAtCompletion,
 
         // KPIs production (saisis ou dérivés à la complétion)
         Integer actualDurationHours,
@@ -92,7 +92,7 @@ public record ProductionOrderResponseDto(
     public record ConsumptionLineView(
             UUID id, UUID articleId, String articleCode, String articleName, String articleUnit,
             BigDecimal plannedQty, BigDecimal consumedQty,
-            BigDecimal cmupAtConsumptionFcfa, BigDecimal totalCostFcfa
+            BigDecimal cmupAtConsumption, BigDecimal totalCost
     ) {}
     public record CancellationView(String reason, String cancelledByEmail, Instant cancelledAt, OfStatus previousStatus) {}
 
@@ -113,7 +113,7 @@ public record ProductionOrderResponseDto(
                 e.consumptionLines == null
                         ? List.of()
                         : e.consumptionLines.stream().map(ProductionOrderResponseDto::lineView).toList(),
-                e.totalMaterialCostFcfa, e.cmupAtCompletionFcfa,
+                e.totalMaterialCost, e.cmupAtCompletion,
                 e.actualDurationHours, e.operatorsCount,
                 totalWeightKg(e), completionRatePct(e),
                 totalMaterialWeightKg(e), materialYieldPct(e),
@@ -201,7 +201,7 @@ public record ProductionOrderResponseDto(
     private static ConsumptionLineView lineView(ConsumptionLine l) {
         return new ConsumptionLineView(
                 l.id, l.articleId, l.articleCode, l.articleName, l.articleUnit,
-                l.plannedQty, l.consumedQty, l.cmupAtConsumptionFcfa, l.totalCostFcfa
+                l.plannedQty, l.consumedQty, l.cmupAtConsumption, l.totalCost
         );
     }
 }

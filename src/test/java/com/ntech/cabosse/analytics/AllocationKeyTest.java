@@ -101,7 +101,7 @@ class AllocationKeyTest extends AbstractIntegrationTest {
         givenAs(admin).contentType("application/json")
                 .body("""
                         { "kind": "PETTY_CASH", "chargeAccount": "628000", "label": "Gardiennage",
-                          "amountHtFcfa": 100000, "paymentMethod": "CASH",
+                          "amountHt": 100000, "paymentMethod": "CASH",
                           "allocationKeyCode": "STRUCT", "expenseDate": "%s" }
                         """.formatted(LocalDate.now()))
                 .when().post("/api/v1/direct-expenses").then().statusCode(201)
@@ -112,10 +112,10 @@ class AllocationKeyTest extends AbstractIntegrationTest {
                 .then().statusCode(200)
                 // L'amorçage de la caisse compte pour une pièce.
                 .body("data.total", equalTo(2))
-                .body("data.items[0].entries.find { it.costCenter == 'COL' }.debitFcfa", equalTo(50000))
-                .body("data.items[0].entries.find { it.costCenter == 'AGRO' }.debitFcfa", equalTo(30000))
-                .body("data.items[0].entries.find { it.costCenter == 'ADM' }.debitFcfa", equalTo(20000))
-                .body("data.items[0].entries.find { it.syscohadaAccount == '571000' }.creditFcfa",
+                .body("data.items[0].entries.find { it.costCenter == 'COL' }.debit", equalTo(50000))
+                .body("data.items[0].entries.find { it.costCenter == 'AGRO' }.debit", equalTo(30000))
+                .body("data.items[0].entries.find { it.costCenter == 'ADM' }.debit", equalTo(20000))
+                .body("data.items[0].entries.find { it.syscohadaAccount == '571000' }.credit",
                         equalTo(100000));
     }
 }

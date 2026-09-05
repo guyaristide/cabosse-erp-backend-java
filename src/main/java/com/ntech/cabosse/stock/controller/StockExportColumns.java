@@ -21,8 +21,8 @@ final class StockExportColumns {
                 ExportColumn.of(Messages.msg("m.imp-h-expense-type-category"),     r -> humanType(r.articleType() == null ? null : r.articleType().name())),
                 ExportColumn.of(Messages.msg("m.imp-h-article-unit"),         StockItemResponseDto::articleUnit),
                 ExportColumn.of(Messages.msg("m.imp-h-receipt-quantity"),      StockItemResponseDto::quantity),
-                ExportColumn.of(Messages.msg("m.imp-h-cmup-fcfa"),   StockItemResponseDto::cmupFcfa),
-                ExportColumn.of(Messages.msg("m.imp-h-valeur-totale"), StockItemResponseDto::totalValueFcfa),
+                ExportColumn.of(Messages.msg("m.imp-h-cmup-amount"),   StockItemResponseDto::cmup),
+                ExportColumn.of(Messages.msg("m.imp-h-valeur-totale"), StockItemResponseDto::totalValue),
                 ExportColumn.of(Messages.msg("m.imp-h-seuil-d-alerte"), StockItemResponseDto::alertThreshold),
                 ExportColumn.of(Messages.msg("m.imp-h-dernier-mvt"),   StockItemResponseDto::lastMovementAt)
         );
@@ -39,9 +39,9 @@ final class StockExportColumns {
                 ExportColumn.of(Messages.msg("m.imp-h-site"),           StockMovementResponseDto::siteName),
                 ExportColumn.of(Messages.msg("m.imp-h-receipt-quantity"),       StockMovementResponseDto::quantitySigned),
                 ExportColumn.of(Messages.msg("m.imp-h-article-unit"),          StockMovementResponseDto::articleUnit),
-                ExportColumn.of(Messages.msg("m.imp-h-pu-fcfa"),      StockMovementResponseDto::unitPriceFcfa),
-                ExportColumn.of(Messages.msg("m.imp-h-total-fcfa"),   StockMovementResponseDto::totalFcfa),
-                ExportColumn.of(Messages.msg("m.imp-h-cmup-apres"),     StockMovementResponseDto::cmupAfterFcfa),
+                ExportColumn.of(Messages.msg("m.imp-h-pu-amount"),      StockMovementResponseDto::unitPrice),
+                ExportColumn.of(Messages.msg("m.imp-h-total-amount"),   StockMovementResponseDto::total),
+                ExportColumn.of(Messages.msg("m.imp-h-cmup-apres"),     StockMovementResponseDto::cmupAfter),
                 ExportColumn.of(Messages.msg("m.imp-h-qte-apres"),      StockMovementResponseDto::quantityAfter),
                 ExportColumn.of(Messages.msg("m.imp-h-origine"),        r -> r.sourceType() == null ? "" : r.sourceType().name()),
                 ExportColumn.of(Messages.msg("m.imp-h-ref-origine"),   StockMovementResponseDto::sourceRef),

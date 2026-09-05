@@ -93,7 +93,7 @@ class DelegateRetentionTest extends AbstractIntegrationTest {
                         { "code": "%s", "name": "KONE Adama", "collector": true,
                           "sectionId": "%s"%s }
                         """.formatted(code, sectionId,
-                        retentionPerKg == null ? "" : ", \"collectorRetentionPerKgFcfa\": " + retentionPerKg))
+                        retentionPerKg == null ? "" : ", \"collectorRetentionPerKg\": " + retentionPerKg))
                 .when().post("/api/v1/suppliers").then().statusCode(201).extract().path("data.id");
     }
 
@@ -107,7 +107,7 @@ class DelegateRetentionTest extends AbstractIntegrationTest {
         return givenAs(admin).contentType("application/json")
                 .body("""
                         { "label": "%s", "startDate": "%s", "endDate": "%s",
-                          "basePricePerKgFcfa": 1000 }
+                          "basePricePerKg": 1000 }
                         """.formatted(label, start, end))
                 .when().post("/api/v1/campaigns").then().statusCode(201).extract().path("data.id");
     }
@@ -117,7 +117,7 @@ class DelegateRetentionTest extends AbstractIntegrationTest {
         var response = givenAs(admin).contentType("application/json")
                 .body("""
                         { "delegateSupplierId": "%s", "advanceDate": "%s",
-                          "advanceAmountFcfa": %d, "paymentMethod": "CASH",
+                          "advanceAmount": %d, "paymentMethod": "CASH",
                           "campaignId": "%s" }
                         """.formatted(delegateId, date, amount, campaignId))
                 .when().post("/api/v1/collector-advances?siteId=" + siteId)
@@ -137,7 +137,7 @@ class DelegateRetentionTest extends AbstractIntegrationTest {
                 .header("Idempotency-Key", UUID.randomUUID().toString())
                 .body("""
                         { "date": "%s", "memberId": "%s", "articleId": "%s", "siteId": "%s",
-                          "weightKg": %d, "guaranteedPricePerKgFcfa": 1000,
+                          "weightKg": %d, "guaranteedPricePerKg": 1000,
                           "paymentMethod": "CASH", "delegateSupplierId": "%s" }
                         """.formatted(date, memberId, articleId, siteId, weight, delegateId))
                 .when().post("/api/v1/producer-purchases").then().statusCode(201);
@@ -175,10 +175,10 @@ class DelegateRetentionTest extends AbstractIntegrationTest {
 
         // Les montants voyagent tantôt en entier tantôt en décimal selon
         // leur échelle : on compare des nombres, pas leur écriture.
-        assertAmount(account, "data.totalRetentionFcfa", "5000");   // 200 kg x 25 FCFA
+        assertAmount(account, "data.totalRetention", "5000");   // 200 kg x 25 FCFA
         assertAmount(account, "data.totalWeightKg", "200");
-        assertAmount(account, "data.averagePricePerKgFcfa", "1000"); // 200 000 / 200
-        assertAmount(account, "data.netBalanceFcfa", "795000");      // 1 000 000 − (200 000 + 5 000)
+        assertAmount(account, "data.averagePricePerKg", "1000"); // 200 000 / 200
+        assertAmount(account, "data.netBalance", "795000");      // 1 000 000 − (200 000 + 5 000)
     }
 
     /**
@@ -222,7 +222,7 @@ class DelegateRetentionTest extends AbstractIntegrationTest {
         givenAs(admin).contentType("application/json")
                 .body("""
                         { "name": "KONE Adama", "collector": true, "sectionId": "%s",
-                          "collectorRetentionPerKgFcfa": 20 }
+                          "collectorRetentionPerKg": 20 }
                         """.formatted(sectionId))
                 .when().put("/api/v1/suppliers/" + delegateId)
                 .then().statusCode(200);
@@ -268,12 +268,12 @@ class DelegateRetentionTest extends AbstractIntegrationTest {
                 .body("data.hasPriorDebt", equalTo(false))
                 .extract().jsonPath();
 
-        assertAmount(terms, "data.basePricePerKgFcfa", "1000");
-        assertAmount(terms, "data.marginPerKgFcfa", "50");
-        assertAmount(terms, "data.retentionPerKgFcfa", "15");
+        assertAmount(terms, "data.basePricePerKg", "1000");
+        assertAmount(terms, "data.marginPerKg", "50");
+        assertAmount(terms, "data.retentionPerKg", "15");
         // Prix barème = prix bord champ + marge de fonctionnement
-        assertAmount(terms, "data.scalePricePerKgFcfa", "1050");
+        assertAmount(terms, "data.scalePricePerKg", "1050");
         // Avance suggérée = prix barème x volume à livrer
-        assertAmount(terms, "data.suggestedAdvanceFcfa", "1050000");
+        assertAmount(terms, "data.suggestedAdvance", "1050000");
     }
 }

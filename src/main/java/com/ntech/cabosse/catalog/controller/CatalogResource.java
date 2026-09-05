@@ -99,7 +99,7 @@ public class CatalogResource {
         List<PlanResponseDto> body = plans.findActivePlans().stream()
                 .map(e -> new PlanResponseDto(
                         e.code, e.name, e.description,
-                        e.monthlyPriceFcfa, e.yearlyPriceFcfa,
+                        e.monthlyPrice, e.yearlyPrice,
                         e.maxUsers, e.maxMembers, e.maxSites,
                         e.includedModules, e.features
                 ))

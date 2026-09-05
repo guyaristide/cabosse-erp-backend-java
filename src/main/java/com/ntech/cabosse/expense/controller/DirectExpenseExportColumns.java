@@ -22,9 +22,9 @@ final class DirectExpenseExportColumns {
                 ExportColumn.of(Messages.msg("m.imp-h-libelle"),            DirectExpenseResponseDto::label),
                 ExportColumn.of(Messages.msg("m.imp-h-periode"),            DirectExpenseResponseDto::periodLabel),
                 ExportColumn.of(Messages.msg("m.imp-h-cle-de-repartition"), DirectExpenseResponseDto::allocationKeyName),
-                ExportColumn.of(Messages.msg("m.imp-h-montant-ht-fcfa"),  DirectExpenseResponseDto::amountHtFcfa),
-                ExportColumn.of(Messages.msg("m.imp-h-tva-fcfa"),         DirectExpenseResponseDto::vatAmountFcfa),
-                ExportColumn.of(Messages.msg("m.imp-h-montant-ttc-fcfa"), DirectExpenseResponseDto::amountTtcFcfa),
+                ExportColumn.of(Messages.msg("m.imp-h-montant-ht-amount"),  DirectExpenseResponseDto::amountHt),
+                ExportColumn.of(Messages.msg("m.imp-h-tva-amount"),         DirectExpenseResponseDto::vatAmount),
+                ExportColumn.of(Messages.msg("m.imp-h-montant-ttc-amount"), DirectExpenseResponseDto::amountTtc),
                 ExportColumn.of(Messages.msg("m.imp-h-purchase-payment-method"),   DirectExpenseResponseDto::paymentMethod),
                 ExportColumn.of(Messages.msg("m.imp-h-piece-comptable"),    DirectExpenseResponseDto::pieceRef));
     }

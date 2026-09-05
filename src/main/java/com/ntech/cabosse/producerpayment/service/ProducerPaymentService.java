@@ -113,8 +113,8 @@ public class ProducerPaymentService {
                 BigDecimal remaining = remainingOf(r);
                 subtotal = subtotal.add(remaining);
                 lines.add(new ProducerPaymentDtos.OutstandingDto.Line(
-                        r.id, r.ref, r.date, nz(r.amountFcfa), nz(r.creditImputedFcfa),
-                        nz(r.amountPaidFcfa), remaining));
+                        r.id, r.ref, r.date, nz(r.amount), nz(r.creditImputed),
+                        nz(r.amountPaid), remaining));
             }
             boolean viaDelegate = head.delegateSupplierId != null;
             beneficiaries.add(new ProducerPaymentDtos.OutstandingDto.Beneficiary(
@@ -127,7 +127,7 @@ public class ProducerPaymentService {
             grandTotal = grandTotal.add(subtotal);
         }
         // Le plus gros dû en tête : c'est celui qui revient au bureau.
-        beneficiaries.sort((a, b) -> b.remainingFcfa().compareTo(a.remainingFcfa()));
+        beneficiaries.sort((a, b) -> b.remaining().compareTo(a.remaining()));
         return new ProducerPaymentDtos.OutstandingDto(
                 grandTotal, beneficiaries.size(), beneficiaries);
     }
@@ -194,39 +194,39 @@ public class ProducerPaymentService {
                                 Messages.msg("m.ppy-purchase-not-found", a.purchaseId())));
                 ensureBeneficiaryMatches(e, r);
                 BigDecimal due = dueOf(r);
-                if (!purchases.tryPay(r.id, a.amountFcfa())) {
+                if (!purchases.tryPay(r.id, a.amount())) {
                     throw new BusinessException(Messages.msg("m.ppy-payment-exceeds-remaining",
-                            String.valueOf(a.amountFcfa()), r.ref,
+                            String.valueOf(a.amount()), r.ref,
                             String.valueOf(remainingOf(r))));
                 }
                 applied.add(a);
-                total = total.add(a.amountFcfa());
+                total = total.add(a.amount());
 
                 ProducerPaymentEntity.Allocation line = new ProducerPaymentEntity.Allocation();
                 line.purchaseId = r.id;
                 line.purchaseRef = r.ref;
                 line.purchaseDate = r.date;
-                line.amountDueFcfa = due;
-                line.amountFcfa = a.amountFcfa();
-                line.remainingAfterFcfa = remainingOf(r).subtract(a.amountFcfa());
+                line.amountDue = due;
+                line.amount = a.amount();
+                line.remainingAfter = remainingOf(r).subtract(a.amount());
                 e.allocations.add(line);
             }
 
             // 2) Écriture : débit de la dette constituée au reçu, crédit de
             //    la trésorerie. Elle échoue tôt (période close) et la
             //    compensation ci-dessous ramène les livraisons à leur état.
-            e.totalAmountFcfa = total;
+            e.totalAmount = total;
             String debtAccount = toDelegate
                     ? prefs.delegatePayableAccount() : prefs.producerPayableAccount();
-            e.bankFeesFcfa = (p.bankFeesFcfa() != null && p.bankFeesFcfa().signum() > 0)
-                    ? p.bankFeesFcfa() : null;
+            e.bankFees = (p.bankFees() != null && p.bankFees().signum() > 0)
+                    ? p.bankFees() : null;
             accounting.postFromProducerPayment(e.id, e.ref, beneficiaryName,
                             debtAccount, p.paymentMethod(), p.bankAccountId(),
-                            total, e.bankFeesFcfa, date)
+                            total, e.bankFees, date)
                     .ifPresent(piece -> e.pieceRef = piece.ref);
         } catch (RuntimeException ex) {
             for (ProducerPaymentDtos.AllocationDto a : applied) {
-                purchases.unpay(a.purchaseId(), a.amountFcfa());
+                purchases.unpay(a.purchaseId(), a.amount());
             }
             throw ex;
         }
@@ -275,11 +275,11 @@ public class ProducerPaymentService {
 
     /** Ce que la coopérative doit sur la livraison, retenues déduites. */
     private static BigDecimal dueOf(ProducerPurchaseEntity r) {
-        return nz(r.amountFcfa).subtract(nz(r.creditImputedFcfa));
+        return nz(r.amount).subtract(nz(r.creditImputed));
     }
 
     private static BigDecimal remainingOf(ProducerPurchaseEntity r) {
-        return dueOf(r).subtract(nz(r.amountPaidFcfa));
+        return dueOf(r).subtract(nz(r.amountPaid));
     }
 
     private static BigDecimal nz(BigDecimal v) { return v != null ? v : BigDecimal.ZERO; }

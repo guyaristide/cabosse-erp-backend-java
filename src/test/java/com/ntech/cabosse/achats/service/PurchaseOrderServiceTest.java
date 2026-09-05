@@ -88,7 +88,7 @@ class PurchaseOrderServiceTest {
     private PurchaseOrderEntity buildBc(BigDecimal vatRatePct,
                                         Boolean overrideFlag,
                                         boolean incorporateFreight,
-                                        BigDecimal transportFcfa,
+                                        BigDecimal transport,
                                         List<PurchaseOrderLine> lines) {
         PurchaseOrderEntity e = new PurchaseOrderEntity();
         e.id = UUID.randomUUID();
@@ -97,7 +97,7 @@ class PurchaseOrderServiceTest {
         e.vatRatePct = vatRatePct;
         e.vatRecoverableOverride = overrideFlag;
         e.incorporateFreightInCmup = incorporateFreight;
-        e.transportFcfa = transportFcfa;
+        e.transport = transport;
         e.lines = lines;
         e.status = BcStatus.DELIVERED;
         return e;
@@ -112,8 +112,8 @@ class PurchaseOrderServiceTest {
         l.designation = "Matière " + code;
         l.articleType = ArticleType.RAW_MATERIAL.name();
         l.quantity = qty;
-        l.unitPriceFcfa = pu;
-        l.totalLineFcfa = qty.multiply(pu).setScale(2, RoundingMode.HALF_UP);
+        l.unitPrice = pu;
+        l.totalLine = qty.multiply(pu).setScale(2, RoundingMode.HALF_UP);
         l.activityCodes = List.of();
         return l;
     }
@@ -126,8 +126,8 @@ class PurchaseOrderServiceTest {
         l.designation = "Transport";
         l.articleType = ArticleType.TRANSPORT.name();
         l.quantity = BigDecimal.ONE;
-        l.unitPriceFcfa = amount;
-        l.totalLineFcfa = amount.setScale(2, RoundingMode.HALF_UP);
+        l.unitPrice = amount;
+        l.totalLine = amount.setScale(2, RoundingMode.HALF_UP);
         l.activityCodes = List.of();
         return l;
     }
@@ -167,7 +167,7 @@ class PurchaseOrderServiceTest {
         invokePostStockEntries(bc);
 
         MovementInput m = captureSingleMovement();
-        assertThat(m.unitPriceFcfa())
+        assertThat(m.unitPrice())
                 .as("CMUP doit être le PU HT brut sans coefficient TVA")
                 .isEqualByComparingTo(new BigDecimal("1000"));
     }
@@ -187,7 +187,7 @@ class PurchaseOrderServiceTest {
 
         MovementInput m = captureSingleMovement();
         // 1000 × 1.18 = 1180
-        assertThat(m.unitPriceFcfa())
+        assertThat(m.unitPrice())
                 .as("CMUP doit être le PU HT majoré du coefficient TVA")
                 .isEqualByComparingTo(new BigDecimal("1180.0000"));
     }
@@ -207,7 +207,7 @@ class PurchaseOrderServiceTest {
 
         MovementInput m = captureSingleMovement();
         // 2000 × 1.18 = 2360
-        assertThat(m.unitPriceFcfa())
+        assertThat(m.unitPrice())
                 .isEqualByComparingTo(new BigDecimal("2360.0000"));
     }
 
@@ -225,7 +225,7 @@ class PurchaseOrderServiceTest {
         invokePostStockEntries(bc);
 
         MovementInput m = captureSingleMovement();
-        assertThat(m.unitPriceFcfa())
+        assertThat(m.unitPrice())
                 .as("Override true force le retour au HT")
                 .isEqualByComparingTo(new BigDecimal("2000"));
     }
@@ -244,7 +244,7 @@ class PurchaseOrderServiceTest {
         invokePostStockEntries(bc);
 
         MovementInput m = captureSingleMovement();
-        assertThat(m.unitPriceFcfa())
+        assertThat(m.unitPrice())
                 .as("Taux 0 → pas de multiplication même si TVA non récupérable")
                 .isEqualByComparingTo(new BigDecimal("500"));
     }
@@ -275,7 +275,7 @@ class PurchaseOrderServiceTest {
 
         List<MovementInput> moves = captureAllMovements(2);
         assertThat(moves)
-                .extracting(MovementInput::unitPriceFcfa)
+                .extracting(MovementInput::unitPrice)
                 .allMatch(v -> v.compareTo(new BigDecimal("1298.0000")) == 0,
                         "CMUP attendu 1298.0000 (= (1000 + 100 transport) × 1.18) pour chaque ligne");
     }

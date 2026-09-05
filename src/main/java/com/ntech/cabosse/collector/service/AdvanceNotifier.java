@@ -76,7 +76,7 @@ public class AdvanceNotifier {
             String subject = Messages.msg(locale, "m.ntf-advance-pending-subject", advance.ref);
             String body = Messages.msg(locale, "m.ntf-advance-pending-body",
                     advance.delegateName == null ? "" : advance.delegateName,
-                    advance.advanceAmountFcfa == null ? "0" : advance.advanceAmountFcfa.toPlainString(),
+                    advance.advanceAmount == null ? "0" : advance.advanceAmount.toPlainString(),
                     advance.ref);
             queue.enqueue(new NotificationQueue.Request(
                     NotificationChannel.EMAIL, NotificationUsage.ALERT,
@@ -84,6 +84,109 @@ public class AdvanceNotifier {
                     "collector-advance.pending-approval", advance.ref,
                     Locales.tag(locale), null));
         }
+    }
+
+    /**
+     * Une avance vient d'être approuvée : la caisse peut préparer le
+     * règlement.
+     *
+     * <p>« La caissière exécute en préparant les chèques sur la base des
+     * avances validées qui lui parviennent directement en notifications »
+     * (document du 03/09/2026). C'est la troisième main du circuit, et
+     * rien ne la prévenait.</p>
+     *
+     * <p>Le message porte le montant <strong>accordé</strong> : c'est
+     * celui que la caisse va sortir, et lui annoncer le montant sollicité
+     * lui ferait préparer un chèque de trop.</p>
+     */
+    public void advanceAwaitsDisbursement(CollectorAdvanceEntity advance) {
+        try {
+            notifyCashiers(advance);
+        } catch (RuntimeException e) {
+            LOG.warnf(e, "Alerte de décaissement non enfilée pour l'avance %s", advance.ref);
+        }
+    }
+
+    private void notifyCashiers(CollectorAdvanceEntity advance) {
+        UUID tenantId = tenantContext.tenantId();
+        if (tenantId == null) return;
+
+        String fallback = preferences.current().language;
+        java.math.BigDecimal granted = advance.effectiveAmount();
+
+        for (UserEntity user : cashiers(tenantId, advance)) {
+            Locale locale = Locales.firstOf(user.locale, fallback);
+            String subject = Messages.msg(locale, "m.ntf-advance-approved-subject", advance.ref);
+            String body = Messages.msg(locale, "m.ntf-advance-approved-body",
+                    advance.delegateName == null ? "" : advance.delegateName,
+                    granted == null ? "0" : granted.toPlainString(),
+                    advance.ref);
+            queue.enqueue(new NotificationQueue.Request(
+                    NotificationChannel.EMAIL, NotificationUsage.ALERT,
+                    user.email, subject, body,
+                    "collector-advance.awaiting-disbursement", advance.ref,
+                    Locales.tag(locale), null));
+        }
+    }
+
+    /**
+     * Un crédit ou une avance à un producteur vient d'être approuvé.
+     *
+     * <p>Le document dit la même chose des deux côtés : la caisse prépare
+     * les espèces sur la base des avances validées qui lui parviennent en
+     * notifications. Le circuit producteur est plus court, mais sa
+     * troisième main est la même.</p>
+     */
+    public void memberCreditAwaitsDisbursement(
+            String ref, String memberName, java.math.BigDecimal amount, UUID approvedBy) {
+        try {
+            UUID tenantId = tenantContext.tenantId();
+            if (tenantId == null) return;
+            String fallback = preferences.current().language;
+            for (UserEntity user : disbursers(tenantId, approvedBy,
+                    Permission.MEMBER_CREDIT_DISBURSE)) {
+                Locale locale = Locales.firstOf(user.locale, fallback);
+                queue.enqueue(new NotificationQueue.Request(
+                        NotificationChannel.EMAIL, NotificationUsage.ALERT,
+                        user.email,
+                        Messages.msg(locale, "m.ntf-advance-approved-subject", ref),
+                        Messages.msg(locale, "m.ntf-advance-approved-body",
+                                memberName == null ? "" : memberName,
+                                amount == null ? "0" : amount.toPlainString(), ref),
+                        "member-credit.awaiting-disbursement", ref,
+                        Locales.tag(locale), null));
+            }
+        } catch (RuntimeException e) {
+            LOG.warnf(e, "Alerte de décaissement non enfilée pour l'engagement %s", ref);
+        }
+    }
+
+    /** Les comptes actifs qui portent ce droit, sauf celui qui a décidé. */
+    private List<UserEntity> disbursers(UUID tenantId, UUID decidedBy, Permission right) {
+        return users.findByTenant(tenantId, 0, MAX_USERS).stream()
+                .filter(u -> u.status == UserStatus.ACTIVE)
+                .filter(u -> u.email != null && !u.email.isBlank())
+                .filter(u -> decidedBy == null || !u.id.equals(decidedBy))
+                .filter(u -> permissions.of(u, tenantId).contains(right))
+                .toList();
+    }
+
+    /**
+     * Les comptes actifs qui peuvent décaisser, sauf celui qui vient
+     * d'approuver.
+     *
+     * <p>Il ne pourra pas sortir les fonds lui-même, la règle des deux
+     * paires d'yeux le lui refusant : lui écrire pour l'y inviter
+     * l'enverrait au-devant d'un refus.</p>
+     */
+    private List<UserEntity> cashiers(UUID tenantId, CollectorAdvanceEntity advance) {
+        return users.findByTenant(tenantId, 0, MAX_USERS).stream()
+                .filter(u -> u.status == UserStatus.ACTIVE)
+                .filter(u -> u.email != null && !u.email.isBlank())
+                .filter(u -> !u.id.equals(advance.approvedBy))
+                .filter(u -> permissions.of(u, tenantId)
+                        .contains(Permission.COLLECTION_ADVANCE_DISBURSE))
+                .toList();
     }
 
     /**

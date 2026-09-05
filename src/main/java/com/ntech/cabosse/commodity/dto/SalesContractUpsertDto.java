@@ -13,10 +13,10 @@ import java.util.UUID;
 public record SalesContractUpsertDto(
         @NotNull UUID customerId,
         UUID campaignId,
-        @DecimalMin("0.0") BigDecimal marginPerKgFcfa,
+        @DecimalMin("0.0") BigDecimal marginPerKg,
         @Size(max = 40) String label,
-        @DecimalMin("0.0") BigDecimal coopPrimePerKgFcfa,
-        @DecimalMin("0.0") BigDecimal producerPrimePerKgFcfa,
-        @DecimalMin("0.0") BigDecimal socialPrimePerKgFcfa,
+        @DecimalMin("0.0") BigDecimal coopPrimePerKg,
+        @DecimalMin("0.0") BigDecimal producerPrimePerKg,
+        @DecimalMin("0.0") BigDecimal socialPrimePerKg,
         @Size(max = 500) String notes
 ) {}

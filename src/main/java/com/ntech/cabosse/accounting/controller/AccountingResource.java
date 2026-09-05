@@ -172,14 +172,15 @@ public class AccountingResource {
                                 @QueryParam("to") String toRaw,
                                 @QueryParam("account") String account,
                                 @QueryParam("campaignId") UUID campaignId,
+                                @QueryParam("sourceType") List<String> sourceTypes,
                                 @QueryParam("page") @DefaultValue("0") int page,
                                 @QueryParam("perPage") @DefaultValue("50") int perPage) {
         LocalDate from = parseDate(fromRaw);
         LocalDate to = parseDate(toRaw);
         PageRequest pr = PageRequest.of(page, perPage);
-        List<JournalPieceResponseDto> pieces =
-                query.listJournal(from, to, account, campaignId, pr.page(), pr.perPage());
-        long total = query.countJournal(from, to, account, campaignId);
+        List<JournalPieceResponseDto> pieces = query.listJournal(
+                from, to, account, campaignId, sourceTypes, pr.page(), pr.perPage());
+        long total = query.countJournal(from, to, account, campaignId, sourceTypes);
         Map<String, String> filters = new java.util.HashMap<>();
         if (fromRaw != null && !fromRaw.isBlank()) filters.put("from", fromRaw);
         if (toRaw != null && !toRaw.isBlank()) filters.put("to", toRaw);
@@ -372,8 +373,8 @@ public class AccountingResource {
     // ─── Opérations diverses (saisie manuelle, backlog CPT-07) ──────
 
     public record OdLinePayload(String account, String libelle,
-                                java.math.BigDecimal debitFcfa,
-                                java.math.BigDecimal creditFcfa,
+                                java.math.BigDecimal debit,
+                                java.math.BigDecimal credit,
                                 String costCenter, String program, String project) {}
     public record OdPayload(java.time.LocalDate date, String libelle,
                             List<OdLinePayload> lines) {}
@@ -383,7 +384,7 @@ public class AccountingResource {
         if (payload == null || payload.lines() == null) return List.of();
         return payload.lines().stream()
                 .map(l -> new com.ntech.cabosse.accounting.service.OdEntryService.OdLineInput(
-                        l.account(), l.libelle(), l.debitFcfa(), l.creditFcfa(),
+                        l.account(), l.libelle(), l.debit(), l.credit(),
                         l.costCenter(), l.program(), l.project()))
                 .toList();
     }
@@ -641,9 +642,9 @@ public class AccountingResource {
         return Response.ok(ApiResponse.ok(Map.of(
                 "yearMonth", entity.yearMonth,
                 "status", entity.status.name(),
-                "collectedFcfa", entity.collectedFcfa,
-                "deductibleFcfa", entity.deductibleFcfa,
-                "toPayFcfa", entity.toPayFcfa,
+                "collected", entity.collected,
+                "deductible", entity.deductible,
+                "toPay", entity.toPay,
                 "dueDate", entity.dueDate
         ))).build();
     }

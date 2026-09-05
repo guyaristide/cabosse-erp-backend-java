@@ -112,7 +112,7 @@ public class SaleImportService {
             lineDtos.add(new SaleLineDto(
                     articleId,
                     line.quantity(),
-                    line.unitPriceFcfa(),
+                    line.unitPrice(),
                     line.discountPct() != null ? line.discountPct() : BigDecimal.ZERO,
                     /* lotRef */ null
             ));
@@ -151,13 +151,13 @@ public class SaleImportService {
         try {
             sale = applyInitialStatus(sale, payload.initialStatus());
 
-            if (payload.totalPaidFcfa() != null
-                    && payload.totalPaidFcfa().compareTo(BigDecimal.ZERO) > 0
+            if (payload.totalPaid() != null
+                    && payload.totalPaid().compareTo(BigDecimal.ZERO) > 0
                     && sale.status() != SaleStatus.CANCELLED
                     && sale.status() != SaleStatus.QUOTE) {
-                BigDecimal balance = sale.balanceDueFcfa() != null
-                        ? sale.balanceDueFcfa() : BigDecimal.ZERO;
-                BigDecimal amount = payload.totalPaidFcfa().min(balance);
+                BigDecimal balance = sale.balanceDue() != null
+                        ? sale.balanceDue() : BigDecimal.ZERO;
+                BigDecimal amount = payload.totalPaid().min(balance);
                 if (amount.compareTo(BigDecimal.ZERO) > 0) {
                     PaymentMethod method = parsePaymentMethod(payload.paymentMethod());
                     SalePaymentDto paymentDto = new SalePaymentDto(

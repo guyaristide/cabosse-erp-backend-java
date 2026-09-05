@@ -64,7 +64,7 @@ public class StockItemEntity {
      * néanmoins les couples (article, site) à quantité nulle ; le CMUP
      * vivace ne ressort que lorsqu'il y a au moins une unité en stock.
      */
-    public BigDecimal cmupFcfa = BigDecimal.ZERO;
+    public BigDecimal cmup = BigDecimal.ZERO;
 
     /**
      * Seuil d'alerte spécifique au site. Hérité d'

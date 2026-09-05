@@ -23,7 +23,7 @@ public record MovementUpsertDto(
         @NotNull(message = "{v.type-de-mouvement-requis}") MovementKind kind,
         @NotNull(message = "{v.quantite-requise}") BigDecimal quantity,
         /** Requis pour IN, ignoré pour OUT et ADJUSTMENT. */
-        @DecimalMin(value = "0", message = "{v.valeur-negative-interdite}") BigDecimal unitPriceFcfa,
+        @DecimalMin(value = "0", message = "{v.valeur-negative-interdite}") BigDecimal unitPrice,
         /** Obligatoire pour ADJUSTMENT. */
         @Size(max = 500) String reason,
         @Size(max = 1000) String notes,

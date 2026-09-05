@@ -26,7 +26,7 @@ public record MovementInput(
         MovementKind kind,
         BigDecimal quantity,
         /** PU FCFA — requis pour IN/OPENING/TRANSFER_IN, ignoré pour ADJUSTMENT. */
-        BigDecimal unitPriceFcfa,
+        BigDecimal unitPrice,
         MovementSource sourceType,
         String sourceRef,
         UUID sourceEntityId,
@@ -52,7 +52,7 @@ public record MovementInput(
         String lotRef,
         /**
          * Sur une entrée (IN/OPENING/TRANSFER_IN) : si {@code true}, le CMUP
-         * de l'article prend le {@code unitPriceFcfa} de l'entrée au lieu de
+         * de l'article prend le {@code unitPrice} de l'entrée au lieu de
          * se pondérer avec l'existant. Utilisé par la livraison délégué en
          * mode « par lot » (réf. v21 : coût repris de l'avance). {@code false}
          * = comportement standard (pondération). Ignoré pour les sorties.
@@ -65,11 +65,11 @@ public record MovementInput(
      * et hors-production.
      */
     public MovementInput(UUID articleId, UUID siteId, MovementKind kind,
-                          BigDecimal quantity, BigDecimal unitPriceFcfa,
+                          BigDecimal quantity, BigDecimal unitPrice,
                           MovementSource sourceType, String sourceRef,
                           UUID sourceEntityId, UUID transferId,
                           String reason, String notes, Instant occurredAt) {
-        this(articleId, siteId, kind, quantity, unitPriceFcfa,
+        this(articleId, siteId, kind, quantity, unitPrice,
                 sourceType, sourceRef, sourceEntityId, transferId,
                 reason, notes, occurredAt, false, null, false);
     }
@@ -79,12 +79,12 @@ public record MovementInput(
      * pour les compensations de contre-passation existantes (RD/BC).
      */
     public MovementInput(UUID articleId, UUID siteId, MovementKind kind,
-                          BigDecimal quantity, BigDecimal unitPriceFcfa,
+                          BigDecimal quantity, BigDecimal unitPrice,
                           MovementSource sourceType, String sourceRef,
                           UUID sourceEntityId, UUID transferId,
                           String reason, String notes, Instant occurredAt,
                           boolean force) {
-        this(articleId, siteId, kind, quantity, unitPriceFcfa,
+        this(articleId, siteId, kind, quantity, unitPrice,
                 sourceType, sourceRef, sourceEntityId, transferId,
                 reason, notes, occurredAt, force, null, false);
     }
@@ -95,12 +95,12 @@ public record MovementInput(
      * les call-sites existants qui portent une étiquette de lot.
      */
     public MovementInput(UUID articleId, UUID siteId, MovementKind kind,
-                          BigDecimal quantity, BigDecimal unitPriceFcfa,
+                          BigDecimal quantity, BigDecimal unitPrice,
                           MovementSource sourceType, String sourceRef,
                           UUID sourceEntityId, UUID transferId,
                           String reason, String notes, Instant occurredAt,
                           boolean force, String lotRef) {
-        this(articleId, siteId, kind, quantity, unitPriceFcfa,
+        this(articleId, siteId, kind, quantity, unitPrice,
                 sourceType, sourceRef, sourceEntityId, transferId,
                 reason, notes, occurredAt, force, lotRef, false);
     }

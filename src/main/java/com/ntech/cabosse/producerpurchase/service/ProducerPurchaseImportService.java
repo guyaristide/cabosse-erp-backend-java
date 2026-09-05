@@ -160,7 +160,7 @@ public class ProducerPurchaseImportService {
                 issues.add(new FieldIssue("amount", Messages.msg("m.imp-amount-required")));
                 blocking = true;
             }
-            if (price == null && campaign != null) price = campaign.basePricePerKgFcfa;
+            if (price == null && campaign != null) price = campaign.basePricePerKg;
             BigDecimal displayAmount = amount != null ? amount
                     : (weight != null && price != null ? weight.multiply(price) : null);
 
@@ -245,7 +245,7 @@ public class ProducerPurchaseImportService {
     /** Ce que le délégué doit encore livrer, toutes avances ouvertes confondues. */
     private BigDecimal openBalance(UUID delegateSupplierId) {
         return advances.listOpenByDelegate(delegateSupplierId).stream()
-                .map(a -> a.remainingFcfa != null ? a.remainingFcfa : BigDecimal.ZERO)
+                .map(a -> a.remaining != null ? a.remaining : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
@@ -309,6 +309,10 @@ public class ProducerPurchaseImportService {
                         n.articleId(),
                         parseUuid(raw.siteId()),
                         campaign != null ? campaign.id : parseUuid(raw.campaignId()),
+                        // Le fichier d'import ne porte ni camion ni détail
+                        // des pesées : c'est une reprise, pas une bascule.
+                        null,
+                        null,
                         parseInt(raw.nbSacs()),
                         parseDecimal(raw.weightKg()),
                         parseDecimal(raw.price()),

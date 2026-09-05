@@ -16,7 +16,7 @@ public record SalePaymentDto(
 
         @NotNull(message = "{v.montant-requis}")
         @DecimalMin(value = "0", inclusive = false, message = "{v.montant-0-requis}")
-        BigDecimal amountFcfa,
+        BigDecimal amount,
 
         @NotNull(message = "{v.mode-de-paiement-requis}")
         PaymentMethod method,

@@ -103,7 +103,7 @@ class CollectorAdvanceTest extends AbstractIntegrationTest {
         givenAs(admin).contentType("application/json")
                 .body("""
                         { "date": "%s", "memberId": "%s", "articleId": "%s", "siteId": "%s",
-                          "weightKg": %d, "guaranteedPricePerKgFcfa": %d,
+                          "weightKg": %d, "guaranteedPricePerKg": %d,
                           "paymentMethod": "CASH", "delegateSupplierId": "%s" }
                         """.formatted(LocalDate.now(), memberId, articleId, siteId,
                                 kg, pricePerKg, delegateId))
@@ -123,12 +123,12 @@ class CollectorAdvanceTest extends AbstractIntegrationTest {
         String advanceId = givenAs(admin).contentType("application/json")
                 .body("""
                         { "delegateSupplierId": "%s", "advanceDate": "%s",
-                          "advanceAmountFcfa": 1000000, "paymentMethod": "CASH" }
+                          "advanceAmount": 1000000, "paymentMethod": "CASH" }
                         """.formatted(delegateId, LocalDate.now()))
                 .when().post("/api/v1/collector-advances?siteId=" + siteId)
                 .then().statusCode(201)
                 .body("data.status", equalTo("PENDING_APPROVAL"))
-                .body("data.remainingFcfa", equalTo(1000000))
+                .body("data.remaining", equalTo(1000000))
                 .body("data.sectionName", equalTo("Section Soubré"))
                 .extract().path("data.id");
 
@@ -155,8 +155,8 @@ class CollectorAdvanceTest extends AbstractIntegrationTest {
         buyFromProducer(admin, delegateId, memberId, articleId, siteId, 500, 1500);
         givenAs(admin).when().get("/api/v1/collector-advances/" + advanceId)
                 .then().statusCode(200)
-                .body("data.consumedAmountFcfa", equalTo(750000))
-                .body("data.remainingFcfa", equalTo(250000));
+                .body("data.consumedAmount", equalTo(750000))
+                .body("data.remaining", equalTo(250000));
 
         givenAs(admin).when().get("/api/v1/accounting/journal")
                 .then().statusCode(200).body("data.total", equalTo(3));
@@ -167,15 +167,15 @@ class CollectorAdvanceTest extends AbstractIntegrationTest {
         buyFromProducer(admin, delegateId, memberId, articleId, siteId, 200, 1500);
         givenAs(admin).when().get("/api/v1/collector-advances/" + advanceId)
                 .then().statusCode(200)
-                .body("data.remainingFcfa", equalTo(-50000));
+                .body("data.remaining", equalTo(-50000));
 
         // Le compte courant du délégué dit la même chose, tous versements
         // et tous bordereaux confondus.
         givenAs(admin).when().get("/api/v1/collector-advances/delegates/" + delegateId)
                 .then().statusCode(200)
-                .body("data.totalAdvancedFcfa", equalTo(1000000))
-                .body("data.totalDeliveredFcfa", equalTo(1050000))
-                .body("data.balanceFcfa", equalTo(-50000))
+                .body("data.totalAdvanced", equalTo(1000000))
+                .body("data.totalDelivered", equalTo(1050000))
+                .body("data.balance", equalTo(-50000))
                 .body("data.deliveryNotes", org.hamcrest.Matchers.hasSize(2));
 
         // Clôture au décompte de fin de campagne.
@@ -195,7 +195,7 @@ class CollectorAdvanceTest extends AbstractIntegrationTest {
         givenAs(admin).contentType("application/json")
                 .body("""
                         { "delegateSupplierId": "%s", "advanceDate": "%s",
-                          "advanceAmountFcfa": 100000, "paymentMethod": "CASH" }
+                          "advanceAmount": 100000, "paymentMethod": "CASH" }
                         """.formatted(supplierId, LocalDate.now()))
                 .when().post("/api/v1/collector-advances")
                 .then().statusCode(422);

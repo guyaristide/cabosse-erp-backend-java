@@ -123,29 +123,51 @@ public class CollectorAdvanceService {
 
         e.siteId = siteId;
         e.advanceDate = p.advanceDate();
-        e.advanceAmountFcfa = p.advanceAmountFcfa();
+        e.advanceAmount = p.advanceAmount();
         e.paymentMethod = p.paymentMethod();
-        e.consumedAmountFcfa = BigDecimal.ZERO;
-        e.remainingFcfa = p.advanceAmountFcfa();
+        e.consumedAmount = BigDecimal.ZERO;
+        e.remaining = p.advanceAmount();
         // Une demande, pas un versement : rien n'est sorti tant qu'elle
         // n'est pas approuvée puis décaissée.
         e.status = CollectorAdvanceStatus.PENDING_APPROVAL;
 
-        // Le seuil est figé ici, comme côté crédit producteur : le relever
-        // ensuite ne doit pas dispenser d'approbation une demande déjà
-        // déposée. Zéro signifie que la gouvernance se prononce sur tout.
-        BigDecimal threshold =
-                preferencesLookup.current().collectorAdvanceApprovalThresholdFcfa();
-        e.governanceApprovalRequired = threshold.signum() > 0
-                && p.advanceAmountFcfa().compareTo(threshold) >= 0;
+        // Le seuil est figé ici : le relever ensuite ne doit pas dispenser
+        // d'approbation une demande déjà déposée.
+        //
+        // Trois cas, et non deux. Un seuil <strong>absent</strong> laisse
+        // la direction trancher seule : c'est l'état des structures qui
+        // n'ont rien réglé, et le leur changer sous les pieds bloquerait
+        // toutes leurs approbations, personne ne portant encore le droit
+        // de gouvernance. Un seuil posé <strong>à zéro</strong> est une
+        // décision, et elle veut dire « la gouvernance se prononce sur
+        // tout » : c'est le cas d'une coopérative dont chaque avance
+        // délégué passe par le conseil. Au-delà de zéro, le montant
+        // départage.
+        //
+        // Confondre l'absence et le zéro, comme le faisait la première
+        // version, retournait exactement l'intention : la coopérative qui
+        // écrivait 0 en attendant que tout remonte au conseil obtenait
+        // que rien n'y remonte.
+        BigDecimal threshold = preferencesLookup.current() != null
+                ? preferencesLookup.current().collectorAdvanceApprovalThreshold
+                : null;
+        e.governanceApprovalRequired = threshold != null
+                && p.advanceAmount().compareTo(threshold) >= 0;
 
-        // La contrepartie attendue, au barème du jour de la demande. Elle
-        // passe par la même formule que la fiche technique : deux
-        // divisions écrites deux fois finiraient par diverger.
+        // La contrepartie attendue. Le barème la propose, la coopérative la
+        // saisit : « laissé libre à la coop de saisir », dit le document du
+        // 03/09. Une contrepartie se négocie et n'est pas toujours le
+        // quotient exact du montant par le prix.
+        //
+        // La proposition passe par la même formule que la fiche technique,
+        // deux divisions écrites deux fois finissant par diverger. Le prix
+        // qui l'a produite est conservé à côté, pour qu'on sache d'où
+        // venait le chiffre proposé.
         DelegateTermsDto terms = delegateAccount.terms(
-                delegate.id, e.campaignId, null, p.advanceAmountFcfa());
-        e.expectedQuantity = terms.suggestedVolumeKg();
-        e.counterpartUnitPriceFcfa = terms.scalePricePerKgFcfa();
+                delegate.id, e.campaignId, null, p.advanceAmount());
+        e.counterpartUnitPrice = terms.scalePricePerKg();
+        e.expectedQuantity = p.expectedQuantity() != null
+                ? p.expectedQuantity() : terms.suggestedVolumeKg();
         e.expectedQuantityUnit = e.expectedQuantity != null ? COUNTERPART_UNIT : null;
 
         e.notes = (p.notes() == null || p.notes().isBlank()) ? null : p.notes().trim();
@@ -158,7 +180,7 @@ public class CollectorAdvanceService {
         // demande refusée ne doit rien laisser au journal.
         repo.insert(e);
         audit(e, AuditEventType.COLLECTOR_ADVANCE_CREATED,
-                "Demande d'avance " + e.advanceAmountFcfa + " pour le délégué " + e.delegateName);
+                "Demande d'avance " + e.advanceAmount + " pour le délégué " + e.delegateName);
         // Après l'enregistrement, et sans pouvoir le remettre en cause :
         // une demande écrite dont l'alerte n'est pas partie reste une
         // demande écrite.
@@ -215,13 +237,13 @@ public class CollectorAdvanceService {
                     Messages.msg("m.col-governance-approval-required", e.ref));
         }
 
-        BigDecimal approved = payload != null && payload.approvedAmountFcfa() != null
-                ? payload.approvedAmountFcfa() : e.advanceAmountFcfa;
+        BigDecimal approved = payload != null && payload.approvedAmount() != null
+                ? payload.approvedAmount() : e.advanceAmount;
         // Accorder plus que demandé créerait un engagement que personne
         // n'a sollicité.
-        if (approved.compareTo(e.advanceAmountFcfa) > 0) {
+        if (approved.compareTo(e.advanceAmount) > 0) {
             throw new BusinessException(Messages.msg(
-                    "m.col-approved-above-requested", e.advanceAmountFcfa));
+                    "m.col-approved-above-requested", e.advanceAmount));
         }
         // Zéro n'est pas une approbation partielle : c'est un refus, et un
         // refus a son motif. L'enregistrer comme une approbation à zéro
@@ -232,13 +254,13 @@ public class CollectorAdvanceService {
 
         Instant now = Instant.now();
         e.status = CollectorAdvanceStatus.APPROVED;
-        e.approvedAmountFcfa = approved;
+        e.approvedAmount = approved;
         e.approvalNote = payload != null && payload.note() != null && !payload.note().isBlank()
                 ? payload.note().trim() : null;
         // Rien n'a encore été livré : le reste à couvrir suit le montant
         // accordé, faute de quoi une avance réduite s'imputerait sur le
         // montant demandé.
-        e.remainingFcfa = approved;
+        e.remaining = approved;
         e.approvedAt = now;
         e.approvedBy = safeUserId();
         e.approvedByEmail = actor();
@@ -246,7 +268,11 @@ public class CollectorAdvanceService {
         repo.replace(e);
         audit(e, AuditEventType.COLLECTOR_ADVANCE_APPROVED,
                 "Approbation " + e.ref + " (" + approved + " sur "
-                        + e.advanceAmountFcfa + " demandés) pour " + e.delegateName);
+                        + e.advanceAmount + " demandés) pour " + e.delegateName);
+        // Après l'enregistrement, et sans pouvoir le remettre en cause :
+        // une décision prise dont l'alerte n'est pas partie reste une
+        // décision prise.
+        notifier.advanceAwaitsDisbursement(e);
         return CollectorAdvanceResponseDto.from(e);
     }
 
@@ -314,14 +340,19 @@ public class CollectorAdvanceService {
                     ? null : payload.paymentRef().trim();
             // Zéro et « pas de frais » se valent : on ne garde que ce qui
             // pèse, pour qu'un état ne montre pas des lignes à 0 FCFA.
-            e.bankFeesFcfa = (payload.bankFeesFcfa() != null
-                    && payload.bankFeesFcfa().signum() > 0) ? payload.bankFeesFcfa() : null;
+            e.bankFees = (payload.bankFees() != null
+                    && payload.bankFees().signum() > 0) ? payload.bankFees() : null;
         }
         // Le montant approuvé, jamais celui demandé : c'est lui qui sort
         // de la caisse et qui doit se retrouver au journal.
+        // Le compte d'avance du délégué quand sa fiche en porte un, sinon
+        // le collectif du tenant. La coopérative ouvre ces comptes dans son
+        // plan ; nous les rattachons, nous n'en fabriquons aucun.
+        String partyAccount = suppliers.findById(e.delegateSupplierId)
+                .map(sup -> sup.advanceAccount).orElse(null);
         accounting.postFromCollectorAdvance(e.id, e.ref, e.delegateName,
-                        e.effectiveAmountFcfa(), e.paymentMethod,
-                        e.bankAccountId, e.bankFeesFcfa, e.advanceDate)
+                        e.effectiveAmount(), e.paymentMethod,
+                        e.bankAccountId, e.bankFees, e.advanceDate, partyAccount)
                 .ifPresent(piece -> e.pieceRef = piece.ref);
         e.status = CollectorAdvanceStatus.OPEN;
         e.disbursedAt = now;
@@ -333,7 +364,7 @@ public class CollectorAdvanceService {
         e.updatedAt = now;
         repo.replace(e);
         audit(e, AuditEventType.COLLECTOR_ADVANCE_DISBURSED,
-                "Décaissement " + e.ref + " : " + e.effectiveAmountFcfa()
+                "Décaissement " + e.ref + " : " + e.effectiveAmount()
                         + " à " + e.delegateName);
         return CollectorAdvanceResponseDto.from(e);
     }
@@ -379,7 +410,7 @@ public class CollectorAdvanceService {
         }
         repo.replace(e);
         audit(e, AuditEventType.COLLECTOR_ADVANCE_CLOSED,
-                "Clôture — solde résiduel " + e.remainingFcfa);
+                "Clôture — solde résiduel " + e.remaining);
         return CollectorAdvanceResponseDto.from(e);
     }
 

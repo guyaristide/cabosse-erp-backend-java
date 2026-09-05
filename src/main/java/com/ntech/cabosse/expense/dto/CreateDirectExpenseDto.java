@@ -49,7 +49,7 @@ public record CreateDirectExpenseDto(
 
         @NotNull(message = "{v.montant-ht-requis}")
         @DecimalMin(value = "0", inclusive = false, message = "{v.montant-ht-0-requis}")
-        BigDecimal amountHtFcfa,
+        BigDecimal amountHt,
 
         @DecimalMin(value = "0", message = "{v.taux-de-tva-negatif-interdit}")
         @DecimalMax(value = "100", message = "{v.taux-de-tva-superieur-a-100-interdit}")

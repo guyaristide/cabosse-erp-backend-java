@@ -85,7 +85,7 @@ class SaleRevenueAccountTest extends AbstractIntegrationTest {
         givenAs(admin).contentType("application/json")
                 .body("""
                         { "siteId": "%s", "channel": "B2B", "customerId": "%s", "saleDate": "%s",
-                          "lines": [ { "articleId": "%s", "quantity": 10, "unitPriceFcfa": 2000 } ] }
+                          "lines": [ { "articleId": "%s", "quantity": 10, "unitPrice": 2000 } ] }
                         """.formatted(siteId, customerId, LocalDate.now(), articleId))
                 .when().post("/api/v1/sales?asQuote=false")
                 .then().statusCode(201);
@@ -115,7 +115,7 @@ class SaleRevenueAccountTest extends AbstractIntegrationTest {
         givenAs(admin).contentType("application/json")
                 .body("""
                         { "siteId": "%s", "channel": "B2B", "customerId": "%s", "saleDate": "%s",
-                          "lines": [ { "articleId": "%s", "quantity": 5, "unitPriceFcfa": 1500 } ] }
+                          "lines": [ { "articleId": "%s", "quantity": 5, "unitPrice": 1500 } ] }
                         """.formatted(siteId, customerId, LocalDate.now(), articleId))
                 .when().post("/api/v1/sales?asQuote=false")
                 .then().statusCode(201);

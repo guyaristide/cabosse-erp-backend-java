@@ -72,6 +72,21 @@ public class SupplierEntity {
     public java.math.BigDecimal collectorMarginRate;
 
     /**
+     * Compte comptable d'avance propre à ce tiers.
+     *
+     * <p>Demandé par l'expert le 03/09/2026 : « le numéro de compte
+     * comptable d'avance spécifique du délégué déjà créé dans le plan
+     * comptable ». La coopérative ouvre le compte dans son plan, nous le
+     * rattachons ; il n'y a ni masque à inventer ni numéro à générer.</p>
+     *
+     * <p>Nul quand rien n'est rattaché : l'écriture retombe alors sur le
+     * compte collectif du tenant. Une avance ne se bloque pas parce qu'une
+     * fiche est incomplète.</p>
+     */
+    public String advanceAccount;
+
+
+    /**
      * Rémunération de ce délégué, campagne par campagne.
      *
      * <p>Une campagne se négocie : le taux d'une saison n'engage pas la
@@ -113,7 +128,7 @@ public class SupplierEntity {
      * antérieure non apurée : c'est la contrepartie qu'exige la
      * coopérative pour le refinancer malgré son solde.</p>
      */
-    public java.math.BigDecimal collectorRetentionPerKgFcfa;
+    public java.math.BigDecimal collectorRetentionPerKg;
 
     /**
      * Catégorie de reprise du fournisseur (backlog ACH-07). {@code null} :

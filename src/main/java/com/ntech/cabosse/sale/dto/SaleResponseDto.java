@@ -36,18 +36,18 @@ public record SaleResponseDto(
 
         List<LineView> lines,
 
-        BigDecimal subtotalHtFcfa,
+        BigDecimal subtotalHt,
         BigDecimal discountPct,
-        BigDecimal discountFcfa,
+        BigDecimal discount,
         BigDecimal vatRatePct,
-        BigDecimal vatFcfa,
-        BigDecimal totalTtcFcfa,
-        BigDecimal totalCostFcfa,
-        BigDecimal grossMarginFcfa,
+        BigDecimal vat,
+        BigDecimal totalTtc,
+        BigDecimal totalCost,
+        BigDecimal grossMargin,
 
         List<PaymentView> payments,
-        BigDecimal totalPaidFcfa,
-        BigDecimal balanceDueFcfa,
+        BigDecimal totalPaid,
+        BigDecimal balanceDue,
         PaymentStatus paymentStatus,
 
         SaleStatus status,
@@ -64,13 +64,13 @@ public record SaleResponseDto(
     public record LineView(
             UUID id, UUID articleId,
             String articleCode, String articleName, String articleUnit,
-            BigDecimal quantity, BigDecimal unitPriceFcfa, BigDecimal standardPriceFcfa,
-            BigDecimal discountPct, BigDecimal lineTotalHtFcfa,
-            BigDecimal cmupAtSaleFcfa, BigDecimal lineMarginFcfa, String lotRef
+            BigDecimal quantity, BigDecimal unitPrice, BigDecimal standardPrice,
+            BigDecimal discountPct, BigDecimal lineTotalHt,
+            BigDecimal cmupAtSale, BigDecimal lineMargin, String lotRef
     ) {}
 
     public record PaymentView(
-            UUID id, LocalDate paidOn, BigDecimal amountFcfa,
+            UUID id, LocalDate paidOn, BigDecimal amount,
             PaymentMethod method, String paymentNoteRef, String notes,
             String recordedByEmail, Instant recordedAt
     ) {}
@@ -80,8 +80,8 @@ public record SaleResponseDto(
     ) {}
 
     public static SaleResponseDto from(SaleEntity e) {
-        BigDecimal totalTtc = e.totalTtcFcfa == null ? BigDecimal.ZERO : e.totalTtcFcfa;
-        BigDecimal totalPaid = e.totalPaidFcfa == null ? BigDecimal.ZERO : e.totalPaidFcfa;
+        BigDecimal totalTtc = e.totalTtc == null ? BigDecimal.ZERO : e.totalTtc;
+        BigDecimal totalPaid = e.totalPaid == null ? BigDecimal.ZERO : e.totalPaid;
         BigDecimal balanceDue = totalTtc.subtract(totalPaid);
         return new SaleResponseDto(
                 e.id, e.ref, e.siteId, e.siteName, e.channel,
@@ -89,10 +89,10 @@ public record SaleResponseDto(
                 e.channelTypeSnapshot,
                 e.saleDate, e.dueDate, e.deliveryDate,
                 e.lines == null ? List.of() : e.lines.stream().map(SaleResponseDto::lineView).toList(),
-                e.subtotalHtFcfa, e.discountPct, e.discountFcfa, e.vatRatePct, e.vatFcfa,
-                e.totalTtcFcfa, e.totalCostFcfa, e.grossMarginFcfa,
+                e.subtotalHt, e.discountPct, e.discount, e.vatRatePct, e.vat,
+                e.totalTtc, e.totalCost, e.grossMargin,
                 e.payments == null ? List.of() : e.payments.stream().map(SaleResponseDto::paymentView).toList(),
-                e.totalPaidFcfa, balanceDue, e.paymentStatus,
+                e.totalPaid, balanceDue, e.paymentStatus,
                 e.status,
                 e.cancellation == null ? null : cancellationView(e.cancellation),
                 e.invoiceNumber, e.notes,
@@ -103,15 +103,15 @@ public record SaleResponseDto(
     private static LineView lineView(SaleLine l) {
         return new LineView(
                 l.id, l.articleId, l.articleCode, l.articleName, l.articleUnit,
-                l.quantity, l.unitPriceFcfa, l.standardPriceFcfa,
-                l.discountPct, l.lineTotalHtFcfa,
-                l.cmupAtSaleFcfa, l.lineMarginFcfa, l.lotRef
+                l.quantity, l.unitPrice, l.standardPrice,
+                l.discountPct, l.lineTotalHt,
+                l.cmupAtSale, l.lineMargin, l.lotRef
         );
     }
 
     private static PaymentView paymentView(SalePayment p) {
         return new PaymentView(
-                p.id, p.paidOn, p.amountFcfa, p.method, p.paymentNoteRef, p.notes,
+                p.id, p.paidOn, p.amount, p.method, p.paymentNoteRef, p.notes,
                 p.recordedByEmail, p.recordedAt
         );
     }

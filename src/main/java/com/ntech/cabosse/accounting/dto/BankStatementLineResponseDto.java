@@ -14,7 +14,7 @@ public record BankStatementLineResponseDto(
         UUID bankAccountId,
         LocalDate operationDate,
         String label,
-        BigDecimal amountFcfa,
+        BigDecimal amount,
         String direction,
         BankStatementLineStatus status,
         UUID matchedPieceId,
@@ -24,7 +24,7 @@ public record BankStatementLineResponseDto(
     public static BankStatementLineResponseDto from(BankStatementLineEntity e) {
         return new BankStatementLineResponseDto(
                 e.id, e.statementId, e.bankAccountId,
-                e.operationDate, e.label, e.amountFcfa, e.direction,
+                e.operationDate, e.label, e.amount, e.direction,
                 e.status,
                 e.matchedPieceId, e.matchedAt, e.matchedByEmail
         );

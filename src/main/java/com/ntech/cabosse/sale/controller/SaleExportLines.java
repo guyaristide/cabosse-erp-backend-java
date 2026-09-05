@@ -86,12 +86,12 @@ final class SaleExportLines {
                 ExportColumn.of(Messages.msg("m.imp-h-canal"),               r -> humanChannel(r.sale.channelTypeSnapshot())),
                 ExportColumn.of(Messages.msg("m.imp-h-status"),              r -> humanStatus(r.sale.status())),
                 ExportColumn.of(Messages.msg("m.imp-h-paiement"),            r -> latestPaymentMethod(r.sale)),
-                ExportColumn.of(Messages.msg("m.imp-h-total-ht"),            r -> r.line.lineTotalHtFcfa()),
+                ExportColumn.of(Messages.msg("m.imp-h-total-ht"),            r -> r.line.lineTotalHt()),
                 ExportColumn.of(Messages.msg("m.imp-h-remise"),              SaleExportLines::lineDiscount),
                 ExportColumn.of(Messages.msg("m.imp-h-tva"),                 SaleExportLines::lineVat),
                 ExportColumn.of(Messages.msg("m.imp-h-total-ttc"),           SaleExportLines::lineTotalTtc),
-                ExportColumn.of(Messages.msg("m.imp-h-total-paye"),          r -> r.sale.totalPaidFcfa()),
-                ExportColumn.of(Messages.msg("m.imp-h-solde-facture"),       r -> r.sale.balanceDueFcfa()),
+                ExportColumn.of(Messages.msg("m.imp-h-total-paye"),          r -> r.sale.totalPaid()),
+                ExportColumn.of(Messages.msg("m.imp-h-solde-facture"),       r -> r.sale.balanceDue()),
                 ExportColumn.of(Messages.msg("m.imp-h-n-facture"),          SaleExportLines::invoiceNumber),
                 ExportColumn.of(Messages.msg("m.imp-h-etat-facture"),        r -> invoiceState(r.sale.paymentStatus())),
                 ExportColumn.of(Messages.msg("m.imp-h-cree-par"),            r -> r.sale.createdByEmail()),
@@ -104,7 +104,7 @@ final class SaleExportLines {
     /** Remise ligne = qty × pu × discountPct / 100, arrondi 2 décimales. */
     static BigDecimal lineDiscount(LineRow r) {
         BigDecimal qty = nz(r.line.quantity());
-        BigDecimal pu = nz(r.line.unitPriceFcfa());
+        BigDecimal pu = nz(r.line.unitPrice());
         BigDecimal pct = nz(r.line.discountPct());
         if (pct.signum() == 0 || qty.signum() == 0 || pu.signum() == 0) {
             return BigDecimal.ZERO.setScale(2);
@@ -115,7 +115,7 @@ final class SaleExportLines {
 
     /** TVA ligne = HT ligne × vatRate / 100, arrondi 2 décimales. */
     static BigDecimal lineVat(LineRow r) {
-        BigDecimal ht = nz(r.line.lineTotalHtFcfa());
+        BigDecimal ht = nz(r.line.lineTotalHt());
         BigDecimal rate = nz(r.sale.vatRatePct());
         if (rate.signum() == 0 || ht.signum() == 0) {
             return BigDecimal.ZERO.setScale(2);
@@ -126,7 +126,7 @@ final class SaleExportLines {
 
     /** TTC ligne = HT ligne + TVA ligne. */
     static BigDecimal lineTotalTtc(LineRow r) {
-        return nz(r.line.lineTotalHtFcfa()).add(lineVat(r))
+        return nz(r.line.lineTotalHt()).add(lineVat(r))
                 .setScale(2, RoundingMode.HALF_UP);
     }
 

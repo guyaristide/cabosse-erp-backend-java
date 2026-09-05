@@ -12,7 +12,18 @@ import org.bson.Document;
 
 import java.time.Year;
 
-/** Références séquentielles {@code AV-YYYY-NNNN} pour les avances délégués. */
+/** Références séquentielles {@code DA-DEL-YYYY-NNNN} pour les demandes
+ * d'avance aux délégués.
+ *
+ * <p>Forme demandée par l'expert le 03/09/2026, {@code DA-DEL} pour une
+ * demande d'avance à un délégué et {@code DA-PRO} à un producteur. Son
+ * exemple omet l'année ; elle est conservée parce qu'une référence
+ * s'imprime et se cite, et que deux campagnes croiseraient leurs
+ * compteurs sans elle.</p>
+ *
+ * <p>Les références déjà émises gardent leur forme {@code AV-YYYY-NNNN} :
+ * une référence imprimée ne se réécrit pas, et les deux formes
+ * cohabiteront le temps que les anciennes sortent de la circulation. */
 @ApplicationScoped
 public class CollectorAdvanceRefService {
 
@@ -32,6 +43,6 @@ public class CollectorAdvanceRefService {
                 Updates.inc("seq", 1L),
                 new FindOneAndUpdateOptions().upsert(true).returnDocument(ReturnDocument.AFTER));
         long seq = updated != null ? updated.getLong("seq") : 1L;
-        return String.format("AV-%d-%04d", year, seq);
+        return String.format("DA-DEL-%d-%04d", year, seq);
     }
 }

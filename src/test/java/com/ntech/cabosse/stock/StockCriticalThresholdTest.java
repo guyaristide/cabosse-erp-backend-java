@@ -76,7 +76,7 @@ class StockCriticalThresholdTest extends AbstractIntegrationTest {
         givenAs(admin).contentType("application/json")
                 .body("""
                         { "articleId": "%s", "receivedDate": "%s",
-                          "lines": [ { "supplierId": "%s", "quantity": 15, "unitPriceFcfa": 1500 } ] }
+                          "lines": [ { "supplierId": "%s", "quantity": 15, "unitPrice": 1500 } ] }
                         """.formatted(articleId, LocalDate.now(), supplierId))
                 .when().post("/api/v1/direct-receipts?siteId=" + siteId).then().statusCode(201);
 

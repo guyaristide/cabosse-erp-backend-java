@@ -78,7 +78,7 @@ class CampaignSeasonRulesTest extends AbstractIntegrationTest {
         return givenAs(admin).contentType("application/json")
                 .body("""
                         { "label": "%s", "kind": "%s", "startDate": "%s", "endDate": "%s",
-                          "basePricePerKgFcfa": 1000 }
+                          "basePricePerKg": 1000 }
                         """.formatted(label, kind, start, end))
                 .when().post("/api/v1/campaigns").then();
     }
@@ -121,7 +121,7 @@ class CampaignSeasonRulesTest extends AbstractIntegrationTest {
         givenAs(a).contentType("application/json")
                 .body("""
                         { "label": "Sans terme", "kind": "MAIN", "startDate": "2026-09-01",
-                          "basePricePerKgFcfa": 1000 }
+                          "basePricePerKg": 1000 }
                         """)
                 .when().post("/api/v1/campaigns").then().statusCode(201);
 
@@ -168,7 +168,7 @@ class CampaignSeasonRulesTest extends AbstractIntegrationTest {
                 .body("""
                         { "label": "Principale 2026 corrigée", "kind": "MAIN",
                           "startDate": "2026-10-01", "endDate": "2027-03-31",
-                          "basePricePerKgFcfa": 1000 }
+                          "basePricePerKg": 1000 }
                         """)
                 .when().put("/api/v1/campaigns/" + id)
                 .then().statusCode(200)

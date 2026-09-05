@@ -69,7 +69,7 @@ class PayableQueueTest extends AbstractIntegrationTest {
         return givenAs(who).contentType("application/json")
                 .body("""
                         { "label": "Campagne %s", "kind": "MAIN", "startDate": "%s",
-                          "endDate": "%s", "basePricePerKgFcfa": 900 }
+                          "endDate": "%s", "basePricePerKg": 900 }
                         """.formatted(TestFixtures.randomSlugSuffix(),
                         LocalDate.now().minusMonths(1), LocalDate.now().plusMonths(5)))
                 .when().post("/api/v1/campaigns").then().statusCode(201)
@@ -88,7 +88,7 @@ class PayableQueueTest extends AbstractIntegrationTest {
         String id = givenAs(who).contentType("application/json")
                 .body("""
                         { "delegateSupplierId": "%s", "advanceDate": "%s",
-                          "advanceAmountFcfa": %d, "paymentMethod": "CHEQUE",
+                          "advanceAmount": %d, "paymentMethod": "CHEQUE",
                           "campaignId": "%s" }
                         """.formatted(delegateId, on, amount, campaignId))
                 .when().post("/api/v1/collector-advances").then().statusCode(201)
@@ -114,7 +114,7 @@ class PayableQueueTest extends AbstractIntegrationTest {
         var response = queue(admin, "");
         List<String> kinds = response.extract().path("data.page.items.kind");
         assertThat(kinds).contains("COLLECTOR_ADVANCE");
-        Number total = response.extract().path("data.totalRemainingFcfa");
+        Number total = response.extract().path("data.totalRemaining");
         assertThat(total.doubleValue()).isEqualTo(2_000_000d);
     }
 
@@ -130,7 +130,7 @@ class PayableQueueTest extends AbstractIntegrationTest {
 
         // Les fonds sont sortis : la file n'a plus rien à dire dessus.
         // L'y laisser ferait payer deux fois.
-        Number total = queue(admin, "").extract().path("data.totalRemainingFcfa");
+        Number total = queue(admin, "").extract().path("data.totalRemaining");
         assertThat(total.doubleValue()).isEqualTo(0d);
     }
 
@@ -142,7 +142,7 @@ class PayableQueueTest extends AbstractIntegrationTest {
         givenAs(admin).contentType("application/json")
                 .body("""
                         { "delegateSupplierId": "%s", "advanceDate": "%s",
-                          "advanceAmountFcfa": 900000, "paymentMethod": "CHEQUE",
+                          "advanceAmount": 900000, "paymentMethod": "CHEQUE",
                           "campaignId": "%s" }
                         """.formatted(delegateId, LocalDate.now(), campaign))
                 .when().post("/api/v1/collector-advances").then().statusCode(201);
@@ -150,7 +150,7 @@ class PayableQueueTest extends AbstractIntegrationTest {
         // Une demande n'est pas une dette : elle peut encore être refusée.
         // La compter gonflerait le besoin de trésorerie d'un argent que
         // personne n'a décidé de sortir.
-        Number total = queue(admin, "").extract().path("data.totalRemainingFcfa");
+        Number total = queue(admin, "").extract().path("data.totalRemaining");
         assertThat(total.doubleValue()).isEqualTo(0d);
     }
 
@@ -227,7 +227,7 @@ class PayableQueueTest extends AbstractIntegrationTest {
         // qui lirait le total de la page croirait connaître son besoin.
         var response = queue(admin, "?perPage=1");
         assertThat((List<?>) response.extract().path("data.page.items")).hasSize(1);
-        Number total = response.extract().path("data.totalRemainingFcfa");
+        Number total = response.extract().path("data.totalRemaining");
         assertThat(total.doubleValue()).isEqualTo(3_000_000d);
         Number count = response.extract().path("data.beneficiaryCount");
         assertThat(count.intValue()).isEqualTo(3);
@@ -243,11 +243,11 @@ class PayableQueueTest extends AbstractIntegrationTest {
                 700_000, LocalDate.now());
 
         Number total = queue(admin, "?kind=MEMBER_CREDIT")
-                .extract().path("data.totalRemainingFcfa");
+                .extract().path("data.totalRemaining");
         assertThat(total.doubleValue()).isEqualTo(0d);
 
         Number advances = queue(admin, "?kind=COLLECTOR_ADVANCE")
-                .extract().path("data.totalRemainingFcfa");
+                .extract().path("data.totalRemaining");
         assertThat(advances.doubleValue()).isEqualTo(700_000d);
     }
 
@@ -270,7 +270,7 @@ class PayableQueueTest extends AbstractIntegrationTest {
         givenAs(admin).contentType("application/json")
                 .body("""
                         { "siteId": "%s", "channel": "B2B", "customerId": "%s", "saleDate": "%s",
-                          "lines": [ { "articleId": "%s", "quantity": 10, "unitPriceFcfa": 2000 } ] }
+                          "lines": [ { "articleId": "%s", "quantity": 10, "unitPrice": 2000 } ] }
                         """.formatted(siteId, customerId, LocalDate.now(), articleId))
                 .when().post("/api/v1/sales?asQuote=false").then().statusCode(201);
 
@@ -278,7 +278,7 @@ class PayableQueueTest extends AbstractIntegrationTest {
         // ou non : c'est ce que le caissier prépare.
         var response = givenAs(admin).when().get("/api/v1/treasury/receivables")
                 .then().statusCode(200);
-        Number total = response.extract().path("data.totalRemainingFcfa");
+        Number total = response.extract().path("data.totalRemaining");
         assertThat(total.doubleValue()).isEqualTo(20_000d);
         List<String> kinds = response.extract().path("data.page.items.kind");
         assertThat(kinds).containsExactly("SALE");
@@ -301,14 +301,14 @@ class PayableQueueTest extends AbstractIntegrationTest {
         givenAs(admin).contentType("application/json")
                 .body("""
                         { "siteId": "%s", "channel": "B2B", "customerId": "%s", "saleDate": "%s",
-                          "lines": [ { "articleId": "%s", "quantity": 4, "unitPriceFcfa": 5000 } ] }
+                          "lines": [ { "articleId": "%s", "quantity": 4, "unitPrice": 5000 } ] }
                         """.formatted(siteId, customerId, LocalDate.now(), articleId))
                 .when().post("/api/v1/sales?asQuote=true").then().statusCode(201);
 
         // Un devis n'engage personne : le compter ferait attendre un
         // encaissement que rien ne fonde.
         Number total = givenAs(admin).when().get("/api/v1/treasury/receivables")
-                .then().statusCode(200).extract().path("data.totalRemainingFcfa");
+                .then().statusCode(200).extract().path("data.totalRemaining");
         assertThat(total.doubleValue()).isEqualTo(0d);
     }
 
@@ -321,10 +321,10 @@ class PayableQueueTest extends AbstractIntegrationTest {
 
         // Une dette n'est pas une créance. Les mêler ferait croire que la
         // structure attend l'argent qu'elle doit sortir.
-        Number owed = queue(admin, "").extract().path("data.totalRemainingFcfa");
+        Number owed = queue(admin, "").extract().path("data.totalRemaining");
         assertThat(owed.doubleValue()).isEqualTo(1_200_000d);
         Number expected = givenAs(admin).when().get("/api/v1/treasury/receivables")
-                .then().statusCode(200).extract().path("data.totalRemainingFcfa");
+                .then().statusCode(200).extract().path("data.totalRemaining");
         assertThat(expected.doubleValue()).isEqualTo(0d);
     }
 
@@ -338,7 +338,7 @@ class PayableQueueTest extends AbstractIntegrationTest {
                 3_000_000, LocalDate.now());
 
         UserEntity other = admin();
-        Number total = queue(other, "").extract().path("data.totalRemainingFcfa");
+        Number total = queue(other, "").extract().path("data.totalRemaining");
         assertThat(total.doubleValue()).isEqualTo(0d);
     }
 }

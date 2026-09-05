@@ -100,7 +100,7 @@ class DelegateApurementTest extends AbstractIntegrationTest {
         String id = givenAs(admin).contentType("application/json")
                 .body("""
                         { "delegateSupplierId": "%s", "advanceDate": "%s",
-                          "advanceAmountFcfa": %d, "paymentMethod": "CASH" }
+                          "advanceAmount": %d, "paymentMethod": "CASH" }
                         """.formatted(delegateId, LocalDate.now(), amount))
                 .when().post("/api/v1/collector-advances?siteId=" + siteId)
                 .then().statusCode(201).extract().path("data.id");
@@ -157,9 +157,9 @@ class DelegateApurementTest extends AbstractIntegrationTest {
                 .body("data.delegates", hasSize(1))
                 .body("data.delegates[0].delegateName", equalTo("KONE Adama"))
                 .body("data.delegates[0].receiptCount", equalTo(2))
-                .body("data.delegates[0].totalAmountFcfa", equalTo(800000))
-                .body("data.delegates[0].balanceBeforeFcfa", equalTo(1000000))
-                .body("data.delegates[0].balanceAfterFcfa", equalTo(200000));
+                .body("data.delegates[0].totalAmount", equalTo(800000))
+                .body("data.delegates[0].balanceBefore", equalTo(1000000))
+                .body("data.delegates[0].balanceAfter", equalTo(200000));
 
         givenAs(admin).contentType("application/json").body(payload)
                 .when().post("/api/v1/producer-purchases/import/commit")
@@ -169,8 +169,8 @@ class DelegateApurementTest extends AbstractIntegrationTest {
         // Les deux reçus du jour forment un seul bordereau.
         givenAs(admin).when().get("/api/v1/collector-advances/delegates/" + delegateId)
                 .then().statusCode(200)
-                .body("data.totalDeliveredFcfa", equalTo(800000))
-                .body("data.balanceFcfa", equalTo(200000))
+                .body("data.totalDelivered", equalTo(800000))
+                .body("data.balance", equalTo(200000))
                 .body("data.deliveryNotes", hasSize(1))
                 .body("data.deliveryNotes[0].receiptCount", equalTo(2))
                 .body("data.deliveryNotes[0].receipts[0].officialReceiptRef", equalTo("0012345"));
@@ -205,9 +205,9 @@ class DelegateApurementTest extends AbstractIntegrationTest {
         // de 512 500, la rémunération réduisant elle aussi sa dette.
         givenAs(admin).when().get("/api/v1/collector-advances/delegates/" + delegateId)
                 .then().statusCode(200)
-                .body("data.totalDeliveredFcfa", equalTo(500000))
-                .body("data.totalMarginFcfa", equalTo(12500.0F))
-                .body("data.balanceFcfa", equalTo(487500.0F));
+                .body("data.totalDelivered", equalTo(500000))
+                .body("data.totalMargin", equalTo(12500.0F))
+                .body("data.balance", equalTo(487500.0F));
     }
 
     @Test

@@ -18,15 +18,15 @@ public record OdDraftDto(
         String status,
         String pieceRef,
         List<DocumentView> documents,
-        BigDecimal totalDebitFcfa,
-        BigDecimal totalCreditFcfa,
+        BigDecimal totalDebit,
+        BigDecimal totalCredit,
         boolean balanced,
         Instant createdAt,
         String createdByEmail,
         Instant validatedAt
 ) {
     public record LineView(String account, String libelle,
-                           BigDecimal debitFcfa, BigDecimal creditFcfa,
+                           BigDecimal debit, BigDecimal credit,
                            String costCenter, String program, String project) {}
 
     public record DocumentView(UUID id, String label, String fileName,
@@ -36,12 +36,12 @@ public record OdDraftDto(
         BigDecimal debit = BigDecimal.ZERO;
         BigDecimal credit = BigDecimal.ZERO;
         List<LineView> lines = e.entries == null ? List.of() : e.entries.stream()
-                .map(l -> new LineView(l.syscohadaAccount, l.libelle, l.debitFcfa, l.creditFcfa,
+                .map(l -> new LineView(l.syscohadaAccount, l.libelle, l.debit, l.credit,
                         l.costCenter, l.program, l.project))
                 .toList();
         for (JournalEntry l : e.entries == null ? List.<JournalEntry>of() : e.entries) {
-            if (l.debitFcfa != null) debit = debit.add(l.debitFcfa);
-            if (l.creditFcfa != null) credit = credit.add(l.creditFcfa);
+            if (l.debit != null) debit = debit.add(l.debit);
+            if (l.credit != null) credit = credit.add(l.credit);
         }
         List<DocumentView> documents = e.documents == null ? List.of() : e.documents.stream()
                 .map(d -> new DocumentView(d.id, d.label, d.fileName, d.mimeType, d.sizeBytes, d.uploadedAt))
