@@ -9,6 +9,8 @@ import jakarta.inject.Inject;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 
+import java.time.LocalDate;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -54,6 +56,30 @@ public class CommoditySaleRepository {
     public List<CommoditySaleEntity> listAll(UUID campaignId) {
         return coll().find(searchFilter(null, campaignId, null))
                 .sort(new Document("date", 1)).into(new ArrayList<>());
+    }
+
+    /**
+     * Les ventes dont le facturé TTC dépasse l'encaissé : ce que les
+     * clients doivent encore. Sert la file des créances de trésorerie,
+     * qui ignorait le négoce jusqu'au correctif du 05/09/2026.
+     */
+    public List<CommoditySaleEntity> listUnsettled() {
+        Bson unsettled = Filters.expr(new Document("$gt", List.of(
+                new Document("$subtract", List.of(
+                        new Document("$ifNull", List.of("$amountInvoicedTtc", 0)),
+                        new Document("$ifNull", List.of("$totalPaid", 0)))),
+                0)));
+        return coll().find(unsettled)
+                .sort(new Document("date", 1))
+                .into(new ArrayList<>());
+    }
+
+    /** Les ventes d'une plage de dates, pour les agrégats de période. */
+    public List<CommoditySaleEntity> listBetween(LocalDate from, LocalDate to) {
+        return coll().find(Filters.and(
+                        Filters.gte("date", from),
+                        Filters.lte("date", to)))
+                .into(new ArrayList<>());
     }
 
     public Optional<CommoditySaleEntity> findById(UUID id) {

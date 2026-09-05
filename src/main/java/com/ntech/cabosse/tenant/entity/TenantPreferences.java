@@ -306,6 +306,27 @@ public class TenantPreferences {
         return stockMinWarningPct == null ? 20 : stockMinWarningPct;
     }
 
+    /**
+     * Objectif indicatif de taux de marge brute de campagne, en pourcent
+     * (défaut {@code 20}, la valeur du modèle expert CE-196). Servi en
+     * repère sur la synthèse de pilotage, jamais en blocage.
+     */
+    public Integer grossMarginTargetPct;
+
+    public int grossMarginTargetPct() {
+        return grossMarginTargetPct == null ? 20 : grossMarginTargetPct;
+    }
+
+    /**
+     * Objectif indicatif de taux de marge nette de campagne, en pourcent
+     * (défaut {@code 2}). Même usage que l'objectif de marge brute.
+     */
+    public Integer netMarginTargetPct;
+
+    public int netMarginTargetPct() {
+        return netMarginTargetPct == null ? 2 : netMarginTargetPct;
+    }
+
     /** Durée de validité par défaut d'une enquête producteur, en mois. */
     public static final int DEFAULT_PRODUCER_FILE_VALIDITY_MONTHS = 12;
 

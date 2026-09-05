@@ -15,5 +15,7 @@ public record BankAccountUpsertDto(
         @NotBlank @Size(max = 80) String label,
         @Size(max = 120) String sub,
         @NotNull BankAccountKind kind,
-        Boolean active
+        Boolean active,
+        /** Gestionnaires du compte, qui en lisent le solde. */
+        java.util.List<java.util.UUID> managerUserIds
 ) {}

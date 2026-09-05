@@ -198,6 +198,14 @@ public record TenantPreferencesDto(
         @Schema(description = "Écriture du reçu d'achat producteur : AUTO (à la réception, défaut) "
                 + "ou MANUAL (le comptable clique « Comptabiliser maintenant »).",
                 example = "AUTO", defaultValue = "AUTO")
-        String receiptAccountingMode
+        String receiptAccountingMode,
+
+        @Schema(description = "Objectif indicatif de taux de marge brute de campagne, en pourcent.",
+                example = "20", defaultValue = "20")
+        int grossMarginTargetPct,
+
+        @Schema(description = "Objectif indicatif de taux de marge nette de campagne, en pourcent.",
+                example = "2", defaultValue = "2")
+        int netMarginTargetPct
 
 ) {}

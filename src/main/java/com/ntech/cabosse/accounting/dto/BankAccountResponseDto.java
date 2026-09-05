@@ -22,6 +22,7 @@ public record BankAccountResponseDto(
         String sub,
         BankAccountKind kind,
         boolean active,
+        java.util.List<UUID> managerUserIds,
         BigDecimal balance,
         BigDecimal deltaPct,
         Instant createdAt,
@@ -33,6 +34,7 @@ public record BankAccountResponseDto(
         return new BankAccountResponseDto(
                 e.id, e.bankName, e.accountNumber, e.syscohadaAccount,
                 e.label, e.sub, e.kind, e.active,
+                e.managerUserIds,
                 balance, deltaPct,
                 e.createdAt, e.updatedAt
         );

@@ -27,10 +27,18 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 public class ExecutiveDashboardResource {
 
     @Inject ExecutiveDashboardService service;
+    @Inject com.ntech.cabosse.direction.service.CampaignDashboardService campaignDashboards;
 
     @GET
     public Response get(@QueryParam("period") @DefaultValue("mois") String period) {
         ExecutiveDashboardDto dto = service.build(period);
         return Response.ok(ApiResponse.ok(dto)).build();
+    }
+
+    /** Vue campagne (épic CE-196) : campagne en cours sans paramètre. */
+    @GET
+    @Path("/campaign")
+    public Response campaign(@QueryParam("campaignId") java.util.UUID campaignId) {
+        return Response.ok(ApiResponse.ok(campaignDashboards.build(campaignId))).build();
     }
 }

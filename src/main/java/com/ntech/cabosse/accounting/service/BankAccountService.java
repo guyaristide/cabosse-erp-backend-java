@@ -83,6 +83,7 @@ public class BankAccountService {
         e.sub = p.sub() == null ? null : p.sub().trim();
         e.kind = p.kind();
         e.active = p.active() == null || p.active();
+        e.managerUserIds = p.managerUserIds();
     }
 
     private UUID safeUserId() {

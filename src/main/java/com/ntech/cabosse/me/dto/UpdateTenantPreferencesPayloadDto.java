@@ -108,6 +108,16 @@ public record UpdateTenantPreferencesPayloadDto(
         @Schema(description = "Pourcentage du seuil d'alerte sous lequel le stock passe en critique.")
         Integer stockMinWarningPct,
 
+        @jakarta.validation.constraints.Min(value = 0, message = "{v.pourcentage-negatif-interdit}")
+        @jakarta.validation.constraints.Max(value = 100, message = "{v.pourcentage-superieur-a-100-interdit}")
+        @Schema(description = "Objectif indicatif de taux de marge brute de campagne, en pourcent.")
+        Integer grossMarginTargetPct,
+
+        @jakarta.validation.constraints.Min(value = 0, message = "{v.pourcentage-negatif-interdit}")
+        @jakarta.validation.constraints.Max(value = 100, message = "{v.pourcentage-superieur-a-100-interdit}")
+        @Schema(description = "Objectif indicatif de taux de marge nette de campagne, en pourcent.")
+        Integer netMarginTargetPct,
+
         @jakarta.validation.constraints.Min(value = 1, message = "{v.duree-de-validite-inferieure-a-1-mois-interdite}")
         @jakarta.validation.constraints.Max(value = 120, message = "{v.duree-de-validite-superieure-a-120-mois-interdite}")
         @Schema(description = "Durée de validité d'une enquête producteur, en mois.")

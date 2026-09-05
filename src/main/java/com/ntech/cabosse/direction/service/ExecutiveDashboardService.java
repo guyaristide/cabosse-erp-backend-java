@@ -47,6 +47,7 @@ public class ExecutiveDashboardService {
     private static final int MAX_ALERTS = 6;
 
     @Inject SaleRepository sales;
+    @Inject com.ntech.cabosse.commodity.repository.CommoditySaleRepository commoditySales;
     @Inject com.ntech.cabosse.campaign.repository.CampaignRepository campaigns;
     @Inject StockItemRepository stockItems;
     @Inject JournalPieceRepository pieces;
@@ -77,8 +78,13 @@ public class ExecutiveDashboardService {
 
     private ExecutiveDashboardDto buildFor(String periodCode, PeriodRange current, PeriodRange previous) {
 
-        SaleStats currentSales = sumSales(sales.listConfirmedInRange(current.from, current.to));
-        SaleStats previousSales = sumSales(sales.listConfirmedInRange(previous.from, previous.to));
+        // Les deux canaux de vente comptent : produits finis et négoce.
+        // Jusqu'au correctif du 05/09/2026, une structure qui exporte sa
+        // matière lisait un chiffre d'affaires quasi nul.
+        SaleStats currentSales = sumSales(sales.listConfirmedInRange(current.from, current.to))
+                .plus(sumCommoditySales(commoditySales.listBetween(current.from, current.to)));
+        SaleStats previousSales = sumSales(sales.listConfirmedInRange(previous.from, previous.to))
+                .plus(sumCommoditySales(commoditySales.listBetween(previous.from, previous.to)));
 
         BigDecimal cashNow = treasuryBalanceAt(current.to);
         BigDecimal cashBefore = treasuryBalanceAt(previous.to);
@@ -109,7 +115,11 @@ public class ExecutiveDashboardService {
     //  KPIs
     // ════════════════════════════════════════════════════════════════
 
-    private record SaleStats(BigDecimal revenue, BigDecimal margin) {}
+    private record SaleStats(BigDecimal revenue, BigDecimal margin) {
+        SaleStats plus(SaleStats other) {
+            return new SaleStats(revenue.add(other.revenue), margin.add(other.margin));
+        }
+    }
 
     private static SaleStats sumSales(List<SaleEntity> list) {
         BigDecimal rev = BigDecimal.ZERO;
@@ -117,6 +127,17 @@ public class ExecutiveDashboardService {
         for (SaleEntity s : list) {
             if (s.totalTtc != null) rev = rev.add(s.totalTtc);
             if (s.grossMargin != null) mar = mar.add(s.grossMargin);
+        }
+        return new SaleStats(rev, mar);
+    }
+
+    private static SaleStats sumCommoditySales(
+            List<com.ntech.cabosse.commodity.entity.CommoditySaleEntity> list) {
+        BigDecimal rev = BigDecimal.ZERO;
+        BigDecimal mar = BigDecimal.ZERO;
+        for (com.ntech.cabosse.commodity.entity.CommoditySaleEntity s : list) {
+            if (s.amountInvoicedTtc != null) rev = rev.add(s.amountInvoicedTtc);
+            if (s.margin != null) mar = mar.add(s.margin);
         }
         return new SaleStats(rev, mar);
     }

@@ -88,7 +88,9 @@ public class TenantPreferencesService {
                 p.producerAmountMode(),
                 p.producerWeightMode(),
                 p.producerPurchaseSiteRequired(),
-                p.receiptAccountingMode()
+                p.receiptAccountingMode(),
+                p.grossMarginTargetPct(),
+                p.netMarginTargetPct()
         );
     }
 
@@ -256,6 +258,22 @@ public class TenantPreferencesService {
                     "from", t.preferences.stockMinWarningPct(),
                     "to", payload.stockMinWarningPct()));
             t.preferences.stockMinWarningPct = payload.stockMinWarningPct();
+        }
+
+        if (payload.grossMarginTargetPct() != null
+                && payload.grossMarginTargetPct() != t.preferences.grossMarginTargetPct()) {
+            diffs.put("grossMarginTargetPct", Map.of(
+                    "from", t.preferences.grossMarginTargetPct(),
+                    "to", payload.grossMarginTargetPct()));
+            t.preferences.grossMarginTargetPct = payload.grossMarginTargetPct();
+        }
+
+        if (payload.netMarginTargetPct() != null
+                && payload.netMarginTargetPct() != t.preferences.netMarginTargetPct()) {
+            diffs.put("netMarginTargetPct", Map.of(
+                    "from", t.preferences.netMarginTargetPct(),
+                    "to", payload.netMarginTargetPct()));
+            t.preferences.netMarginTargetPct = payload.netMarginTargetPct();
         }
 
         if (payload.producerFileValidityMonths() != null

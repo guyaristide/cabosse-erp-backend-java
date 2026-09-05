@@ -50,6 +50,13 @@ public class BankAccountEntity {
 
     public boolean active = true;
 
+    /**
+     * Gestionnaires du compte : les personnes qui en lisent le solde sans
+     * porter le droit de voir tous les soldes. Pensé pour les caisses,
+     * chacune suivie par sa caissière.
+     */
+    public java.util.List<UUID> managerUserIds;
+
     public Instant createdAt;
     public Instant updatedAt;
     public UUID createdBy;

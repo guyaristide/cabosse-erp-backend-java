@@ -1,5 +1,7 @@
 package com.ntech.cabosse.treasury.service;
 
+import com.ntech.cabosse.commodity.entity.CommoditySaleEntity;
+import com.ntech.cabosse.commodity.repository.CommoditySaleRepository;
 import com.ntech.cabosse.sale.entity.SaleEntity;
 import com.ntech.cabosse.sale.repository.SaleRepository;
 import com.ntech.cabosse.shared.api.PageRequest;
@@ -41,6 +43,7 @@ import java.util.UUID;
 public class ReceivableService {
 
     @Inject SaleRepository sales;
+    @Inject CommoditySaleRepository commoditySales;
 
     public PayableQueueDto queue(String kind, UUID siteId, PageRequest pr) {
         List<PayableDto> all = collect(kind, siteId);
@@ -89,10 +92,28 @@ public class ReceivableService {
                         sale.siteId, sale.campaignId));
             }
         }
+        if (kind == null || kind.isBlank() || ReceivableKind.COMMODITY_SALE.name().equals(kind)) {
+            for (CommoditySaleEntity sale : commoditySales.listUnsettled()) {
+                BigDecimal remaining = remainingOf(sale);
+                if (remaining.signum() <= 0) continue;
+                out.add(new PayableDto(
+                        ReceivableKind.COMMODITY_SALE.name(), sale.id, null, sale.ref,
+                        BeneficiaryKind.CUSTOMER.name(), sale.customerId, sale.customerName,
+                        remaining, sale.date, ageOf(sale.date),
+                        sale.siteId, sale.campaignId));
+            }
+        }
         if (siteId == null) return out;
         return out.stream()
                 .filter(p -> p.siteId() == null || siteId.equals(p.siteId()))
                 .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+    }
+
+    /** Facturé TTC de la vente en gros moins l'encaissé cumulé. */
+    private BigDecimal remainingOf(CommoditySaleEntity sale) {
+        BigDecimal total = sale.amountInvoicedTtc == null ? BigDecimal.ZERO : sale.amountInvoicedTtc;
+        BigDecimal paid = sale.totalPaid == null ? BigDecimal.ZERO : sale.totalPaid;
+        return total.subtract(paid);
     }
 
     /** Total dû moins ce qui a déjà été encaissé. */

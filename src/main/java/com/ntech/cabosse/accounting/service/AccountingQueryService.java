@@ -59,6 +59,7 @@ public class AccountingQueryService {
 
     @Inject ChartOfAccountsRepository chart;
     @Inject BankAccountRepository banks;
+    @Inject com.ntech.cabosse.treasury.service.BalanceVisibility balanceVisibility;
     @Inject JournalPieceRepository pieces;
     @Inject TenantMongoDatabaseProvider tenantDb;
     @Inject com.ntech.cabosse.accounting.repository.TvaDeclarationRepository tvaDeclarations;
@@ -178,6 +179,12 @@ public class AccountingQueryService {
                 .map(b -> {
                     AccountStats now = statsAllTime.getOrDefault(b.syscohadaAccount, AccountStats.ZERO);
                     AccountStats before = stats30dAgo.getOrDefault(b.syscohadaAccount, AccountStats.ZERO);
+                    // Le solde ne se montre qu'à qui a le droit de le voir :
+                    // tous les soldes, ou la caisse qu'on gère. Le compte
+                    // reste listé, il faut pouvoir le choisir pour un chèque.
+                    if (!balanceVisibility.canSeeBalance(b)) {
+                        return BankAccountResponseDto.from(b, null, null);
+                    }
                     BigDecimal balance = now.balance();
                     BigDecimal delta = computeDeltaPct(before.balance(), balance);
                     return BankAccountResponseDto.from(b, balance, delta);

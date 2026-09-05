@@ -56,6 +56,16 @@ import java.util.UUID;
 @ApplicationScoped
 public class TreasuryService {
 
+    @jakarta.inject.Inject BalanceVisibility balanceVisibility;
+
+    /** Le solde d'un compte ne se lit qu'avec le droit ou la gestion du compte. */
+    private void ensureBalanceVisible(BankAccountEntity account) {
+        if (!balanceVisibility.canSeeBalance(account)) {
+            throw new com.ntech.cabosse.shared.exception.ForbiddenException(
+                    com.ntech.cabosse.shared.i18n.Messages.msg("m.tre-balance-forbidden"));
+        }
+    }
+
     @Inject TreasuryTransferRepository transfers;
     @Inject com.ntech.cabosse.campaign.service.CampaignResolver campaignResolver;
     @Inject CashCountRepository counts;
@@ -209,6 +219,7 @@ public class TreasuryService {
      */
     public CashPositionDto position(UUID accountId, LocalDate from, LocalDate at) {
         BankAccountEntity account = loadAccount(accountId);
+        ensureBalanceVisible(account);
         LocalDate to = at != null ? at : LocalDate.now();
         LocalDate start = from != null ? from : to.withDayOfMonth(1);
 
@@ -249,6 +260,9 @@ public class TreasuryService {
 
     public CashCountResponseDto count(CreateCashCountDto p) {
         BankAccountEntity account = loadAccount(p.accountId());
+        // L'arrêté confronte le compté au théorique : le faire, c'est
+        // lire le solde. Même règle que le point de caisse.
+        ensureBalanceVisible(account);
         LocalDate date = p.countedAt() != null ? p.countedAt() : LocalDate.now();
 
         CashCountEntity e = new CashCountEntity();

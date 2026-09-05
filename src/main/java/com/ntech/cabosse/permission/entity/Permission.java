@@ -106,6 +106,10 @@ public enum Permission {
     ACCOUNTING_WRITE(Domain.ACCOUNTING, "m.per-accounting-write"),
     ACCOUNTING_CLOSE(Domain.ACCOUNTING, "m.per-accounting-close"),
     TREASURY_WRITE(Domain.ACCOUNTING, "m.per-treasury-write"),
+    // Le solde des comptes est une information de gouvernance : ce droit
+    // ouvre tous les soldes, banque comprise. Sans lui, une personne ne
+    // lit que le solde des caisses dont elle est désignée gestionnaire.
+    TREASURY_BALANCE_ALL(Domain.ACCOUNTING, "m.per-treasury-balance-all"),
 
     // ─── Conformité ─────────────────────────────────────────────────
     EUDR_READ(Domain.COMPLIANCE, "m.per-eudr-read",

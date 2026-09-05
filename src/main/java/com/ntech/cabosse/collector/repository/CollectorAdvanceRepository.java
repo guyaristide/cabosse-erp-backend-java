@@ -119,6 +119,18 @@ public class CollectorAdvanceRepository {
                 .into(new ArrayList<>());
     }
 
+    /**
+     * Les avances décaissées d'une campagne, tous délégués confondus.
+     * Sert la vue campagne du tableau de bord Direction : le décaissé,
+     * le solde en cours et les délégués non soldés s'y agrègent.
+     */
+    public List<CollectorAdvanceEntity> listDisbursedByCampaign(UUID campaignId) {
+        return coll().find(Filters.and(
+                        Filters.eq("campaignId", campaignId),
+                        Filters.in("status", "OPEN", "CLOSED")))
+                .into(new ArrayList<>());
+    }
+
     public Optional<CollectorAdvanceEntity> oldestOpenForDelegate(UUID delegateSupplierId) {
         List<CollectorAdvanceEntity> open = listOpenByDelegate(delegateSupplierId);
         return open.isEmpty() ? Optional.empty() : Optional.of(open.get(0));

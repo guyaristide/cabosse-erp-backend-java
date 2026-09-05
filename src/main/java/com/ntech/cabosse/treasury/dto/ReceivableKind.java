@@ -9,5 +9,7 @@ package com.ntech.cabosse.treasury.dto;
 /** D'où vient l'encaissement attendu. */
 public enum ReceivableKind {
     /** Vente confirmée ou livrée, non soldée. */
-    SALE
+    SALE,
+    /** Vente en gros de matière première, facturée et non soldée. */
+    COMMODITY_SALE
 }
