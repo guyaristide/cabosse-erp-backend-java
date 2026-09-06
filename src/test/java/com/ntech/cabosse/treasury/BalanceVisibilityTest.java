@@ -139,5 +139,51 @@ class BalanceVisibilityTest extends AbstractIntegrationTest {
         JsonPath asAdmin = givenAs(admin).when().get("/api/v1/accounting/dashboard")
                 .then().statusCode(200).extract().jsonPath();
         assertThat(balanceOf(asAdmin, bank)).isNotNull();
+
+        // ─── Les portées intermédiaires : toutes les caisses sans la
+        // banque, ou la banque sans les caisses ───
+        UserEntity headCashier = user("caisses", Roles.USER);
+        UserEntity finance = user("banques", Roles.USER);
+        String cashRole = givenAs(admin).contentType("application/json")
+                .body("{ \"name\": \"Caisse centrale\", \"permissions\": [\"ACCOUNTING_READ\", \"TREASURY_CASH_BALANCE\"] }")
+                .when().post("/api/v1/tenant-roles").then().statusCode(201)
+                .extract().path("data.id");
+        String bankRole = givenAs(admin).contentType("application/json")
+                .body("{ \"name\": \"Suivi bancaire\", \"permissions\": [\"ACCOUNTING_READ\", \"TREASURY_BANK_BALANCE\"] }")
+                .when().post("/api/v1/tenant-roles").then().statusCode(201)
+                .extract().path("data.id");
+        givenAs(admin).contentType("application/json")
+                .body("{ \"roleIds\": [\"%s\"] }".formatted(cashRole))
+                .when().put("/api/v1/tenant-roles/users/" + headCashier.id).then().statusCode(204);
+        givenAs(admin).contentType("application/json")
+                .body("{ \"roleIds\": [\"%s\"] }".formatted(bankRole))
+                .when().put("/api/v1/tenant-roles/users/" + finance.id).then().statusCode(204);
+
+        JsonPath asHeadCashier = givenAs(headCashier).when().get("/api/v1/accounting/dashboard")
+                .then().statusCode(200).extract().jsonPath();
+        assertThat(balanceOf(asHeadCashier, ownCash)).isNotNull();
+        assertThat(balanceOf(asHeadCashier, otherCash)).isNotNull();
+        assertThat(balanceOf(asHeadCashier, bank)).isNull();
+
+        JsonPath asFinance = givenAs(finance).when().get("/api/v1/accounting/dashboard")
+                .then().statusCode(200).extract().jsonPath();
+        assertThat(balanceOf(asFinance, bank)).isNotNull();
+        assertThat(balanceOf(asFinance, ownCash)).isNull();
+        assertThat(balanceOf(asFinance, otherCash)).isNull();
+
+        // ─── La désignation nominative vaut aussi pour une banque : le
+        // comptable rattaché à ce compte le lit, sans droit de portée et
+        // sans voir les autres comptes ───
+        UserEntity accountant = user("comptable", Roles.USER);
+        givenAs(admin).contentType("application/json")
+                .body("{ \"roleIds\": [\"%s\"] }".formatted(cashierRole))
+                .when().put("/api/v1/tenant-roles/users/" + accountant.id).then().statusCode(204);
+        String managedBank = createAccount(admin, "Banque suivie", "BANQUE", "521000",
+                "\"" + accountant.id + "\"");
+        JsonPath asAccountant = givenAs(accountant).when().get("/api/v1/accounting/dashboard")
+                .then().statusCode(200).extract().jsonPath();
+        assertThat(balanceOf(asAccountant, managedBank)).isNotNull();
+        assertThat(balanceOf(asAccountant, bank)).isNull();
+        assertThat(balanceOf(asAccountant, otherCash)).isNull();
     }
 }

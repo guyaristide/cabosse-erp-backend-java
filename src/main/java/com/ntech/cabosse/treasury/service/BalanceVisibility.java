@@ -31,8 +31,19 @@ public class BalanceVisibility {
     @Inject TenantContext tenantContext;
 
     public boolean canSeeBalance(BankAccountEntity account) {
-        if (permissions.current().contains(Permission.TREASURY_BALANCE_ALL)) return true;
-        if (account.kind != BankAccountKind.CAISSE) return false;
+        java.util.Set<Permission> granted = permissions.current();
+        if (granted.contains(Permission.TREASURY_BALANCE_ALL)) return true;
+        if (account.kind == BankAccountKind.CAISSE
+                && granted.contains(Permission.TREASURY_CASH_BALANCE)) {
+            return true;
+        }
+        if (account.kind != BankAccountKind.CAISSE
+                && granted.contains(Permission.TREASURY_BANK_BALANCE)) {
+            return true;
+        }
+        // La désignation nominative vaut pour tout compte, banque
+        // comprise : un comptable rattaché à un compte bancaire en lit le
+        // solde sans voir les autres, comme la caissière avec sa caisse.
         UUID userId = tenantContext.userId();
         return userId != null
                 && account.managerUserIds != null

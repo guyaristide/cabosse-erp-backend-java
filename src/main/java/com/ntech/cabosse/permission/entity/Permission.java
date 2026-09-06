@@ -113,6 +113,11 @@ public enum Permission {
     // Le solde des comptes est une information de gouvernance : ce droit
     // ouvre tous les soldes, banque comprise. Sans lui, une personne ne
     // lit que le solde des caisses dont elle est désignée gestionnaire.
+    // Trois portées de lecture des soldes : les caisses, les banques, ou
+    // tout. La structure compose : une caissière en chef lit toutes les
+    // caisses sans la banque, la gouvernance lit tout.
+    TREASURY_CASH_BALANCE(Domain.ACCOUNTING, "m.per-treasury-cash-balance"),
+    TREASURY_BANK_BALANCE(Domain.ACCOUNTING, "m.per-treasury-bank-balance"),
     TREASURY_BALANCE_ALL(Domain.ACCOUNTING, "m.per-treasury-balance-all"),
 
     // ─── Conformité ─────────────────────────────────────────────────
