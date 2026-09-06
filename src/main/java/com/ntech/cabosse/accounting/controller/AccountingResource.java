@@ -451,6 +451,27 @@ public class AccountingResource {
                 .build();
     }
 
+    /**
+     * Écritures à nouveau : le bilan d'ouverture, saisi ou importé, sur
+     * le journal AN. Un droit à part : réécrire le point de départ de
+     * l'exercice n'est pas une écriture courante. Le brouillon créé se
+     * relit, se corrige et se valide comme une OD.
+     */
+    @POST
+    @RequiresPermission(Permission.ACCOUNTING_OPENING_WRITE)
+    @Path("/opening-entries")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    public Response createOpeningEntries(OdPayload payload) {
+        var created = odService.create(
+                com.ntech.cabosse.accounting.entity.OdDraftEntity.KIND_AN,
+                payload != null ? payload.date() : null,
+                payload != null ? payload.libelle() : null,
+                toOdLines(payload));
+        return Response.status(Response.Status.CREATED)
+                .entity(ApiResponse.created(OdDraftDto.from(created)))
+                .build();
+    }
+
     @PUT
     @RequiresPermission(Permission.ACCOUNTING_WRITE)
     @Path("/od/{id}")
@@ -470,6 +491,22 @@ public class AccountingResource {
     public Response deleteOd(@PathParam("id") UUID id) {
         odService.delete(id);
         return Response.noContent().build();
+    }
+
+    /**
+     * Validation d'un brouillon d'à-nouveaux : le droit du bilan
+     * d'ouverture suffit, sans exiger le rôle d'administrateur qui
+     * gouverne les OD courantes. Le service vérifie le droit et refuse
+     * un brouillon qui n'est pas du journal AN.
+     */
+    @POST
+    @Consumes(MediaType.WILDCARD)
+    @RequiresPermission(Permission.ACCOUNTING_OPENING_WRITE)
+    @Path("/opening-entries/{id}/validate")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER, Roles.PLATFORM_ADMIN })
+    public Response validateOpeningEntries(@PathParam("id") UUID id) {
+        return Response.ok(ApiResponse.ok(
+                OdDraftDto.from(odService.validateOpening(id)))).build();
     }
 
     /** La validation fige l'OD au journal : réservée à l'administrateur. */

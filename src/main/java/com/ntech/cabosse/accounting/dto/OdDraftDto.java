@@ -23,7 +23,8 @@ public record OdDraftDto(
         boolean balanced,
         Instant createdAt,
         String createdByEmail,
-        Instant validatedAt
+        Instant validatedAt,
+        String kind
 ) {
     public record LineView(String account, String libelle,
                            BigDecimal debit, BigDecimal credit,
@@ -50,7 +51,8 @@ public record OdDraftDto(
                 e.id, e.date, e.libelle, lines, e.status, e.pieceRef, documents,
                 debit, credit,
                 debit.compareTo(credit) == 0 && debit.signum() > 0,
-                e.createdAt, e.createdByEmail, e.validatedAt
+                e.createdAt, e.createdByEmail, e.validatedAt,
+                e.kind
         );
     }
 }

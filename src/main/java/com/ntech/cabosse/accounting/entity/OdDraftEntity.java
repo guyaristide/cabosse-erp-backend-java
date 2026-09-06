@@ -26,12 +26,20 @@ import java.util.UUID;
 public class OdDraftEntity {
 
     public static final String STATUS_DRAFT = "DRAFT";
+    /** Journal des écritures à nouveau (bilan d'ouverture). */
+    public static final String KIND_AN = "AN";
     public static final String STATUS_VALIDATED = "VALIDATED";
 
     @BsonId
     public UUID id;
 
     /** Date comptable visée par l'OD. */
+    /**
+     * Journal de la pièce : {@code OD} (défaut, null compris) ou
+     * {@code AN} pour les écritures à nouveau du bilan d'ouverture.
+     */
+    public String kind;
+
     public LocalDate date;
 
     /** Libellé de la future pièce (obligatoire dès la saisie). */

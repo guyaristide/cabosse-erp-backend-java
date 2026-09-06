@@ -50,6 +50,7 @@ public class OdEntryService {
     @Inject com.ntech.cabosse.analytics.repository.CostCenterRepository costCenters;
     @Inject com.ntech.cabosse.analytics.repository.ProgramRepository programs;
     @Inject com.ntech.cabosse.tenant.service.TenantPreferencesLookup preferences;
+    @Inject com.ntech.cabosse.permission.service.PermissionResolver permissionResolver;
 
     public record OdLineInput(String account, String libelle,
                               java.math.BigDecimal debit,
@@ -73,9 +74,20 @@ public class OdEntryService {
     // ─── Cycle de vie ───────────────────────────────────────────────
 
     public OdDraftEntity create(LocalDate date, String libelle, List<OdLineInput> lines) {
+        return create(null, date, libelle, lines);
+    }
+
+    /**
+     * Crée un brouillon sur le journal demandé. {@code AN} exige le droit
+     * des à-nouveaux : réécrire le point de départ de l'exercice n'est pas
+     * une écriture courante.
+     */
+    public OdDraftEntity create(String kind, LocalDate date, String libelle, List<OdLineInput> lines) {
+        if (OdDraftEntity.KIND_AN.equals(kind)) requireOpeningRight();
         requireHeader(date, libelle);
         OdDraftEntity e = new OdDraftEntity();
         e.id = idGenerator.newId();
+        e.kind = kind;
         e.date = date;
         CampaignEntity campaign = campaignResolver.resolveOptionalForDate(e.date, null);
         e.campaignId = campaign != null ? campaign.id : null;
@@ -93,6 +105,7 @@ public class OdEntryService {
 
     public OdDraftEntity update(UUID id, LocalDate date, String libelle, List<OdLineInput> lines) {
         OdDraftEntity e = loadOrFail(id);
+        if (OdDraftEntity.KIND_AN.equals(e.kind)) requireOpeningRight();
         requireDraft(e, "m.acc-od-draft-edit-only");
         requireHeader(date, libelle);
         e.date = date;
@@ -117,8 +130,33 @@ public class OdEntryService {
      * journal (source {@code MANUAL_ENTRY}, idempotente sur l'id du
      * brouillon — une revalidation ne double pas la pièce).
      */
+    /** Validation par le chemin des à-nouveaux : refuse tout autre journal. */
+    public OdDraftEntity validateOpening(UUID id) {
+        OdDraftEntity e = loadOrFail(id);
+        if (!OdDraftEntity.KIND_AN.equals(e.kind)) {
+            throw new BusinessException(Messages.msg("m.acc-an-only-here"));
+        }
+        return validate(id);
+    }
+
     public OdDraftEntity validate(UUID id) {
         OdDraftEntity e = loadOrFail(id);
+        boolean opening = OdDraftEntity.KIND_AN.equals(e.kind);
+        if (opening) {
+            requireOpeningRight();
+            // Un bilan d'ouverture n'a que des comptes de bilan : une
+            // charge ou un produit à l'ouverture réécrirait le résultat
+            // de l'exercice qui commence. Le résultat reporté vit en
+            // classe 1 (120/129), qui reste permise.
+            for (JournalEntry line : e.entries != null ? e.entries : List.<JournalEntry>of()) {
+                if (line.syscohadaAccount != null
+                        && (line.syscohadaAccount.startsWith("6")
+                            || line.syscohadaAccount.startsWith("7"))) {
+                    throw new BusinessException(Messages.msg(
+                            "m.acc-an-class-forbidden", line.syscohadaAccount));
+                }
+            }
+        }
         requireDraft(e, "m.acc-od-draft-already-validated");
 
         if (e.entries == null || e.entries.size() < 2) {
@@ -182,9 +220,9 @@ public class OdEntryService {
         try {
             piece = accounting.postPiece(new PostingRequest(
                     e.date,
-                    PostingSourceType.MANUAL_ENTRY,
+                    opening ? PostingSourceType.OPENING_BALANCE : PostingSourceType.MANUAL_ENTRY,
                     e.id,
-                    "OD",
+                    opening ? "AN" : "OD",
                     e.libelle,
                     e.entries
             ));
@@ -204,6 +242,15 @@ public class OdEntryService {
     }
 
     // ─── Internals ──────────────────────────────────────────────────
+
+    /** Le journal AN exige son droit propre, quel que soit le geste. */
+    private void requireOpeningRight() {
+        if (!permissionResolver.current().contains(
+                com.ntech.cabosse.permission.entity.Permission.ACCOUNTING_OPENING_WRITE)) {
+            throw new com.ntech.cabosse.shared.exception.ForbiddenException(
+                    Messages.msg("m.acc-an-permission-required"));
+        }
+    }
 
     private static void requireHeader(LocalDate date, String libelle) {
         if (date == null) throw new BusinessException(Messages.msg("m.acc-od-date-required"));

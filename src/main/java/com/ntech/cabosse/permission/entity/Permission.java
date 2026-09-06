@@ -105,6 +105,10 @@ public enum Permission {
     ACCOUNTING_READ(Domain.ACCOUNTING, "m.per-accounting-read"),
     ACCOUNTING_WRITE(Domain.ACCOUNTING, "m.per-accounting-write"),
     ACCOUNTING_CLOSE(Domain.ACCOUNTING, "m.per-accounting-close"),
+    // Les à-nouveaux réécrivent le point de départ de l'exercice : soldes
+    // d'ouverture, créances, caisses et banques. Un droit à part, que la
+    // structure confie à qui elle veut, distinct de l'écriture courante.
+    ACCOUNTING_OPENING_WRITE(Domain.ACCOUNTING, "m.per-accounting-opening-write"),
     TREASURY_WRITE(Domain.ACCOUNTING, "m.per-treasury-write"),
     // Le solde des comptes est une information de gouvernance : ce droit
     // ouvre tous les soldes, banque comprise. Sans lui, une personne ne

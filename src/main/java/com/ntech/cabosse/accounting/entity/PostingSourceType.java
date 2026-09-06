@@ -44,6 +44,8 @@ public enum PostingSourceType {
     STOCK_TRANSFER,
     /** Opération diverse saisie manuellement puis validée (backlog CPT-07). */
     MANUAL_ENTRY,
+    /** Écritures à nouveau : le bilan d'ouverture de l'exercice (journal AN). */
+    OPENING_BALANCE,
     /** Avance de fonds à un délégué collecteur (backlog ACH-02). */
     /** Décaissement d'un crédit ou d'une avance à un producteur membre. */
     MEMBER_CREDIT,
