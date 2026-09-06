@@ -20,5 +20,8 @@ public record CampaignDashboardDto(
         String currency,
         String weightUnit,
         CampaignKpisDto kpis,
-        CampaignSynthesisDto synthesis
+        CampaignSynthesisDto synthesis,
+        java.util.List<CampaignMonthDto> months,
+        java.util.List<CampaignCustomerShareDto> customers,
+        java.util.List<CampaignDelegateAdvanceDto> delegates
 ) {}

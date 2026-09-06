@@ -21,6 +21,7 @@ import java.time.YearMonth;
 import java.util.HashSet;
 
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.nullValue;
 
 /**
@@ -175,7 +176,24 @@ class CampaignDashboardTest extends AbstractIntegrationTest {
                 .body("data.synthesis.maxFinancingNeed", equalTo(0))
                 .body("data.synthesis.treasuryLowPointMonth", equalTo(YearMonth.from(start).toString()))
                 .body("data.synthesis.residualStockWeight", equalTo(2000))
-                .body("data.synthesis.unsettledDelegatesCount", equalTo(1));
+                .body("data.synthesis.unsettledDelegatesCount", equalTo(1))
+                // ─── Les courbes mensuelles (tout s'est passé ce mois-ci) ───
+                .body("data.months.find { it.month == '%s' }.revenue".formatted(YearMonth.from(start)),
+                        equalTo(4350000))
+                .body("data.months.find { it.month == '%s' }.purchasedWeight".formatted(YearMonth.from(start)),
+                        equalTo(5000))
+                .body("data.months.find { it.month == '%s' }.soldWeight".formatted(YearMonth.from(start)),
+                        equalTo(2900))
+                // ─── La part de chaque client dans les volumes ───
+                .body("data.customers", hasSize(1))
+                .body("data.customers[0].customerName", equalTo("Exportateur Pilotage"))
+                .body("data.customers[0].soldWeight", equalTo(2900))
+                // ─── Le volet par délégué : avance contre remboursé ───
+                .body("data.delegates", hasSize(1))
+                .body("data.delegates[0].delegateName", equalTo("Délégué Pilotage"))
+                .body("data.delegates[0].advanced", equalTo(5000000))
+                .body("data.delegates[0].reimbursed", equalTo(0))
+                .body("data.delegates[0].outstanding", equalTo(5000000));
 
         // ─── L'objectif est une préférence tenant, pas une constante ───
         givenAs(admin).contentType("application/json")

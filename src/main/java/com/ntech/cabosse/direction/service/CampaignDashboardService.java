@@ -10,8 +10,11 @@ import com.ntech.cabosse.collector.entity.CollectorAdvanceStatus;
 import com.ntech.cabosse.collector.repository.CollectorAdvanceRepository;
 import com.ntech.cabosse.commodity.entity.CommoditySaleEntity;
 import com.ntech.cabosse.commodity.repository.CommoditySaleRepository;
+import com.ntech.cabosse.direction.dto.CampaignCustomerShareDto;
 import com.ntech.cabosse.direction.dto.CampaignDashboardDto;
+import com.ntech.cabosse.direction.dto.CampaignDelegateAdvanceDto;
 import com.ntech.cabosse.direction.dto.CampaignKpisDto;
+import com.ntech.cabosse.direction.dto.CampaignMonthDto;
 import com.ntech.cabosse.direction.dto.CampaignSynthesisDto;
 import com.ntech.cabosse.producerpurchase.entity.ProducerPurchaseEntity;
 import com.ntech.cabosse.producerpurchase.repository.ProducerPurchaseRepository;
@@ -28,8 +31,12 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -41,7 +48,9 @@ import java.util.UUID;
  * campagne, comme le fait la vue période : reçus producteurs (achetés),
  * ventes négoce (vendus, CA, marge sur CMUP), avances aux délégués
  * (décaissé, solde, couverture), stock courant des articles collectés,
- * trésorerie mensuelle pour le point bas.</p>
+ * trésorerie mensuelle pour le point bas. Les courbes mensuelles, la
+ * répartition par client et le volet par délégué (CE-198, CE-199) se
+ * remplissent dans les mêmes passes.</p>
  *
  * <p>Deux cases attendent une décision : le résultat net et la marge
  * nette (DEC-39). Elles restent null et le client l'affiche tel quel,
@@ -68,6 +77,19 @@ public class CampaignDashboardService {
             throw new NotFoundException(Messages.msg("m.dir-no-campaign"));
         }
 
+        // ─── Le squelette des mois, du début au plus tard aujourd'hui ───
+        LocalDate today = LocalDate.now();
+        LocalDate horizon = campaign.endDate != null && campaign.endDate.isBefore(today)
+                ? campaign.endDate : today;
+        Map<YearMonth, MonthAccumulator> monthAcc = new LinkedHashMap<>();
+        if (campaign.startDate != null && !horizon.isBefore(campaign.startDate)) {
+            YearMonth last = YearMonth.from(horizon);
+            for (YearMonth m = YearMonth.from(campaign.startDate);
+                    !m.isAfter(last); m = m.plusMonths(1)) {
+                monthAcc.put(m, new MonthAccumulator());
+            }
+        }
+
         // ─── Achats aux producteurs ───
         BigDecimal purchasedWeight = BigDecimal.ZERO;
         BigDecimal purchasedAmount = BigDecimal.ZERO;
@@ -78,18 +100,33 @@ public class CampaignDashboardService {
             purchasedAmount = purchasedAmount.add(nz(p.amount));
             if (p.articleId != null) articleIds.add(p.articleId);
             if (weightUnit == null && p.articleUnit != null) weightUnit = p.articleUnit;
+            MonthAccumulator acc = p.date != null ? monthAcc.get(YearMonth.from(p.date)) : null;
+            if (acc != null) acc.purchasedWeight = acc.purchasedWeight.add(nz(p.weightKg));
         }
 
-        // ─── Ventes négoce ───
+        // ─── Ventes négoce, avec la part de chaque client ───
         BigDecimal soldWeight = BigDecimal.ZERO;
         BigDecimal revenue = BigDecimal.ZERO;
         BigDecimal grossMargin = BigDecimal.ZERO;
+        Map<UUID, BigDecimal> customerWeights = new LinkedHashMap<>();
+        Map<UUID, String> customerNames = new LinkedHashMap<>();
         for (CommoditySaleEntity s : commoditySales.listAll(campaign.id)) {
-            if (s.weights != null) soldWeight = soldWeight.add(nz(s.weights.acceptedKg));
+            BigDecimal accepted = s.weights != null ? nz(s.weights.acceptedKg) : BigDecimal.ZERO;
+            soldWeight = soldWeight.add(accepted);
             revenue = revenue.add(nz(s.amountInvoicedHt));
             grossMargin = grossMargin.add(nz(s.margin));
             if (s.articleId != null) articleIds.add(s.articleId);
             if (weightUnit == null && s.articleUnit != null) weightUnit = s.articleUnit;
+            if (s.customerId != null) {
+                customerWeights.merge(s.customerId, accepted, BigDecimal::add);
+                customerNames.putIfAbsent(s.customerId, s.customerName);
+            }
+            MonthAccumulator acc = s.date != null ? monthAcc.get(YearMonth.from(s.date)) : null;
+            if (acc != null) {
+                acc.soldWeight = acc.soldWeight.add(accepted);
+                acc.revenue = acc.revenue.add(nz(s.amountInvoicedHt));
+                acc.grossMargin = acc.grossMargin.add(nz(s.margin));
+            }
         }
 
         // ─── Stock courant des articles de la campagne, tous sites ───
@@ -100,18 +137,31 @@ public class CampaignDashboardService {
             }
         }
 
-        // ─── Avances aux délégués : l'argent sorti et ce qui reste dû ───
+        // ─── Avances aux délégués, délégué par délégué ───
         BigDecimal advancesDisbursed = BigDecimal.ZERO;
         BigDecimal advancesOutstanding = BigDecimal.ZERO;
         Set<UUID> unsettledDelegates = new HashSet<>();
+        Map<UUID, BigDecimal[]> delegateSums = new LinkedHashMap<>();
+        Map<UUID, String> delegateNames = new LinkedHashMap<>();
         for (CollectorAdvanceEntity a : advances.listDisbursedByCampaign(campaign.id)) {
             advancesDisbursed = advancesDisbursed.add(nz(a.effectiveAmount()));
+            BigDecimal open = BigDecimal.ZERO;
             if (a.status == CollectorAdvanceStatus.OPEN) {
-                advancesOutstanding = advancesOutstanding.add(nz(a.remaining));
+                open = nz(a.remaining);
+                advancesOutstanding = advancesOutstanding.add(open);
                 if (a.remaining != null && a.remaining.signum() > 0
                         && a.delegateSupplierId != null) {
                     unsettledDelegates.add(a.delegateSupplierId);
                 }
+            }
+            if (a.delegateSupplierId != null) {
+                // [décaissé, remboursé en valeur livrée, restant ouvert]
+                BigDecimal[] sums = delegateSums.computeIfAbsent(a.delegateSupplierId,
+                        k -> new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO});
+                sums[0] = sums[0].add(nz(a.effectiveAmount()));
+                sums[1] = sums[1].add(nz(a.consumedAmount));
+                sums[2] = sums[2].add(open);
+                delegateNames.putIfAbsent(a.delegateSupplierId, a.delegateName);
             }
         }
         BigDecimal coverageRate = advancesDisbursed.signum() > 0
@@ -119,6 +169,10 @@ public class CampaignDashboardService {
                         .multiply(HUNDRED)
                         .divide(advancesDisbursed, 1, RoundingMode.HALF_UP)
                 : null;
+        List<CampaignDelegateAdvanceDto> delegates = new ArrayList<>();
+        delegateSums.forEach((id, sums) -> delegates.add(new CampaignDelegateAdvanceDto(
+                id, delegateNames.get(id), sums[0], sums[1], sums[2])));
+        delegates.sort((a, b) -> b.advanced().compareTo(a.advanced()));
 
         // ─── Prix moyens ───
         BigDecimal avgPurchase = ratio(purchasedAmount, purchasedWeight);
@@ -126,8 +180,25 @@ public class CampaignDashboardService {
         BigDecimal unitMargin = avgPurchase != null && avgSale != null
                 ? avgSale.subtract(avgPurchase) : null;
 
-        // ─── Trésorerie : le point bas de la campagne ───
-        TreasuryLowPoint low = treasuryLowPoint(campaign);
+        // ─── Trésorerie : solde de fin de mois, et son point bas ───
+        // Convention DEC-40 (recommandation en attente de confirmation) :
+        // solde réel des comptes de trésorerie, historique antérieur à la
+        // campagne compris ; sans historique, la courbe part de zéro.
+        TreasuryLowPoint low = null;
+        Set<String> accounts = treasuryAccounts();
+        YearMonth lastMonth = monthAcc.isEmpty() ? null : YearMonth.from(horizon);
+        for (Map.Entry<YearMonth, MonthAccumulator> entry : monthAcc.entrySet()) {
+            LocalDate asOf = entry.getKey().equals(lastMonth)
+                    ? horizon : entry.getKey().atEndOfMonth();
+            BigDecimal balance = BigDecimal.ZERO;
+            for (String account : accounts) {
+                balance = balance.add(nz(pieces.balance(account, asOf)));
+            }
+            entry.getValue().treasuryBalance = balance;
+            if (low == null || balance.compareTo(low.balance()) < 0) {
+                low = new TreasuryLowPoint(entry.getKey(), balance);
+            }
+        }
 
         // ─── Synthèse ───
         TenantPreferences prefs = preferences.current();
@@ -153,45 +224,24 @@ public class CampaignDashboardService {
                 stockWeight,
                 unsettledDelegates.size());
 
+        List<CampaignMonthDto> months = new ArrayList<>();
+        monthAcc.forEach((m, acc) -> months.add(new CampaignMonthDto(
+                m.toString(), acc.revenue, acc.grossMargin,
+                acc.purchasedWeight, acc.soldWeight, acc.treasuryBalance)));
+
+        List<CampaignCustomerShareDto> customers = new ArrayList<>();
+        customerWeights.forEach((id, weight) -> customers.add(
+                new CampaignCustomerShareDto(id, customerNames.get(id), weight)));
+        customers.sort((a, b) -> b.soldWeight().compareTo(a.soldWeight()));
+
         return new CampaignDashboardDto(
                 campaign.id, campaign.code, campaign.label,
                 campaign.startDate, campaign.endDate,
                 campaign.status != null ? campaign.status.name() : "OPEN",
                 tenantContext.currency(),
                 weightUnit != null ? weightUnit : "kg",
-                kpis, synthesis);
-    }
-
-    /**
-     * Le mois le plus bas de la trésorerie sur la campagne, soldes de fin
-     * de mois bornés à aujourd'hui. Convention DEC-40 (recommandation en
-     * attente de confirmation) : solde réel des comptes de trésorerie,
-     * historique antérieur à la campagne compris ; sans historique, la
-     * courbe part de zéro et le dit.
-     */
-    private TreasuryLowPoint treasuryLowPoint(CampaignEntity campaign) {
-        if (campaign.startDate == null) return null;
-        LocalDate today = LocalDate.now();
-        LocalDate horizon = campaign.endDate != null && campaign.endDate.isBefore(today)
-                ? campaign.endDate : today;
-        if (horizon.isBefore(campaign.startDate)) return null;
-
-        Set<String> accounts = treasuryAccounts();
-        TreasuryLowPoint low = null;
-        YearMonth month = YearMonth.from(campaign.startDate);
-        YearMonth last = YearMonth.from(horizon);
-        while (!month.isAfter(last)) {
-            LocalDate asOf = month.equals(last) ? horizon : month.atEndOfMonth();
-            BigDecimal balance = BigDecimal.ZERO;
-            for (String account : accounts) {
-                balance = balance.add(nz(pieces.balance(account, asOf)));
-            }
-            if (low == null || balance.compareTo(low.balance()) < 0) {
-                low = new TreasuryLowPoint(month, balance);
-            }
-            month = month.plusMonths(1);
-        }
-        return low;
+                kpis, synthesis,
+                months, customers, delegates);
     }
 
     /** Mêmes comptes que la vue période : BankAccount déclarés + défauts. */
