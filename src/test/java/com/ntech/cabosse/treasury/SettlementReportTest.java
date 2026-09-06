@@ -88,7 +88,7 @@ class SettlementReportTest extends AbstractIntegrationTest {
         givenAs(admin).contentType("application/json")
                 .body("""
                         { "paymentMethod": "BANK_TRANSFER", "paymentRef": "CHQ-0041207",
-                          "bankFees": 2500 }
+                          "bankFees": 2500, "acknowledgeInsufficientBalance": true }
                         """)
                 .when().post("/api/v1/collector-advances/" + id + "/disburse")
                 .then().statusCode(200);

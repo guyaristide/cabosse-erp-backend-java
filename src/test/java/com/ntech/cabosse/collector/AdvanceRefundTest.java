@@ -168,7 +168,7 @@ class AdvanceRefundTest extends AbstractIntegrationTest {
         // crédit, la référence du chèque sur la pièce.
         String pieceRef = givenAs(admin).contentType("application/json")
                 .body("""
-                        { "paymentMethod": "CHEQUE", "paymentRef": "Chèque ECOBANK 0451" }
+                        { "paymentMethod": "CHEQUE", "paymentRef": "Chèque ECOBANK 0451", "acknowledgeInsufficientBalance": true }
                         """)
                 .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                 .when().post("/api/v1/advance-refunds/" + refundId + "/pay")

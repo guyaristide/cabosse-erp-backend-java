@@ -25,5 +25,8 @@ public record PayAdvanceRefundDto(
         @DecimalMin(value = "0", message = "{v.frais-bancaires-positifs}")
         BigDecimal bankFees,
         /** Mot de la caissière : son accusé de l'avis favorable (V2). */
-        @Size(max = 500) String note
+        @Size(max = 500) String note,
+
+        /** Passer outre l'avertissement de solde bancaire insuffisant. */
+        Boolean acknowledgeInsufficientBalance
 ) {}

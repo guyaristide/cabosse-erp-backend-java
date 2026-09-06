@@ -28,6 +28,8 @@ public enum ErrorCode {
     DUPLICATE_RECEIPT(false),
     /** Crédit ou avance insuffisant pour l'imputation demandée. */
     CREDIT_INSUFFICIENT(false),
+    /** Solde de trésorerie insuffisant pour le décaissement (passer outre possible). */
+    TREASURY_INSUFFICIENT(false),
     /** Plafond du plan tarifaire atteint (sites, comptes, membres). */
     PLAN_LIMIT(false),
     /** Dossier producteur incomplet ou pièce expirée. */

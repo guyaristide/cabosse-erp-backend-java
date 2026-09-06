@@ -8,5 +8,10 @@ public enum NotificationChannel {
     EMAIL,
     SMS,
     /** Réservé au moteur FCM (phase 2 de l'épic). */
-    PUSH
+    PUSH,
+    /**
+     * Boîte de réception dans l'application. Aucun moteur ni drainage :
+     * la ligne est livrée à l'enfilage, l'écran la lit dans la file.
+     */
+    IN_APP
 }

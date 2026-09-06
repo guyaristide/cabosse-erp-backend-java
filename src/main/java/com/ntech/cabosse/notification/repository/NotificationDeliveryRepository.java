@@ -144,6 +144,50 @@ public class NotificationDeliveryRepository {
         ).getModifiedCount();
     }
 
+    // ─── Boîte de réception (canal IN_APP, cible = identifiant utilisateur) ───
+
+    private static Bson inboxFilter(String target) {
+        return Filters.and(
+                Filters.eq("channel", NotificationChannel.IN_APP.name()),
+                Filters.eq("target", target));
+    }
+
+    public List<NotificationDeliveryEntity> listInbox(String target, int skip, int limit) {
+        return coll().find(inboxFilter(target))
+                .sort(new org.bson.Document("createdAt", -1))
+                .skip(skip).limit(limit)
+                .into(new java.util.ArrayList<>());
+    }
+
+    public long countInbox(String target) {
+        return coll().countDocuments(inboxFilter(target));
+    }
+
+    public long countUnread(String target) {
+        return coll().countDocuments(Filters.and(
+                inboxFilter(target), Filters.exists("readAt", false)));
+    }
+
+    /** Marque lu, si la ligne appartient bien au lecteur. */
+    public boolean markRead(UUID id, String target, Instant now) {
+        return coll().updateOne(
+                Filters.and(Filters.eq("_id", id), inboxFilter(target),
+                        Filters.exists("readAt", false)),
+                Updates.combine(
+                        Updates.set("readAt", now),
+                        Updates.set("updatedAt", now)))
+                .getModifiedCount() > 0;
+    }
+
+    public long markAllRead(String target, Instant now) {
+        return coll().updateMany(
+                Filters.and(inboxFilter(target), Filters.exists("readAt", false)),
+                Updates.combine(
+                        Updates.set("readAt", now),
+                        Updates.set("updatedAt", now)))
+                .getModifiedCount();
+    }
+
     /** Y a-t-il quelque chose à drainer sur ce canal ? */
     public boolean hasWork(NotificationChannel channel, Instant now) {
         return coll().find(Filters.and(

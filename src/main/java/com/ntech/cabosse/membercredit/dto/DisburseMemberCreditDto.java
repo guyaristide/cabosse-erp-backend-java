@@ -39,5 +39,8 @@ public record DisburseMemberCreditDto(
          * banque, pas de toutes.</p>
          */
         @DecimalMin(value = "0", message = "{v.montant-positif-requis}")
-        BigDecimal bankFees
+        BigDecimal bankFees,
+
+        /** Passer outre l'avertissement de solde bancaire insuffisant. */
+        Boolean acknowledgeInsufficientBalance
 ) {}

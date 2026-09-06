@@ -128,7 +128,7 @@ class AdvanceDisbursementTest extends AbstractIntegrationTest {
         // qui compte : le chèque se constate en banque, les espèces en
         // caisse, et l'intention de la demande n'engage rien.
         String pieceRef = givenAs(admin).contentType("application/json")
-                .body("{ \"paymentMethod\": \"CHEQUE\" }")
+                .body("{ \"paymentMethod\": \"CHEQUE\", \"acknowledgeInsufficientBalance\": true }")
                 .when().post("/api/v1/collector-advances/" + id + "/disburse")
                 .then().statusCode(200)
                 .body("data.paymentMethod", equalTo("CHEQUE"))
@@ -147,7 +147,7 @@ class AdvanceDisbursementTest extends AbstractIntegrationTest {
         approve(admin, id);
 
         String pieceRef = givenAs(admin).contentType("application/json")
-                .body("{ \"paymentRef\": \"CHQ-4417829\" }")
+                .body("{ \"paymentRef\": \"CHQ-4417829\", \"acknowledgeInsufficientBalance\": true }")
                 .when().post("/api/v1/collector-advances/" + id + "/disburse")
                 .then().statusCode(200)
                 .body("data.status", equalTo("OPEN"))
@@ -169,7 +169,7 @@ class AdvanceDisbursementTest extends AbstractIntegrationTest {
         approve(admin, id);
 
         String pieceRef = givenAs(admin).contentType("application/json")
-                .body("{ \"paymentRef\": \"VIR-990\", \"bankFees\": 5000 }")
+                .body("{ \"paymentRef\": \"VIR-990\", \"bankFees\": 5000, \"acknowledgeInsufficientBalance\": true }")
                 .when().post("/api/v1/collector-advances/" + id + "/disburse")
                 .then().statusCode(200)
                 .body("data.bankFees", notNullValue())
@@ -194,7 +194,7 @@ class AdvanceDisbursementTest extends AbstractIntegrationTest {
         approve(admin, id);
 
         String pieceRef = givenAs(admin).contentType("application/json")
-                .body("{ \"bankFees\": 5000 }")
+                .body("{ \"bankFees\": 5000, \"acknowledgeInsufficientBalance\": true }")
                 .when().post("/api/v1/collector-advances/" + id + "/disburse")
                 .then().statusCode(200).extract().path("data.pieceRef");
 
@@ -221,7 +221,7 @@ class AdvanceDisbursementTest extends AbstractIntegrationTest {
         approve(admin, id);
 
         String pieceRef = givenAs(admin).contentType("application/json")
-                .body("{ \"bankFees\": 0 }")
+                .body("{ \"bankFees\": 0, \"acknowledgeInsufficientBalance\": true }")
                 .when().post("/api/v1/collector-advances/" + id + "/disburse")
                 .then().statusCode(200)
                 // Zéro et « pas de frais » se valent : un état ne doit pas
@@ -257,7 +257,7 @@ class AdvanceDisbursementTest extends AbstractIntegrationTest {
         approve(admin, id);
 
         String pieceRef = givenAs(admin).contentType("application/json")
-                .body("{ \"bankAccountId\": \"%s\" }".formatted(accountId))
+                .body("{ \"bankAccountId\": \"%s\", \"acknowledgeInsufficientBalance\": true }".formatted(accountId))
                 .when().post("/api/v1/collector-advances/" + id + "/disburse")
                 .then().statusCode(200)
                 .body("data.bankAccountId", equalTo(accountId))

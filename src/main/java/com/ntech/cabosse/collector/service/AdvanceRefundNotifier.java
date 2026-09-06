@@ -37,7 +37,7 @@ public class AdvanceRefundNotifier {
     /** Au-delà, on cesse de parcourir : une structure n'a pas mille comptes. */
     private static final int MAX_USERS = 500;
 
-    @Inject NotificationQueue queue;
+    @Inject com.ntech.cabosse.notification.service.NotificationRouter router;
     @Inject UserRepository users;
     @Inject PermissionResolver permissions;
     @Inject TenantPreferencesLookup preferences;
@@ -67,15 +67,11 @@ public class AdvanceRefundNotifier {
                             && u.email.equalsIgnoreCase(refund.requestedByEmail))
                     .findFirst().orElse(null);
             if (requester == null) return;
-            Locale locale = Locales.firstOf(requester.locale, preferences.current().language);
-            queue.enqueue(new NotificationQueue.Request(
-                    NotificationChannel.EMAIL, NotificationUsage.ALERT,
-                    requester.email,
-                    Messages.msg(locale, "m.ntf-refund-reported-subject", refund.ref),
-                    Messages.msg(locale, "m.ntf-refund-reported-body",
-                            nullSafe(refund.delegateName), refund.ref),
-                    "advance-refund.reported", refund.ref,
-                    Locales.tag(locale), null));
+            router.route("advance-refund.reported", List.of(requester), List.of(),
+                    refund.ref,
+                    locale -> Messages.msg(locale, "m.ntf-refund-reported-subject", refund.ref),
+                    locale -> Messages.msg(locale, "m.ntf-refund-reported-body",
+                            nullSafe(refund.delegateName), refund.ref));
         } catch (RuntimeException e) {
             LOG.warnf(e, "Alerte de report non enfilée pour le reliquat %s", refund.ref);
         }
@@ -86,21 +82,18 @@ public class AdvanceRefundNotifier {
         try {
             UUID tenantId = tenantContext.tenantId();
             if (tenantId == null) return;
-            String fallback = preferences.current().language;
-            for (UserEntity user : holdersOf(tenantId, right, excludedEmail)) {
-                Locale locale = Locales.firstOf(user.locale, fallback);
-                queue.enqueue(new NotificationQueue.Request(
-                        NotificationChannel.EMAIL, NotificationUsage.ALERT,
-                        user.email,
-                        Messages.msg(locale, subjectKey, refund.ref),
-                        Messages.msg(locale, bodyKey,
-                                nullSafe(refund.delegateName),
-                                refund.effectiveAmount() == null ? "0"
-                                        : refund.effectiveAmount().toPlainString(),
-                                refund.ref),
-                        eventType, refund.ref,
-                        Locales.tag(locale), null));
-            }
+            List<UserEntity> audience = holdersOf(tenantId, right, excludedEmail);
+            List<UUID> excluded = users.findByTenant(tenantId, 0, MAX_USERS).stream()
+                    .filter(u -> excludedEmail != null && u.email != null
+                            && excludedEmail.equalsIgnoreCase(u.email))
+                    .map(u -> u.id).toList();
+            router.route(eventType, audience, excluded, refund.ref,
+                    locale -> Messages.msg(locale, subjectKey, refund.ref),
+                    locale -> Messages.msg(locale, bodyKey,
+                            nullSafe(refund.delegateName),
+                            refund.effectiveAmount() == null ? "0"
+                                    : refund.effectiveAmount().toPlainString(),
+                            refund.ref));
         } catch (RuntimeException e) {
             LOG.warnf(e, "Alerte non enfilée pour le reliquat %s", refund.ref);
         }

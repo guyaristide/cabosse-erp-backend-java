@@ -60,6 +60,7 @@ public class AdvanceRefundService {
     @Inject SupplierRepository suppliers;
     @Inject CampaignResolver campaignResolver;
     @Inject AccountingService accounting;
+    @Inject com.ntech.cabosse.accounting.service.BankProvisionGuard provisionGuard;
     @Inject TenantPreferencesLookup preferences;
     @Inject AdvanceRefundNotifier notifier;
     @Inject PermissionResolver permissions;
@@ -209,6 +210,8 @@ public class AdvanceRefundService {
         String partyAccount = delegate != null && delegate.advanceAccount != null
                 ? delegate.advanceAccount
                 : preferences.current().collectorAdvanceAccount();
+        provisionGuard.warnIfBankCannotCover(p.paymentMethod(), p.bankAccountId(),
+                payable, p.bankFees(), p.acknowledgeInsufficientBalance());
         String treasuryAccount = accounting.treasuryAccountFor(p.paymentMethod(), p.bankAccountId());
 
         JournalPieceEntity piece = accounting.postFromAdvanceRefund(

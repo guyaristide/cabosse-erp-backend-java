@@ -82,6 +82,9 @@ public class NotificationDeliveryEntity {
      */
     public String lastError;
 
+    /** Lecture dans l'application (canal IN_APP seulement). */
+    public Instant readAt;
+
     public Instant createdAt;
     public Instant updatedAt;
     public Instant sentAt;

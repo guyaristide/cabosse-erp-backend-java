@@ -71,6 +71,7 @@ public class MemberCreditService {
     @Inject SectionRepository sections;
     @Inject CampaignResolver campaignResolver;
     @Inject AccountingService accounting;
+    @Inject com.ntech.cabosse.accounting.service.BankProvisionGuard provisionGuard;
     @Inject TenantPreferencesLookup preferences;
     @Inject TenantContext tenantContext;
     @Inject PermissionResolver permissions;
@@ -350,6 +351,8 @@ public class MemberCreditService {
         if (isSameActor(e.approvedBy, e.approvedByEmail) && !permissions.currentIsTenantAdmin()) {
             throw new BusinessException(Messages.msg("m.mcr-disburse-self-forbidden", e.ref));
         }
+        provisionGuard.warnIfBankCannotCover(p.paymentMethod(), p.bankAccountId(),
+                nz(e.effectiveAmount()), p.bankFees(), p.acknowledgeInsufficientBalance());
         LocalDate date = p.disbursedAt() != null ? p.disbursedAt() : LocalDate.now();
         e.status = MemberCreditStatus.DISBURSED;
         e.disbursedAt = date;

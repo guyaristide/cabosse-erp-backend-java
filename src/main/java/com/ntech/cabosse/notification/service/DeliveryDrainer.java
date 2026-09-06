@@ -32,6 +32,7 @@ public class DeliveryDrainer {
 
     @Inject NotificationDeliveryRepository deliveries;
     @Inject ProviderResolver resolver;
+    @Inject EmailBodyRenderer emailBody;
     @Inject Logger log;
 
     /** Résultat d'un passage, pour la trace et les tests. */
@@ -87,8 +88,16 @@ public class DeliveryDrainer {
                     "Aucune passerelle utilisable pour l'usage " + delivery.usage + ".");
         }
 
+        // Le courriel part habillé du gabarit établi ; la file et le
+        // journal gardent le texte lisible. Un corps déjà HTML (un futur
+        // producteur qui rendrait le sien) ne se ré-habille pas.
+        String body = delivery.body;
+        if (delivery.channel == NotificationChannel.EMAIL
+                && !EmailBodyRenderer.isAlreadyHtml(body)) {
+            body = emailBody.render(delivery.subject, body, delivery.locale);
+        }
         SendRequest request = new SendRequest(
-                delivery.channel, delivery.target, delivery.subject, delivery.body);
+                delivery.channel, delivery.target, delivery.subject, body);
 
         String lastReason = null;
         String lastProvider = null;

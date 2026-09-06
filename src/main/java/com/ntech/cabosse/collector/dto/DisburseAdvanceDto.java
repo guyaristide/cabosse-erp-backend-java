@@ -51,6 +51,18 @@ public record DisburseAdvanceDto(
          * qui reste débité du montant entier de l'avance.
          */
         @DecimalMin(value = "0", message = "{v.montant-positif-requis}")
-        BigDecimal bankFees
+        BigDecimal bankFees,
+
+        /**
+         * Passer outre l'avertissement de solde bancaire insuffisant.
+         *
+         * <p>Le premier envoi sans ce drapeau est refusé avec le code
+         * {@code TREASURY_INSUFFICIENT} quand le compte ne couvre pas le
+         * montant : un chèque sans provision expose la structure. Le
+         * renvoyer à {@code true} assume le découvert, qu'une banque peut
+         * autoriser. Sans objet pour les espèces : une caisse ne devient
+         * jamais négative, ce refus-là ne se lève pas.</p>
+         */
+        Boolean acknowledgeInsufficientBalance
 
 ) {}

@@ -71,6 +71,17 @@ public class NotificationQueue {
         }
 
         /** SMS rendu dans la langue du destinataire. Voir {@link #email}. */
+        /**
+         * Notification de l'application : la cible est l'utilisateur,
+         * pas une adresse. Livrée à l'enfilage, lue depuis la cloche.
+         */
+        public static Request inApp(java.util.UUID userId, String subject, String body,
+                                    String eventType, String subjectRef, java.util.Locale locale) {
+            return new Request(NotificationChannel.IN_APP, NotificationUsage.ALERT,
+                    userId.toString(), subject, body, eventType, subjectRef,
+                    Locales.tag(locale), null);
+        }
+
         public static Request sms(String target, String body,
                                    String eventType, NotificationUsage usage,
                                    Locale locale) {
@@ -110,7 +121,10 @@ public class NotificationQueue {
         // posteriori dans quelle langue le message est parti.
         e.locale = request.locale() != null ? request.locale()
                 : Locales.tag(Locale.FRENCH);
-        e.status = DeliveryStatus.PENDING;
+        // Le canal de l'application n'a ni moteur ni drainage : la ligne
+        // est née livrée, l'écran la lit telle quelle.
+        e.status = request.channel() == NotificationChannel.IN_APP
+                ? DeliveryStatus.SENT : DeliveryStatus.PENDING;
         e.attempts = 0;
         e.nextAttemptAt = now;
         e.expiresAt = now.plus(request.timeToLive() != null

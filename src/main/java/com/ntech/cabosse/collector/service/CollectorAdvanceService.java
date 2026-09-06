@@ -35,6 +35,7 @@ import org.eclipse.microprofile.jwt.JsonWebToken;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -65,6 +66,7 @@ public class CollectorAdvanceService {
     @Inject DelegateAccountService delegateAccount;
     @Inject CollectorAdvanceRefService refService;
     @Inject SupplierRepository suppliers;
+    @Inject com.ntech.cabosse.accounting.service.BankProvisionGuard provisionGuard;
     @Inject CampaignResolver campaignResolver;
     @Inject SectionRepository sections;
     @Inject ArticleRepository articles;
@@ -343,6 +345,9 @@ public class CollectorAdvanceService {
             e.bankFees = (payload.bankFees() != null
                     && payload.bankFees().signum() > 0) ? payload.bankFees() : null;
         }
+        provisionGuard.warnIfBankCannotCover(e.paymentMethod, e.bankAccountId,
+                e.effectiveAmount(), e.bankFees,
+                payload != null ? payload.acknowledgeInsufficientBalance() : null);
         // Le montant approuvé, jamais celui demandé : c'est lui qui sort
         // de la caisse et qui doit se retrouver au journal.
         // Le compte d'avance du délégué quand sa fiche en porte un, sinon
