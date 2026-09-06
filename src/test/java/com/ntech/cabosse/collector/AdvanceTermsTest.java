@@ -106,7 +106,9 @@ class AdvanceTermsTest extends AbstractIntegrationTest {
     private void approveAndDisburse(UserEntity who, String id) {
         givenAs(who).when().post("/api/v1/collector-advances/" + id + "/approve")
                 .then().statusCode(200);
-        givenAs(who).when().post("/api/v1/collector-advances/" + id + "/disburse")
+        givenAs(who).contentType("application/json")
+                .body("{ \"acknowledgeInsufficientBalance\": true }")
+                .when().post("/api/v1/collector-advances/" + id + "/disburse")
                 .then().statusCode(200);
     }
 

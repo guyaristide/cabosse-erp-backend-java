@@ -125,7 +125,9 @@ class PayableQueueTest extends AbstractIntegrationTest {
         String delegateId = delegate(admin, "Délégué Payé");
         String id = approvedAdvance(admin, delegateId, campaign, 1_500_000, LocalDate.now());
 
-        givenAs(admin).when().post("/api/v1/collector-advances/" + id + "/disburse")
+        givenAs(admin).contentType("application/json")
+                .body("{ \"acknowledgeInsufficientBalance\": true }")
+                .when().post("/api/v1/collector-advances/" + id + "/disburse")
                 .then().statusCode(200);
 
         // Les fonds sont sortis : la file n'a plus rien à dire dessus.

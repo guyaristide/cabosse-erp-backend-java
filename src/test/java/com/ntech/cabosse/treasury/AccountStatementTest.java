@@ -114,7 +114,8 @@ class AccountStatementTest extends AbstractIntegrationTest {
         givenAs(who).contentType("application/json")
                 .body("""
                         { "paymentMethod": "CHEQUE", "bankAccountId": "%s",
-                          "paymentRef": "CHQ-001", "bankFees": %d }
+                          "paymentRef": "CHQ-001", "bankFees": %d,
+                          "acknowledgeInsufficientBalance": true }
                         """.formatted(bankAccountId, fees))
                 .when().post("/api/v1/collector-advances/" + id + "/disburse")
                 .then().statusCode(200);
