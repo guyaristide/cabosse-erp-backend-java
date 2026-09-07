@@ -451,6 +451,23 @@ public class AccountingResource {
                 .build();
     }
 
+    @jakarta.inject.Inject OpeningEntryImportTemplate openingTemplate;
+
+    /** Modèle d'import des à-nouveaux, au gabarit d'export de l'application. */
+    @GET
+    @Path("/opening-entries/import/template")
+    @Produces({ "text/csv",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })
+    public Response openingEntriesTemplate(@QueryParam("format") String formatRaw) {
+        com.ntech.cabosse.shared.export.ExportFormat format =
+                com.ntech.cabosse.shared.export.ExportFormat.parseOrDefault(formatRaw);
+        if (format == com.ntech.cabosse.shared.export.ExportFormat.PDF) {
+            format = com.ntech.cabosse.shared.export.ExportFormat.XLSX;
+        }
+        return com.ntech.cabosse.shared.export.ExportResponses.build(
+                "modele-ecritures-a-nouveau", format, openingTemplate.dataset());
+    }
+
     /**
      * Écritures à nouveau : le bilan d'ouverture, saisi ou importé, sur
      * le journal AN. Un droit à part : réécrire le point de départ de

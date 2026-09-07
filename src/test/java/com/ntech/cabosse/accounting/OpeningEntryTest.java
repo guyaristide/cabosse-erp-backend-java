@@ -111,6 +111,22 @@ class OpeningEntryTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void the_import_template_wears_the_house_export_layer() {
+        UserEntity admin = admin();
+        byte[] xlsx = givenAs(admin)
+                .when().get("/api/v1/accounting/opening-entries/import/template?format=xlsx")
+                .then().statusCode(200)
+                .header("Content-Type", org.hamcrest.Matchers.containsString("spreadsheetml"))
+                .extract().asByteArray();
+        // Un classeur OOXML commence par la signature ZIP.
+        org.assertj.core.api.Assertions.assertThat(xlsx[0]).isEqualTo((byte) 'P');
+        org.assertj.core.api.Assertions.assertThat(xlsx[1]).isEqualTo((byte) 'K');
+        givenAs(admin)
+                .when().get("/api/v1/accounting/opening-entries/import/template?format=csv")
+                .then().statusCode(200);
+    }
+
+    @Test
     void an_opening_balance_only_carries_balance_sheet_accounts() {
         UserEntity admin = admin();
         String id = createOpening(admin, """
