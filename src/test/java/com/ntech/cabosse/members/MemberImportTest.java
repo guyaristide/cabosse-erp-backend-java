@@ -155,6 +155,49 @@ class MemberImportTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void an_imported_base_never_feeds_the_cash_box_with_share_capital() {
+        UserEntity admin = tenantAdmin();
+
+        // La base reprise porte les parts sociales de ses membres : ces
+        // sommes ont été versées et dépensées il y a des années. L'import
+        // les enregistre sur la fiche, mais ne fabrique aucune écriture :
+        // créditer la caisse membre par membre inventerait des espèces.
+        givenAs(admin).contentType("application/json").body("""
+                [
+                  { "rowNumber": 1, "lastName": "Kobenan", "firstName": "Adjoua",
+                    "gender": "Femme", "village": "Bangolo", "section": "Section Bangolo",
+                    "partsSocialesAmount": "25000" }
+                ]
+                """)
+                .when().post("/api/v1/members/import/commit")
+                .then().statusCode(200)
+                .body("data.createdCount", equalTo(1));
+        java.util.List<java.util.Map<String, Object>> pieces = givenAs(admin)
+                .when().get("/api/v1/accounting/journal?perPage=100")
+                .then().statusCode(200).extract().path("data.items");
+        org.assertj.core.api.Assertions.assertThat(
+                pieces.stream().anyMatch(pc -> String.valueOf(pc.get("sourceType"))
+                        .startsWith("MEMBER_CAPITAL")))
+                .as("aucune pièce de part sociale à l'import")
+                .isFalse();
+
+        // L'adhésion au guichet, elle, encaisse réellement : la pièce part.
+        givenAs(admin).contentType("application/json").body("""
+                { "lastName": "Gnaman", "firstName": "Koffi", "gender": "MALE",
+                  "status": "ACTIVE", "partsSocialesAmount": 25000 }
+                """)
+                .when().post("/api/v1/members").then().statusCode(201);
+        java.util.List<java.util.Map<String, Object>> after = givenAs(admin)
+                .when().get("/api/v1/accounting/journal?perPage=100")
+                .then().statusCode(200).extract().path("data.items");
+        org.assertj.core.api.Assertions.assertThat(
+                after.stream().anyMatch(pc -> String.valueOf(pc.get("sourceType"))
+                        .startsWith("MEMBER_CAPITAL")))
+                .as("la pièce de part sociale du guichet")
+                .isTrue();
+    }
+
+    @Test
     void an_import_update_keeps_what_the_census_file_does_not_carry() {
         UserEntity admin = tenantAdmin();
 

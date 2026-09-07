@@ -119,6 +119,22 @@ public class MemberService {
     // ─── Création ───────────────────────────────────────────────────
 
     public MemberResponseDto create(MemberUpsertDto payload) {
+        return create(payload, true);
+    }
+
+    /**
+     * Création par l'import de masse : mêmes règles que l'adhésion, sans
+     * la pièce de part sociale. Une base reprise décrit des adhésions
+     * passées dont l'argent est dépensé depuis longtemps : créditer la
+     * caisse à l'import fabriquerait des espèces imaginaires, membre par
+     * membre. Les soldes réels d'ouverture entrent par les écritures à
+     * nouveau, pas par la reprise du fichier des membres.
+     */
+    public MemberResponseDto createImported(MemberUpsertDto payload) {
+        return create(payload, false);
+    }
+
+    private MemberResponseDto create(MemberUpsertDto payload, boolean postCapital) {
         planLimits.enforceMemberCapacity(1);
         MemberEntity e = new MemberEntity();
         e.id = idGenerator.newId();
@@ -138,7 +154,7 @@ public class MemberService {
         }
 
         members.insert(e);
-        if (e.status != MemberStatus.PENDING) {
+        if (postCapital && e.status != MemberStatus.PENDING) {
             postCapitalIfEnabled(e);
         }
         return MemberResponseDto.from(e, fileValidityMonths(), producerRefKeys.identityProofTypeNames());

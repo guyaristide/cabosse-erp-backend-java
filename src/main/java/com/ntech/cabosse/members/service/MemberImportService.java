@@ -429,7 +429,7 @@ public class MemberImportService {
                     updated.add(dto.id());
                     memberId = dto.id();
                 } else {
-                    MemberResponseDto dto = memberService.create(toUpsert(n, sectionId, localityId));
+                    MemberResponseDto dto = memberService.createImported(toUpsert(n, sectionId, localityId));
                     created.add(dto.id());
                     memberId = dto.id();
                 }
