@@ -127,6 +127,48 @@ public class AdvanceNotifier {
         }
     }
 
+    /**
+     * Le comptable transmet l'avance approuvée à l'exécution : ceux qui
+     * décaissent sont prévenus, transmetteur exclu (matrice du 07/09/2026).
+     */
+    public void advanceExecutionRequested(CollectorAdvanceEntity advance, UUID requestedBy) {
+        try {
+            UUID tenantId = tenantContext.tenantId();
+            if (tenantId == null) return;
+            java.math.BigDecimal granted = advance.effectiveAmount();
+            router.route("collector-advance.execution-requested",
+                    disbursers(tenantId, requestedBy, Permission.COLLECTION_ADVANCE_DISBURSE),
+                    requestedBy != null ? List.of(requestedBy) : List.of(),
+                    advance.ref,
+                    locale -> Messages.msg(locale, "m.ntf-execution-subject", advance.ref),
+                    locale -> Messages.msg(locale, "m.ntf-execution-body",
+                            advance.delegateName == null ? "" : advance.delegateName,
+                            granted == null ? "0" : granted.toPlainString(),
+                            advance.ref));
+        } catch (RuntimeException e) {
+            LOG.warnf(e, "Transmission à l'exécution non notifiée pour l'avance %s", advance.ref);
+        }
+    }
+
+    /** Même transmission, côté crédit ou avance producteur. */
+    public void memberCreditExecutionRequested(
+            String ref, String memberName, java.math.BigDecimal amount, UUID requestedBy) {
+        try {
+            UUID tenantId = tenantContext.tenantId();
+            if (tenantId == null) return;
+            router.route("member-credit.execution-requested",
+                    disbursers(tenantId, requestedBy, Permission.MEMBER_CREDIT_DISBURSE),
+                    requestedBy != null ? List.of(requestedBy) : List.of(),
+                    ref,
+                    locale -> Messages.msg(locale, "m.ntf-execution-subject", ref),
+                    locale -> Messages.msg(locale, "m.ntf-execution-body",
+                            memberName == null ? "" : memberName,
+                            amount == null ? "0" : amount.toPlainString(), ref));
+        } catch (RuntimeException e) {
+            LOG.warnf(e, "Transmission à l'exécution non notifiée pour l'engagement %s", ref);
+        }
+    }
+
     /** Les comptes actifs qui portent ce droit, sauf celui qui a décidé. */
     private List<UserEntity> disbursers(UUID tenantId, UUID decidedBy, Permission right) {
         return users.findByTenant(tenantId, 0, MAX_USERS).stream()

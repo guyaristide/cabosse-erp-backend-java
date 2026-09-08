@@ -89,7 +89,7 @@ public class ReceivableService {
                         ReceivableKind.SALE.name(), sale.id, null, sale.ref,
                         BeneficiaryKind.CUSTOMER.name(), sale.customerId, sale.customerName,
                         remaining, sale.saleDate, ageOf(sale.saleDate),
-                        sale.siteId, sale.campaignId));
+                        sale.siteId, sale.campaignId, null));
             }
         }
         if (kind == null || kind.isBlank() || ReceivableKind.COMMODITY_SALE.name().equals(kind)) {
@@ -100,7 +100,7 @@ public class ReceivableService {
                         ReceivableKind.COMMODITY_SALE.name(), sale.id, null, sale.ref,
                         BeneficiaryKind.CUSTOMER.name(), sale.customerId, sale.customerName,
                         remaining, sale.date, ageOf(sale.date),
-                        sale.siteId, sale.campaignId));
+                        sale.siteId, sale.campaignId, null));
             }
         }
         if (siteId == null) return out;

@@ -309,6 +309,23 @@ public class CollectorAdvanceService {
      * <p>C'est ici, et seulement ici, que l'avance devient imputable : les
      * livraisons d'un délégué ne se comptent que sur une avance ouverte.</p>
      */
+    /**
+     * Transmission à l'exécution (matrice expert du 07/09/2026) : le
+     * comptable constate l'avance approuvée et passe la main à la
+     * caissière. Signal non bloquant, horodaté, notifié à ceux qui
+     * décaissent ; retransmettre relance la notification.
+     */
+    public CollectorAdvanceResponseDto requestExecution(UUID id) {
+        CollectorAdvanceEntity e = loadOrFail(id);
+        requireStatus(e, CollectorAdvanceStatus.APPROVED);
+        e.executionRequestedAt = Instant.now();
+        e.executionRequestedByEmail = actor();
+        e.updatedAt = e.executionRequestedAt;
+        repo.replace(e);
+        notifier.advanceExecutionRequested(e, safeUserId());
+        return CollectorAdvanceResponseDto.from(e);
+    }
+
     public CollectorAdvanceResponseDto disburse(UUID id) {
         return disburse(id, null);
     }

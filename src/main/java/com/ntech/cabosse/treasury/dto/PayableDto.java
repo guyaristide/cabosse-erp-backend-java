@@ -26,5 +26,7 @@ public record PayableDto(
         @Schema(description = "Ancienneté en jours, calculée sur l'horloge du serveur")
         long ageDays,
         UUID siteId,
-        UUID campaignId
+        UUID campaignId,
+        @Schema(description = "Transmission à l'exécution par le comptable, si elle a eu lieu")
+        java.time.Instant executionRequestedAt
 ) {}

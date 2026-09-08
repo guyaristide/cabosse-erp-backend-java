@@ -71,6 +71,7 @@ public class MemberCreditService {
     @Inject SectionRepository sections;
     @Inject CampaignResolver campaignResolver;
     @Inject AccountingService accounting;
+    @Inject com.ntech.cabosse.collector.service.AdvanceNotifier advanceNotifier;
     @Inject com.ntech.cabosse.accounting.service.BankProvisionGuard provisionGuard;
     @Inject TenantPreferencesLookup preferences;
     @Inject TenantContext tenantContext;
@@ -341,6 +342,21 @@ public class MemberCreditService {
      * imputable : tant que l'argent n'est pas sorti, il n'y a rien à
      * retenir sur une livraison.
      */
+    /** Transmission à l'exécution, même signal non bloquant que côté délégué. */
+    public MemberCreditResponseDto requestExecution(UUID id) {
+        MemberCreditEntity e = loadOrFail(id);
+        if (e.status != MemberCreditStatus.APPROVED) {
+            throw new BusinessException(Messages.msg("m.mcr-disburse-requires-approved", e.status));
+        }
+        e.executionRequestedAt = Instant.now();
+        e.executionRequestedByEmail = actor();
+        e.updatedAt = e.executionRequestedAt;
+        repo.replace(e);
+        advanceNotifier.memberCreditExecutionRequested(e.ref, e.memberName,
+                nz(e.effectiveAmount()), safeUserId());
+        return MemberCreditResponseDto.from(e);
+    }
+
     public MemberCreditResponseDto disburse(UUID id, DisburseMemberCreditDto p) {
         MemberCreditEntity e = loadOrFail(id);
         if (e.status != MemberCreditStatus.APPROVED) {

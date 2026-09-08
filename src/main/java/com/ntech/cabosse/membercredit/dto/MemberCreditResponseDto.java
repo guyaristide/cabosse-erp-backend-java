@@ -29,6 +29,8 @@ public record MemberCreditResponseDto(
         Instant approvedAt, String approvedByEmail, String approvalNote,
         Instant rejectedAt, String rejectedByEmail, String rejectionReason,
         LocalDate disbursedAt, String paymentMethod, String paymentRef,
+        /** Transmission à l'exécution par le comptable, signal non bloquant. */
+        Instant executionRequestedAt, String executionRequestedByEmail,
         /** Frais bancaires du décaissement, à la charge de la structure. */
         java.math.BigDecimal bankFees,
         String pieceRef,
@@ -63,7 +65,9 @@ public record MemberCreditResponseDto(
                 e.rejectedAt, e.rejectedByEmail, e.rejectionReason,
                 e.disbursedAt,
                 e.paymentMethod != null ? e.paymentMethod.name() : null,
-                e.paymentRef, e.bankFees, e.pieceRef,
+                e.paymentRef,
+                e.executionRequestedAt, e.executionRequestedByEmail,
+                e.bankFees, e.pieceRef,
                 e.imputedAmount, e.remaining,
                 imputations, e.notes, e.settledAt, e.createdAt,
                 com.ntech.cabosse.shared.storage.AttachmentDto.fromAll(e.attachments));

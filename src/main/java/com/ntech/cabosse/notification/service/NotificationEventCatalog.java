@@ -30,6 +30,12 @@ public class NotificationEventCatalog {
             new NotificationEventSpec("advance-refund.awaiting-payment",
                     "m.ntf-evt-refund-approved",
                     Permission.COLLECTION_ADVANCE_DISBURSE, true),
+            new NotificationEventSpec("collector-advance.execution-requested",
+                    "m.ntf-evt-advance-execution",
+                    Permission.COLLECTION_ADVANCE_DISBURSE, true),
+            new NotificationEventSpec("member-credit.execution-requested",
+                    "m.ntf-evt-credit-execution",
+                    Permission.MEMBER_CREDIT_DISBURSE, true),
             // Le report s'adresse à celle qui a demandé : audience figée.
             new NotificationEventSpec("advance-refund.reported",
                     "m.ntf-evt-refund-reported",

@@ -111,6 +111,14 @@ public class MemberCreditEntity {
     // ─── Décaissement ───
     public LocalDate disbursedAt;
     public UUID disbursedBy;
+    /**
+     * Transmission à l'exécution (matrice expert du 07/09/2026) : le
+     * comptable constate l'approbation et passe la main à la caissière.
+     * Signal non bloquant : le décaissement n'en dépend pas.
+     */
+    public Instant executionRequestedAt;
+    public String executionRequestedByEmail;
+
     public String disbursedByEmail;
     /**
      * Nom de qui a remis les fonds, figé au décaissement.

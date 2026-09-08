@@ -139,6 +139,15 @@ public class MemberCreditResource {
                 service.reject(id, payload != null ? payload.note() : null))).build();
     }
 
+    /** Transmission à l'exécution, même signal que côté délégué. */
+    @POST
+    @Path("/{id}/request-execution")
+    @jakarta.ws.rs.Consumes(jakarta.ws.rs.core.MediaType.WILDCARD)
+    @RequiresPermission(com.ntech.cabosse.permission.entity.Permission.ACCOUNTING_WRITE)
+    public Response requestExecution(@PathParam("id") UUID id) {
+        return Response.ok(ApiResponse.ok(service.requestExecution(id))).build();
+    }
+
     @POST
     @Path("/{id}/disburse")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })

@@ -148,6 +148,20 @@ public class CollectorAdvanceResource {
      * Décaisse une avance approuvée : les fonds partent et l'écriture
      * passe. C'est ici seulement que l'avance devient imputable.
      */
+    /**
+     * Transmission à l'exécution par le comptable (matrice du 07/09/2026) :
+     * signal non bloquant vers ceux qui décaissent. Le droit d'écriture
+     * comptable suffit, c'est un constat qui passe la main, pas un
+     * décaissement.
+     */
+    @POST
+    @Path("/{id}/request-execution")
+    @jakarta.ws.rs.Consumes(jakarta.ws.rs.core.MediaType.WILDCARD)
+    @RequiresPermission(com.ntech.cabosse.permission.entity.Permission.ACCOUNTING_WRITE)
+    public Response requestExecution(@PathParam("id") UUID id) {
+        return Response.ok(ApiResponse.ok(service.requestExecution(id))).build();
+    }
+
     @POST
     @Path("/{id}/disburse")
     // Le corps est lu comme du texte, puis désérialisé à la main.

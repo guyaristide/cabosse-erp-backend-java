@@ -128,6 +128,14 @@ public class CollectorAdvanceEntity {
     public UUID rejectedBy;
     public String rejectedByEmail;
 
+    /**
+     * Transmission à l'exécution (matrice expert du 07/09/2026) : le
+     * comptable constate l'approbation et passe la main à la caissière.
+     * Signal non bloquant : le décaissement n'en dépend pas.
+     */
+    public Instant executionRequestedAt;
+    public String executionRequestedByEmail;
+
     public Instant disbursedAt;
     public UUID disbursedBy;
     public String disbursedByEmail;

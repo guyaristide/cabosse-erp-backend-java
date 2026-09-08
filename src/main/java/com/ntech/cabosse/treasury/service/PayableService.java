@@ -120,7 +120,7 @@ public class PayableService {
                         // La file à payer annonce ce que la caisse va
                         // sortir : le montant accordé, pas celui sollicité.
                         nz(a.effectiveAmount()), a.advanceDate, ageOf(a.advanceDate),
-                        a.siteId, a.campaignId)));
+                        a.siteId, a.campaignId, a.executionRequestedAt)));
     }
 
     private void collectCredits(List<PayableDto> out) {
@@ -129,7 +129,7 @@ public class PayableService {
                         PayableKind.MEMBER_CREDIT.name(), c.id, null, c.ref,
                         BeneficiaryKind.MEMBER.name(), c.memberId, c.memberName,
                         nz(c.amount), c.requestedAt, ageOf(c.requestedAt),
-                        null, c.campaignId)));
+                        null, c.campaignId, c.executionRequestedAt)));
     }
 
     /**
@@ -149,7 +149,7 @@ public class PayableService {
                                 PayableKind.SUPPLIER_RECEIPT.name(), rd.id, line.id, rd.ref,
                                 BeneficiaryKind.SUPPLIER.name(), line.supplierId, line.supplierName,
                                 nz(line.totalLine), rd.receivedDate, ageOf(rd.receivedDate),
-                                rd.siteId, rd.campaignId)));
+                                rd.siteId, rd.campaignId, null)));
             });
         }
     }
@@ -174,7 +174,7 @@ public class PayableService {
                     delegate ? b.delegateSupplierId() : b.memberId(), null, null,
                     (delegate ? BeneficiaryKind.DELEGATE : BeneficiaryKind.MEMBER).name(),
                     delegate ? b.delegateSupplierId() : b.memberId(), b.name(),
-                    nz(b.remaining()), since, ageOf(since), null, null));
+                    nz(b.remaining()), since, ageOf(since), null, null, null));
         });
     }
 
