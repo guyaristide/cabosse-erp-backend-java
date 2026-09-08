@@ -2,6 +2,7 @@ package com.ntech.cabosse.membercredit.controller;
 
 import com.ntech.cabosse.membercredit.dto.MemberCreditResponseDto;
 import com.ntech.cabosse.shared.export.ExportColumn;
+import com.ntech.cabosse.shared.export.ExportEnumLabels;
 import com.ntech.cabosse.shared.i18n.Messages;
 
 import java.util.List;
@@ -14,7 +15,8 @@ final class MemberCreditExportColumns {
     static List<ExportColumn<MemberCreditResponseDto>> all() {
         return List.of(
                 ExportColumn.of(Messages.msg("m.imp-h-reference"),        MemberCreditResponseDto::ref),
-                ExportColumn.of(Messages.msg("m.imp-h-type"),             MemberCreditResponseDto::kind),
+                ExportColumn.of(Messages.msg("m.imp-h-type"), dto ->
+                        ExportEnumLabels.creditKind(dto.kind())),
                 ExportColumn.of(Messages.msg("m.imp-h-producteur"),       MemberCreditResponseDto::memberName),
                 ExportColumn.of(Messages.msg("m.imp-h-producer-code"),  MemberCreditResponseDto::memberCode),
                 ExportColumn.of(Messages.msg("m.imp-h-section"),          MemberCreditResponseDto::sectionName),
@@ -22,7 +24,8 @@ final class MemberCreditExportColumns {
                 ExportColumn.of(Messages.msg("m.imp-h-objet"),            MemberCreditResponseDto::purpose),
                 ExportColumn.of(Messages.msg("m.imp-h-montant-amount"),   MemberCreditResponseDto::amount),
                 ExportColumn.of(Messages.msg("m.imp-h-demande-le"),       MemberCreditResponseDto::requestedAt),
-                ExportColumn.of(Messages.msg("m.imp-h-status"),           MemberCreditResponseDto::status),
+                ExportColumn.of(Messages.msg("m.imp-h-status"), dto ->
+                        ExportEnumLabels.creditStatus(dto.status())),
                 ExportColumn.of(Messages.msg("m.imp-h-decaisse-le"),      MemberCreditResponseDto::disbursedAt),
                 ExportColumn.of(Messages.msg("m.imp-h-rembourse-amount"), MemberCreditResponseDto::imputedAmount),
                 ExportColumn.of(Messages.msg("m.imp-h-reste-du-amount"),  MemberCreditResponseDto::remaining));

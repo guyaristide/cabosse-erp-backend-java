@@ -2,6 +2,7 @@ package com.ntech.cabosse.expense.controller;
 
 import com.ntech.cabosse.expense.dto.DirectExpenseResponseDto;
 import com.ntech.cabosse.shared.export.ExportColumn;
+import com.ntech.cabosse.shared.export.ExportEnumLabels;
 import com.ntech.cabosse.shared.i18n.Messages;
 
 import java.util.List;
@@ -25,7 +26,8 @@ final class DirectExpenseExportColumns {
                 ExportColumn.of(Messages.msg("m.imp-h-montant-ht-amount"),  DirectExpenseResponseDto::amountHt),
                 ExportColumn.of(Messages.msg("m.imp-h-tva-amount"),         DirectExpenseResponseDto::vatAmount),
                 ExportColumn.of(Messages.msg("m.imp-h-montant-ttc-amount"), DirectExpenseResponseDto::amountTtc),
-                ExportColumn.of(Messages.msg("m.imp-h-purchase-payment-method"),   DirectExpenseResponseDto::paymentMethod),
+                ExportColumn.of(Messages.msg("m.imp-h-purchase-payment-method"),   d ->
+                        ExportEnumLabels.paymentMethod(d.paymentMethod())),
                 ExportColumn.of(Messages.msg("m.imp-h-piece-comptable"),    DirectExpenseResponseDto::pieceRef));
     }
 }

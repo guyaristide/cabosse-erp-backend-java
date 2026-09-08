@@ -1,6 +1,7 @@
 package com.ntech.cabosse.treasury.controller;
 
 import com.ntech.cabosse.shared.export.ExportColumn;
+import com.ntech.cabosse.shared.export.ExportEnumLabels;
 import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.treasury.dto.SettlementDto;
 
@@ -32,7 +33,7 @@ final class SettlementExportColumns {
                 ExportColumn.of(Messages.msg("m.imp-h-frais-bancaires"),
                         SettlementDto::bankFees),
                 ExportColumn.of(Messages.msg("m.imp-h-purchase-payment-method"),
-                        SettlementDto::paymentMethod),
+                        s -> ExportEnumLabels.paymentMethod(s.paymentMethod())),
                 ExportColumn.of(Messages.msg("m.imp-h-purchase-payment-ref"),
                         SettlementDto::paymentRef),
                 ExportColumn.of(Messages.msg("m.imp-h-piece-comptable"), SettlementDto::pieceRef),
