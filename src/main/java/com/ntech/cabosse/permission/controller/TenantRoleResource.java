@@ -3,8 +3,14 @@ package com.ntech.cabosse.permission.controller;
 import com.ntech.cabosse.permission.entity.Permission;
 import com.ntech.cabosse.permission.service.RequiresPermission;
 import com.ntech.cabosse.permission.dto.PermissionDtos;
+import com.ntech.cabosse.permission.dto.TenantRoleExportRow;
 import com.ntech.cabosse.permission.service.TenantRoleService;
 import com.ntech.cabosse.shared.api.ApiResponse;
+import com.ntech.cabosse.shared.export.ExportAudit;
+import com.ntech.cabosse.shared.export.ExportDataset;
+import com.ntech.cabosse.shared.export.ExportFormat;
+import com.ntech.cabosse.shared.export.ExportResponses;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.security.Roles;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
@@ -40,6 +46,7 @@ import java.util.UUID;
 public class TenantRoleResource {
 
     @Inject TenantRoleService service;
+    @Inject ExportAudit exportAudit;
 
     /**
      * Droits proposables à ce tenant. Le catalogue suit ses capacités : ce
@@ -60,6 +67,48 @@ public class TenantRoleResource {
     @Path("/{id}")
     public Response getById(@PathParam("id") UUID id) {
         return Response.ok(ApiResponse.ok(service.getById(id))).build();
+    }
+
+    /**
+     * L'état des profils, droit par droit, en fichier. Demandé le
+     * 08/09/2026 pour le support : sur un environnement distant, ce
+     * fichier dit exactement ce qu'un profil permet sans ouvrir la base,
+     * et signale les droits que les capacités du tenant rendent
+     * inopérants.
+     */
+    @GET
+    @Path("/export")
+    @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })
+    public Response export(@QueryParam("format") String formatRaw) {
+        ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
+        if (format == ExportFormat.PDF) format = ExportFormat.XLSX;
+        java.util.List<TenantRoleExportRow> rows = new java.util.ArrayList<>();
+        for (PermissionDtos.RoleResponseDto role : service.list()) {
+            String active = Messages.msg(role.active() ? "m.imp-v-yes" : "m.imp-v-no");
+            if (role.permissions().isEmpty()) {
+                // Un profil sans aucun droit doit rester visible dans le
+                // fichier : c'est souvent lui, le sujet du débogage.
+                rows.add(new TenantRoleExportRow(role.name(), role.code(), active,
+                        role.userCount(), "", "", ""));
+            }
+            for (String code : role.permissions()) {
+                String label;
+                try {
+                    label = Permission.valueOf(code).label();
+                } catch (IllegalArgumentException unknown) {
+                    label = code;
+                }
+                String inactive = role.inactivePermissions() != null
+                        && role.inactivePermissions().contains(code)
+                        ? Messages.msg("m.imp-v-yes") : "";
+                rows.add(new TenantRoleExportRow(role.name(), role.code(), active,
+                        role.userCount(), code, label, inactive));
+            }
+        }
+        ExportDataset<TenantRoleExportRow> dataset = new ExportDataset<>(
+                Messages.msg("m.exp-t-profils-droits"), TenantRoleExportColumns.all(), rows);
+        exportAudit.record("profils", "Profils et droits", format, rows.size());
+        return ExportResponses.build("profils-droits", format, dataset);
     }
 
     @POST
