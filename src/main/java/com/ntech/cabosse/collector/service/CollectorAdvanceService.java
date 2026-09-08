@@ -12,6 +12,8 @@ import com.ntech.cabosse.collector.dto.CreateAdvanceDto;
 import com.ntech.cabosse.collector.dto.DisburseAdvanceDto;
 import com.ntech.cabosse.permission.entity.Permission;
 import com.ntech.cabosse.campaign.entity.CampaignEntity;
+import com.ntech.cabosse.campaign.entity.CampaignKind;
+import com.ntech.cabosse.campaign.repository.CampaignRepository;
 import com.ntech.cabosse.campaign.service.CampaignResolver;
 import com.ntech.cabosse.collector.entity.CollectorAdvanceEntity;
 import com.ntech.cabosse.collector.entity.CollectorAdvanceStatus;
@@ -36,7 +38,9 @@ import org.eclipse.microprofile.jwt.JsonWebToken;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -68,6 +72,7 @@ public class CollectorAdvanceService {
     @Inject SupplierRepository suppliers;
     @Inject com.ntech.cabosse.accounting.service.BankProvisionGuard provisionGuard;
     @Inject CampaignResolver campaignResolver;
+    @Inject CampaignRepository campaigns;
     @Inject SectionRepository sections;
     @Inject ArticleRepository articles;
     @Inject StockService stockService;
@@ -84,6 +89,23 @@ public class CollectorAdvanceService {
     // ─── Lecture ────────────────────────────────────────────────────
 
     public long countSearch(String status) { return repo.countSearch(status); }
+
+    /**
+     * Le libellé de campagne par année, tel que saisi à sa création :
+     * l'export doit montrer « Campagne 2026-2027 », pas « 2026 ».
+     * Résolu à la lecture plutôt que figé sur l'avance, pour qu'un
+     * libellé corrigé ensuite reste juste partout. La campagne
+     * principale de l'année fait foi quand plusieurs coexistent.
+     */
+    public Map<Integer, String> campaignLabelsByYear() {
+        Map<Integer, String> labels = new HashMap<>();
+        for (CampaignEntity c : campaigns.listAll()) {
+            if (c.label == null || c.label.isBlank()) continue;
+            if (c.kind == CampaignKind.MAIN) labels.put(c.campaignYear, c.label);
+            else labels.putIfAbsent(c.campaignYear, c.label);
+        }
+        return labels;
+    }
 
     public List<CollectorAdvanceResponseDto> search(String status, int skip, int limit) {
         return repo.search(status, skip, limit).stream()

@@ -5,18 +5,24 @@ import com.ntech.cabosse.shared.export.ExportColumn;
 import com.ntech.cabosse.shared.i18n.Messages;
 
 import java.util.List;
+import java.util.Map;
 
 /** Colonnes de l'export des avances aux délégués collecteurs. */
 final class CollectorAdvanceExportColumns {
 
     private CollectorAdvanceExportColumns() {}
 
-    static List<ExportColumn<CollectorAdvanceResponseDto>> all() {
+    static List<ExportColumn<CollectorAdvanceResponseDto>> all(Map<Integer, String> campaignLabels) {
         return List.of(
                 ExportColumn.of(Messages.msg("m.imp-h-avance"),           CollectorAdvanceResponseDto::ref),
                 ExportColumn.of(Messages.msg("m.imp-h-delegue"),          CollectorAdvanceResponseDto::delegateName),
                 ExportColumn.of(Messages.msg("m.imp-h-section"),          CollectorAdvanceResponseDto::sectionName),
-                ExportColumn.of(Messages.msg("m.imp-h-purchase-campaign"),         CollectorAdvanceResponseDto::campaignYear),
+                // Le libellé saisi à la création de la campagne, l'année
+                // seule ne servant que de repli pour une campagne effacée.
+                ExportColumn.of(Messages.msg("m.imp-h-purchase-campaign"), dto ->
+                        dto.campaignYear() == null ? null
+                                : campaignLabels.getOrDefault(
+                                        dto.campaignYear(), String.valueOf(dto.campaignYear()))),
                 ExportColumn.of(Messages.msg("m.imp-h-date"),             CollectorAdvanceResponseDto::advanceDate),
                 ExportColumn.of(Messages.msg("m.imp-h-montant-amount"),   CollectorAdvanceResponseDto::advanceAmount),
                 ExportColumn.of(Messages.msg("m.imp-h-consomme-amount"),  CollectorAdvanceResponseDto::consumedAmount),

@@ -76,7 +76,8 @@ public class CollectorAdvanceResource {
         ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
         java.util.List<com.ntech.cabosse.collector.dto.CollectorAdvanceResponseDto> rows = service.search(status, 0, Integer.MAX_VALUE);
         ExportDataset<com.ntech.cabosse.collector.dto.CollectorAdvanceResponseDto> dataset =
-                new ExportDataset<>(Messages.msg("m.exp-t-avances-aux-delegues"), CollectorAdvanceExportColumns.all(), rows);
+                new ExportDataset<>(Messages.msg("m.exp-t-avances-aux-delegues"),
+                        CollectorAdvanceExportColumns.all(service.campaignLabelsByYear()), rows);
         exportAudit.record("avances-delegues", "Avances aux délégués", format, rows.size());
         return ExportResponses.build("avances-delegues", format, dataset);
     }
