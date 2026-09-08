@@ -35,8 +35,10 @@ public class OdDraftEntity {
 
     /** Date comptable visée par l'OD. */
     /**
-     * Journal de la pièce : {@code OD} (défaut, null compris) ou
-     * {@code AN} pour les écritures à nouveau du bilan d'ouverture.
+     * Nature de l'écriture. {@code AN} porte le journal des à-nouveaux
+     * (bilan d'ouverture, droit dédié) ; les écritures types (paie,
+     * provisions, amortissements…) portent leur code de catalogue mais
+     * restent des pièces du journal OD ; null est l'OD libre.
      */
     public String kind;
 

@@ -377,7 +377,9 @@ public class AccountingResource {
                                 java.math.BigDecimal credit,
                                 String costCenter, String program, String project) {}
     public record OdPayload(java.time.LocalDate date, String libelle,
-                            List<OdLinePayload> lines) {}
+                            List<OdLinePayload> lines,
+                            /** Écriture type (paie, provisions…), null pour une OD libre. */
+                            String kind) {}
 
     private static List<com.ntech.cabosse.accounting.service.OdEntryService.OdLineInput>
             toOdLines(OdPayload payload) {
@@ -442,13 +444,45 @@ public class AccountingResource {
     @Path("/od")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response createOd(OdPayload payload) {
+        // Le type ne passe que s'il est du catalogue des écritures types :
+        // les à-nouveaux gardent leur chemin et leur droit propres, et un
+        // code inconnu retombe sur l'OD libre plutôt que d'inventer un
+        // journal.
+        String kind = payload != null && typedTemplates.isTypedKind(payload.kind())
+                ? payload.kind() : null;
         var created = odService.create(
+                kind,
                 payload != null ? payload.date() : null,
                 payload != null ? payload.libelle() : null,
                 toOdLines(payload));
         return Response.status(Response.Status.CREATED)
                 .entity(ApiResponse.created(OdDraftDto.from(created)))
                 .build();
+    }
+
+    @jakarta.inject.Inject TypedOdImportTemplates typedTemplates;
+
+    /**
+     * Modèle d'import d'une écriture type (CE-211) : paie, corrections
+     * d'erreurs, inventaire, amortissements, provisions, régularisation.
+     * Contenu transmis par l'expert-comptable, servi au gabarit d'export
+     * de l'application comme tous les modèles.
+     */
+    @GET
+    @Path("/od/import/template")
+    @Produces({ "text/csv",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })
+    public Response typedOdTemplate(@QueryParam("type") String type,
+                                    @QueryParam("format") String formatRaw) {
+        if (!typedTemplates.isTypedKind(type)) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new ApiResponse<>(400, Messages.msg("m.acc-od-kind-unknown"), null))
+                    .build();
+        }
+        ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
+        if (format == ExportFormat.PDF) format = ExportFormat.XLSX;
+        return ExportResponses.build(typedTemplates.filename(type), format,
+                typedTemplates.dataset(type));
     }
 
     @jakarta.inject.Inject OpeningEntryImportTemplate openingTemplate;
