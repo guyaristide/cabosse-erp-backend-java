@@ -834,7 +834,7 @@ public class AccountingResource {
                                      @QueryParam("format") String formatRaw) {
         if (account == null || account.isBlank()) {
             return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(new ApiResponse<>(400, "Paramètre 'account' requis.", null))
+                    .entity(new ApiResponse<>(400, Messages.msg("m.acc-ledger-account-required"), null))
                     .build();
         }
         ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
@@ -842,6 +842,47 @@ public class AccountingResource {
         var dataset = exports.buildGrandLivre(account, parseDate(fromRaw), parseDate(toRaw));
         exportAudit.record("accounting", "Grand-livre " + account, format, dataset.rows().size());
         return ExportResponses.build("grand-livre-" + account, format, dataset);
+    }
+
+    // ─── Rapports à l'écran ─────────────────────────────────────────
+    // Les mêmes lignes que les exports fichiers, servies en JSON : l'écran
+    // Rapports/États montre ce que le fichier livrerait, ni plus ni moins.
+
+    @GET
+    @Path("/reports/general-ledger")
+    public Response generalLedgerReport(@QueryParam("account") String account,
+                                        @QueryParam("from") String fromRaw,
+                                        @QueryParam("to") String toRaw) {
+        if (account == null || account.isBlank()) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new ApiResponse<>(400, Messages.msg("m.acc-ledger-account-required"), null))
+                    .build();
+        }
+        var dataset = exports.buildGrandLivre(account, parseDate(fromRaw), parseDate(toRaw));
+        return Response.ok(ApiResponse.ok(dataset.rows())).build();
+    }
+
+    @GET
+    @Path("/reports/balance-sheet")
+    public Response balanceSheetReport(@QueryParam("asOf") String asOfRaw) {
+        var dataset = exports.buildBilan(parseDate(asOfRaw));
+        return Response.ok(ApiResponse.ok(dataset.rows())).build();
+    }
+
+    @GET
+    @Path("/reports/income-statement")
+    public Response incomeStatementReport(@QueryParam("from") String fromRaw,
+                                          @QueryParam("to") String toRaw,
+                                          @QueryParam("campaignId") UUID campaignId) {
+        LocalDate from = parseDate(fromRaw);
+        LocalDate to = parseDate(toRaw);
+        if (campaignId != null) {
+            CampaignEntity campaign = campaignResolver.resolve(campaignId);
+            from = campaign.startDate;
+            to = campaign.endDate;
+        }
+        var dataset = exports.buildCompteResultat(from, to);
+        return Response.ok(ApiResponse.ok(dataset.rows())).build();
     }
 
     @GET
