@@ -178,6 +178,8 @@ class DelegateStatementTest extends AbstractIntegrationTest {
         assertAmount(statement, "data.rows[0].retentionAmount", "5000");  // 200 kg x 25
         assertAmount(statement, "data.rows[0].weightKg", "200");
         assertAmount(statement, "data.rows[0].delivered", "200000");
+        // Solde du compte d'avance : 300 000 − (200 000 + 5 000).
+        assertAmount(statement, "data.rows[0].advanceBalance", "95000");
 
         org.junit.jupiter.api.Assertions.assertEquals("del-b", statement.getString("data.rows[1].delegateCode"));
         assertAmount(statement, "data.rows[1].advancedAmount", "0");
@@ -185,6 +187,7 @@ class DelegateStatementTest extends AbstractIntegrationTest {
 
         // Les taux ne s'additionnent pas : seuls les montants sont totalisés.
         assertAmount(statement, "data.totals.advancedAmount", "300000");
+        assertAmount(statement, "data.totals.advanceBalance", "95000");
         assertAmount(statement, "data.totals.retentionAmount", "5000");
         assertAmount(statement, "data.totals.weightKg", "200");
         statement.getInt("data.totals.delegateCount");

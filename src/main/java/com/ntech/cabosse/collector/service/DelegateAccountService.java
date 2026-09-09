@@ -286,6 +286,11 @@ public class DelegateAccountService {
             // unique qui puisse les représenter.
             var resolved = marginResolver.resolve(prefs, delegate,
                     scope.size() == 1 ? scope.get(0) : null);
+            // La formule de l'expert (09/09/2026) : ce que le délégué a
+            // reçu, moins ce que ses livraisons et sa mise en compte ont
+            // couvert. Positif, il doit encore ; négatif, il a livré
+            // au-delà de ses avances.
+            BigDecimal balance = advanced.subtract(delivered.add(retention));
             rows.add(new com.ntech.cabosse.collector.dto.DelegateStatementDto.Row(
                     delegate.id, delegate.code, delegate.name,
                     delegate.sectionId != null
@@ -293,7 +298,7 @@ public class DelegateAccountService {
                     advanced,
                     delegate.collectorRetentionPerKg, retention,
                     resolved.isPerKg() ? resolved.rate() : null, margin,
-                    weight, delivered));
+                    weight, delivered, balance));
 
             totalAdvanced = totalAdvanced.add(advanced);
             totalRetention = totalRetention.add(retention);
@@ -310,7 +315,9 @@ public class DelegateAccountService {
                 scope, rows,
                 new com.ntech.cabosse.collector.dto.DelegateStatementDto.Totals(
                         totalAdvanced, totalRetention, totalMargin, totalWeight,
-                        totalDelivered, rows.size()));
+                        totalDelivered,
+                        totalAdvanced.subtract(totalDelivered.add(totalRetention)),
+                        rows.size()));
     }
 
     /**

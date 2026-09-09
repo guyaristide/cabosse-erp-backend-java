@@ -48,7 +48,13 @@ public record DelegateStatementDto(
             /** Marge réellement figée sur ses reçus de la période. */
             BigDecimal marginAmount,
             BigDecimal weightKg,
-            BigDecimal delivered) {}
+            BigDecimal delivered,
+            /**
+             * Solde du compte d'avance : avances reçues moins ce que les
+             * livraisons et la mise en compte ont couvert. Positif, le
+             * délégué doit encore ; négatif, il a livré au-delà.
+             */
+            BigDecimal advanceBalance) {}
 
     /** Totaux de la période. Les taux ne s'additionnent pas : ils sont absents. */
     public record Totals(
@@ -57,5 +63,6 @@ public record DelegateStatementDto(
             BigDecimal marginAmount,
             BigDecimal weightKg,
             BigDecimal delivered,
+            BigDecimal advanceBalance,
             int delegateCount) {}
 }
