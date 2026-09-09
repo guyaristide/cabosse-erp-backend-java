@@ -233,6 +233,53 @@ public class TenantUserService {
                 .record();
     }
 
+    /**
+     * Renvoie l'invitation d'un compte encore en attente, avec au besoin
+     * une adresse corrigée (demandé le 09/09/2026) : un lien expiré ou
+     * un mail jamais reçu ne doivent pas obliger à supprimer le compte
+     * et à tout recommencer. Nouveau jeton, nouvelle échéance ; l'ancien
+     * lien meurt. L'adresse n'est modifiable qu'ici, tant que personne
+     * ne s'est jamais connecté avec.
+     */
+    @Transactional
+    public TenantUserSummaryDto resendInvitation(UUID tenantId, UUID userId, String newEmailRaw) {
+        TenantEntity tenant = ensureTenantExists(tenantId);
+        UserEntity user = users.findById(userId);
+        if (user == null || !tenantId.equals(user.tenantId)) {
+            throw new NotFoundException(Messages.msg("m.tnt-user-not-found"));
+        }
+        if (user.status != UserStatus.INVITED) {
+            throw new BusinessException(Messages.msg("m.tnt-invitation-already-active"));
+        }
+        if (newEmailRaw != null && !newEmailRaw.isBlank()) {
+            String email = newEmailRaw.trim().toLowerCase();
+            if (!email.equals(user.email)) {
+                if (users.emailExists(email)) {
+                    throw new ConflictException(Messages.msg("m.tnt-email-in-use", email));
+                }
+                user.email = email;
+            }
+        }
+
+        InvitationTokenService.InvitationToken token = invitationTokens.generate();
+        user.invitationTokenHash = token.hash();
+        user.invitationExpiresAt = Instant.now().plus(INVITATION_TTL);
+        user.updatedAt = Instant.now();
+        users.update(user);
+
+        sendInvitationMail(tenant, user, token.clearValue());
+        log.infof("Invitation resent to %s (tenant=%s)", user.email, tenant.id);
+
+        audit.event(com.ntech.cabosse.shared.audit.AuditEventType.INVITATION_SENT)
+                .actorEmail(currentActorEmail())
+                .target("user", user.id.toString(), user.email)
+                .tenant(tenant.id, tenant.name)
+                .description("Invitation renvoyée à " + user.email)
+                .record();
+
+        return toSummary(user);
+    }
+
     // ─── Helpers ───
 
     private TenantEntity ensureTenantExists(UUID tenantId) {

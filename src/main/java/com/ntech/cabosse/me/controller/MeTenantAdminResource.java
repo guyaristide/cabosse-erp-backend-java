@@ -117,6 +117,23 @@ public class MeTenantAdminResource {
 
     @POST
     @RequiresPermission(Permission.USER_MANAGE)
+    @Path("/users/{userId}/resend-invitation")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Operation(summary = "Renvoyer une invitation en attente",
+            description = "Nouveau lien envoyé, l'ancien meurt. L'adresse peut être corrigée "
+                    + "tant que le compte n'a jamais été activé.")
+    @APIResponse(responseCode = "200",
+            content = @Content(schema = @Schema(implementation = TenantUserSummaryDto.class)))
+    @APIResponse(responseCode = "409", description = "E-mail déjà utilisé")
+    public Response resendInvitation(@PathParam("userId") UUID userId,
+                                     @Valid com.ntech.cabosse.tenant.dto.ResendInvitationPayloadDto payload) {
+        return Response.ok(ApiResponse.ok(userService.resendInvitation(
+                tenantContext.tenantId(), userId,
+                payload != null ? payload.email() : null))).build();
+    }
+
+    @POST
+    @RequiresPermission(Permission.USER_MANAGE)
     @Path("/users/{userId}/reset-password")
     @Operation(summary = "Réinitialiser le mot de passe d'un utilisateur",
             description = "Nouveau lien d'activation envoyé par mail. Le compte repasse en INVITED.")
