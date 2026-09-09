@@ -34,6 +34,8 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.math.BigDecimal;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.text.NumberFormat;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -650,6 +652,17 @@ public final class Exporters {
     /** Formateur numérique correspondant à la nature de la colonne. */
     private static NumberFormat numberFormatFor(ColumnKind kind) {
         NumberFormat nf = NumberFormat.getNumberInstance(FR);
+        // Le séparateur de milliers français du JDK est l'espace fine
+        // insécable (U+202F), que les polices standard du PDF ne savent
+        // pas rendre : les montants y perdaient leurs séparateurs
+        // (constaté le 09/09/2026). L'espace insécable classique
+        // (U+00A0) s'imprime partout et reste celle du gabarit de
+        // formats.
+        if (nf instanceof DecimalFormat df) {
+            DecimalFormatSymbols symbols = df.getDecimalFormatSymbols();
+            symbols.setGroupingSeparator('\u00A0');
+            df.setDecimalFormatSymbols(symbols);
+        }
         if (kind == ColumnKind.NUMBER_MONEY) {
             nf.setMaximumFractionDigits(0);
         } else if (kind == ColumnKind.NUMBER_PRECISE) {

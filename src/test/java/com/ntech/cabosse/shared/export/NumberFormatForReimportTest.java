@@ -27,6 +27,11 @@ class NumberFormatForReimportTest {
     void an_amount_still_groups_its_thousands() {
         // Le contraste est volontaire : la lisibilité prime sur une somme,
         // qu'aucun import ne relit colonne par colonne.
+        // Le séparateur est l'insécable classique (U+00A0), pas la fine
+        // (U+202F) du JDK : les polices standard du PDF ne rendent pas la
+        // fine et les montants y perdaient leurs séparateurs.
+        assertThat(Exporters.formatForText(1875000, ColumnKind.NUMBER_MONEY))
+                .isEqualTo("1\u00A0875\u00A0000");
         assertThat(Exporters.formatForText(1875000, ColumnKind.NUMBER_MONEY))
                 .containsAnyOf(" ", " ", " ");
     }
