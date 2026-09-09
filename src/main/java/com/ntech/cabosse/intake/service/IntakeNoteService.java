@@ -165,6 +165,13 @@ public class IntakeNoteService {
         String s = clean(raw);
         if (s == null) return null;
         try { return LocalDate.parse(s, FR_DATE); } catch (Exception ignored) { }
+        try {
+            return LocalDate.parse(s, DateTimeFormatter.ofPattern("dd-MM-yyyy"));
+        } catch (Exception ignored) { }
+        try {
+            // Année sur deux chiffres, telle qu'un classeur peut la garder.
+            return LocalDate.parse(s, DateTimeFormatter.ofPattern("dd/MM/yy"));
+        } catch (Exception ignored) { }
         try { return LocalDate.parse(s.length() > 10 ? s.substring(0, 10) : s); }
         catch (Exception ignored) { }
         return null;
