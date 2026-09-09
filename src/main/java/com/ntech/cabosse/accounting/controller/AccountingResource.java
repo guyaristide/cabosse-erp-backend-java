@@ -195,8 +195,18 @@ public class AccountingResource {
 
     // ─── Comptes bancaires CRUD ─────────────────────────────────────
 
+    // La liste des comptes ne porte aucun solde : elle dit seulement où
+    // l'argent peut passer. Quiconque enregistre un mouvement (décaisser,
+    // régler, encaisser, dépenser) doit pouvoir désigner la caisse ou la
+    // banque, y compris sans la lecture comptable générale et sans être
+    // gestionnaire du compte choisi (09/09/2026). Les soldes, eux,
+    // restent gouvernés par les droits de solde.
     @GET
     @Path("/bank-accounts")
+    @RequiresPermission({ Permission.ACCOUNTING_READ, Permission.TREASURY_WRITE,
+            Permission.COLLECTION_ADVANCE_DISBURSE, Permission.MEMBER_CREDIT_DISBURSE,
+            Permission.COLLECTION_PAYMENT_WRITE, Permission.SALE_PAYMENT,
+            Permission.EXPENSE_WRITE })
     public Response listBankAccounts() {
         List<BankAccountResponseDto> list = bankAccounts.listAll();
         return Response.ok(ApiResponse.ok(list)).build();

@@ -113,6 +113,13 @@ class AdvanceExecutionTest extends AbstractIntegrationTest {
                 .body("data.executionRequestedByEmail", equalTo(admin.email));
 
         assertThat(unreadOf(cashier)).isEqualTo(before + 1);
+
+        // La caissière désigne la caisse ou la banque au décaissement :
+        // la liste des comptes (sans soldes) s'ouvre à son droit de
+        // décaisser, sans lecture comptable générale ni rattachement de
+        // gestionnaire au compte choisi.
+        givenAs(cashier).when().get("/api/v1/accounting/bank-accounts")
+                .then().statusCode(200);
         List<Map<String, Object>> inbox = givenAs(cashier)
                 .when().get("/api/v1/notifications/inbox")
                 .then().statusCode(200).extract().path("data.items");
