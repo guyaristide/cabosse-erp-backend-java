@@ -252,6 +252,7 @@ public class DelegateAccountService {
         var prefs = preferences.current();
 
         List<com.ntech.cabosse.collector.dto.DelegateStatementDto.Row> rows = new ArrayList<>();
+        BigDecimal totalAdvanced = BigDecimal.ZERO;
         BigDecimal totalRetention = BigDecimal.ZERO;
         BigDecimal totalMargin = BigDecimal.ZERO;
         BigDecimal totalWeight = BigDecimal.ZERO;
@@ -271,6 +272,14 @@ public class DelegateAccountService {
                 delivered = delivered.add(nz(r.amount));
             }
 
+            // Le montant approuvé et décaissé, comme sur le compte du
+            // délégué : c'est ce qui est réellement sorti de la caisse.
+            BigDecimal advanced = advances.listDisbursedByDelegate(delegate.id).stream()
+                    .filter(a -> scope.isEmpty()
+                            || (a.campaignId != null && scope.contains(a.campaignId)))
+                    .map(a -> nz(a.effectiveAmount()))
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
             // L'état porte sur une ou plusieurs campagnes : le taux affiché
             // est celui de la campagne demandée quand il n'y en a qu'une, et
             // le taux commun dès qu'on en agrège plusieurs, faute d'un taux
@@ -281,10 +290,12 @@ public class DelegateAccountService {
                     delegate.id, delegate.code, delegate.name,
                     delegate.sectionId != null
                             ? sections.findById(delegate.sectionId).map(sec -> sec.name).orElse(null) : null,
+                    advanced,
                     delegate.collectorRetentionPerKg, retention,
                     resolved.isPerKg() ? resolved.rate() : null, margin,
                     weight, delivered));
 
+            totalAdvanced = totalAdvanced.add(advanced);
             totalRetention = totalRetention.add(retention);
             totalMargin = totalMargin.add(margin);
             totalWeight = totalWeight.add(weight);
@@ -298,7 +309,8 @@ public class DelegateAccountService {
         return new com.ntech.cabosse.collector.dto.DelegateStatementDto(
                 scope, rows,
                 new com.ntech.cabosse.collector.dto.DelegateStatementDto.Totals(
-                        totalRetention, totalMargin, totalWeight, totalDelivered, rows.size()));
+                        totalAdvanced, totalRetention, totalMargin, totalWeight,
+                        totalDelivered, rows.size()));
     }
 
     /**

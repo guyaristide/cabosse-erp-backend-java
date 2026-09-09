@@ -22,6 +22,7 @@ final class DelegateStatementExportColumns {
                 ExportColumn.of(Messages.msg("m.imp-h-code"),                DelegateStatementDto.Row::delegateCode),
                 ExportColumn.of(Messages.msg("m.imp-h-delegue"),             DelegateStatementDto.Row::delegateName),
                 ExportColumn.of(Messages.msg("m.imp-h-section"),             DelegateStatementDto.Row::sectionName),
+                ExportColumn.of(Messages.msg("m.exp-h-avances-recues"),      DelegateStatementDto.Row::advancedAmount),
                 ExportColumn.of(Messages.msg("m.exp-h-mise-en-compte-kg"),   DelegateStatementDto.Row::retentionPerKg),
                 ExportColumn.of(Messages.msg("m.exp-h-mise-en-compte"),      DelegateStatementDto.Row::retentionAmount),
                 ExportColumn.of(Messages.msg("m.exp-h-marge-kg"),            DelegateStatementDto.Row::marginPerKg),

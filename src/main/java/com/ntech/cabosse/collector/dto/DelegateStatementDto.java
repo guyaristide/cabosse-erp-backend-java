@@ -37,6 +37,8 @@ public record DelegateStatementDto(
             String delegateCode,
             String delegateName,
             String sectionName,
+            /** Somme des avances décaissées au délégué sur la période. */
+            BigDecimal advancedAmount,
             /** Retenue convenue sur la fiche du délégué, en FCFA/kg. */
             BigDecimal retentionPerKg,
             /** Retenue réellement figée sur ses reçus de la période. */
@@ -50,6 +52,7 @@ public record DelegateStatementDto(
 
     /** Totaux de la période. Les taux ne s'additionnent pas : ils sont absents. */
     public record Totals(
+            BigDecimal advancedAmount,
             BigDecimal retentionAmount,
             BigDecimal marginAmount,
             BigDecimal weightKg,

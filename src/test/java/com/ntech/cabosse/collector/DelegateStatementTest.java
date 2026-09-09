@@ -162,6 +162,8 @@ class DelegateStatementTest extends AbstractIntegrationTest {
         createDelegate(admin, "del-b", "TRAORE Salif", sectionId, null);
 
         createReceipt(admin, memberId, articleId, siteId, actif, 200, today, "BRO-001");
+        fundCashBox(admin, 2_000_000);
+        openAdvance(admin, actif, siteId, campaign, 300_000, today);
 
         var statement = givenAs(admin)
                 .when().get("/api/v1/collector-advances/delegates/statement?campaignId=" + campaign)
@@ -171,15 +173,18 @@ class DelegateStatementTest extends AbstractIntegrationTest {
 
         // Les lignes sont triées par code : del-a précède del-b.
         org.junit.jupiter.api.Assertions.assertEquals("del-a", statement.getString("data.rows[0].delegateCode"));
+        assertAmount(statement, "data.rows[0].advancedAmount", "300000");
         assertAmount(statement, "data.rows[0].retentionPerKg", "25");
         assertAmount(statement, "data.rows[0].retentionAmount", "5000");  // 200 kg x 25
         assertAmount(statement, "data.rows[0].weightKg", "200");
         assertAmount(statement, "data.rows[0].delivered", "200000");
 
         org.junit.jupiter.api.Assertions.assertEquals("del-b", statement.getString("data.rows[1].delegateCode"));
+        assertAmount(statement, "data.rows[1].advancedAmount", "0");
         assertAmount(statement, "data.rows[1].retentionAmount", "0");
 
         // Les taux ne s'additionnent pas : seuls les montants sont totalisés.
+        assertAmount(statement, "data.totals.advancedAmount", "300000");
         assertAmount(statement, "data.totals.retentionAmount", "5000");
         assertAmount(statement, "data.totals.weightKg", "200");
         statement.getInt("data.totals.delegateCount");
