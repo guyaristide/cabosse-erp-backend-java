@@ -94,6 +94,34 @@ public class MemberCreditResource {
         return ExportResponses.build("credits-producteurs", format, dataset);
     }
 
+    /**
+     * État des avances producteurs (expert, 09/09/2026) : la même lecture
+     * que l'état des délégués, un producteur ayant reçu une avance par
+     * ligne, solde = avances moins (livraisons + retenues).
+     */
+    @GET
+    @Path("/producers/statement")
+    public Response producerStatement(@QueryParam("campaignId") java.util.List<UUID> campaignIds) {
+        ensureCapability();
+        return Response.ok(com.ntech.cabosse.shared.api.ApiResponse.ok(
+                service.producerStatement(campaignIds))).build();
+    }
+
+    @GET
+    @Path("/producers/statement/export")
+    @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/pdf" })
+    public Response producerStatementExport(@QueryParam("campaignId") java.util.List<UUID> campaignIds,
+                                            @QueryParam("format") String formatRaw) {
+        ensureCapability();
+        ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
+        var rows = service.producerStatement(campaignIds).rows();
+        var dataset = new ExportDataset<>(
+                Messages.msg("m.exp-t-etat-avances-producteurs"),
+                ProducerAdvanceStatementExportColumns.all(), rows);
+        exportAudit.record("etat-avances-producteurs", "État des avances producteurs", format, rows.size());
+        return ExportResponses.build("etat-avances-producteurs", format, dataset);
+    }
+
     @GET
     @Path("/{id}")
     public Response getById(@PathParam("id") UUID id) {

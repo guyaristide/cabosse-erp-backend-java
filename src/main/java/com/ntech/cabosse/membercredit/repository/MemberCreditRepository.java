@@ -53,6 +53,13 @@ public class MemberCreditRepository {
                 .into(new ArrayList<>());
     }
 
+    /** Les engagements qui ont mis de l'argent dehors : décaissés ou soldés. */
+    public List<MemberCreditEntity> listDisbursedOrSettled() {
+        return coll().find(Filters.in("status", "DISBURSED", "SETTLED"))
+                .sort(new Document("requestedAt", 1))
+                .into(new ArrayList<>());
+    }
+
     public long countSearch(UUID memberId, String status, UUID campaignId) {
         return coll().countDocuments(searchFilter(memberId, status, campaignId));
     }

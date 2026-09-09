@@ -66,6 +66,7 @@ public class MemberCreditService {
     static final String COUNTERPART_UNIT = "kg";
 
     @Inject MemberCreditRepository repo;
+    @Inject com.ntech.cabosse.producerpurchase.repository.ProducerPurchaseRepository producerPurchases;
     @Inject MemberCreditRefService refService;
     @Inject MemberRepository members;
     @Inject SectionRepository sections;
@@ -115,6 +116,73 @@ public class MemberCreditService {
 
     public MemberCreditResponseDto getById(UUID id) {
         return MemberCreditResponseDto.from(loadOrFail(id));
+    }
+
+    /**
+     * État des avances producteurs (expert, 09/09/2026) : la même lecture
+     * que l'état des délégués. Une ligne par producteur ayant reçu au
+     * moins un crédit ou une avance décaissés sur la période ; ses
+     * livraisons en valeur et les remboursements retenus en face, et le
+     * solde à la même formule : avances moins (livraisons + retenues).
+     */
+    public com.ntech.cabosse.membercredit.dto.ProducerAdvanceStatementDto
+            producerStatement(List<UUID> campaignIds) {
+        List<UUID> scope = campaignIds == null ? List.of()
+                : campaignIds.stream().filter(java.util.Objects::nonNull).distinct().toList();
+
+        // Un accumulateur par producteur : [avances, retenues, poids, livré].
+        Map<UUID, BigDecimal[]> sums = new java.util.LinkedHashMap<>();
+        Map<UUID, String[]> identity = new java.util.HashMap<>();
+        for (MemberCreditEntity c : repo.listDisbursedOrSettled()) {
+            if (!scope.isEmpty() && (c.campaignId == null || !scope.contains(c.campaignId))) {
+                continue;
+            }
+            BigDecimal[] acc = sums.computeIfAbsent(c.memberId, k -> new BigDecimal[] {
+                    BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO });
+            acc[0] = acc[0].add(nz(c.effectiveAmount()));
+            acc[1] = acc[1].add(nz(c.imputedAmount));
+            identity.putIfAbsent(c.memberId,
+                    new String[] { c.memberCode, c.memberName, c.sectionName });
+        }
+
+        // Les livraisons de la période, pour ces producteurs seulement.
+        List<com.ntech.cabosse.producerpurchase.entity.ProducerPurchaseEntity> receipts =
+                scope.isEmpty() ? producerPurchases.listAll(null)
+                        : scope.stream().flatMap(id -> producerPurchases.listAll(id).stream()).toList();
+        for (var r : receipts) {
+            BigDecimal[] acc = r.memberId != null ? sums.get(r.memberId) : null;
+            if (acc == null) continue;
+            acc[2] = acc[2].add(nz(r.weightKg));
+            acc[3] = acc[3].add(nz(r.amount));
+        }
+
+        List<com.ntech.cabosse.membercredit.dto.ProducerAdvanceStatementDto.Row> rows =
+                new java.util.ArrayList<>();
+        BigDecimal tAdv = BigDecimal.ZERO;
+        BigDecimal tRet = BigDecimal.ZERO;
+        BigDecimal tWeight = BigDecimal.ZERO;
+        BigDecimal tDelivered = BigDecimal.ZERO;
+        for (var entry : sums.entrySet()) {
+            BigDecimal[] acc = entry.getValue();
+            String[] who = identity.get(entry.getKey());
+            BigDecimal balance = acc[0].subtract(acc[3].add(acc[1]));
+            rows.add(new com.ntech.cabosse.membercredit.dto.ProducerAdvanceStatementDto.Row(
+                    entry.getKey(), who[0], who[1], who[2],
+                    acc[0], acc[1], acc[2], acc[3], balance));
+            tAdv = tAdv.add(acc[0]);
+            tRet = tRet.add(acc[1]);
+            tWeight = tWeight.add(acc[2]);
+            tDelivered = tDelivered.add(acc[3]);
+        }
+        rows.sort(java.util.Comparator.comparing(
+                com.ntech.cabosse.membercredit.dto.ProducerAdvanceStatementDto.Row::memberCode,
+                java.util.Comparator.nullsLast(String::compareToIgnoreCase)));
+
+        return new com.ntech.cabosse.membercredit.dto.ProducerAdvanceStatementDto(
+                scope, rows,
+                new com.ntech.cabosse.membercredit.dto.ProducerAdvanceStatementDto.Totals(
+                        tAdv, tRet, tWeight, tDelivered,
+                        tAdv.subtract(tDelivered.add(tRet)), rows.size()));
     }
 
     /** Ce que le producteur doit encore, engagement par engagement. */
