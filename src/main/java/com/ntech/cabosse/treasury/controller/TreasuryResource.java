@@ -62,8 +62,11 @@ public class TreasuryResource {
      * paiement reste pour l'instant dans le module d'origine.</p>
      */
     @GET
+    // Les lectures de trésorerie s'ouvrent aussi à qui tient la caisse :
+    // la file des décaissements est le poste de travail de la caissière
+    // (09/09/2026), et elle ne porte pas la lecture comptable générale.
     @Path("/payables")
-    @RequiresPermission(Permission.ACCOUNTING_READ)
+    @RequiresPermission({ Permission.ACCOUNTING_READ, Permission.TREASURY_WRITE })
     public Response payables(@QueryParam("kind") String kind,
                              @QueryParam("siteId") UUID siteId,
                              @QueryParam("page") @DefaultValue("0") int page,
@@ -81,7 +84,7 @@ public class TreasuryResource {
      */
     @GET
     @Path("/receivables")
-    @RequiresPermission(Permission.ACCOUNTING_READ)
+    @RequiresPermission({ Permission.ACCOUNTING_READ, Permission.TREASURY_WRITE })
     public Response receivables(@QueryParam("kind") String kind,
                                 @QueryParam("siteId") UUID siteId,
                                 @QueryParam("page") @DefaultValue("0") int page,
@@ -102,7 +105,7 @@ public class TreasuryResource {
      */
     @GET
     @Path("/accounts/{id}/statement")
-    @RequiresPermission(Permission.ACCOUNTING_READ)
+    @RequiresPermission({ Permission.ACCOUNTING_READ, Permission.TREASURY_WRITE })
     public Response statement(@PathParam("id") UUID id,
                               @QueryParam("from") String from,
                               @QueryParam("to") String to,
@@ -120,7 +123,7 @@ public class TreasuryResource {
     @Produces({ "text/csv",
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             "application/pdf" })
-    @RequiresPermission(Permission.ACCOUNTING_READ)
+    @RequiresPermission({ Permission.ACCOUNTING_READ, Permission.TREASURY_WRITE })
     public Response exportStatement(@PathParam("id") UUID id,
                                     @QueryParam("from") String from,
                                     @QueryParam("to") String to,
@@ -150,7 +153,7 @@ public class TreasuryResource {
      */
     @GET
     @Path("/settlements")
-    @RequiresPermission(Permission.ACCOUNTING_READ)
+    @RequiresPermission({ Permission.ACCOUNTING_READ, Permission.TREASURY_WRITE })
     public Response settlements(@QueryParam("kind") String kind,
                                 @QueryParam("from") String from,
                                 @QueryParam("to") String to,
@@ -168,7 +171,7 @@ public class TreasuryResource {
     @Produces({ "text/csv",
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             "application/pdf" })
-    @RequiresPermission(Permission.ACCOUNTING_READ)
+    @RequiresPermission({ Permission.ACCOUNTING_READ, Permission.TREASURY_WRITE })
     public Response exportSettlements(@QueryParam("kind") String kind,
                                       @QueryParam("from") String from,
                                       @QueryParam("to") String to,
