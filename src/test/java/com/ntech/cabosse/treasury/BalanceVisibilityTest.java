@@ -123,6 +123,11 @@ class BalanceVisibilityTest extends AbstractIntegrationTest {
                 .when().get("/api/v1/accounting/bank-accounts?accessibleOnly=true")
                 .then().statusCode(200).extract().jsonPath();
         assertThat(all.getList("data.id")).hasSize(3);
+
+        // La campagne du bandeau est du contexte ambiant, pas une lecture
+        // de référentiel : elle se lit sans le droit référentiel.
+        givenAs(cashier).when().get("/api/v1/campaigns/current")
+                .then().statusCode(200);
     }
 
     @Test

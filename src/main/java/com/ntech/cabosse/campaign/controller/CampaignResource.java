@@ -48,8 +48,13 @@ public class CampaignResource {
         return Response.ok(ApiResponse.ok(body)).build();
     }
 
+    // Contexte ambiant du bandeau d'en-tête, pas une lecture de
+    // référentiel : tout utilisateur authentifié du tenant voit dans
+    // quelle campagne il travaille. L'annotation vide neutralise le
+    // droit de classe (10/09/2026, profil caissière sans référentiels).
     @GET
     @Path("/current")
+    @RequiresPermission({})
     public Response current() {
         // Lecture stricte : cet appel sert l'affichage, pas le rattachement
         // par défaut d'une saisie.
