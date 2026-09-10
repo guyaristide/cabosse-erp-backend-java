@@ -102,7 +102,9 @@ public class IntakeNoteResource {
     @POST
     @Path("/{id}/accounting/preview")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
-    @RequiresPermission(Permission.COLLECTION_RECEIPT_WRITE)
+    // Le geste du comptable : l'écriture comptable suffit, sans lui
+    // ouvrir la saisie manuelle des reçus au magasin.
+    @RequiresPermission({ Permission.COLLECTION_RECEIPT_WRITE, Permission.ACCOUNTING_WRITE })
     public Response accountingPreview(@PathParam("id") UUID id,
                                       @Valid SntAccountingRequestDto request) {
         ensureCapability();
@@ -113,7 +115,9 @@ public class IntakeNoteResource {
     @POST
     @Path("/{id}/accounting/commit")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
-    @RequiresPermission(Permission.COLLECTION_RECEIPT_WRITE)
+    // Le geste du comptable : l'écriture comptable suffit, sans lui
+    // ouvrir la saisie manuelle des reçus au magasin.
+    @RequiresPermission({ Permission.COLLECTION_RECEIPT_WRITE, Permission.ACCOUNTING_WRITE })
     public Response accountingCommit(@PathParam("id") UUID id,
                                      @Valid SntAccountingRequestDto request) {
         ensureCapability();
