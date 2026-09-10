@@ -50,6 +50,7 @@ public class IntakeNoteResource {
     @Inject IntakeNoteService service;
     @Inject SntAccountingService accounting;
     @Inject IntakeNoteImportTemplate template;
+    @Inject SntAccountingTemplate accountingTemplate;
     @Inject TenantCapabilityService capabilities;
     @Inject TenantContext tenantContext;
 
@@ -85,6 +86,18 @@ public class IntakeNoteResource {
         ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
         if (format == ExportFormat.PDF) format = ExportFormat.XLSX;
         return ExportResponses.build("modele-bordereau-reception", format, template.dataset());
+    }
+
+    /** Modèle du détail de livraison par producteur (extrait SNT). */
+    @GET
+    @Path("/accounting/template")
+    @Produces({ "text/csv",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })
+    public Response accountingTemplate(@QueryParam("format") String formatRaw) {
+        ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
+        if (format == ExportFormat.PDF) format = ExportFormat.XLSX;
+        return ExportResponses.build("modele-detail-livraison", format,
+                accountingTemplate.dataset());
     }
 
     /** Le magasinier enregistre son carnet : constat, pas de stock. */
