@@ -119,6 +119,13 @@ public enum Permission {
     TREASURY_CASH_BALANCE(Domain.ACCOUNTING, "m.per-treasury-cash-balance"),
     TREASURY_BANK_BALANCE(Domain.ACCOUNTING, "m.per-treasury-bank-balance"),
     TREASURY_BALANCE_ALL(Domain.ACCOUNTING, "m.per-treasury-balance-all"),
+    /**
+     * Voir le solde net (encaissements moins décaissements) des états de
+     * trésorerie. Distinct des droits de solde par compte : un profil
+     * peut suivre les flux sans lire les positions, et inversement.
+     * Prévu pour garder d'autres indicateurs agrégés à venir.
+     */
+    TREASURY_NET_BALANCE(Domain.ACCOUNTING, "m.per-treasury-net-balance"),
 
     // ─── Conformité ─────────────────────────────────────────────────
     EUDR_READ(Domain.COMPLIANCE, "m.per-eudr-read",
