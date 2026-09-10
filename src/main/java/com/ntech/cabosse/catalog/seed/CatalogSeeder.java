@@ -168,9 +168,19 @@ public class CatalogSeeder {
     private int seedPlans() {
         int created = 0;
         for (PlanEntity e : read("/catalog/plans.json", PlanEntity.class)) {
-            if (plans.findByCode(e.code).isEmpty()) {
+            var existing = plans.findByCode(e.code);
+            if (existing.isEmpty()) {
                 plans.persist(e);
                 created++;
+            } else if (existing.get().monthlyPrice == null) {
+                // Réparation : le fichier de seed a porté d'anciens noms de
+                // champs (monthlyPriceFcfa) après le dé-marquage, et les
+                // environnements semés dans cette fenêtre ont des plans
+                // sans prix, qui faisaient tomber le catalogue (10/09/2026).
+                PlanEntity fix = existing.get();
+                fix.monthlyPrice = e.monthlyPrice;
+                fix.yearlyPrice = e.yearlyPrice;
+                plans.update(fix);
             }
         }
         return created;

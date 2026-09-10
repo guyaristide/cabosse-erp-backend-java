@@ -484,7 +484,10 @@ public class CatalogAdminResource {
     @Path("/plans")
     public Response listPlans() {
         List<PlanAdminDto> body = plans.listAll().stream()
-                .sorted(Comparator.comparing((PlanEntity p) -> p.monthlyPrice))
+                // Un prix absent ne doit pas faire tomber tout le
+                // catalogue : il se range en fin de liste.
+                .sorted(Comparator.comparing((PlanEntity p) -> p.monthlyPrice,
+                        Comparator.nullsLast(Comparator.naturalOrder())))
                 .map(p -> new PlanAdminDto(
                         p.code, p.name, p.description,
                         p.monthlyPrice, p.yearlyPrice,
