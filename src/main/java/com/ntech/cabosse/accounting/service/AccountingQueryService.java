@@ -163,6 +163,28 @@ public class AccountingQueryService {
     //  Dashboard
     // ════════════════════════════════════════════════════════════════
 
+    /**
+     * Les comptes de trésorerie accessibles au profil, soldes réels
+     * reconstruits du journal (la page de tenue des comptes, 10/09/2026).
+     * Le solde n'est jamais persisté : les à nouveau et chaque mouvement
+     * vivent au journal, qui fait foi. Tous les comptes renvoyés sont
+     * visibles par construction, le solde s'affiche donc sans masque,
+     * avec le même delta 30 jours que le dashboard.
+     */
+    public List<BankAccountResponseDto> accessibleAccounts() {
+        Map<String, AccountStats> statsAllTime = aggregateByAccount(null, null);
+        Map<String, AccountStats> stats30dAgo = aggregateByAccount(null, LocalDate.now().minusDays(30));
+        return banks.listAll().stream()
+                .filter(balanceVisibility::canSeeBalance)
+                .map(b -> {
+                    AccountStats now = statsAllTime.getOrDefault(b.syscohadaAccount, AccountStats.ZERO);
+                    AccountStats before = stats30dAgo.getOrDefault(b.syscohadaAccount, AccountStats.ZERO);
+                    return BankAccountResponseDto.from(b, now.balance(),
+                            computeDeltaPct(before.balance(), now.balance()));
+                })
+                .toList();
+    }
+
     public AccountingDashboardDto dashboard() {
         YearMonth currentMonth = YearMonth.now();
         LocalDate monthStart = currentMonth.atDay(1);

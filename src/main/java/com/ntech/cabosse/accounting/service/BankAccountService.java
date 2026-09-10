@@ -30,25 +30,9 @@ public class BankAccountService {
     @Inject ChartOfAccountsRepository chart;
     @Inject IdGenerator idGenerator;
     @Inject TenantContext tenantContext;
-    @Inject com.ntech.cabosse.treasury.service.BalanceVisibility balanceVisibility;
 
     public List<BankAccountResponseDto> listAll() {
         return repo.listAll().stream()
-                .map(e -> BankAccountResponseDto.from(e, BigDecimal.ZERO, BigDecimal.ZERO))
-                .toList();
-    }
-
-    /**
-     * Les seuls comptes auxquels le profil donne accès : droit de voir
-     * tous les soldes, droit par nature (caisses, banques), ou gestion
-     * nominative désignée sur le compte. La page de tenue des comptes ne
-     * montre pas la trésorerie des autres (demande du 10/09/2026) ; les
-     * sélecteurs de règlement, eux, gardent la liste complète, il faut
-     * pouvoir désigner où l'argent passe.
-     */
-    public List<BankAccountResponseDto> listAccessible() {
-        return repo.listAll().stream()
-                .filter(balanceVisibility::canSeeBalance)
                 .map(e -> BankAccountResponseDto.from(e, BigDecimal.ZERO, BigDecimal.ZERO))
                 .toList();
     }

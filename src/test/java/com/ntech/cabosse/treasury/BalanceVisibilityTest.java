@@ -105,11 +105,33 @@ class BalanceVisibilityTest extends AbstractIntegrationTest {
                 .body("{ \"roleIds\": [\"%s\"] }".formatted(cashierRole))
                 .when().put("/api/v1/tenant-roles/users/" + cashier.id).then().statusCode(204);
 
-        // La page de tenue des comptes : sa caisse seulement (10/09/2026).
+        // Un à nouveau d'ouverture amorce la caisse : le solde ne vit
+        // qu'au journal, la page doit pourtant l'afficher. Daté du jour :
+        // les migrations de cette classe posent les périodes comptables,
+        // une date d'il y a un an tomberait en période close.
+        givenAs(admin).contentType("application/json")
+                .body("{ \"number\": \"471000\", \"label\": \"Compte d'attente\" }")
+                .when().post("/api/v1/accounting/chart").then().statusCode(201);
+        String odId = givenAs(admin).contentType("application/json")
+                .body("""
+                        { "date": "%s", "libelle": "Solde d'ouverture de caisse",
+                          "lines": [
+                            { "account": "571000", "libelle": "Espèces en caisse", "debit": 250000 },
+                            { "account": "471000", "libelle": "Contrepartie d'amorçage", "credit": 250000 } ] }
+                        """.formatted(java.time.LocalDate.now()))
+                .when().post("/api/v1/accounting/od")
+                .then().statusCode(201).extract().path("data.id");
+        givenAs(admin).when().post("/api/v1/accounting/od/" + odId + "/validate")
+                .then().statusCode(200);
+
+        // La page de tenue des comptes : sa caisse seulement (10/09/2026),
+        // avec son solde réel reconstruit du journal, pas un zéro figé.
         JsonPath page = givenAs(cashier)
                 .when().get("/api/v1/accounting/bank-accounts?accessibleOnly=true")
                 .then().statusCode(200).extract().jsonPath();
         assertThat(page.getList("data.id")).containsExactly(ownCash);
+        assertThat(new java.math.BigDecimal(page.getString("data[0].balance")))
+                .isEqualByComparingTo("250000");
 
         // Les sélecteurs de règlement gardent la liste complète : il faut
         // pouvoir désigner où l'argent passe, y compris la banque.

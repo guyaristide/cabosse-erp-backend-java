@@ -209,11 +209,12 @@ public class AccountingResource {
             Permission.EXPENSE_WRITE })
     // `accessibleOnly` : la page de tenue des comptes ne liste que ceux
     // auxquels le profil donne accès (droit de solde ou gestion
-    // nominative) ; sans le paramètre, la liste complète des sélecteurs
+    // nominative), avec leurs soldes réels reconstruits du journal ;
+    // sans le paramètre, la liste complète et sans solde des sélecteurs
     // de règlement.
     public Response listBankAccounts(@QueryParam("accessibleOnly") boolean accessibleOnly) {
         List<BankAccountResponseDto> list = accessibleOnly
-                ? bankAccounts.listAccessible()
+                ? query.accessibleAccounts()
                 : bankAccounts.listAll();
         return Response.ok(ApiResponse.ok(list)).build();
     }
