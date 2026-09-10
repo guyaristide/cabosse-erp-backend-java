@@ -156,23 +156,37 @@ public class MemberCreditService {
             acc[3] = acc[3].add(nz(r.amount));
         }
 
+        // L'autre sens du compte : les reliquats de livraisons directes que
+        // la coopérative doit encore à ces producteurs.
+        Map<UUID, BigDecimal> owedByMember = new java.util.HashMap<>();
+        for (var r : producerPurchases.listAllUnpaid()) {
+            if (r.delegateSupplierId != null || r.memberId == null) continue;
+            if (!scope.isEmpty() && (r.campaignId == null || !scope.contains(r.campaignId))) continue;
+            BigDecimal remaining = nz(r.amount).subtract(nz(r.creditImputed)).subtract(nz(r.amountPaid));
+            if (remaining.signum() <= 0) continue;
+            owedByMember.merge(r.memberId, remaining, BigDecimal::add);
+        }
+
         List<com.ntech.cabosse.membercredit.dto.ProducerAdvanceStatementDto.Row> rows =
                 new java.util.ArrayList<>();
         BigDecimal tAdv = BigDecimal.ZERO;
         BigDecimal tRet = BigDecimal.ZERO;
         BigDecimal tWeight = BigDecimal.ZERO;
         BigDecimal tDelivered = BigDecimal.ZERO;
+        BigDecimal tOwed = BigDecimal.ZERO;
         for (var entry : sums.entrySet()) {
             BigDecimal[] acc = entry.getValue();
             String[] who = identity.get(entry.getKey());
             BigDecimal balance = acc[0].subtract(acc[3].add(acc[1]));
+            BigDecimal owed = owedByMember.getOrDefault(entry.getKey(), BigDecimal.ZERO);
             rows.add(new com.ntech.cabosse.membercredit.dto.ProducerAdvanceStatementDto.Row(
                     entry.getKey(), who[0], who[1], who[2],
-                    acc[0], acc[1], acc[2], acc[3], balance));
+                    acc[0], acc[1], acc[2], acc[3], balance, owed));
             tAdv = tAdv.add(acc[0]);
             tRet = tRet.add(acc[1]);
             tWeight = tWeight.add(acc[2]);
             tDelivered = tDelivered.add(acc[3]);
+            tOwed = tOwed.add(owed);
         }
         rows.sort(java.util.Comparator.comparing(
                 com.ntech.cabosse.membercredit.dto.ProducerAdvanceStatementDto.Row::memberCode,
@@ -182,7 +196,7 @@ public class MemberCreditService {
                 scope, rows,
                 new com.ntech.cabosse.membercredit.dto.ProducerAdvanceStatementDto.Totals(
                         tAdv, tRet, tWeight, tDelivered,
-                        tAdv.subtract(tDelivered.add(tRet)), rows.size()));
+                        tAdv.subtract(tDelivered.add(tRet)), tOwed, rows.size()));
     }
 
     /** Ce que le producteur doit encore, engagement par engagement. */

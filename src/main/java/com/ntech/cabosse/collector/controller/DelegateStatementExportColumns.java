@@ -29,6 +29,7 @@ final class DelegateStatementExportColumns {
                 ExportColumn.of(Messages.msg("m.exp-h-marge"),               DelegateStatementDto.Row::marginAmount),
                 ExportColumn.of(Messages.msg("m.imp-h-poids-kg"),            DelegateStatementDto.Row::weightKg),
                 ExportColumn.of(Messages.msg("m.exp-h-valeur-livree"),       DelegateStatementDto.Row::delivered),
-                ExportColumn.of(Messages.msg("m.exp-h-solde-avance"),        DelegateStatementDto.Row::advanceBalance));
+                ExportColumn.of(Messages.msg("m.exp-h-solde-avance"),        DelegateStatementDto.Row::advanceBalance),
+                ExportColumn.of(Messages.msg("m.exp-h-du-au-delegue"),       DelegateStatementDto.Row::owedToDelegate));
     }
 }

@@ -247,6 +247,56 @@ class AdvanceV2Test extends AbstractIntegrationTest {
     }
 
     @Test
+    void the_receipt_settles_the_same_nominative_account_as_the_disbursement() {
+        UserEntity admin = tenantAdmin();
+        givenAs(admin).contentType("application/json")
+                .body("{ \"number\": \"409103\", \"label\": \"Avances délégué Sanogo\" }")
+                .when().post("/api/v1/accounting/chart").then().statusCode(201);
+        String d = delegate(admin, "Délégué Sanogo", "409103");
+
+        String advanceId = givenAs(admin).contentType("application/json")
+                .body("""
+                        { "delegateSupplierId": "%s", "advanceDate": "%s",
+                          "advanceAmount": 1500000, "paymentMethod": "CASH" }
+                        """.formatted(d, LocalDate.now()))
+                .when().post("/api/v1/collector-advances").then().statusCode(201)
+                .extract().path("data.id");
+        givenAs(admin).when().post("/api/v1/collector-advances/" + advanceId + "/approve")
+                .then().statusCode(200);
+        givenAs(admin).when().post("/api/v1/collector-advances/" + advanceId + "/disburse")
+                .then().statusCode(200);
+
+        String siteId = givenAs(admin).contentType("application/json")
+                .body("{\"name\":\"Magasin central\",\"type\":\"CENTRAL_WAREHOUSE\",\"code\":\"MAG-"
+                        + TestFixtures.randomSlugSuffix() + "\"}")
+                .when().post("/api/v1/sites").then().statusCode(201).extract().path("data.id");
+        String articleId = givenAs(admin).contentType("application/json")
+                .body("{\"type\":\"RAW_MATERIAL\",\"name\":\"Fèves séchées\",\"unit\":\"kg\"}")
+                .when().post("/api/v1/articles").then().statusCode(201).extract().path("data.id");
+        String m = member(admin, "APUREMENT", null);
+
+        // Le reçu payé par le délégué : l'apurement et sa rémunération
+        // doivent créditer le compte nominatif du décaissement, sans
+        // quoi la balance individuelle ne se solde jamais.
+        String pieceRef = givenAs(admin).contentType("application/json")
+                .body("""
+                        { "date": "%s", "memberId": "%s", "articleId": "%s", "siteId": "%s",
+                          "weightKg": 500, "guaranteedPricePerKg": 1000,
+                          "paymentMethod": "CASH", "delegateSupplierId": "%s" }
+                        """.formatted(LocalDate.now(), m, articleId, siteId, d))
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                .when().post("/api/v1/producer-purchases").then().statusCode(201)
+                .extract().path("data.pieceRef");
+
+        givenAs(admin).when().get("/api/v1/accounting/journal?search=" + pieceRef)
+                .then().statusCode(200)
+                .body("data.items[0].entries.findAll { it.credit > 0 && it.syscohadaAccount == '409103' }.size()",
+                        equalTo(2))
+                .body("data.items[0].entries.findAll { it.syscohadaAccount == '409100' }.size()",
+                        equalTo(0));
+    }
+
+    @Test
     void a_delegate_without_an_account_falls_back_on_the_collective_one() {
         UserEntity admin = tenantAdmin();
         String d = delegate(admin, "Délégué Cissé", null);

@@ -257,6 +257,18 @@ public class DelegateAccountService {
         BigDecimal totalMargin = BigDecimal.ZERO;
         BigDecimal totalWeight = BigDecimal.ZERO;
         BigDecimal totalDelivered = BigDecimal.ZERO;
+        BigDecimal totalOwed = BigDecimal.ZERO;
+
+        // L'autre sens du compte : les reliquats de livraisons que la
+        // coopérative doit encore, groupés une fois pour tous les délégués.
+        java.util.Map<UUID, BigDecimal> owedByDelegate = new java.util.HashMap<>();
+        for (ProducerPurchaseEntity r : purchases.listAllUnpaid()) {
+            if (r.delegateSupplierId == null) continue;
+            if (!scope.isEmpty() && (r.campaignId == null || !scope.contains(r.campaignId))) continue;
+            BigDecimal remaining = nz(r.amount).subtract(nz(r.creditImputed)).subtract(nz(r.amountPaid));
+            if (remaining.signum() <= 0) continue;
+            owedByDelegate.merge(r.delegateSupplierId, remaining, BigDecimal::add);
+        }
 
         for (SupplierEntity delegate : suppliers.listAll()) {
             if (!delegate.collector) continue;
@@ -291,6 +303,7 @@ public class DelegateAccountService {
             // couvert. Positif, il doit encore ; négatif, il a livré
             // au-delà de ses avances.
             BigDecimal balance = advanced.subtract(delivered.add(retention));
+            BigDecimal owed = owedByDelegate.getOrDefault(delegate.id, BigDecimal.ZERO);
             rows.add(new com.ntech.cabosse.collector.dto.DelegateStatementDto.Row(
                     delegate.id, delegate.code, delegate.name,
                     delegate.sectionId != null
@@ -298,13 +311,14 @@ public class DelegateAccountService {
                     advanced,
                     delegate.collectorRetentionPerKg, retention,
                     resolved.isPerKg() ? resolved.rate() : null, margin,
-                    weight, delivered, balance));
+                    weight, delivered, balance, owed));
 
             totalAdvanced = totalAdvanced.add(advanced);
             totalRetention = totalRetention.add(retention);
             totalMargin = totalMargin.add(margin);
             totalWeight = totalWeight.add(weight);
             totalDelivered = totalDelivered.add(delivered);
+            totalOwed = totalOwed.add(owed);
         }
 
         rows.sort(java.util.Comparator.comparing(
@@ -317,6 +331,7 @@ public class DelegateAccountService {
                         totalAdvanced, totalRetention, totalMargin, totalWeight,
                         totalDelivered,
                         totalAdvanced.subtract(totalDelivered.add(totalRetention)),
+                        totalOwed,
                         rows.size()));
     }
 

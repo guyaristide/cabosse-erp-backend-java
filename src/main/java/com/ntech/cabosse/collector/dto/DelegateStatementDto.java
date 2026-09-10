@@ -54,7 +54,15 @@ public record DelegateStatementDto(
              * livraisons et la mise en compte ont couvert. Positif, le
              * délégué doit encore ; négatif, il a livré au-delà.
              */
-            BigDecimal advanceBalance) {}
+            BigDecimal advanceBalance,
+            /**
+             * L'autre sens (demande de l'expert, 10/09/2026) : ce que la
+             * coopérative doit au délégué, reliquats non réglés de ses
+             * livraisons. Le compte de dette, à côté du compte d'avance,
+             * pour lire la position du délégué dans un même état, sans
+             * compensation silencieuse.
+             */
+            BigDecimal owedToDelegate) {}
 
     /** Totaux de la période. Les taux ne s'additionnent pas : ils sont absents. */
     public record Totals(
@@ -64,5 +72,6 @@ public record DelegateStatementDto(
             BigDecimal weightKg,
             BigDecimal delivered,
             BigDecimal advanceBalance,
+            BigDecimal owedToDelegate,
             int delegateCount) {}
 }

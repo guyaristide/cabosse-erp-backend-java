@@ -147,6 +147,43 @@ class DelegateStatementTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void the_statement_shows_what_the_cooperative_owes_the_delegate() {
+        UserEntity admin = tenantAdmin();
+        LocalDate today = LocalDate.now();
+        String campaign = createCampaign(admin, "Principale", today.minusMonths(2), today.plusMonths(3));
+        String siteId = createSite(admin);
+        String articleId = createArticle(admin);
+        String sectionId = createSection(admin);
+        String memberId = createProducer(admin);
+        String delegateId = createDelegate(admin, "del-d", "BLE Oula", sectionId, null);
+
+        // Livraison de 300 000 dont 100 000 réglés : la coopérative doit
+        // encore 200 000 au délégué. L'état montre les deux sens du
+        // compte, sans compensation silencieuse (demande de l'expert).
+        givenAs(admin).contentType("application/json")
+                .body("{ \"producerPartialPaymentEnabled\": true }")
+                .when().put("/api/v1/me/tenant/preferences").then().statusCode(200);
+        givenAs(admin).contentType("application/json")
+                .header("Idempotency-Key", UUID.randomUUID().toString())
+                .body("""
+                        { "date": "%s", "memberId": "%s", "articleId": "%s", "siteId": "%s",
+                          "weightKg": 300, "guaranteedPricePerKg": 1000,
+                          "amountPaid": 100000,
+                          "paymentMethod": "CASH", "delegateSupplierId": "%s" }
+                        """.formatted(today, memberId, articleId, siteId, delegateId))
+                .when().post("/api/v1/producer-purchases").then().statusCode(201);
+
+        var statement = givenAs(admin)
+                .when().get("/api/v1/collector-advances/delegates/statement?campaignId=" + campaign)
+                .then().statusCode(200)
+                .extract().jsonPath();
+        assertAmount(statement, "data.rows[0].owedToDelegate", "200000");
+        assertAmount(statement, "data.totals.owedToDelegate", "200000");
+        // Le solde d'avance reste la formule de l'expert, inchangée.
+        assertAmount(statement, "data.rows[0].advanceBalance", "-300000");
+    }
+
+    @Test
     void the_statement_carries_both_rates_and_both_amounts_for_every_delegate() {
         UserEntity admin = tenantAdmin();
         LocalDate today = LocalDate.now();

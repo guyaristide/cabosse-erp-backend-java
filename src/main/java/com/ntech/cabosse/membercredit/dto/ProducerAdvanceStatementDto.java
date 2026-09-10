@@ -35,7 +35,14 @@ public record ProducerAdvanceStatementDto(
             /** Livraisons de la période, en valeur (reçus d'achat). */
             BigDecimal delivered,
             /** Avances moins (livraisons + retenues). Positif : il doit encore. */
-            BigDecimal advanceBalance) {}
+            BigDecimal advanceBalance,
+            /**
+             * L'autre sens (demande de l'expert, 10/09/2026) : ce que la
+             * coopérative doit au producteur, reliquats non réglés de ses
+             * livraisons directes. À côté du solde d'avance, pour lire la
+             * position dans un même état, sans compensation silencieuse.
+             */
+            BigDecimal owedToProducer) {}
 
     /** Totaux de la période. */
     public record Totals(
@@ -44,5 +51,6 @@ public record ProducerAdvanceStatementDto(
             BigDecimal weightKg,
             BigDecimal delivered,
             BigDecimal advanceBalance,
+            BigDecimal owedToProducer,
             int producerCount) {}
 }

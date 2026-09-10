@@ -388,10 +388,19 @@ public class ProducerPurchaseService {
         BigDecimal creditImputed = nz(e.creditImputed);
         BigDecimal margin = nz(e.delegateMargin);
 
+        // Le compte d'avance nominatif du bénéficiaire quand sa fiche en
+        // porte un, sinon le collectif : le décaissement débite ce
+        // compte-là, l'apurement doit créditer le même, sans quoi la
+        // balance individuelle demandée par l'expert ne se solde jamais.
+        String delegateAdvanceAccount = delegate != null
+                && delegate.advanceAccount != null && !delegate.advanceAccount.isBlank()
+                ? delegate.advanceAccount.trim()
+                : prefs.collectorAdvanceAccount();
+
         List<AccountingService.PurchaseLeg> credits = new java.util.ArrayList<>();
         if (delegate != null) {
             credits.add(new AccountingService.PurchaseLeg(
-                    prefs.collectorAdvanceAccount(),
+                    delegateAdvanceAccount,
                     "Apurement délégué " + delegate.name, paid));
         } else {
             credits.add(new AccountingService.PurchaseLeg(
@@ -399,8 +408,13 @@ public class ProducerPurchaseService {
                     "Règlement achat " + e.ref, paid));
         }
         if (creditImputed.signum() > 0) {
+            String memberAdvanceAccount = members.findById(e.memberId)
+                    .map(m -> m.advanceAccount)
+                    .filter(a -> a != null && !a.isBlank())
+                    .map(String::trim)
+                    .orElse(prefs.memberCreditAccount());
             credits.add(new AccountingService.PurchaseLeg(
-                    prefs.memberCreditAccount(),
+                    memberAdvanceAccount,
                     "Remboursement crédit " + e.producerName, creditImputed));
         }
         // Reliquat : la coopérative doit encore. À qui, dépend de qui a
@@ -421,7 +435,7 @@ public class ProducerPurchaseService {
             marginCharge = new AccountingService.PurchaseLeg(
                     prefs.delegateMarginAccount(), "Rémunération délégué " + delegate.name, margin);
             marginCredit = new AccountingService.PurchaseLeg(
-                    prefs.collectorAdvanceAccount(), "Rémunération délégué " + delegate.name, margin);
+                    delegateAdvanceAccount, "Rémunération délégué " + delegate.name, margin);
         }
         accounting.postFromProducerPurchase(e.id, e.ref, article.id, parseType(article.type),
                         article.name, amount, e.date, credits, marginCharge, marginCredit)

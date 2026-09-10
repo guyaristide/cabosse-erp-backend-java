@@ -20,6 +20,7 @@ final class ProducerAdvanceStatementExportColumns {
                 ExportColumn.of(Messages.msg("m.imp-h-rembourse-amount"), ProducerAdvanceStatementDto.Row::retainedAmount),
                 ExportColumn.of(Messages.msg("m.imp-h-poids-kg"),       ProducerAdvanceStatementDto.Row::weightKg),
                 ExportColumn.of(Messages.msg("m.exp-h-valeur-livree"),  ProducerAdvanceStatementDto.Row::delivered),
-                ExportColumn.of(Messages.msg("m.exp-h-solde-avance"),   ProducerAdvanceStatementDto.Row::advanceBalance));
+                ExportColumn.of(Messages.msg("m.exp-h-solde-avance"),   ProducerAdvanceStatementDto.Row::advanceBalance),
+                ExportColumn.of(Messages.msg("m.exp-h-du-au-producteur"), ProducerAdvanceStatementDto.Row::owedToProducer));
     }
 }
