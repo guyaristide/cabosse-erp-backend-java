@@ -173,9 +173,9 @@ public class CatalogSeeder {
                 plans.persist(e);
                 created++;
             } else if (existing.get().monthlyPrice == null) {
-                // Réparation : le fichier de seed a porté d'anciens noms de
-                // champs (monthlyPriceFcfa) après le dé-marquage, et les
-                // environnements semés dans cette fenêtre ont des plans
+                // Réparation : le fichier de seed a porté les anciens noms
+                // de champs suffixés par la devise après le dé-marquage, et
+                // les environnements semés dans cette fenêtre ont des plans
                 // sans prix, qui faisaient tomber le catalogue (10/09/2026).
                 PlanEntity fix = existing.get();
                 fix.monthlyPrice = e.monthlyPrice;
