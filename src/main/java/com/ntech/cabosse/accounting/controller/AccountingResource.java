@@ -207,8 +207,14 @@ public class AccountingResource {
             Permission.COLLECTION_ADVANCE_DISBURSE, Permission.MEMBER_CREDIT_DISBURSE,
             Permission.COLLECTION_PAYMENT_WRITE, Permission.SALE_PAYMENT,
             Permission.EXPENSE_WRITE })
-    public Response listBankAccounts() {
-        List<BankAccountResponseDto> list = bankAccounts.listAll();
+    // `accessibleOnly` : la page de tenue des comptes ne liste que ceux
+    // auxquels le profil donne accès (droit de solde ou gestion
+    // nominative) ; sans le paramètre, la liste complète des sélecteurs
+    // de règlement.
+    public Response listBankAccounts(@QueryParam("accessibleOnly") boolean accessibleOnly) {
+        List<BankAccountResponseDto> list = accessibleOnly
+                ? bankAccounts.listAccessible()
+                : bankAccounts.listAll();
         return Response.ok(ApiResponse.ok(list)).build();
     }
 

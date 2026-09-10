@@ -88,6 +88,44 @@ class BalanceVisibilityTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void the_accounts_page_lists_only_what_the_profile_reaches() {
+        UserEntity admin = admin();
+        UserEntity cashier = user("caisse", Roles.USER);
+
+        String bank = createAccount(admin, "Banque principale", "BANQUE", "521000", null);
+        String ownCash = createAccount(admin, "Caisse gérée", "CAISSE", "571000",
+                "\"" + cashier.id + "\"");
+        createAccount(admin, "Caisse d'un autre site", "CAISSE", "571000", null);
+
+        String cashierRole = givenAs(admin).contentType("application/json")
+                .body("{ \"name\": \"Caissière\", \"permissions\": [\"ACCOUNTING_READ\", \"TREASURY_WRITE\"] }")
+                .when().post("/api/v1/tenant-roles").then().statusCode(201)
+                .extract().path("data.id");
+        givenAs(admin).contentType("application/json")
+                .body("{ \"roleIds\": [\"%s\"] }".formatted(cashierRole))
+                .when().put("/api/v1/tenant-roles/users/" + cashier.id).then().statusCode(204);
+
+        // La page de tenue des comptes : sa caisse seulement (10/09/2026).
+        JsonPath page = givenAs(cashier)
+                .when().get("/api/v1/accounting/bank-accounts?accessibleOnly=true")
+                .then().statusCode(200).extract().jsonPath();
+        assertThat(page.getList("data.id")).containsExactly(ownCash);
+
+        // Les sélecteurs de règlement gardent la liste complète : il faut
+        // pouvoir désigner où l'argent passe, y compris la banque.
+        JsonPath pickers = givenAs(cashier)
+                .when().get("/api/v1/accounting/bank-accounts")
+                .then().statusCode(200).extract().jsonPath();
+        assertThat(pickers.getList("data.id")).contains(bank, ownCash);
+
+        // L'administrateur voit tout, même filtré : il porte le droit.
+        JsonPath all = givenAs(admin)
+                .when().get("/api/v1/accounting/bank-accounts?accessibleOnly=true")
+                .then().statusCode(200).extract().jsonPath();
+        assertThat(all.getList("data.id")).hasSize(3);
+    }
+
+    @Test
     void the_balance_shows_only_to_the_right_or_to_the_manager() {
         UserEntity admin = admin();
         UserEntity cashier = user("caisse", Roles.USER);
