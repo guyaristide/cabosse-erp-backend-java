@@ -9,6 +9,7 @@ import com.ntech.cabosse.intake.entity.IntakeNoteEntity;
 import com.ntech.cabosse.intake.repository.IntakeNoteRepository;
 import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.i18n.Messages;
+import com.ntech.cabosse.shared.imports.ImportFields;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.supplier.entity.SupplierEntity;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -18,10 +19,8 @@ import org.eclipse.microprofile.jwt.JsonWebToken;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.UUID;
 
 /**
@@ -31,8 +30,6 @@ import java.util.UUID;
  */
 @ApplicationScoped
 public class IntakeNoteService {
-
-    private static final DateTimeFormatter FR_DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     @Inject IntakeNoteRepository repo;
     @Inject CampaignRepository campaigns;
@@ -146,57 +143,18 @@ public class IntakeNoteService {
     }
 
     // ─── Normalisation des champs du fichier ───
-    // Les extraits copiés du web charrient l'espace insécable (160) et la
-    // fine (8239) : elles se traitent comme l'espace ordinaire, partout.
+    // Portée par ImportFields, partagée avec le carnet de sortie ; les
+    // signatures locales restent pour les services du paquet.
 
-    static String clean(String raw) {
-        if (raw == null) return null;
-        String s = raw.replace('\u00A0', ' ').replace('\u202F', ' ')
-                .replaceAll("[\\s\\u00A0\\u202F]+", " ").trim();
-        return s.isEmpty() ? null : s;
-    }
+    static String clean(String raw) { return ImportFields.clean(raw); }
 
-    static String normalize(String raw) {
-        String s = clean(raw);
-        return s == null ? "" : s.toLowerCase(Locale.ROOT);
-    }
+    static String normalize(String raw) { return ImportFields.normalize(raw); }
 
-    static LocalDate parseDate(String raw) {
-        String s = clean(raw);
-        if (s == null) return null;
-        try { return LocalDate.parse(s, FR_DATE); } catch (Exception ignored) { }
-        try {
-            return LocalDate.parse(s, DateTimeFormatter.ofPattern("dd-MM-yyyy"));
-        } catch (Exception ignored) { }
-        try {
-            // Année sur deux chiffres, telle qu'un classeur peut la garder.
-            return LocalDate.parse(s, DateTimeFormatter.ofPattern("dd/MM/yy"));
-        } catch (Exception ignored) { }
-        try { return LocalDate.parse(s.length() > 10 ? s.substring(0, 10) : s); }
-        catch (Exception ignored) { }
-        return null;
-    }
+    static LocalDate parseDate(String raw) { return ImportFields.parseDate(raw); }
 
-    static BigDecimal parseDecimal(String raw) {
-        String s = clean(raw);
-        if (s == null) return null;
-        try {
-            return new BigDecimal(s.replace(" ", "").replace(",", "."));
-        } catch (NumberFormatException e) {
-            return null;
-        }
-    }
+    static BigDecimal parseDecimal(String raw) { return ImportFields.parseDecimal(raw); }
 
-    static Integer parseInt(String raw) {
-        BigDecimal d = parseDecimal(raw);
-        return d == null ? null : d.intValue();
-    }
+    static Integer parseInt(String raw) { return ImportFields.parseInt(raw); }
 
-    /** Les 8 derniers chiffres d'un téléphone, comme le contrôle doublons. */
-    static String phoneKey(String raw) {
-        if (raw == null) return null;
-        String digits = raw.replaceAll("\\D", "");
-        if (digits.length() < 8) return digits.isEmpty() ? null : digits;
-        return digits.substring(digits.length() - 8);
-    }
+    static String phoneKey(String raw) { return ImportFields.phoneKey(raw); }
 }

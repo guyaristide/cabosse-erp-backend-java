@@ -52,6 +52,17 @@ public class CommoditySaleRepository {
                 .skip(skip).limit(limit).into(new ArrayList<>());
     }
 
+    /**
+     * Les ventes qui portent un N° de bordereau de sortie du carnet :
+     * la base du rapprochement des sorties magasin (épic CE-218).
+     */
+    public List<CommoditySaleEntity> listWithDispatchNumbers() {
+        return coll().find(Filters.and(
+                        Filters.exists("logistics.dispatchNoteNumber", true),
+                        Filters.ne("logistics.dispatchNoteNumber", null)))
+                .into(new ArrayList<>());
+    }
+
     /** Toutes les ventes filtrées par campagne (état de suivi des pertes, NEG-02). */
     public List<CommoditySaleEntity> listAll(UUID campaignId) {
         return coll().find(searchFilter(null, campaignId, null))
