@@ -621,20 +621,32 @@ public class AccountingService {
     public record PurchaseLeg(String account, String label, BigDecimal amount) {}
 
     /**
-     * Reçu d'achat producteur : débit du compte de charge de l'article pour
-     * le montant dû, crédité par une ou plusieurs contreparties selon qui a
-     * réglé (trésorerie, compte d'avance du délégué, dette envers le
-     * producteur si le paiement est partiel).
+     * Un règlement du compte fournisseur de la pièce d'achat : la dette
+     * (401) au débit, le compte qui la solde au crédit (avance 409,
+     * créance producteur, trésorerie), même montant et même libellé sur
+     * les deux lignes.
+     */
+    public record PurchaseSettlement(String creditAccount, String label, BigDecimal amount) {}
+
+    /**
+     * Reçu d'achat producteur, au schéma de l'expert (DEC-42, 10/09/2026) :
+     * « le 409 est soldé par le 401, et le 401 par la caisse ou la
+     * banque ». La livraison s'enregistre en totalité au crédit du compte
+     * fournisseur (débit charge / crédit 401), puis chaque règlement la
+     * solde sur la même pièce : imputation sur l'avance (débit 401 /
+     * crédit 409), retenue sur crédit producteur, ou trésorerie. Le solde
+     * du 401 qui reste est le reliquat réellement dû.
      *
      * <p>La rémunération du délégué, quand elle existe, s'ajoute en deux
-     * lignes sur la même pièce : charge de rémunération au débit, compte du
-     * délégué au crédit. Elle réduit d'autant ce qu'il doit à la
-     * coopérative.</p>
+     * lignes : charge de rémunération au débit, compte fournisseur au
+     * crédit ; son imputation sur l'avance arrive en règlement comme le
+     * reste.</p>
      */
     public Optional<JournalPieceEntity> postFromProducerPurchase(
             UUID purchaseId, String ref, UUID articleId, ArticleType articleType,
             String articleName, BigDecimal amount, LocalDate date,
-            List<PurchaseLeg> credits, PurchaseLeg marginCharge, PurchaseLeg marginCredit) {
+            PurchaseLeg payable, PurchaseLeg marginCharge,
+            List<PurchaseSettlement> settlements) {
         if (amount == null || amount.signum() <= 0) return Optional.empty();
         String chargeAccount = chargeAccountFor(articleId, articleType, new java.util.HashMap<>());
         JournalEntry charge = imputeCharge(
@@ -642,16 +654,18 @@ public class AccountingService {
                 articleId, new java.util.HashMap<>(), costCenters.byCode());
         List<JournalEntry> entries = new ArrayList<>();
         entries.add(charge);
-        for (PurchaseLeg leg : credits) {
-            if (leg == null || leg.amount() == null || leg.amount().signum() <= 0) continue;
-            entries.add(JournalEntry.credit(leg.account(), leg.label(), leg.amount()));
-        }
+        entries.add(JournalEntry.credit(payable.account(), payable.label(), amount));
         if (marginCharge != null && marginCharge.amount() != null
-                && marginCharge.amount().signum() > 0 && marginCredit != null) {
+                && marginCharge.amount().signum() > 0) {
             entries.add(JournalEntry.debit(
                     marginCharge.account(), marginCharge.label(), marginCharge.amount()));
             entries.add(JournalEntry.credit(
-                    marginCredit.account(), marginCredit.label(), marginCredit.amount()));
+                    payable.account(), marginCharge.label(), marginCharge.amount()));
+        }
+        for (PurchaseSettlement s : settlements == null ? List.<PurchaseSettlement>of() : settlements) {
+            if (s == null || s.amount() == null || s.amount().signum() <= 0) continue;
+            entries.add(JournalEntry.debit(payable.account(), s.label(), s.amount()));
+            entries.add(JournalEntry.credit(s.creditAccount(), s.label(), s.amount()));
         }
         return postPiece(new PostingRequest(
                 date != null ? date : LocalDate.now(),

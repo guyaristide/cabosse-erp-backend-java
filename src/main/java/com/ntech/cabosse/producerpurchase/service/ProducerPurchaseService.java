@@ -388,22 +388,34 @@ public class ProducerPurchaseService {
         BigDecimal creditImputed = nz(e.creditImputed);
         BigDecimal margin = nz(e.delegateMargin);
 
-        // Le compte d'avance nominatif du bénéficiaire quand sa fiche en
-        // porte un, sinon le collectif : le décaissement débite ce
-        // compte-là, l'apurement doit créditer le même, sans quoi la
-        // balance individuelle demandée par l'expert ne se solde jamais.
+        // Le schéma de l'expert (DEC-42) : la livraison passe en totalité
+        // au compte fournisseur du bénéficiaire, puis chaque règlement la
+        // solde sur la même pièce. Le compte d'avance crédité est le
+        // nominatif de la fiche quand elle en porte un, le même que le
+        // décaissement a débité, sans quoi la balance individuelle ne se
+        // solde jamais.
         String delegateAdvanceAccount = delegate != null
                 && delegate.advanceAccount != null && !delegate.advanceAccount.isBlank()
                 ? delegate.advanceAccount.trim()
                 : prefs.collectorAdvanceAccount();
+        String beneficiary = delegate != null ? delegate.name : e.producerName;
+        AccountingService.PurchaseLeg payable = new AccountingService.PurchaseLeg(
+                delegate != null ? prefs.delegatePayableAccount() : prefs.producerPayableAccount(),
+                "Livraison " + e.ref + " due à " + beneficiary, amount);
 
-        List<AccountingService.PurchaseLeg> credits = new java.util.ArrayList<>();
+        List<AccountingService.PurchaseSettlement> settlements = new java.util.ArrayList<>();
         if (delegate != null) {
-            credits.add(new AccountingService.PurchaseLeg(
-                    delegateAdvanceAccount,
-                    "Apurement délégué " + delegate.name, paid));
-        } else {
-            credits.add(new AccountingService.PurchaseLeg(
+            if (paid.signum() > 0) {
+                settlements.add(new AccountingService.PurchaseSettlement(
+                        delegateAdvanceAccount, "Apurement avance " + delegate.name, paid));
+            }
+            if (margin.signum() > 0) {
+                settlements.add(new AccountingService.PurchaseSettlement(
+                        delegateAdvanceAccount,
+                        "Rémunération imputée sur avance " + delegate.name, margin));
+            }
+        } else if (paid.signum() > 0) {
+            settlements.add(new AccountingService.PurchaseSettlement(
                     accounting.treasuryAccountFor(e.paymentMethod, e.bankAccountId),
                     "Règlement achat " + e.ref, paid));
         }
@@ -413,32 +425,20 @@ public class ProducerPurchaseService {
                     .filter(a -> a != null && !a.isBlank())
                     .map(String::trim)
                     .orElse(prefs.memberCreditAccount());
-            credits.add(new AccountingService.PurchaseLeg(
+            settlements.add(new AccountingService.PurchaseSettlement(
                     memberAdvanceAccount,
                     "Remboursement crédit " + e.producerName, creditImputed));
         }
-        // Reliquat : la coopérative doit encore. À qui, dépend de qui a
-        // apporté la matière. Le délégué a déjà payé le producteur sur son
-        // avance ; c'est lui le créancier, et c'est son compte que le
-        // règlement viendra solder.
-        BigDecimal remainder = amount.subtract(paid).subtract(creditImputed);
-        if (remainder.signum() > 0) {
-            credits.add(delegate != null
-                    ? new AccountingService.PurchaseLeg(prefs.delegatePayableAccount(),
-                            "Reliquat dû à " + delegate.name, remainder)
-                    : new AccountingService.PurchaseLeg(prefs.producerPayableAccount(),
-                            "Reliquat dû à " + e.producerName, remainder));
-        }
+        // Le solde du compte fournisseur qui reste après ces règlements est
+        // le reliquat réellement dû : aucune ligne à écrire pour lui.
+
         AccountingService.PurchaseLeg marginCharge = null;
-        AccountingService.PurchaseLeg marginCredit = null;
         if (margin.signum() > 0 && delegate != null) {
             marginCharge = new AccountingService.PurchaseLeg(
                     prefs.delegateMarginAccount(), "Rémunération délégué " + delegate.name, margin);
-            marginCredit = new AccountingService.PurchaseLeg(
-                    delegateAdvanceAccount, "Rémunération délégué " + delegate.name, margin);
         }
         accounting.postFromProducerPurchase(e.id, e.ref, article.id, parseType(article.type),
-                        article.name, amount, e.date, credits, marginCharge, marginCredit)
+                        article.name, amount, e.date, payable, marginCharge, settlements)
                 .ifPresent(piece -> e.pieceRef = piece.ref);
     }
 
