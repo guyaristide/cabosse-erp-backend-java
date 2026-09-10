@@ -51,6 +51,8 @@ public record CommoditySaleUpsertDto(
         @DecimalMax(value = "100", message = "{v.pourcentage-superieur-a-100}") BigDecimal vatRatePct
 ) {
     public record LogisticsDto(
+            @Size(max = 40) String dispatchNoteNumber,
+            @Size(max = 40) String loadingNumber,
             @Size(max = 120) String departureLocation,
             @Size(max = 120) String destination,
             @Size(max = 80) String connaissementRef,

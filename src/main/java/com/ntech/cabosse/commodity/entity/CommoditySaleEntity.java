@@ -113,6 +113,10 @@ public class CommoditySaleEntity {
 
     /** Logistique d'expédition. */
     public static class Logistics {
+        /** N° du bordereau de sortie tel que le carnet du client le porte. */
+        public String dispatchNoteNumber;
+        /** N° de chargement : chez l'exportateur, une vente est un chargement. */
+        public String loadingNumber;
         public String departureLocation;
         public String destination;
         public String connaissementRef;

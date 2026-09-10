@@ -406,6 +406,8 @@ public class CommoditySaleService {
     private static void mapLogistics(CommoditySaleEntity e, CommoditySaleUpsertDto p) {
         if (p.logistics() == null) return;
         var l = p.logistics();
+        e.logistics.dispatchNoteNumber = blankToNull(l.dispatchNoteNumber());
+        e.logistics.loadingNumber = blankToNull(l.loadingNumber());
         e.logistics.departureLocation = blankToNull(l.departureLocation());
         e.logistics.destination = blankToNull(l.destination());
         e.logistics.connaissementRef = blankToNull(l.connaissementRef());

@@ -126,6 +126,7 @@ public class CommoditySaleImportService {
                         // c'est une reprise, la sortie de stock reste à la vente.
                         null,
                         new CommoditySaleUpsertDto.LogisticsDto(
+                                blankToNull(raw.dispatchNoteNumber()), blankToNull(raw.loadingNumber()),
                                 blankToNull(raw.departureLocation()), blankToNull(raw.destination()),
                                 blankToNull(raw.connaissementRef()), blankToNull(raw.label()),
                                 blankToNull(raw.originSections())),

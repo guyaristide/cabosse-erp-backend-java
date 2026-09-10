@@ -16,7 +16,8 @@ final class CommoditySaleImportTemplate {
     private CommoditySaleImportTemplate() {}
 
     record TemplateRow(
-            String customerName, String product, String date, String campaignType,
+            String customerName, String product, String date,
+            String dispatchNoteNumber, String loadingNumber, String campaignType,
             String departureLocation, String destination, String connaissementRef,
             String label, String originSections,
             String declaredKg, String dischargedKg, String acceptedKg,
@@ -34,6 +35,8 @@ final class CommoditySaleImportTemplate {
                 ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-customer"),                TemplateRow::customerName),
                 ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-product"),                 TemplateRow::product),
                 ExportColumn.of(Messages.msg("m.imp-h-date"),                               TemplateRow::date),
+                ExportColumn.of(Messages.msg("m.imp-h-n-bs"),                               TemplateRow::dispatchNoteNumber),
+                ExportColumn.of(Messages.msg("m.imp-h-n-chargement"),                       TemplateRow::loadingNumber),
                 ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-campaign-type"),           TemplateRow::campaignType),
                 ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-departure"),               TemplateRow::departureLocation),
                 ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-destination"),             TemplateRow::destination),
@@ -73,7 +76,8 @@ final class CommoditySaleImportTemplate {
         );
         List<TemplateRow> samples = List.of(
                 new TemplateRow(
-                        "Cargill", "Cacao marchand", "2026-02-10", "Principale",
+                        "Cargill", "Cacao marchand", "2026-02-10",
+                        "5", "1", "Principale",
                         "Méagui", "Port d'Abidjan", "CONN-2026-045",
                         "RA", "Méagui, Soubré",
                         "25000", "24900", "24800",

@@ -14,6 +14,8 @@ public record CommoditySaleImportRowDto(
         String customerName,
         String productCode,
         String date,
+        String dispatchNoteNumber,
+        String loadingNumber,
         String siteId,
         String campaignId,
         String campaignType,
