@@ -24,6 +24,15 @@ public record SntPreviewDto(
         BigDecimal noteNetWeightKg,
         /** Poids net du bordereau moins la somme du fichier. */
         BigDecimal weightGapKg,
+        /** Délégué dont les avances s'apureront, s'il a été reconnu. */
+        UUID delegateSupplierId,
+        String delegateName,
+        /**
+         * Un délégué est nommé (bordereau ou fichier) mais introuvable au
+         * référentiel : la validation refusera, un reçu créé sans
+         * rattachement n'apure jamais son compte d'avances.
+         */
+        boolean delegateUnmatched,
         List<Row> rows
 ) {
     public record Row(

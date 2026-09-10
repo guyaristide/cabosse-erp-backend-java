@@ -137,6 +137,8 @@ class IntakeNoteTest extends AbstractIntegrationTest {
                 .when().post("/api/v1/intake-notes/" + noteId + "/accounting/preview")
                 .then().statusCode(200)
                 .body("data.totalRows", equalTo(2))
+                .body("data.delegateName", equalTo("KOUI IBOBE MARCELIN"))
+                .body("data.delegateUnmatched", equalTo(false))
                 .body("data.membersToCreate", equalTo(1))
                 .body("data.rows[0].memberToCreate", equalTo(false))
                 .body("data.rows[1].memberToCreate", equalTo(true));
@@ -165,5 +167,39 @@ class IntakeNoteTest extends AbstractIntegrationTest {
         givenAs(admin).contentType("application/json").body(lines)
                 .when().post("/api/v1/intake-notes/" + noteId + "/accounting/commit")
                 .then().statusCode(422);
+
+        // ─── Délégué nommé mais introuvable : la validation refuse ───
+        // Un reçu créé sans rattachement n'apurerait jamais son compte
+        // d'avances (constaté en production le 10/09/2026).
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        [ { "rowNumber": 2, "ref": "BR0300", "date": "%s",
+                            "supplierName": "BLE OULA LAURENT",
+                            "netWeightKg": "500" } ]
+                        """.formatted(today.format(
+                                java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"))))
+                .when().post("/api/v1/intake-notes/import/commit?siteId=" + siteId)
+                .then().statusCode(200).body("data.createdCount", equalTo(1));
+        String orphanId = givenAs(admin)
+                .when().get("/api/v1/intake-notes?status=TO_ACCOUNT")
+                .then().statusCode(200).extract().path("data[0].id");
+        String orphanLines = """
+                { "articleId": "%s", "siteId": "%s", "lines": [
+                  { "rowNumber": 2, "reference": "P-000-001", "date": "%s",
+                    "weightKg": "100", "amount": "280000",
+                    "producerName": "SORO ZANGA",
+                    "delegateName": "BLE OULA LAURENT" } ] }
+                """.formatted(articleId, siteId, today);
+        givenAs(admin).contentType("application/json").body(orphanLines)
+                .when().post("/api/v1/intake-notes/" + orphanId + "/accounting/preview")
+                .then().statusCode(200)
+                .body("data.delegateUnmatched", equalTo(true));
+        givenAs(admin).contentType("application/json").body(orphanLines)
+                .when().post("/api/v1/intake-notes/" + orphanId + "/accounting/commit")
+                .then().statusCode(422);
+        // Le bordereau reste à comptabiliser : rien n'a été consommé.
+        givenAs(admin).when().get("/api/v1/intake-notes/" + orphanId)
+                .then().statusCode(200)
+                .body("data.status", equalTo("TO_ACCOUNT"));
     }
 }

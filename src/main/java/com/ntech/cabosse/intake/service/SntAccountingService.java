@@ -66,6 +66,7 @@ public class SntAccountingService {
     @Inject MemberService memberService;
     @Inject ArticleRepository articles;
     @Inject CampaignRepository campaigns;
+    @Inject com.ntech.cabosse.supplier.repository.SupplierRepository suppliers;
     @Inject ProducerPurchaseService purchaseService;
     @Inject DeliveryNoteRefService deliveryNoteRefService;
     @Inject JsonWebToken jwt;
@@ -81,6 +82,10 @@ public class SntAccountingService {
             throw new BusinessException(Messages.msg("m.itk-already-accounted", note.ref));
         }
         SntPreviewDto preview = analyse(note, request);
+        if (preview.delegateUnmatched()) {
+            throw new BusinessException(Messages.msg(
+                    "m.itk-delegate-unmatched", clean(note.supplierName)));
+        }
         if (preview.rows().stream().allMatch(r -> "INVALID".equals(r.status()))) {
             throw new BusinessException(Messages.msg("m.itk-nothing-to-account"));
         }
@@ -108,9 +113,10 @@ public class SntAccountingService {
                     memberId = createMember(row, note);
                     createdMembers++;
                 }
-                String deliveryRef = note.delegateSupplierId == null ? null
+                UUID saleDelegate = preview.delegateSupplierId();
+                String deliveryRef = saleDelegate == null ? null
                         : deliveryRefs.computeIfAbsent(
-                                note.delegateSupplierId + "|" + row.date(),
+                                saleDelegate + "|" + row.date(),
                                 k -> deliveryNoteRefService.next());
                 var created = purchaseService.create(new ProducerPurchaseUpsertDto(
                         row.date(),
@@ -134,7 +140,7 @@ public class SntAccountingService {
                         null,
                         null,
                         null,
-                        note.delegateSupplierId,
+                        saleDelegate,
                         deliveryRef,
                         null));
                 refs.add(created.ref());
@@ -170,6 +176,41 @@ public class SntAccountingService {
                 ? campaigns.findById(note.campaignId)
                         .map((CampaignEntity c) -> c.basePricePerKg).orElse(null)
                 : null;
+
+        // Le délégué : celui du bordereau s'il a été reconnu à l'import,
+        // sinon celui que le fichier de traçabilité nomme (téléphone
+        // d'abord, nom ensuite). Nommé mais introuvable, la validation
+        // refusera : un reçu sans rattachement n'apure jamais un compte
+        // d'avances (constaté en production le 10/09/2026).
+        java.util.List<com.ntech.cabosse.supplier.entity.SupplierEntity> collectors =
+                suppliers.listAll().stream().filter(su -> su.collector).toList();
+        UUID delegateId = note.delegateSupplierId;
+        String namedDelegate = clean(note.supplierName);
+        if (delegateId == null && request.lines() != null) {
+            for (SntLineDto raw : request.lines()) {
+                String phone = phoneKey(raw.delegatePhone());
+                String name = clean(raw.delegateName());
+                if (namedDelegate == null && name != null) namedDelegate = name;
+                if (phone != null) {
+                    var hit = collectors.stream()
+                            .filter(su -> phone.equals(phoneKey(su.phone)))
+                            .toList();
+                    if (hit.size() == 1) { delegateId = hit.get(0).id; break; }
+                }
+                if (name != null) {
+                    String wanted = normalize(name);
+                    var hit = collectors.stream()
+                            .filter(su -> su.name != null && normalize(su.name).equals(wanted))
+                            .toList();
+                    if (hit.size() == 1) { delegateId = hit.get(0).id; break; }
+                }
+            }
+        }
+        boolean delegateUnmatched = delegateId == null && namedDelegate != null;
+        final UUID resolvedDelegateId = delegateId;
+        String delegateName = resolvedDelegateId == null ? null
+                : collectors.stream().filter(su -> su.id.equals(resolvedDelegateId))
+                        .map(su -> su.name).findFirst().orElse(null);
 
         // Index des membres : téléphone d'abord (8 derniers chiffres),
         // nom normalisé ensuite. Un téléphone partagé par deux fiches ne
@@ -271,7 +312,8 @@ public class SntAccountingService {
         BigDecimal gap = note.netWeightKg != null
                 ? note.netWeightKg.subtract(totalWeight) : null;
         return new SntPreviewDto(rows.size(), ready, warning, invalid, toCreate,
-                totalWeight, totalAmount, note.netWeightKg, gap, rows);
+                totalWeight, totalAmount, note.netWeightKg, gap,
+                resolvedDelegateId, delegateName, delegateUnmatched, rows);
     }
 
     /** Ouvre la fiche du producteur inconnu, rattachée à la section du bordereau. */
