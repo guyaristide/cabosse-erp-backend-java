@@ -288,17 +288,41 @@ public class ProducerPurchaseService {
                     Messages.msg("m.ppu-receipt-duplicate-race", officialReceipt));
         }
 
-        // 1) Imputation du compte courant du délégué. Le reçu et sa
-        //    rémunération réduisent tous deux ce qu'il doit. L'avance la
-        //    plus ancienne encore ouverte porte l'écriture ; son solde
-        //    peut devenir négatif, c'est le sens même du compte courant.
-        BigDecimal imputed = amount.add(margin);
-        CollectorAdvanceEntity advance = delegate != null
-                ? advances.oldestOpenForDelegate(delegate.id).orElse(null) : null;
-        if (advance != null) {
-            advances.impute(advance.id, imputed);
-            e.collectorAdvanceId = advance.id;
+        // 1) Imputation des avances du délégué, BORNÉE par leur solde
+        //    (visuel expert du 11/09/2026) : le reçu et sa rémunération
+        //    consomment les avances ouvertes de la plus ancienne à la
+        //    plus récente, jamais au-delà. L'excédent d'une livraison
+        //    reste dû au compte fournisseur et se règle par la
+        //    trésorerie, pas par un compte d'avance créditeur.
+        record TakenAdvance(java.util.UUID advanceId, BigDecimal taken) {}
+        // La part retenue sur les crédits du producteur ne passe pas par
+        // l'avance : seul le reste de la livraison, plus la rémunération,
+        // peut s'y imputer.
+        BigDecimal toClear = amount.subtract(creditImputed).max(BigDecimal.ZERO).add(margin);
+        List<TakenAdvance> takes = new java.util.ArrayList<>();
+        BigDecimal clearedTotal = BigDecimal.ZERO;
+        if (delegate != null) {
+            for (CollectorAdvanceEntity adv : advances.listOpenByDelegate(delegate.id)) {
+                if (clearedTotal.compareTo(toClear) >= 0) break;
+                BigDecimal got = advances.takeUpTo(adv.id, toClear.subtract(clearedTotal));
+                if (got.signum() > 0) {
+                    takes.add(new TakenAdvance(adv.id, got));
+                    clearedTotal = clearedTotal.add(got);
+                    if (e.collectorAdvanceId == null) e.collectorAdvanceId = adv.id;
+                }
+            }
+            // La rémunération s'impute après la livraison : ce que le
+            // plafond laisse passer va d'abord à la matière.
+            BigDecimal clearedAmount = clearedTotal.min(
+                    amount.subtract(creditImputed).max(BigDecimal.ZERO));
+            e.amountPaid = clearedAmount;
+            e.marginImputed = clearedTotal.subtract(clearedAmount);
         }
+        Runnable undoTakes = () -> {
+            for (TakenAdvance take : takes) {
+                advances.creditBack(take.advanceId(), take.taken());
+            }
+        };
 
         // 1 bis) Retenues sur les crédits : décrément atomique par
         //    engagement, avant l'écriture, pour qu'un solde insuffisant
@@ -313,7 +337,7 @@ public class ProducerPurchaseService {
             for (int i = 0; i < imputedCredits.size(); i++) {
                 memberCredits.creditBack(imputedCredits.get(i).id, imputations.get(i).amount());
             }
-            if (advance != null) advances.creditBack(advance.id, imputed);
+            undoTakes.run();
             repo.deleteById(e.id);
             throw ex;
         }
@@ -330,7 +354,7 @@ public class ProducerPurchaseService {
                 postPurchaseAccounting(e, prefs, article, delegate);
                 e.accountingStatus = "POSTED";
             } catch (RuntimeException ex) {
-                if (advance != null) advances.creditBack(advance.id, imputed);
+                undoTakes.run();
                 for (int i = 0; i < imputedCredits.size(); i++) {
                     memberCredits.creditBack(imputedCredits.get(i).id, imputations.get(i).amount());
                 }
@@ -381,6 +405,15 @@ public class ProducerPurchaseService {
      * un seul chemin d'écriture pour que les deux modes rendent la même
      * pièce.
      */
+    /** Le compte de créance du producteur : nominatif de la fiche, sinon le collectif. */
+    private String memberAdvanceAccountFor(ProducerPurchaseEntity e, TenantPreferences prefs) {
+        return members.findById(e.memberId)
+                .map(m -> m.advanceAccount)
+                .filter(a -> a != null && !a.isBlank())
+                .map(String::trim)
+                .orElse(prefs.memberCreditAccount());
+    }
+
     private void postPurchaseAccounting(ProducerPurchaseEntity e, TenantPreferences prefs,
                                         ArticleEntity article, SupplierEntity delegate) {
         BigDecimal amount = nz(e.amount);
@@ -403,34 +436,64 @@ public class ProducerPurchaseService {
                 delegate != null ? prefs.delegatePayableAccount() : prefs.producerPayableAccount(),
                 "Livraison " + e.ref + " due à " + beneficiary, amount);
 
-        List<AccountingService.PurchaseSettlement> settlements = new java.util.ArrayList<>();
+        List<AccountingService.SettlementLine> settlements = new java.util.ArrayList<>();
         if (delegate != null) {
+            // Visuel expert du 11/09/2026 : le débit du 401 porte la
+            // livraison ; l'apurement du 409 est borné par les avances
+            // (cas 2), et l'excédent reste au crédit du 401 (cas 1),
+            // dû au délégué, réglé plus tard par la trésorerie.
+            BigDecimal clearedAmount = nz(e.amountPaid);
+            BigDecimal clearedMargin = nz(e.marginImputed);
+            BigDecimal excess = amount.subtract(clearedAmount).subtract(creditImputed);
+            if (clearedAmount.signum() > 0 || clearedMargin.signum() > 0
+                    || creditImputed.signum() > 0) {
+                settlements.add(new AccountingService.SettlementLine(true,
+                        payable.account(), "Livraison " + e.ref, amount));
+                if (clearedAmount.signum() > 0) {
+                    settlements.add(new AccountingService.SettlementLine(false,
+                            delegateAdvanceAccount,
+                            "Apurement avance " + delegate.name, clearedAmount));
+                }
+                if (creditImputed.signum() > 0) {
+                    settlements.add(new AccountingService.SettlementLine(false,
+                            memberAdvanceAccountFor(e, prefs),
+                            "Remboursement crédit " + e.producerName, creditImputed));
+                }
+                if (excess.signum() > 0) {
+                    settlements.add(new AccountingService.SettlementLine(false,
+                            payable.account(),
+                            "Reliquat dû à " + delegate.name
+                                    + " au-delà des avances", excess));
+                }
+                if (clearedMargin.signum() > 0) {
+                    settlements.add(new AccountingService.SettlementLine(true,
+                            payable.account(),
+                            "Rémunération imputée sur avance " + delegate.name,
+                            clearedMargin));
+                    settlements.add(new AccountingService.SettlementLine(false,
+                            delegateAdvanceAccount,
+                            "Rémunération imputée sur avance " + delegate.name,
+                            clearedMargin));
+                }
+            }
+        } else {
             if (paid.signum() > 0) {
-                settlements.add(new AccountingService.PurchaseSettlement(
-                        delegateAdvanceAccount, "Apurement avance " + delegate.name, paid));
+                String treasury = accounting.treasuryAccountFor(e.paymentMethod, e.bankAccountId);
+                settlements.add(new AccountingService.SettlementLine(true,
+                        payable.account(), "Règlement achat " + e.ref, paid));
+                settlements.add(new AccountingService.SettlementLine(false,
+                        treasury, "Règlement achat " + e.ref, paid));
             }
-            if (margin.signum() > 0) {
-                settlements.add(new AccountingService.PurchaseSettlement(
-                        delegateAdvanceAccount,
-                        "Rémunération imputée sur avance " + delegate.name, margin));
+            if (creditImputed.signum() > 0) {
+                settlements.add(new AccountingService.SettlementLine(true,
+                        payable.account(), "Remboursement crédit " + e.producerName, creditImputed));
+                settlements.add(new AccountingService.SettlementLine(false,
+                        memberAdvanceAccountFor(e, prefs),
+                        "Remboursement crédit " + e.producerName, creditImputed));
             }
-        } else if (paid.signum() > 0) {
-            settlements.add(new AccountingService.PurchaseSettlement(
-                    accounting.treasuryAccountFor(e.paymentMethod, e.bankAccountId),
-                    "Règlement achat " + e.ref, paid));
         }
-        if (creditImputed.signum() > 0) {
-            String memberAdvanceAccount = members.findById(e.memberId)
-                    .map(m -> m.advanceAccount)
-                    .filter(a -> a != null && !a.isBlank())
-                    .map(String::trim)
-                    .orElse(prefs.memberCreditAccount());
-            settlements.add(new AccountingService.PurchaseSettlement(
-                    memberAdvanceAccount,
-                    "Remboursement crédit " + e.producerName, creditImputed));
-        }
-        // Le solde du compte fournisseur qui reste après ces règlements est
-        // le reliquat réellement dû : aucune ligne à écrire pour lui.
+        // Le solde du compte fournisseur qui reste après la pièce de
+        // solde est le reliquat réellement dû, visible à l'échéancier.
 
         AccountingService.PurchaseLeg marginCharge = null;
         if (margin.signum() > 0 && delegate != null) {
@@ -783,9 +846,14 @@ public class ProducerPurchaseService {
             }
         }
 
-        // 2. Avance du délégué : le montant imputé lui revient.
+        // 2. Avance du délégué : ce qui a réellement été imputé lui
+        //    revient, borné comme à la prise (visuel expert du
+        //    11/09/2026). Les reçus antérieurs au plafond n'ont pas de
+        //    trace de plafond : pour eux, la totalité, comme avant.
         if (e.collectorAdvanceId != null) {
-            BigDecimal imputed = nz(e.amount).add(nz(e.delegateMargin));
+            BigDecimal imputed = e.marginImputed != null
+                    ? nz(e.amountPaid).add(e.marginImputed)
+                    : nz(e.amount).add(nz(e.delegateMargin));
             advances.creditBack(e.collectorAdvanceId, imputed);
             c.advanceCreditedBack = imputed;
         }

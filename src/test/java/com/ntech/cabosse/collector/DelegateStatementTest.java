@@ -157,18 +157,15 @@ class DelegateStatementTest extends AbstractIntegrationTest {
         String memberId = createProducer(admin);
         String delegateId = createDelegate(admin, "del-d", "BLE Oula", sectionId, null);
 
-        // Livraison de 300 000 dont 100 000 réglés : la coopérative doit
-        // encore 200 000 au délégué. L'état montre les deux sens du
-        // compte, sans compensation silencieuse (demande de l'expert).
-        givenAs(admin).contentType("application/json")
-                .body("{ \"producerPartialPaymentEnabled\": true }")
-                .when().put("/api/v1/me/tenant/preferences").then().statusCode(200);
+        // Livraison de 300 000 sans aucune avance : rien à apurer, la
+        // coopérative doit tout au délégué (visuel expert du 11/09/2026,
+        // l'apurement est borné par les avances). L'état montre les deux
+        // sens du compte, sans compensation silencieuse.
         givenAs(admin).contentType("application/json")
                 .header("Idempotency-Key", UUID.randomUUID().toString())
                 .body("""
                         { "date": "%s", "memberId": "%s", "articleId": "%s", "siteId": "%s",
                           "weightKg": 300, "guaranteedPricePerKg": 1000,
-                          "amountPaid": 100000,
                           "paymentMethod": "CASH", "delegateSupplierId": "%s" }
                         """.formatted(today, memberId, articleId, siteId, delegateId))
                 .when().post("/api/v1/producer-purchases").then().statusCode(201);
@@ -177,8 +174,8 @@ class DelegateStatementTest extends AbstractIntegrationTest {
                 .when().get("/api/v1/collector-advances/delegates/statement?campaignId=" + campaign)
                 .then().statusCode(200)
                 .extract().jsonPath();
-        assertAmount(statement, "data.rows[0].owedToDelegate", "200000");
-        assertAmount(statement, "data.totals.owedToDelegate", "200000");
+        assertAmount(statement, "data.rows[0].owedToDelegate", "300000");
+        assertAmount(statement, "data.totals.owedToDelegate", "300000");
         // Le solde d'avance reste la formule de l'expert, inchangée.
         assertAmount(statement, "data.rows[0].advanceBalance", "-300000");
     }

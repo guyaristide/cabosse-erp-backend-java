@@ -163,13 +163,20 @@ class CollectorAdvanceTest extends AbstractIntegrationTest {
         givenAs(admin).when().get("/api/v1/accounting/journal")
                 .then().statusCode(200).body("data.total", equalTo(4));
 
-        // Livraison qui dépasse ce qu'il a reçu : acceptée, son solde
-        // devient créditeur. La coopérative lui doit alors la différence,
-        // qui se compensera au versement suivant.
+        // Livraison qui dépasse ce qu'il a reçu : acceptée, mais
+        // l'apurement est borné par l'avance (visuel expert du
+        // 11/09/2026). Le compte d'avance se solde à zéro, jamais
+        // créditeur ; la différence reste due au compte fournisseur et
+        // attend son règlement à l'échéancier.
         buyFromProducer(admin, delegateId, memberId, articleId, siteId, 200, 1500);
         givenAs(admin).when().get("/api/v1/collector-advances/" + advanceId)
                 .then().statusCode(200)
-                .body("data.remaining", equalTo(-50000));
+                .body("data.remaining", equalTo(0))
+                .body("data.consumedAmount", equalTo(1000000));
+        givenAs(admin).when()
+                .get("/api/v1/producer-payments/outstanding?delegateSupplierId=" + delegateId)
+                .then().statusCode(200)
+                .body("data.beneficiaries[0].remaining", equalTo(50000));
 
         // Le compte courant du délégué dit la même chose, tous versements
         // et tous bordereaux confondus.

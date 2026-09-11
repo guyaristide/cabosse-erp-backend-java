@@ -621,27 +621,31 @@ public class AccountingService {
     public record PurchaseLeg(String account, String label, BigDecimal amount) {}
 
     /**
-     * Un règlement du compte fournisseur de la pièce d'achat : la dette
-     * (401) au débit, le compte qui la solde au crédit (avance 409,
-     * créance producteur, trésorerie), même montant et même libellé sur
-     * les deux lignes.
+     * Une ligne de la pièce de solde du reçu, côté imposé par l'appelant :
+     * le visuel de l'expert (11/09/2026) ventile le débit du compte
+     * fournisseur en apurement d'avance borné, retenue sur crédit,
+     * trésorerie, et reliquat laissé au crédit du même compte quand la
+     * livraison dépasse les avances.
      */
-    public record PurchaseSettlement(String creditAccount, String label, BigDecimal amount) {}
+    public record SettlementLine(boolean debit, String account, String label, BigDecimal amount) {}
 
     /**
-     * Reçu d'achat producteur, au schéma de l'expert (DEC-42, complété
-     * par son visuel du 11/09/2026) : deux pièces distinctes, émises
-     * ensemble à la comptabilisation, dans l'ordre du visuel.
+     * Reçu d'achat producteur, au schéma de l'expert (DEC-42, visuels des
+     * 11/09/2026) : deux pièces distinctes, émises ensemble à la
+     * comptabilisation, dans l'ordre des visuels.
      *
-     * <p><strong>Pièce N1, le solde du fournisseur</strong> : débit 401 /
-     * crédit du compte qui règle, imputation sur l'avance (409), retenue
-     * sur crédit producteur, ou trésorerie pour un achat direct. Le solde
-     * du 401 qui reste après elle est le reliquat réellement dû.</p>
+     * <p><strong>Pièce N1, le solde du fournisseur</strong> : le débit du
+     * 401 porte la livraison ; en face, l'apurement de l'avance (409)
+     * <em>borné par son solde</em>, la retenue sur crédit producteur, la
+     * trésorerie pour un achat direct, et, quand la livraison dépasse les
+     * avances (cas 1 du visuel), le reliquat laissé au crédit du 401
+     * lui-même : la coopérative le doit encore, il se règle par la
+     * trésorerie.</p>
      *
      * <p><strong>Pièce N2, l'achat</strong> : débit charge (601/602 selon
      * la nature, ou le compte de la fiche article) / crédit 401 en
      * totalité. La rémunération du délégué, quand elle existe, s'y ajoute
-     * (charge de rémunération au débit, 401 au crédit) et son imputation
+     * (charge de rémunération au débit, 401 au crédit) et sa part imputée
      * sur l'avance vit dans la pièce N1 comme le reste.</p>
      *
      * @return la pièce d'achat, portée en référence par le reçu
@@ -650,15 +654,16 @@ public class AccountingService {
             UUID purchaseId, String ref, UUID articleId, ArticleType articleType,
             String articleName, BigDecimal amount, LocalDate date,
             PurchaseLeg payable, PurchaseLeg marginCharge,
-            List<PurchaseSettlement> settlements) {
+            List<SettlementLine> settlements) {
         if (amount == null || amount.signum() <= 0) return Optional.empty();
         LocalDate pieceDate = date != null ? date : LocalDate.now();
 
         List<JournalEntry> settlementEntries = new ArrayList<>();
-        for (PurchaseSettlement s : settlements == null ? List.<PurchaseSettlement>of() : settlements) {
+        for (SettlementLine s : settlements == null ? List.<SettlementLine>of() : settlements) {
             if (s == null || s.amount() == null || s.amount().signum() <= 0) continue;
-            settlementEntries.add(JournalEntry.debit(payable.account(), s.label(), s.amount()));
-            settlementEntries.add(JournalEntry.credit(s.creditAccount(), s.label(), s.amount()));
+            settlementEntries.add(s.debit()
+                    ? JournalEntry.debit(s.account(), s.label(), s.amount())
+                    : JournalEntry.credit(s.account(), s.label(), s.amount()));
         }
         if (!settlementEntries.isEmpty()) {
             postPiece(new PostingRequest(

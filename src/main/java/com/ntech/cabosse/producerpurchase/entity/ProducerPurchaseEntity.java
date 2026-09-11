@@ -114,6 +114,14 @@ public class ProducerPurchaseEntity {
     public BigDecimal delegateMargin;
 
     /**
+     * Part de la rémunération réellement imputée sur les avances du
+     * délégué à la création du reçu (visuel expert du 11/09/2026 :
+     * l'apurement est borné par le solde des avances). Nulle sur les
+     * reçus antérieurs au plafond ou sans délégué.
+     */
+    public BigDecimal marginImputed;
+
+    /**
      * Mise en compte retenue au délégué sur cette livraison, en FCFA.
      *
      * <p>Figée au reçu, comme la marge et la catégorie : le taux se

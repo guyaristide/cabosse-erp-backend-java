@@ -174,6 +174,37 @@ public class CollectorAdvanceRepository {
     }
 
     /**
+     * Prend sur l'avance au plus {@code want}, borné par son solde
+     * restant (visuel de l'expert du 11/09/2026 : l'apurement ne dépasse
+     * jamais l'avance, l'excédent d'une livraison reste dû au compte
+     * fournisseur). CAS sur la version lue : pas de read-modify-replace,
+     * une course se rejoue.
+     *
+     * @return le montant réellement pris, possiblement zéro
+     */
+    public BigDecimal takeUpTo(UUID id, BigDecimal want) {
+        if (want == null || want.signum() <= 0) return BigDecimal.ZERO;
+        for (int attempt = 0; attempt < 5; attempt++) {
+            CollectorAdvanceEntity a = coll().find(Filters.eq("_id", id)).first();
+            if (a == null) return BigDecimal.ZERO;
+            BigDecimal remaining = a.remaining != null ? a.remaining : BigDecimal.ZERO;
+            BigDecimal take = want.min(remaining.max(BigDecimal.ZERO));
+            if (take.signum() <= 0) return BigDecimal.ZERO;
+            var result = coll().updateOne(
+                    Filters.and(Filters.eq("_id", id),
+                            Filters.eq("status", "OPEN"),
+                            Filters.eq("version", a.version)),
+                    Updates.combine(
+                            Updates.inc("remaining", take.negate()),
+                            Updates.inc("consumedAmount", take),
+                            Updates.inc("version", 1L),
+                            Updates.set("updatedAt", Instant.now())));
+            if (result.getModifiedCount() > 0) return take;
+        }
+        return BigDecimal.ZERO;
+    }
+
+    /**
      * Compensation d'une imputation (recrédit) après échec d'une étape
      * ultérieure du reçu. Best-effort, non conditionné au statut.
      */
