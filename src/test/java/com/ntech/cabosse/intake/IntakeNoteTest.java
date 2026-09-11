@@ -213,6 +213,59 @@ class IntakeNoteTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void a_commit_where_every_row_fails_reopens_the_note_and_says_why() {
+        UserEntity admin = admin();
+        LocalDate today = LocalDate.now();
+        String frDate = today.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+        String siteId = givenAs(admin).contentType("application/json")
+                .body("{\"name\":\"Magasin central\",\"type\":\"TRANSFORMATION\",\"code\":\"MAG-"
+                        + TestFixtures.randomSlugSuffix() + "\"}")
+                .when().post("/api/v1/sites").then().statusCode(201).extract().path("data.id");
+        String articleId = givenAs(admin).contentType("application/json")
+                .body("{\"type\":\"RAW_MATERIAL\",\"name\":\"Fèves séchées\",\"unit\":\"kg\"}")
+                .when().post("/api/v1/articles").then().statusCode(201).extract().path("data.id");
+        givenAs(admin).contentType("application/json")
+                .body("{\"lastName\":\"SORO ZANGA\",\"gender\":\"MALE\",\"status\":\"ACTIVE\","
+                        + "\"phone\":\"+2250154536699\"}")
+                .when().post("/api/v1/members").then().statusCode(201);
+
+        // Deux bordereaux, et le même extrait SNT rejoué sur les deux :
+        // le cas constaté chez l'expert le 11/09/2026.
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        [ { "rowNumber": 2, "ref": "BR0261", "date": "%s", "netWeightKg": "305" },
+                          { "rowNumber": 3, "ref": "BR0262", "date": "%s", "netWeightKg": "305" } ]
+                        """.formatted(frDate, frDate))
+                .when().post("/api/v1/intake-notes/import/commit?siteId=" + siteId)
+                .then().statusCode(200).body("data.createdCount", equalTo(2));
+        String first = givenAs(admin).when().get("/api/v1/intake-notes")
+                .then().extract().path("data.find { it.ref == 'BR0261' }.id");
+        String second = givenAs(admin).when().get("/api/v1/intake-notes")
+                .then().extract().path("data.find { it.ref == 'BR0262' }.id");
+
+        String lines = """
+                { "articleId": "%s", "siteId": "%s", "lines": [
+                  { "rowNumber": 2, "reference": "P-900-001", "date": "%s",
+                    "weightKg": "305", "amount": "854000",
+                    "producerName": "SORO ZANGA", "producerPhone": "0154536699" } ] }
+                """.formatted(articleId, siteId, today);
+
+        givenAs(admin).contentType("application/json").body(lines)
+                .when().post("/api/v1/intake-notes/" + first + "/accounting/commit")
+                .then().statusCode(200).body("data.createdReceipts", equalTo(1));
+
+        // Le reçu officiel P-900-001 existe déjà : chaque ligne échoue.
+        // « Comptabilisé sans aucun reçu » serait un mensonge : le
+        // bordereau revient à comptabiliser et la raison remonte.
+        givenAs(admin).contentType("application/json").body(lines)
+                .when().post("/api/v1/intake-notes/" + second + "/accounting/commit")
+                .then().statusCode(422);
+        givenAs(admin).when().get("/api/v1/intake-notes/" + second)
+                .then().statusCode(200)
+                .body("data.status", equalTo("TO_ACCOUNT"));
+    }
+
+    @Test
     void the_keeper_corrects_or_deletes_a_note_before_accounting() {
         UserEntity admin = admin();
         LocalDate today = LocalDate.now();

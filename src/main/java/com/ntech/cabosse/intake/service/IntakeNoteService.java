@@ -149,6 +149,13 @@ public class IntakeNoteService {
      */
     public void delete(UUID id) {
         IntakeNoteEntity e = loadOrFail(id);
+        // Un bordereau « comptabilisé » sans aucun reçu est la trace du
+        // défaut corrigé le 11/09/2026 (toutes les lignes écartées en
+        // silence) : il se rouvre et s'efface comme un constat.
+        if (IntakeNoteEntity.STATUS_ACCOUNTED.equals(e.status)
+                && (e.receiptRefs == null || e.receiptRefs.isEmpty())) {
+            repo.reopenAccounting(id);
+        }
         if (!repo.deleteIfToAccount(id)) {
             throw new com.ntech.cabosse.shared.exception.BusinessException(
                     Messages.msg("m.itk-note-accounted-locked", e.ref));

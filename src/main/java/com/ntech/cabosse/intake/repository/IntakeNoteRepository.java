@@ -100,6 +100,24 @@ public class IntakeNoteRepository {
         return result.getModifiedCount() > 0;
     }
 
+    /**
+     * Rouvre un bordereau dont la comptabilisation n'a produit aucun
+     * reçu : la réservation est rendue, le comptable corrige et rejoue.
+     */
+    public void reopenAccounting(UUID id) {
+        coll().updateOne(
+                Filters.and(Filters.eq("_id", id),
+                        Filters.eq("status", IntakeNoteEntity.STATUS_ACCOUNTED)),
+                Updates.combine(
+                        Updates.set("status", IntakeNoteEntity.STATUS_TO_ACCOUNT),
+                        Updates.unset("accountedAt"),
+                        Updates.unset("accountedByEmail"),
+                        Updates.unset("accountedWeightKg"),
+                        Updates.unset("accountedAmount"),
+                        Updates.unset("receiptRefs"),
+                        Updates.set("updatedAt", Instant.now())));
+    }
+
     /** Pose les totaux et les références une fois les reçus créés. */
     public void finishAccounting(UUID id, BigDecimal weightKg, BigDecimal amount,
                                  List<String> receiptRefs) {

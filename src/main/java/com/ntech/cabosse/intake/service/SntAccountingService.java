@@ -157,6 +157,19 @@ public class SntAccountingService {
             }
         }
 
+        // Aucune ligne passée : « comptabilisé » serait un mensonge et le
+        // comptable ne verrait qu'un état inchangé (constaté le
+        // 11/09/2026 : le même extrait SNT rejoué sur plusieurs
+        // bordereaux, chaque reçu officiel refusé en doublon). Le
+        // bordereau est rendu à comptabiliser et la première raison
+        // remonte en clair.
+        if (refs.isEmpty()) {
+            intakeRepo.reopenAccounting(note.id);
+            String reason = skipped.isEmpty() || skipped.get(0).issues().isEmpty()
+                    ? "" : skipped.get(0).issues().get(0);
+            throw new BusinessException(Messages.msg("m.itk-commit-all-skipped", reason));
+        }
+
         intakeRepo.finishAccounting(note.id, totalWeight, totalAmount, refs);
         BigDecimal gap = note.netWeightKg != null
                 ? note.netWeightKg.subtract(totalWeight) : null;
