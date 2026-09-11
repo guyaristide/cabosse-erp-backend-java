@@ -158,8 +158,10 @@ class CollectorAdvanceTest extends AbstractIntegrationTest {
                 .body("data.consumedAmount", equalTo(750000))
                 .body("data.remaining", equalTo(250000));
 
+        // Le reçu émet deux pièces (visuel expert du 11/09/2026) : le
+        // solde du fournisseur par l'avance, puis l'achat.
         givenAs(admin).when().get("/api/v1/accounting/journal")
-                .then().statusCode(200).body("data.total", equalTo(3));
+                .then().statusCode(200).body("data.total", equalTo(4));
 
         // Livraison qui dépasse ce qu'il a reçu : acceptée, son solde
         // devient créditeur. La coopérative lui doit alors la différence,

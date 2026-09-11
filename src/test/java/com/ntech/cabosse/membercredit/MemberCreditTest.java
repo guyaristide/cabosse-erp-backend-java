@@ -225,8 +225,11 @@ class MemberCreditTest extends AbstractIntegrationTest {
                 .body("data.imputations[0].amount", equalTo(30000))
                 .body("data.imputedAmount", equalTo(30000));
 
-        // L'écriture porte la contrepartie sur le compte de créance.
-        givenAs(admin).when().get("/api/v1/accounting/journal")
+        // La contrepartie sur le compte de créance vit dans la pièce de
+        // solde du reçu, jumelle de la pièce d'achat (visuel expert du
+        // 11/09/2026).
+        givenAs(admin).when()
+                .get("/api/v1/accounting/journal?sourceType=PRODUCER_PURCHASE_SETTLEMENT")
                 .then().statusCode(200)
                 .body("data.items[0].entries.syscohadaAccount", hasItem("409200"));
     }

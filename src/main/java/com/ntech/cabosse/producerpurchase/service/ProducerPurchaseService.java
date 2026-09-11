@@ -807,9 +807,13 @@ public class ProducerPurchaseService {
         if (restored.signum() > 0) c.creditRestored = restored;
 
         // 4. Comptabilité : contre-passation idempotente, no-op si la pièce
-        //    d'origine était partie en quarantaine.
+        //    d'origine était partie en quarantaine. Les deux pièces du
+        //    reçu (achat, puis solde du fournisseur) se contre-passent
+        //    chacune.
         accounting.reverseFrom(PostingSourceType.PRODUCER_PURCHASE, e.id, c.reason)
                 .ifPresent(piece -> c.reversalPieceRef = piece.ref);
+        accounting.reverseFrom(
+                PostingSourceType.PRODUCER_PURCHASE_SETTLEMENT, e.id, c.reason);
 
         e.status = ProducerPurchaseStatus.CANCELLED;
         e.cancellation = c;

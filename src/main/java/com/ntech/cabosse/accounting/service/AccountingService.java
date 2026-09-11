@@ -629,18 +629,22 @@ public class AccountingService {
     public record PurchaseSettlement(String creditAccount, String label, BigDecimal amount) {}
 
     /**
-     * Reçu d'achat producteur, au schéma de l'expert (DEC-42, 10/09/2026) :
-     * « le 409 est soldé par le 401, et le 401 par la caisse ou la
-     * banque ». La livraison s'enregistre en totalité au crédit du compte
-     * fournisseur (débit charge / crédit 401), puis chaque règlement la
-     * solde sur la même pièce : imputation sur l'avance (débit 401 /
-     * crédit 409), retenue sur crédit producteur, ou trésorerie. Le solde
-     * du 401 qui reste est le reliquat réellement dû.
+     * Reçu d'achat producteur, au schéma de l'expert (DEC-42, complété
+     * par son visuel du 11/09/2026) : deux pièces distinctes, émises
+     * ensemble à la comptabilisation, dans l'ordre du visuel.
      *
-     * <p>La rémunération du délégué, quand elle existe, s'ajoute en deux
-     * lignes : charge de rémunération au débit, compte fournisseur au
-     * crédit ; son imputation sur l'avance arrive en règlement comme le
-     * reste.</p>
+     * <p><strong>Pièce N1, le solde du fournisseur</strong> : débit 401 /
+     * crédit du compte qui règle, imputation sur l'avance (409), retenue
+     * sur crédit producteur, ou trésorerie pour un achat direct. Le solde
+     * du 401 qui reste après elle est le reliquat réellement dû.</p>
+     *
+     * <p><strong>Pièce N2, l'achat</strong> : débit charge (601/602 selon
+     * la nature, ou le compte de la fiche article) / crédit 401 en
+     * totalité. La rémunération du délégué, quand elle existe, s'y ajoute
+     * (charge de rémunération au débit, 401 au crédit) et son imputation
+     * sur l'avance vit dans la pièce N1 comme le reste.</p>
+     *
+     * @return la pièce d'achat, portée en référence par le reçu
      */
     public Optional<JournalPieceEntity> postFromProducerPurchase(
             UUID purchaseId, String ref, UUID articleId, ArticleType articleType,
@@ -648,6 +652,21 @@ public class AccountingService {
             PurchaseLeg payable, PurchaseLeg marginCharge,
             List<PurchaseSettlement> settlements) {
         if (amount == null || amount.signum() <= 0) return Optional.empty();
+        LocalDate pieceDate = date != null ? date : LocalDate.now();
+
+        List<JournalEntry> settlementEntries = new ArrayList<>();
+        for (PurchaseSettlement s : settlements == null ? List.<PurchaseSettlement>of() : settlements) {
+            if (s == null || s.amount() == null || s.amount().signum() <= 0) continue;
+            settlementEntries.add(JournalEntry.debit(payable.account(), s.label(), s.amount()));
+            settlementEntries.add(JournalEntry.credit(s.creditAccount(), s.label(), s.amount()));
+        }
+        if (!settlementEntries.isEmpty()) {
+            postPiece(new PostingRequest(
+                    pieceDate,
+                    PostingSourceType.PRODUCER_PURCHASE_SETTLEMENT, purchaseId, ref,
+                    "Solde livraison " + ref, settlementEntries));
+        }
+
         String chargeAccount = chargeAccountFor(articleId, articleType, new java.util.HashMap<>());
         JournalEntry charge = imputeCharge(
                 JournalEntry.debit(chargeAccount, "Achat producteur " + nullSafe(articleName), amount),
@@ -662,13 +681,8 @@ public class AccountingService {
             entries.add(JournalEntry.credit(
                     payable.account(), marginCharge.label(), marginCharge.amount()));
         }
-        for (PurchaseSettlement s : settlements == null ? List.<PurchaseSettlement>of() : settlements) {
-            if (s == null || s.amount() == null || s.amount().signum() <= 0) continue;
-            entries.add(JournalEntry.debit(payable.account(), s.label(), s.amount()));
-            entries.add(JournalEntry.credit(s.creditAccount(), s.label(), s.amount()));
-        }
         return postPiece(new PostingRequest(
-                date != null ? date : LocalDate.now(),
+                pieceDate,
                 PostingSourceType.PRODUCER_PURCHASE, purchaseId, ref,
                 "Achat producteur " + ref, entries));
     }
@@ -885,6 +899,8 @@ public class AccountingService {
             case COLLECTOR_ADVANCE -> PostingSourceType.COLLECTOR_ADVANCE_REVERSAL;
             case DIRECT_EXPENSE -> PostingSourceType.DIRECT_EXPENSE_REVERSAL;
             case PRODUCER_PURCHASE -> PostingSourceType.PRODUCER_PURCHASE_REVERSAL;
+            case PRODUCER_PURCHASE_SETTLEMENT ->
+                    PostingSourceType.PRODUCER_PURCHASE_SETTLEMENT_REVERSAL;
             default -> throw new BusinessException(
                     Messages.msg("m.acc-piece-already-reversed", t));
         };

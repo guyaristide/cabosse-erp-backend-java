@@ -275,10 +275,11 @@ class AdvanceV2Test extends AbstractIntegrationTest {
                 .when().post("/api/v1/articles").then().statusCode(201).extract().path("data.id");
         String m = member(admin, "APUREMENT", null);
 
-        // Le reçu payé par le délégué : l'apurement et sa rémunération
-        // doivent créditer le compte nominatif du décaissement, sans
+        // Le reçu payé par le délégué : deux pièces distinctes (visuel
+        // expert du 11/09/2026). La pièce de solde crédite le compte
+        // nominatif du décaissement, apurement et rémunération, sans
         // quoi la balance individuelle ne se solde jamais.
-        String pieceRef = givenAs(admin).contentType("application/json")
+        givenAs(admin).contentType("application/json")
                 .body("""
                         { "date": "%s", "memberId": "%s", "articleId": "%s", "siteId": "%s",
                           "weightKg": 500, "guaranteedPricePerKg": 1000,
@@ -286,13 +287,20 @@ class AdvanceV2Test extends AbstractIntegrationTest {
                         """.formatted(LocalDate.now(), m, articleId, siteId, d))
                 .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                 .when().post("/api/v1/producer-purchases").then().statusCode(201)
-                .extract().path("data.pieceRef");
+                .body("data.pieceRef", notNullValue());
 
-        givenAs(admin).when().get("/api/v1/accounting/journal?search=" + pieceRef)
+        givenAs(admin).when()
+                .get("/api/v1/accounting/journal?sourceType=PRODUCER_PURCHASE_SETTLEMENT")
                 .then().statusCode(200)
                 .body("data.items[0].entries.findAll { it.credit > 0 && it.syscohadaAccount == '409103' }.size()",
                         equalTo(2))
                 .body("data.items[0].entries.findAll { it.syscohadaAccount == '409100' }.size()",
+                        equalTo(0));
+        // La pièce d'achat, elle, porte la charge et le compte fournisseur.
+        givenAs(admin).when()
+                .get("/api/v1/accounting/journal?sourceType=PRODUCER_PURCHASE")
+                .then().statusCode(200)
+                .body("data.items[0].entries.findAll { it.syscohadaAccount == '409103' }.size()",
                         equalTo(0));
     }
 

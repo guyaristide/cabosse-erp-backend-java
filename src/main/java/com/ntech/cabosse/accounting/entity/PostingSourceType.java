@@ -89,6 +89,14 @@ public enum PostingSourceType {
 
     /** Contre-passation d'un reçu d'achat producteur annulé. */
     PRODUCER_PURCHASE_REVERSAL,
+    /**
+     * Pièce jumelle du reçu (visuel expert du 11/09/2026) : le solde du
+     * compte fournisseur par l'avance, la retenue sur crédit ou la
+     * trésorerie, émise séparément de la pièce d'achat.
+     */
+    PRODUCER_PURCHASE_SETTLEMENT,
+    /** Contre-passation de la pièce de solde d'un reçu annulé. */
+    PRODUCER_PURCHASE_SETTLEMENT_REVERSAL,
     /** Vente de matière première en gros ou à l'export. */
     COMMODITY_SALE,
     /** Règlement versé à un fournisseur au titre de ses livraisons. */
