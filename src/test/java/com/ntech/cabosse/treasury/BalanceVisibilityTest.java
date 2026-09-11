@@ -147,8 +147,12 @@ class BalanceVisibilityTest extends AbstractIntegrationTest {
         assertThat(all.getList("data.id")).hasSize(3);
 
         // La campagne du bandeau est du contexte ambiant, pas une lecture
-        // de référentiel : elle se lit sans le droit référentiel.
+        // de référentiel : elle se lit sans le droit référentiel. Le site
+        // de travail non plus, sans quoi le sélecteur de la barre du haut
+        // resterait invisible (11/09/2026, un magasinier sans site).
         givenAs(cashier).when().get("/api/v1/campaigns/current")
+                .then().statusCode(200);
+        givenAs(cashier).when().get("/api/v1/sites")
                 .then().statusCode(200);
     }
 

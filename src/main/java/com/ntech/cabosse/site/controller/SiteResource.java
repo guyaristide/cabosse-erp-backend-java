@@ -52,7 +52,13 @@ public class SiteResource {
     @Inject SiteImportService importService;
     @Inject ExportAudit exportAudit;
 
+    // Le site est le contexte de travail de chacun, pas une lecture de
+    // référentiel : le sélecteur de la barre du haut doit s'afficher pour
+    // tout utilisateur du tenant, magasinier ou caissière compris.
+    // L'annotation vide neutralise le droit porté par la classe
+    // (11/09/2026, un magasinier sans sélecteur de site).
     @GET
+    @RequiresPermission({})
     public Response list(@QueryParam("type") String typeRaw) {
         SiteType type = parseType(typeRaw);
         return Response.ok(ApiResponse.ok(service.list(type))).build();
