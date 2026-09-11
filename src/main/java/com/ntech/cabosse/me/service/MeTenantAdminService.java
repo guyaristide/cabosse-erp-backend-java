@@ -38,6 +38,7 @@ public class MeTenantAdminService {
     @Inject AuditService audit;
     @Inject TenantContext tenantContext;
     @Inject JsonWebToken jwt;
+    @Inject com.ntech.cabosse.site.repository.SiteRepository sites;
 
     private String currentActor() {
         try { return jwt.getName(); } catch (Exception e) { return null; }
@@ -52,6 +53,45 @@ public class MeTenantAdminService {
      *       TENANT_ADMIN actifs (au moins un doit rester).</li>
      * </ul>
      */
+    /**
+     * Attribue ses sites de travail à un utilisateur (backlog ADM-02).
+     *
+     * <p>Liste vide : tous les sites de la structure, le réglage de
+     * départ. C'est un confort de travail, pas une barrière : le
+     * sélecteur de site s'y borne et l'intéressé atterrit sur le sien,
+     * les écrans restent lisibles à l'échelle de la structure.</p>
+     *
+     * <p>Un site inconnu de la structure est refusé : une liste qui
+     * garderait un identifiant mort masquerait un site sans que
+     * personne ne comprenne pourquoi.</p>
+     */
+    @Transactional
+    public TenantUserSummaryDto assignSites(UUID tenantId, UUID userId, java.util.List<UUID> siteIds) {
+        UserEntity target = users.findById(userId);
+        if (target == null || !tenantId.equals(target.tenantId)) {
+            throw new NotFoundException(Messages.msg("m.tnt-user-not-found"));
+        }
+        java.util.List<UUID> wanted = siteIds == null ? java.util.List.of()
+                : siteIds.stream().filter(java.util.Objects::nonNull).distinct().toList();
+        for (UUID siteId : wanted) {
+            if (sites.findById(siteId).isEmpty()) {
+                throw new BusinessException(Messages.msg("m.tnt-site-unknown", siteId));
+            }
+        }
+        target.allowedSiteIds = new java.util.ArrayList<>(wanted);
+        target.updatedAt = java.time.Instant.now();
+        users.update(target);
+        audit.event(AuditEventType.USER_ROLES_CHANGED)
+                .actorEmail(currentActor())
+                .target("user", target.id.toString(), target.email)
+                .tenant(tenantId, null)
+                .description(wanted.isEmpty()
+                        ? "Sites de travail de " + target.email + " : tous"
+                        : "Sites de travail de " + target.email + " : " + wanted.size())
+                .record();
+        return summary(target);
+    }
+
     @Transactional
     public TenantUserSummaryDto setActive(UUID tenantId, UUID userId, boolean active) {
         UserEntity target = users.findById(userId);
@@ -111,7 +151,8 @@ public class MeTenantAdminService {
                 u.id, u.email, u.firstName, u.lastName, u.phone,
                 u.roles != null ? Set.copyOf(u.roles) : Set.of(),
                 u.status, u.createdAt, u.lastLoginAt, u.invitationExpiresAt,
-                u.tenantRoleIds != null ? java.util.List.copyOf(u.tenantRoleIds) : java.util.List.of()
+                u.tenantRoleIds != null ? java.util.List.copyOf(u.tenantRoleIds) : java.util.List.of(),
+                u.allowedSiteIds != null ? java.util.List.copyOf(u.allowedSiteIds) : java.util.List.of()
         );
     }
 }

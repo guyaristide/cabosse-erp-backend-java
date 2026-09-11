@@ -371,7 +371,8 @@ public class TenantUserService {
                 u.createdAt,
                 u.lastLoginAt,
                 u.invitationExpiresAt,
-                u.tenantRoleIds != null ? java.util.List.copyOf(u.tenantRoleIds) : java.util.List.of()
+                u.tenantRoleIds != null ? java.util.List.copyOf(u.tenantRoleIds) : java.util.List.of(),
+                u.allowedSiteIds != null ? java.util.List.copyOf(u.allowedSiteIds) : java.util.List.of()
         );
     }
 }

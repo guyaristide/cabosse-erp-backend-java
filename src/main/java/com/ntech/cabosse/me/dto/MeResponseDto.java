@@ -56,6 +56,15 @@ public record MeResponseDto(
                 example = "[\"COLLECTION_RECEIPT_WRITE\", \"STOCK_READ\"]")
         List<String> permissions,
 
+        /**
+         * Sites de travail de l'utilisateur (backlog ADM-02). Liste vide :
+         * tous les sites de la structure, le réglage de départ. Elle borne
+         * le sélecteur de site, elle ne restreint pas les écrans.
+         */
+        @Schema(description = "Identifiants des sites de travail, vide pour tous",
+                example = "[\"01a0...\"]")
+        List<UUID> allowedSiteIds,
+
         Instant lastLoginAt
 ) {
 }

@@ -20,6 +20,7 @@ import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.PATCH;
 import jakarta.ws.rs.POST;
+import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
@@ -141,6 +142,21 @@ public class MeTenantAdminResource {
     public Response resetPassword(@PathParam("userId") UUID userId) {
         userService.resetPassword(tenantContext.tenantId(), userId);
         return Response.noContent().build();
+    }
+
+    /**
+     * Attribue ses sites de travail à un utilisateur. Liste vide : tous
+     * les sites, le réglage de départ.
+     */
+    @PUT
+    @RequiresPermission(Permission.USER_MANAGE)
+    @Path("/users/{userId}/sites")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    public Response assignSites(@PathParam("userId") UUID userId,
+                                com.ntech.cabosse.me.dto.AssignUserSitesPayloadDto payload) {
+        return Response.ok(ApiResponse.ok(adminService.assignSites(
+                tenantContext.tenantId(), userId,
+                payload != null ? payload.siteIds() : null))).build();
     }
 
     @PATCH

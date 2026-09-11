@@ -77,6 +77,7 @@ public class MeService {
                 logoUrl,
                 capsDto,
                 permsDto,
+                user.allowedSiteIds != null ? List.copyOf(user.allowedSiteIds) : List.of(),
                 user.lastLoginAt
         );
     }

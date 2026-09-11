@@ -63,6 +63,18 @@ public class UserEntity extends PanacheMongoEntityBase {
      */
     public java.util.List<UUID> tenantRoleIds = new java.util.ArrayList<>();
 
+    /**
+     * Sites de travail de l'utilisateur (backlog ADM-02). Vide : tous les
+     * sites de la structure, ce qui reste le cas courant. Renseignée, la
+     * liste borne le sélecteur de site : le magasinier d'un magasin
+     * atterrit sur le sien sans avoir à le chercher.
+     *
+     * <p>C'est un confort de travail, pas une barrière : les écrans
+     * restent lisibles à l'échelle de la structure, et une restriction
+     * réelle demanderait de contrôler chaque opération côté serveur.</p>
+     */
+    public java.util.List<UUID> allowedSiteIds = new java.util.ArrayList<>();
+
     public UserStatus status;
 
     /**

@@ -33,5 +33,12 @@ public record TenantUserSummaryDto(
          * administrateur, qui détient tout d'office.
          */
         @Schema(description = "Identifiants des profils attribués")
-        java.util.List<UUID> tenantRoleIds
+        java.util.List<UUID> tenantRoleIds,
+
+        /**
+         * Sites de travail de l'utilisateur (backlog ADM-02). Vide : tous
+         * les sites de la structure.
+         */
+        @Schema(description = "Identifiants des sites de travail, vide pour tous")
+        java.util.List<UUID> allowedSiteIds
 ) {}
