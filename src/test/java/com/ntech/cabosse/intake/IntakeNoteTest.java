@@ -291,16 +291,20 @@ class IntakeNoteTest extends AbstractIntegrationTest {
                 .then().statusCode(200)
                 .extract().path("data.find { it.ref == 'BR0258' }.id");
 
-        // Correction d'un clic : le poids net redevient celui du carnet.
+        // Correction d'un clic : le poids net redevient celui du carnet,
+        // et le magasin d'entrée se règle ici, au magasin, pas à la
+        // comptabilisation (11/09/2026).
         givenAs(admin).contentType("application/json")
                 .body("""
                         { "date": "%s", "supplierName": "KOUI IBOBE MARCELIN",
+                          "siteId": "%s",
                           "grossWeightKg": 2594, "bagCount": 39, "netWeightKg": 2555 }
-                        """.formatted(today))
+                        """.formatted(today, siteId))
                 .when().put("/api/v1/intake-notes/" + noteId)
                 .then().statusCode(200)
                 .body("data.netWeightKg", equalTo(2555))
-                .body("data.bagCount", equalTo(39));
+                .body("data.bagCount", equalTo(39))
+                .body("data.siteId", equalTo(siteId));
 
         // Annulation de saisie : le constat s'efface, rien n'a bougé.
         givenAs(admin).when().delete("/api/v1/intake-notes/" + otherId)

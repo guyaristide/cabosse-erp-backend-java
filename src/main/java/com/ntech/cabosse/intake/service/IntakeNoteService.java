@@ -136,6 +136,7 @@ public class IntakeNoteService {
         values.grossWeightKg = p.grossWeightKg();
         values.bagCount = p.bagCount();
         values.netWeightKg = p.netWeightKg();
+        values.siteId = p.siteId() != null ? p.siteId() : e.siteId;
         if (!repo.correct(id, values)) {
             throw new com.ntech.cabosse.shared.exception.BusinessException(
                     Messages.msg("m.itk-note-accounted-locked", e.ref));

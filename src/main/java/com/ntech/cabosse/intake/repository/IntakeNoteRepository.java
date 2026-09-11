@@ -62,6 +62,7 @@ public class IntakeNoteRepository {
                         Updates.set("grossWeightKg", values.grossWeightKg),
                         Updates.set("bagCount", values.bagCount),
                         Updates.set("netWeightKg", values.netWeightKg),
+                        Updates.set("siteId", values.siteId),
                         Updates.set("updatedAt", Instant.now())));
         return result.getModifiedCount() > 0;
     }

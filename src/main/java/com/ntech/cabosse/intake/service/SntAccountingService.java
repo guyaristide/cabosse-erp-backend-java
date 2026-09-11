@@ -124,7 +124,11 @@ public class SntAccountingService {
                         null,
                         memberId,
                         request.articleId(),
-                        request.siteId() != null ? request.siteId() : note.siteId,
+                        // Le site vient du bordereau : c'est le magasin qui
+                        // sait où la matière est entrée, pas la comptabilité
+                        // (11/09/2026). Le paramètre ne sert plus que de
+                        // repli pour les bordereaux importés sans site.
+                        note.siteId != null ? note.siteId : request.siteId(),
                         note.campaignId,
                         note.truckNumber,
                         null,
