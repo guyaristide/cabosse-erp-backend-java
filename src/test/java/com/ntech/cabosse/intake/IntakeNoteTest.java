@@ -168,6 +168,15 @@ class IntakeNoteTest extends AbstractIntegrationTest {
                 .when().post("/api/v1/intake-notes/" + noteId + "/accounting/commit")
                 .then().statusCode(422);
 
+        // Comptabilisé, le bordereau ne se corrige ni ne se supprime :
+        // ses reçus et son écart sont figés.
+        givenAs(admin).contentType("application/json")
+                .body("{ \"date\": \"%s\", \"netWeightKg\": 2555 }".formatted(today))
+                .when().put("/api/v1/intake-notes/" + noteId)
+                .then().statusCode(422);
+        givenAs(admin).when().delete("/api/v1/intake-notes/" + noteId)
+                .then().statusCode(422);
+
         // ─── Délégué nommé mais introuvable : la validation refuse ───
         // Un reçu créé sans rattachement n'apurerait jamais son compte
         // d'avances (constaté en production le 10/09/2026).
@@ -201,5 +210,49 @@ class IntakeNoteTest extends AbstractIntegrationTest {
         givenAs(admin).when().get("/api/v1/intake-notes/" + orphanId)
                 .then().statusCode(200)
                 .body("data.status", equalTo("TO_ACCOUNT"));
+    }
+
+    @Test
+    void the_keeper_corrects_or_deletes_a_note_before_accounting() {
+        UserEntity admin = admin();
+        LocalDate today = LocalDate.now();
+        String frDate = today.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+        String siteId = givenAs(admin).contentType("application/json")
+                .body("{\"name\":\"Magasin central\",\"type\":\"TRANSFORMATION\",\"code\":\"MAG-"
+                        + TestFixtures.randomSlugSuffix() + "\"}")
+                .when().post("/api/v1/sites").then().statusCode(201).extract().path("data.id");
+
+        // Le cas pratique de l'expert (11/09/2026) : 12 555 saisis au
+        // lieu de 2 555 sur deux bordereaux.
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        [ { "rowNumber": 2, "ref": "BR0257", "date": "%s", "netWeightKg": "12555" },
+                          { "rowNumber": 3, "ref": "BR0258", "date": "%s", "netWeightKg": "12555" } ]
+                        """.formatted(frDate, frDate))
+                .when().post("/api/v1/intake-notes/import/commit?siteId=" + siteId)
+                .then().statusCode(200).body("data.createdCount", equalTo(2));
+        String noteId = givenAs(admin).when().get("/api/v1/intake-notes")
+                .then().statusCode(200)
+                .extract().path("data.find { it.ref == 'BR0257' }.id");
+        String otherId = givenAs(admin).when().get("/api/v1/intake-notes")
+                .then().statusCode(200)
+                .extract().path("data.find { it.ref == 'BR0258' }.id");
+
+        // Correction d'un clic : le poids net redevient celui du carnet.
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "date": "%s", "supplierName": "KOUI IBOBE MARCELIN",
+                          "grossWeightKg": 2594, "bagCount": 39, "netWeightKg": 2555 }
+                        """.formatted(today))
+                .when().put("/api/v1/intake-notes/" + noteId)
+                .then().statusCode(200)
+                .body("data.netWeightKg", equalTo(2555))
+                .body("data.bagCount", equalTo(39));
+
+        // Annulation de saisie : le constat s'efface, rien n'a bougé.
+        givenAs(admin).when().delete("/api/v1/intake-notes/" + otherId)
+                .then().statusCode(204);
+        givenAs(admin).when().get("/api/v1/intake-notes")
+                .then().statusCode(200).body("data", hasSize(1));
     }
 }

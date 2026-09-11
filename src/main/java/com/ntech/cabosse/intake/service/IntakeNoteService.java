@@ -114,6 +114,47 @@ public class IntakeNoteService {
         return new IntakeImportResultDto(created, skipped, rejected);
     }
 
+    /**
+     * Correction d'un bordereau encore à comptabiliser (demande expert
+     * du 11/09/2026) : le magasinier rattrape une erreur de saisie avant
+     * que le comptable ne constate un faux écart. Le fournisseur corrigé
+     * est rapproché à nouveau du référentiel des délégués. Un bordereau
+     * comptabilisé ne bouge plus.
+     */
+    public IntakeNoteDto correct(UUID id, com.ntech.cabosse.intake.dto.IntakeNoteCorrectionDto p) {
+        IntakeNoteEntity e = loadOrFail(id);
+        if (!IntakeNoteEntity.STATUS_TO_ACCOUNT.equals(e.status)) {
+            throw new com.ntech.cabosse.shared.exception.BusinessException(
+                    Messages.msg("m.itk-note-accounted-locked", e.ref));
+        }
+        List<SupplierEntity> collectors = suppliers.listAll().stream()
+                .filter(s -> s.collector).toList();
+        IntakeNoteEntity values = new IntakeNoteEntity();
+        values.date = p.date();
+        values.supplierName = clean(p.supplierName());
+        values.delegateSupplierId = matchDelegate(e.supplierCode, values.supplierName, collectors);
+        values.grossWeightKg = p.grossWeightKg();
+        values.bagCount = p.bagCount();
+        values.netWeightKg = p.netWeightKg();
+        if (!repo.correct(id, values)) {
+            throw new com.ntech.cabosse.shared.exception.BusinessException(
+                    Messages.msg("m.itk-note-accounted-locked", e.ref));
+        }
+        return getById(id);
+    }
+
+    /**
+     * Suppression d'un bordereau encore à comptabiliser : le constat n'a
+     * rien écrit, l'effacer permet de réimporter la ligne corrigée.
+     */
+    public void delete(UUID id) {
+        IntakeNoteEntity e = loadOrFail(id);
+        if (!repo.deleteIfToAccount(id)) {
+            throw new com.ntech.cabosse.shared.exception.BusinessException(
+                    Messages.msg("m.itk-note-accounted-locked", e.ref));
+        }
+    }
+
     private UUID matchCampaign(String label, List<CampaignEntity> all) {
         if (label == null) return null;
         String wanted = normalize(label);

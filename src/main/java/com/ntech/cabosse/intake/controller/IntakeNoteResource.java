@@ -20,6 +20,8 @@ import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DELETE;
+import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -98,6 +100,32 @@ public class IntakeNoteResource {
         if (format == ExportFormat.PDF) format = ExportFormat.XLSX;
         return ExportResponses.build("modele-detail-livraison", format,
                 accountingTemplate.dataset());
+    }
+
+    /**
+     * Correction d'un bordereau encore à comptabiliser : le magasinier
+     * rattrape une erreur de saisie avant le comptable. Comptabilisé,
+     * le bordereau ne bouge plus.
+     */
+    @PUT
+    @Path("/{id}")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    @RequiresPermission({ Permission.STOCK_MOVE, Permission.COLLECTION_RECEIPT_WRITE })
+    public Response correct(@PathParam("id") UUID id,
+                            @Valid com.ntech.cabosse.intake.dto.IntakeNoteCorrectionDto p) {
+        ensureCapability();
+        return Response.ok(ApiResponse.ok(service.correct(id, p))).build();
+    }
+
+    /** Suppression d'un bordereau encore à comptabiliser (constat sans effet). */
+    @DELETE
+    @Path("/{id}")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    @RequiresPermission({ Permission.STOCK_MOVE, Permission.COLLECTION_RECEIPT_WRITE })
+    public Response delete(@PathParam("id") UUID id) {
+        ensureCapability();
+        service.delete(id);
+        return Response.noContent().build();
     }
 
     /** Le magasinier enregistre son carnet : constat, pas de stock. */

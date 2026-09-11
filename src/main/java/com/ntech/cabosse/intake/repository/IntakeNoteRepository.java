@@ -46,6 +46,40 @@ public class IntakeNoteRepository {
     public void insert(IntakeNoteEntity e) { coll().insertOne(e); }
 
     /**
+     * Corrige un bordereau, conditionné au statut : un bordereau déjà
+     * comptabilisé a figé son écart et créé ses reçus, il ne bouge plus.
+     *
+     * @return {@code true} si la correction a été appliquée
+     */
+    public boolean correct(UUID id, IntakeNoteEntity values) {
+        var result = coll().updateOne(
+                Filters.and(Filters.eq("_id", id),
+                        Filters.eq("status", IntakeNoteEntity.STATUS_TO_ACCOUNT)),
+                Updates.combine(
+                        Updates.set("date", values.date),
+                        Updates.set("supplierName", values.supplierName),
+                        Updates.set("delegateSupplierId", values.delegateSupplierId),
+                        Updates.set("grossWeightKg", values.grossWeightKg),
+                        Updates.set("bagCount", values.bagCount),
+                        Updates.set("netWeightKg", values.netWeightKg),
+                        Updates.set("updatedAt", Instant.now())));
+        return result.getModifiedCount() > 0;
+    }
+
+    /**
+     * Supprime un bordereau, conditionné au statut : le constat n'a rien
+     * écrit, l'effacer avant comptabilisation est sans effet de bord.
+     *
+     * @return {@code true} si la suppression a eu lieu
+     */
+    public boolean deleteIfToAccount(UUID id) {
+        return coll().deleteOne(
+                Filters.and(Filters.eq("_id", id),
+                        Filters.eq("status", IntakeNoteEntity.STATUS_TO_ACCOUNT)))
+                .getDeletedCount() > 0;
+    }
+
+    /**
      * Réserve la comptabilisation, conditionnée au statut : deux
      * comptabilisations concurrentes ne doivent pas créer deux fois les
      * reçus. La bascule a lieu <em>avant</em> la création — un échec en
