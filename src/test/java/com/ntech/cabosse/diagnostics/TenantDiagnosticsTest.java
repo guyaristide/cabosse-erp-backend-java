@@ -38,6 +38,7 @@ class TenantDiagnosticsTest extends AbstractIntegrationTest {
 
     @Inject PasswordHasher passwordHasher;
     @Inject IdGenerator idGenerator;
+    @Inject com.mongodb.client.MongoClient mongo;
 
     private TenantEntity tenant;
 
@@ -163,6 +164,35 @@ class TenantDiagnosticsTest extends AbstractIntegrationTest {
         List<String> codes = response.extract().path("data.checks.code");
         List<Integer> anomalies = response.extract().path("data.checks.anomalies");
         assertThat(anomalies.get(codes.indexOf("duplicateProducerName"))).isPositive();
+    }
+
+    /**
+     * Le contrôle compare au poids pesé par le magasin, pas au poids
+     * retenu : sa première version confrontait deux chiffres qui
+     * coïncident par construction et sortait à zéro sur le bordereau qui
+     * l'avait motivé.
+     */
+    @Test
+    void a_note_accounting_less_than_it_weighed_is_reported() {
+        UserEntity admin = tenantAdmin();
+        var notes = mongo.getDatabase(tenant.databaseName).getCollection("intake_notes");
+        notes.insertOne(new org.bson.Document("_id", java.util.UUID.randomUUID())
+                .append("ref", "BR-DIAG-" + TestFixtures.randomSlugSuffix())
+                .append("status", "ACCOUNTED")
+                .append("netWeightKg", new org.bson.types.Decimal128(new java.math.BigDecimal("10793")))
+                .append("accountedWeightKg", new org.bson.types.Decimal128(new java.math.BigDecimal("9288")))
+                .append("receiptRefs", java.util.List.of()));
+
+        UserEntity platform = fixtures.createPlatformAdmin(
+                "diag-" + TestFixtures.randomSlugSuffix() + "@neiba-technologies.com",
+                "Agent", "Pesee");
+        var response = givenAs(platform)
+                .when().get("/api/v1/admin/diagnostics/" + tenant.id + "/consistency")
+                .then().statusCode(200);
+        List<String> codes = response.extract().path("data.checks.code");
+        List<Integer> anomalies = response.extract().path("data.checks.anomalies");
+        assertThat(anomalies.get(codes.indexOf("noteWeightMismatch"))).isPositive();
+        assertThat(admin).isNotNull();
     }
 
     /** Un diagnostic se joint à un ticket : il se télécharge comme le reste. */

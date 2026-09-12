@@ -73,6 +73,11 @@ public class TenantDiagnosticsService {
     /** Au-delà, on ne lit plus un résultat, on le subit. */
     private static final int MAX_MATCHES = 12;
     private static final int MAX_SAMPLES = 10;
+    /**
+     * Les doublons de nom se traitent un par un : en lister dix sur
+     * quatre-vingt-dix ne rend pas l'export utilisable.
+     */
+    private static final int MAX_DUPLICATE_SAMPLES = 500;
 
     @Inject MongoClient mongoClient;
     @Inject TenantRepository tenants;
@@ -205,9 +210,20 @@ public class TenantDiagnosticsService {
     }
 
     /**
-     * Le défaut du 12/09/2026 : un bordereau comptabilisé dont le poids
-     * retenu ne correspond pas à la somme des reçus qu'il nomme. Une
-     * ligne du fichier de traçabilité s'est perdue en chemin.
+     * Un bordereau qui a comptabilisé moins de matière que le magasin
+     * n'en a pesé.
+     *
+     * <p>La comparaison porte sur le <b>poids pesé</b>, pas sur le poids
+     * retenu : une première version confrontait le poids retenu à la
+     * somme des reçus, deux chiffres qui coïncident par construction, et
+     * le contrôle sortait à zéro sur le cas même qui l'avait motivé
+     * (BR0256, le 12/09/2026, une ligne de fichier écartée en
+     * silence).</p>
+     *
+     * <p>L'écart n'est pas toujours une anomalie : un camion et la somme
+     * des sacs pesés un par un ne tombent pas au kilo près. Mais il se
+     * regarde, et le détail dit combien de reçus ont été créés, ce qui
+     * distingue une dérive de pesée d'une ligne perdue.</p>
      */
     private ConsistencyCheckDto notesWhoseReceiptsDoNotAddUp(MongoDatabase db) {
         List<String> samples = new ArrayList<>();
@@ -215,20 +231,22 @@ public class TenantDiagnosticsService {
         for (Document note : find(db, "intake_notes",
                 Filters.eq("status", "ACCOUNTED"), 0)) {
             List<?> refs = note.getList("receiptRefs", Object.class);
-            BigDecimal declared = decimal(note.get("accountedWeightKg"));
-            BigDecimal actual = BigDecimal.ZERO;
+            BigDecimal weighed = decimal(note.get("netWeightKg"));
+            BigDecimal accounted = BigDecimal.ZERO;
+            int receipts = 0;
             if (refs != null && !refs.isEmpty()) {
                 for (Document receipt : find(db, "producer_purchases",
                         Filters.in("ref", refs), 0)) {
-                    actual = actual.add(decimal(receipt.get("weightKg")));
+                    accounted = accounted.add(decimal(receipt.get("weightKg")));
+                    receipts++;
                 }
             }
-            if (declared.compareTo(actual) != 0) {
-                anomalies++;
-                if (samples.size() < MAX_SAMPLES) {
-                    samples.add(note.getString("ref") + " : " + declared.toPlainString()
-                            + " kg retenus, " + actual.toPlainString() + " kg sur les reçus");
-                }
+            if (weighed.compareTo(accounted) == 0) continue;
+            anomalies++;
+            if (samples.size() < MAX_SAMPLES) {
+                samples.add(note.getString("ref") + " : " + weighed.toPlainString()
+                        + " kg pesés, " + accounted.toPlainString() + " kg comptabilisés sur "
+                        + receipts + " reçus");
             }
         }
         return new ConsistencyCheckDto("noteWeightMismatch", anomalies, samples);
@@ -339,7 +357,7 @@ public class TenantDiagnosticsService {
         for (Map.Entry<String, List<String>> entry : byName.entrySet()) {
             if (entry.getValue().size() < 2) continue;
             anomalies++;
-            if (samples.size() < MAX_SAMPLES) {
+            if (samples.size() < MAX_DUPLICATE_SAMPLES) {
                 samples.add(entry.getKey() + " : " + String.join(", ", entry.getValue()));
             }
         }
