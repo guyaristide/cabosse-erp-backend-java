@@ -129,13 +129,63 @@ class TenantDiagnosticsTest extends AbstractIntegrationTest {
 
         List<String> codes = response.extract().path("data.checks.code");
         assertThat(codes).contains("noteWeightMismatch", "receiptWithoutNote",
-                "receiptWithoutCampaign", "receiptWithoutMovement", "advanceOverConsumed");
+                "receiptWithoutCampaign", "receiptWithoutMovement", "advanceOverConsumed",
+                "duplicateProducerName");
 
         // Un reçu passé par la création normale a bien fait entrer sa
         // matière : le contrôle ne doit pas crier au loup sur du sain.
         int index = codes.indexOf("receiptWithoutMovement");
         List<Integer> anomalies = response.extract().path("data.checks.anomalies");
         assertThat(anomalies.get(index)).isZero();
+    }
+
+    /**
+     * Deux producteurs au même nom bloquent le rapprochement d'un
+     * fichier de traçabilité : le contrôle les nomme, pour qu'on cesse
+     * de chercher pourquoi une ligne saute à chaque livraison.
+     */
+    @Test
+    void two_producers_sharing_a_name_are_reported() {
+        UserEntity admin = tenantAdmin();
+        for (int i = 0; i < 2; i++) {
+            givenAs(admin).contentType("application/json")
+                    .body("{\"lastName\":\"KOUAME\",\"firstName\":\"Yao\","
+                            + "\"gender\":\"MALE\",\"status\":\"ACTIVE\"}")
+                    .when().post("/api/v1/members?force=true").then().statusCode(201);
+        }
+        UserEntity platform = fixtures.createPlatformAdmin(
+                "diag-" + TestFixtures.randomSlugSuffix() + "@neiba-technologies.com",
+                "Agent", "Doublons");
+
+        var response = givenAs(platform)
+                .when().get("/api/v1/admin/diagnostics/" + tenant.id + "/consistency")
+                .then().statusCode(200);
+        List<String> codes = response.extract().path("data.checks.code");
+        List<Integer> anomalies = response.extract().path("data.checks.anomalies");
+        assertThat(anomalies.get(codes.indexOf("duplicateProducerName"))).isPositive();
+    }
+
+    /** Un diagnostic se joint à un ticket : il se télécharge comme le reste. */
+    @Test
+    void both_diagnostics_download_as_files() {
+        UserEntity admin = tenantAdmin();
+        String officialRef = "P-" + TestFixtures.randomSlugSuffix();
+        createReceipt(admin, officialRef);
+        UserEntity platform = fixtures.createPlatformAdmin(
+                "diag-" + TestFixtures.randomSlugSuffix() + "@neiba-technologies.com",
+                "Agent", "Export");
+
+        String piece = givenAs(platform).queryParam("q", officialRef).queryParam("format", "csv")
+                .when().get("/api/v1/admin/diagnostics/" + tenant.id + "/lookup/export")
+                .then().statusCode(200).extract().asString();
+        assertThat(piece).contains("producer_purchases").contains(officialRef);
+
+        String checks = givenAs(platform).queryParam("format", "csv")
+                .when().get("/api/v1/admin/diagnostics/" + tenant.id + "/consistency/export")
+                .then().statusCode(200).extract().asString();
+        // Un contrôle sans anomalie garde sa ligne, sinon le fichier
+        // laisserait croire qu'il n'a pas été passé.
+        assertThat(checks).contains("receiptWithoutMovement").contains("duplicateProducerName");
     }
 
     @Test

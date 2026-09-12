@@ -4,8 +4,10 @@ import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.Filters;
 import com.ntech.cabosse.diagnostics.dto.ConsistencyCheckDto;
+import com.ntech.cabosse.diagnostics.dto.ConsistencyRowDto;
 import com.ntech.cabosse.diagnostics.dto.ConsistencyReportDto;
 import com.ntech.cabosse.diagnostics.dto.DiagnosticDocumentDto;
+import com.ntech.cabosse.diagnostics.dto.DiagnosticFieldRowDto;
 import com.ntech.cabosse.diagnostics.dto.DiagnosticLookupDto;
 import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
@@ -87,12 +89,19 @@ public class TenantDiagnosticsService {
         MongoDatabase db = mongoClient.getDatabase(tenant.databaseName);
 
         List<DiagnosticDocumentDto> documents = new ArrayList<>();
+        // Un même document remonte volontiers deux fois : une fois comme
+        // résultat, une fois comme rattachement, parce que le numéro
+        // cherché vit aussi dans son champ source. On ne le montre
+        // qu'une fois, au premier titre auquel il est apparu.
+        java.util.Set<String> seen = new java.util.HashSet<>();
         for (Map.Entry<String, List<String>> entry : SEARCHABLE.entrySet()) {
             for (Document found : find(db, entry.getKey(), regexOn(entry.getValue(), q), MAX_MATCHES)) {
-                documents.add(new DiagnosticDocumentDto(
-                        entry.getKey(), "match", BsonReadable.of(found)));
+                add(documents, seen, entry.getKey(), "match", found);
                 if ("producer_purchases".equals(entry.getKey())) {
-                    addWhatTheReceiptProduced(db, found, documents);
+                    addWhatTheReceiptProduced(db, found, documents, seen);
+                }
+                if ("intake_notes".equals(entry.getKey())) {
+                    addReceiptsOfTheNote(db, found, documents, seen);
                 }
                 if (documents.size() >= MAX_MATCHES) break;
             }
@@ -111,39 +120,62 @@ public class TenantDiagnosticsService {
         return new DiagnosticLookupDto(tenant.name, q, documents);
     }
 
+    /** N'ajoute qu'une fois, et garde le premier titre rencontré. */
+    private void add(List<DiagnosticDocumentDto> out, java.util.Set<String> seen,
+                     String collection, String relation, Document document) {
+        String key = collection + "/" + document.get("_id");
+        if (!seen.add(key)) return;
+        out.add(new DiagnosticDocumentDto(collection, relation, BsonReadable.of(document)));
+    }
+
+    /**
+     * Les reçus qu'un bordereau revendique.
+     *
+     * <p>C'est la relation qui manquait le 12/09/2026 : un bordereau
+     * annonçait neuf reçus pour dix lignes de fichier, et il fallait
+     * comparer deux listes à la main pour savoir quel producteur avait
+     * sauté. Les voir ensemble répond à la question du premier coup.</p>
+     */
+    private void addReceiptsOfTheNote(MongoDatabase db, Document note,
+                                      List<DiagnosticDocumentDto> out,
+                                      java.util.Set<String> seen) {
+        List<?> refs = note.getList("receiptRefs", Object.class);
+        if (refs == null || refs.isEmpty()) return;
+        for (Document receipt : find(db, "producer_purchases", Filters.in("ref", refs), 0)) {
+            add(out, seen, "producer_purchases", "reçu du bordereau", receipt);
+        }
+    }
+
     /**
      * La chaîne qu'un reçu laisse derrière lui. C'est elle qu'on veut
      * voir d'un coup : un reçu dont le stock a bougé mais dont aucun
      * bordereau ne parle a une histoire à raconter.
      */
     private void addWhatTheReceiptProduced(MongoDatabase db, Document receipt,
-                                           List<DiagnosticDocumentDto> out) {
+                                           List<DiagnosticDocumentDto> out,
+                                           java.util.Set<String> seen) {
         Object id = receipt.get("_id");
         Object ref = receipt.get("ref");
         if (id != null) {
             for (Document piece : find(db, "journal_pieces", Filters.eq("sourceId", id), 5)) {
-                out.add(new DiagnosticDocumentDto(
-                        "journal_pieces", "pièce comptable", BsonReadable.of(piece)));
+                add(out, seen, "journal_pieces", "pièce comptable", piece);
             }
             for (Document move : find(db, "stock_movements",
                     Filters.eq("sourceEntityId", id), 5)) {
-                out.add(new DiagnosticDocumentDto(
-                        "stock_movements", "mouvement de stock", BsonReadable.of(move)));
+                add(out, seen, "stock_movements", "mouvement de stock", move);
             }
         }
         if (ref != null) {
             for (Document note : find(db, "intake_notes",
                     Filters.eq("receiptRefs", ref), 3)) {
-                out.add(new DiagnosticDocumentDto(
-                        "intake_notes", "bordereau d'origine", BsonReadable.of(note)));
+                add(out, seen, "intake_notes", "bordereau d'origine", note);
             }
         }
         Object advanceId = receipt.get("collectorAdvanceId");
         if (advanceId != null) {
             for (Document advance : find(db, "collector_advances",
                     Filters.eq("_id", advanceId), 1)) {
-                out.add(new DiagnosticDocumentDto(
-                        "collector_advances", "avance imputée", BsonReadable.of(advance)));
+                add(out, seen, "collector_advances", "avance imputée", advance);
             }
         }
     }
@@ -160,6 +192,7 @@ public class TenantDiagnosticsService {
         checks.add(receiptsWithoutCampaign(db));
         checks.add(receiptsWithoutStockMovement(db));
         checks.add(advancesConsumedBeyondTheirAmount(db));
+        checks.add(producersSharingTheSameName(db));
 
         audit.event(AuditEventType.CROSS_TENANT_ACCESS)
                 .actorEmail(actorEmail)
@@ -283,7 +316,81 @@ public class TenantDiagnosticsService {
         return new ConsistencyCheckDto("advanceOverConsumed", anomalies, samples);
     }
 
+    /**
+     * Deux fiches producteur au même nom.
+     *
+     * <p>C'est ce qui bloque une ligne de fichier de traçabilité : le
+     * rapprochement par nom ne tranche pas entre deux homonymes, refuse
+     * de choisir au plus proche, et la ligne est écartée. Refuser est le
+     * bon réflexe, une fusion de deux producteurs ne se défait pas. Mais
+     * le doublon, lui, se corrige, et tant qu'il est là chaque livraison
+     * de cette personne sautera.</p>
+     */
+    private ConsistencyCheckDto producersSharingTheSameName(MongoDatabase db) {
+        Map<String, List<String>> byName = new LinkedHashMap<>();
+        for (Document member : find(db, "members", new Document(), 0)) {
+            String name = member.getString("name");
+            if (name == null || name.isBlank()) continue;
+            byName.computeIfAbsent(normalize(name), k -> new ArrayList<>())
+                    .add(member.getString("code"));
+        }
+        List<String> samples = new ArrayList<>();
+        long anomalies = 0;
+        for (Map.Entry<String, List<String>> entry : byName.entrySet()) {
+            if (entry.getValue().size() < 2) continue;
+            anomalies++;
+            if (samples.size() < MAX_SAMPLES) {
+                samples.add(entry.getKey() + " : " + String.join(", ", entry.getValue()));
+            }
+        }
+        return new ConsistencyCheckDto("duplicateProducerName", anomalies, samples);
+    }
+
+    // ─── Mise à plat pour l'export ──────────────────────────────────
+
+    /**
+     * Le rapport, une ligne par cas. Un contrôle sans anomalie garde sa
+     * ligne : un fichier qui ne montrerait que les problèmes laisserait
+     * croire que les autres contrôles n'ont pas été passés.
+     */
+    public List<ConsistencyRowDto> flatten(ConsistencyReportDto report) {
+        List<ConsistencyRowDto> rows = new ArrayList<>();
+        for (ConsistencyCheckDto check : report.checks()) {
+            if (check.samples().isEmpty()) {
+                rows.add(new ConsistencyRowDto(check.code(), check.anomalies(), ""));
+                continue;
+            }
+            for (String sample : check.samples()) {
+                rows.add(new ConsistencyRowDto(check.code(), check.anomalies(), sample));
+            }
+        }
+        return rows;
+    }
+
+    /** La pièce et ses rattachements, un champ par ligne. */
+    public List<DiagnosticFieldRowDto> flatten(DiagnosticLookupDto lookup) {
+        List<DiagnosticFieldRowDto> rows = new ArrayList<>();
+        for (DiagnosticDocumentDto document : lookup.documents()) {
+            for (Map.Entry<String, Object> field : document.fields().entrySet()) {
+                Object value = field.getValue();
+                if (value == null || "".equals(value)) continue;
+                rows.add(new DiagnosticFieldRowDto(document.collection(), document.relation(),
+                        field.getKey(), String.valueOf(value)));
+            }
+        }
+        return rows;
+    }
+
     // ─── Petits outils ──────────────────────────────────────────────
+
+    /** Même normalisation que le rapprochement des imports : accents et casse ignorés. */
+    private static String normalize(String s) {
+        String stripped = java.text.Normalizer.normalize(s, java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "");
+        return stripped.toLowerCase(java.util.Locale.ROOT)
+                .replaceAll("[^a-z0-9]+", " ")
+                .trim();
+    }
 
     private TenantEntity tenantOrFail(UUID tenantId) {
         TenantEntity tenant = tenants.findById(tenantId);
