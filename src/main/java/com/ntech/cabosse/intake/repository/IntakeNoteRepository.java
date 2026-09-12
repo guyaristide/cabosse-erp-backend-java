@@ -43,6 +43,23 @@ public class IntakeNoteRepository {
                 .into(new ArrayList<>());
     }
 
+    /**
+     * Recherche libre pour la palette : le numéro du bordereau, le camion,
+     * le fournisseur. Le bordereau est la pièce que le magasin et la
+     * comptabilité se citent au téléphone, il doit se retrouver au numéro.
+     */
+    public List<IntakeNoteEntity> search(String q, int limit) {
+        String escaped = java.util.regex.Pattern.quote(q.trim());
+        return coll().find(Filters.or(
+                        Filters.regex("ref", escaped, "i"),
+                        Filters.regex("truckNumber", escaped, "i"),
+                        Filters.regex("supplierName", escaped, "i"),
+                        Filters.regex("supplierCode", escaped, "i")))
+                .sort(new Document("date", -1).append("ref", -1))
+                .limit(limit)
+                .into(new ArrayList<>());
+    }
+
     public void insert(IntakeNoteEntity e) { coll().insertOne(e); }
 
     /**

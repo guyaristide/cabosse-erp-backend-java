@@ -2,11 +2,17 @@ package com.ntech.cabosse.search.service;
 
 import com.ntech.cabosse.achats.repository.PurchaseOrderRepository;
 import com.ntech.cabosse.article.repository.ArticleRepository;
+import com.ntech.cabosse.collector.repository.CollectorAdvanceRepository;
 import com.ntech.cabosse.customer.repository.CustomerRepository;
+import com.ntech.cabosse.intake.repository.IntakeNoteRepository;
+import com.ntech.cabosse.membercredit.repository.MemberCreditRepository;
 import com.ntech.cabosse.members.repository.MemberRepository;
+import com.ntech.cabosse.outflow.repository.OutflowNoteRepository;
 import com.ntech.cabosse.permission.entity.Permission;
 import com.ntech.cabosse.permission.service.PermissionResolver;
+import com.ntech.cabosse.producerpurchase.repository.ProducerPurchaseRepository;
 import com.ntech.cabosse.production.repository.ManufacturingOrderRepository;
+import com.ntech.cabosse.reception.repository.DirectReceiptRepository;
 import com.ntech.cabosse.sale.repository.SaleRepository;
 import com.ntech.cabosse.search.dto.SearchHitDto;
 import com.ntech.cabosse.supplier.repository.SupplierRepository;
@@ -39,6 +45,12 @@ public class GlobalSearchService {
     @Inject PurchaseOrderRepository purchaseOrders;
     @Inject SaleRepository sales;
     @Inject ManufacturingOrderRepository ofs;
+    @Inject ProducerPurchaseRepository producerPurchases;
+    @Inject IntakeNoteRepository intakeNotes;
+    @Inject OutflowNoteRepository outflowNotes;
+    @Inject CollectorAdvanceRepository collectorAdvances;
+    @Inject MemberCreditRepository memberCredits;
+    @Inject DirectReceiptRepository directReceipts;
 
     public List<SearchHitDto> search(String q, int perType) {
         if (q == null || q.trim().length() < MIN_QUERY_LENGTH) return List.of();
@@ -74,6 +86,39 @@ public class GlobalSearchService {
         if (granted.contains(Permission.SALE_READ)) {
             sales.search(null, s, null, null, 0, n).forEach(sa ->
                     hits.add(new SearchHitDto("sale", sa.id.toString(), sa.ref, sa.customerName)));
+        }
+
+        // Les pièces du terrain, ajoutées le 12/09/2026 : la palette ne
+        // connaissait que les référentiels et les documents de vente, si
+        // bien qu'un numéro de reçu ou de bordereau ne rendait rien. Ce
+        // sont pourtant les numéros que l'on se cite au téléphone quand
+        // une livraison est en litige.
+        if (granted.contains(Permission.COLLECTION_READ)) {
+            producerPurchases.search(s, null, null, 0, n).forEach(r ->
+                    hits.add(new SearchHitDto("producerPurchase", r.id.toString(),
+                            r.ref, r.producerName)));
+            collectorAdvances.searchText(s, n).forEach(a ->
+                    hits.add(new SearchHitDto("collectorAdvance", a.id.toString(),
+                            a.ref, a.delegateName)));
+        }
+        if (granted.contains(Permission.STOCK_READ)
+                || granted.contains(Permission.COLLECTION_READ)) {
+            intakeNotes.search(s, n).forEach(b ->
+                    hits.add(new SearchHitDto("intakeNote", b.id.toString(),
+                            b.ref, b.supplierName != null ? b.supplierName : b.truckNumber)));
+            outflowNotes.search(s, n).forEach(b ->
+                    hits.add(new SearchHitDto("outflowNote", b.id.toString(),
+                            b.ref, b.customerName != null ? b.customerName : b.destination)));
+        }
+        if (granted.contains(Permission.MEMBER_READ)) {
+            memberCredits.searchText(s, n).forEach(c ->
+                    hits.add(new SearchHitDto("memberCredit", c.id.toString(),
+                            c.ref, c.memberName)));
+        }
+        if (granted.contains(Permission.PURCHASE_READ)) {
+            directReceipts.search(null, s, 0, n).forEach(rd ->
+                    hits.add(new SearchHitDto("directReceipt", rd.id.toString(),
+                            rd.ref, rd.articleName)));
         }
 
         // Lots : dérivés des ordres de fabrication portant un lotRef. On

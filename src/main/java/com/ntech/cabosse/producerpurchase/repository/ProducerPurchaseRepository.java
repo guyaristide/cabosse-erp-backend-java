@@ -34,7 +34,13 @@ public class ProducerPurchaseRepository {
                     Filters.regex("ref", escaped, "i"),
                     Filters.regex("producerName", escaped, "i"),
                     Filters.regex("producerCode", escaped, "i"),
-                    Filters.regex("producerExternalCode", escaped, "i")));
+                    Filters.regex("producerExternalCode", escaped, "i"),
+                    // Le numéro du reçu officiel remis au producteur : c'est
+                    // celui que porte le fichier de traçabilité et celui que
+                    // l'on cite dans un litige (signalé le 12/09/2026, une
+                    // recherche sur ce numéro ne rendait rien).
+                    Filters.regex("officialReceiptRef", escaped, "i"),
+                    Filters.regex("deliveryRef", escaped, "i")));
         }
         if (campaignId != null) filters.add(Filters.eq("campaignId", campaignId));
         if (memberId != null) filters.add(Filters.eq("memberId", memberId));

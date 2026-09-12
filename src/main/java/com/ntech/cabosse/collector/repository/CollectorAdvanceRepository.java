@@ -80,6 +80,17 @@ public class CollectorAdvanceRepository {
                 .skip(skip).limit(limit).into(new ArrayList<>());
     }
 
+    /** Recherche libre pour la palette : référence, délégué, section. */
+    public List<CollectorAdvanceEntity> searchText(String q, int limit) {
+        String escaped = java.util.regex.Pattern.quote(q.trim());
+        return coll().find(Filters.or(
+                        Filters.regex("ref", escaped, "i"),
+                        Filters.regex("delegateName", escaped, "i"),
+                        Filters.regex("sectionName", escaped, "i")))
+                .sort(new org.bson.Document("createdAt", -1))
+                .limit(limit).into(new ArrayList<>());
+    }
+
     public void insert(CollectorAdvanceEntity e) { coll().insertOne(e); }
 
     public void replace(CollectorAdvanceEntity e) {

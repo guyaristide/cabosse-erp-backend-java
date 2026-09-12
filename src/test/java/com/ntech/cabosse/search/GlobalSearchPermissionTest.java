@@ -104,4 +104,57 @@ class GlobalSearchPermissionTest extends AbstractIntegrationTest {
                 .body("data.type", hasItem("article"))
                 .body("data.type", not(hasItem("member")));
     }
+
+    /**
+     * Les pièces du terrain se retrouvent au numéro (signalé le
+     * 12/09/2026 : la recherche d'un reçu ne rendait rien, alors que
+     * c'est le numéro qu'on cite quand une livraison est contestée).
+     * Le reçu se cherche aussi par son numéro officiel, celui du
+     * carnet remis au producteur, qui n'est pas celui du logiciel.
+     */
+    @Test
+    void a_receipt_is_found_by_its_own_number_and_by_the_official_one() {
+        tenant = fixtures.createActiveTenant(
+                "coop-src-" + TestFixtures.randomSlugSuffix(), "Coopérative Recherche");
+        tenant.organizationModel = TenantOrganizationModel.COOPERATIVE;
+        tenants.update(tenant);
+        UserEntity admin = user(Roles.TENANT_ADMIN);
+        // Le reçu se règle en espèces : sans caisse approvisionnée, la
+        // création s'arrête avant d'avoir rien à chercher.
+        fundCashBox(admin, 50_000_000);
+
+        String articleId = givenAs(admin).contentType("application/json")
+                .body("{\"type\":\"RAW_MATERIAL\",\"name\":\"Cacao marchand\",\"unit\":\"kg\"}")
+                .when().post("/api/v1/articles").then().statusCode(201).extract().path("data.id");
+        String siteId = givenAs(admin).contentType("application/json")
+                .body("{\"name\":\"Magasin central\",\"type\":\"TRANSFORMATION\",\"code\":\"m-"
+                        + TestFixtures.randomSlugSuffix() + "\"}")
+                .when().post("/api/v1/sites").then().statusCode(201).extract().path("data.id");
+        String memberId = givenAs(admin).contentType("application/json")
+                .body("{\"lastName\":\"DYIZOUHOU\",\"gender\":\"MALE\",\"status\":\"ACTIVE\"}")
+                .when().post("/api/v1/members").then().statusCode(201).extract().path("data.id");
+
+        String officialRef = "P-" + TestFixtures.randomSlugSuffix();
+        String ref = givenAs(admin).contentType("application/json")
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                .body("""
+                        { "date": "%s", "memberId": "%s", "articleId": "%s", "siteId": "%s",
+                          "weightKg": 1505, "guaranteedPricePerKg": 1200,
+                          "officialReceiptRef": "%s", "paymentMethod": "CASH" }
+                        """.formatted(java.time.LocalDate.now(), memberId, articleId, siteId, officialRef))
+                .when().post("/api/v1/producer-purchases").then().statusCode(201)
+                .extract().path("data.ref");
+
+        givenAs(admin).queryParam("q", ref)
+                .when().get("/api/v1/search").then().statusCode(200)
+                .body("data.type", hasItem("producerPurchase"));
+
+        // Le numéro du carnet du producteur, celui que porte le fichier
+        // de traçabilité : c'est celui-là qu'on a sous les yeux en cas
+        // de litige, et il doit mener au même reçu.
+        givenAs(admin).queryParam("q", officialRef)
+                .when().get("/api/v1/search").then().statusCode(200)
+                .body("data.type", hasItem("producerPurchase"))
+                .body("data.label", hasItem(ref));
+    }
 }
