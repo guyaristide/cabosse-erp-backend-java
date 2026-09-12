@@ -69,6 +69,14 @@ public class IntakeNoteEntity {
     public BigDecimal accountedWeightKg;
     public BigDecimal accountedAmount;
     public List<String> receiptRefs;
+    /**
+     * Les lignes du fichier qu'aucun reçu ne porte, avec leur raison.
+     *
+     * <p>Un bordereau comptabilisé dont cette liste n'est pas vide est
+     * incomplet : il lui manque de la matière, et le dire est le seul
+     * moyen que quelqu'un aille chercher pourquoi.</p>
+     */
+    public List<IntakeSkippedRow> skippedRows;
 
     public Instant createdAt;
     public String createdByEmail;

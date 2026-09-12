@@ -35,6 +35,8 @@ public record IntakeNoteDto(
         /** Écart entre la pesée du camion et ce qui a été comptabilisé. */
         BigDecimal weightGapKg,
         List<String> receiptRefs,
+        /** Les lignes du fichier qu'aucun reçu ne porte, avec leur raison. */
+        List<com.ntech.cabosse.intake.entity.IntakeSkippedRow> skippedRows,
         UUID siteId,
         Instant createdAt
 ) {
@@ -48,6 +50,6 @@ public record IntakeNoteDto(
                 e.grossWeightKg, e.bagCount, e.netWeightKg,
                 e.status, e.accountedAt, e.accountedByEmail,
                 e.accountedWeightKg, e.accountedAmount, gap,
-                e.receiptRefs, e.siteId, e.createdAt);
+                e.receiptRefs, e.skippedRows, e.siteId, e.createdAt);
     }
 }

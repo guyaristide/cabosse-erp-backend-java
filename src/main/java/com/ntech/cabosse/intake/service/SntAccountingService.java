@@ -9,6 +9,7 @@ import com.ntech.cabosse.intake.dto.SntCommitResultDto;
 import com.ntech.cabosse.intake.dto.SntLineDto;
 import com.ntech.cabosse.intake.dto.SntPreviewDto;
 import com.ntech.cabosse.intake.entity.IntakeNoteEntity;
+import com.ntech.cabosse.intake.entity.IntakeSkippedRow;
 import com.ntech.cabosse.intake.repository.IntakeNoteRepository;
 import com.ntech.cabosse.members.dto.MemberUpsertDto;
 import com.ntech.cabosse.members.entity.MemberEntity;
@@ -68,6 +69,7 @@ public class SntAccountingService {
     @Inject CampaignRepository campaigns;
     @Inject com.ntech.cabosse.supplier.repository.SupplierRepository suppliers;
     @Inject ProducerPurchaseService purchaseService;
+    @Inject com.ntech.cabosse.producerpurchase.repository.ProducerPurchaseRepository purchases;
     @Inject DeliveryNoteRefService deliveryNoteRefService;
     @Inject JsonWebToken jwt;
 
@@ -96,13 +98,109 @@ public class SntAccountingService {
             throw new BusinessException(Messages.msg("m.itk-already-accounted", note.ref));
         }
 
+        Created done = createReceipts(note, preview, preview.rows(),
+                request.articleId(), request.siteId());
+        int createdMembers = done.createdMembers();
+        List<String> refs = done.refs();
+        List<SntPreviewDto.Row> skipped = done.skipped();
+        BigDecimal totalWeight = done.weight();
+        BigDecimal totalAmount = done.amount();
+
+        // Aucune ligne passée : « comptabilisé » serait un mensonge et le
+        // comptable ne verrait qu'un état inchangé (constaté le
+        // 11/09/2026 : le même extrait SNT rejoué sur plusieurs
+        // bordereaux, chaque reçu officiel refusé en doublon). Le
+        // bordereau est rendu à comptabiliser et la première raison
+        // remonte en clair.
+        if (refs.isEmpty()) {
+            intakeRepo.reopenAccounting(note.id);
+            String reason = skipped.isEmpty() || skipped.get(0).issues().isEmpty()
+                    ? "" : skipped.get(0).issues().get(0);
+            throw new BusinessException(Messages.msg("m.itk-commit-all-skipped", reason));
+        }
+
+        intakeRepo.finishAccounting(note.id, totalWeight, totalAmount, refs, traceOf(skipped));
+        BigDecimal gap = note.netWeightKg != null
+                ? note.netWeightKg.subtract(totalWeight) : null;
+        return new SntCommitResultDto(refs.size(), createdMembers, skipped.size(),
+                totalWeight, totalAmount, gap, refs, skipped);
+    }
+
+    /**
+     * Complète un bordereau déjà comptabilisé auquel il manque des lignes.
+     *
+     * <p>Demandé le 12/09/2026 : un numéro de reçu officiel employé deux
+     * fois par le système national avait fait refuser une ligne, et il
+     * n'existait aucun moyen de la rattraper une fois le bordereau
+     * comptabilisé, sinon tout défaire. On réimporte le fichier corrigé,
+     * et seules les lignes qui n'ont pas encore de reçu sont créées : les
+     * autres sont reconnues à leur numéro officiel et laissées en
+     * place.</p>
+     */
+    public SntCommitResultDto complete(UUID intakeId, SntAccountingRequestDto request) {
+        IntakeNoteEntity note = intakeNotes.loadOrFail(intakeId);
+        if (!IntakeNoteEntity.STATUS_ACCOUNTED.equals(note.status)) {
+            throw new BusinessException(Messages.msg("m.itk-complete-not-accounted", note.ref));
+        }
+        SntPreviewDto preview = analyse(note, request);
+        if (preview.delegateUnmatched()) {
+            throw new BusinessException(Messages.msg(
+                    "m.itk-delegate-unmatched", clean(note.supplierName)));
+        }
+
+        // Une livraison s'identifie par le numéro du carnet remis au
+        // producteur, pas par sa position dans le tableur : l'ordre des
+        // lignes change d'un export à l'autre, le numéro non. Ce qui
+        // porte déjà un reçu est laissé en place.
+        List<SntPreviewDto.Row> pending = new ArrayList<>();
+        for (SntPreviewDto.Row row : preview.rows()) {
+            String officialRef = clean(row.reference());
+            if (officialRef != null
+                    && purchases.findByOfficialReceipt(officialRef).isPresent()) {
+                continue;
+            }
+            pending.add(row);
+        }
+        if (pending.isEmpty()) {
+            throw new BusinessException(Messages.msg("m.itk-complete-nothing", note.ref));
+        }
+
+        Created created = createReceipts(note, preview, pending,
+                request.articleId(), request.siteId());
+        List<String> refs = new ArrayList<>(
+                note.receiptRefs == null ? List.of() : note.receiptRefs);
+        refs.addAll(created.refs());
+        BigDecimal weight = nz(note.accountedWeightKg).add(created.weight());
+        BigDecimal amount = nz(note.accountedAmount).add(created.amount());
+        intakeRepo.finishAccounting(note.id, weight, amount, refs, traceOf(created.skipped()));
+
+        BigDecimal gap = note.netWeightKg != null ? note.netWeightKg.subtract(weight) : null;
+        return new SntCommitResultDto(created.refs().size(), created.createdMembers(),
+                created.skipped().size(), weight, amount, gap, refs, created.skipped());
+    }
+
+    /** Ce qu'une passe de création a produit, et ce qu'elle a laissé de côté. */
+    private record Created(List<String> refs, List<SntPreviewDto.Row> skipped,
+                           BigDecimal weight, BigDecimal amount, int createdMembers) {
+    }
+
+    /**
+     * Crée les reçus des lignes retenues.
+     *
+     * <p>Partagée par la comptabilisation et par le complément : les deux
+     * doivent produire exactement les mêmes reçus, et une ligne refusée
+     * doit porter la même raison dans les deux cas.</p>
+     */
+    private Created createReceipts(IntakeNoteEntity note, SntPreviewDto preview,
+                                   List<SntPreviewDto.Row> rows,
+                                   UUID articleId, UUID fallbackSiteId) {
         int createdMembers = 0;
         List<String> refs = new ArrayList<>();
         List<SntPreviewDto.Row> skipped = new ArrayList<>();
         BigDecimal totalWeight = BigDecimal.ZERO;
         BigDecimal totalAmount = BigDecimal.ZERO;
         Map<String, String> deliveryRefs = new HashMap<>();
-        for (SntPreviewDto.Row row : preview.rows()) {
+        for (SntPreviewDto.Row row : rows) {
             if ("INVALID".equals(row.status())) {
                 skipped.add(row);
                 continue;
@@ -123,12 +221,11 @@ public class SntAccountingService {
                         row.reference(),
                         null,
                         memberId,
-                        request.articleId(),
+                        articleId,
                         // Le site vient du bordereau : c'est le magasin qui
                         // sait où la matière est entrée, pas la comptabilité
-                        // (11/09/2026). Le paramètre ne sert plus que de
-                        // repli pour les bordereaux importés sans site.
-                        note.siteId != null ? note.siteId : request.siteId(),
+                        // (11/09/2026).
+                        note.siteId != null ? note.siteId : fallbackSiteId,
                         note.campaignId,
                         note.truckNumber,
                         null,
@@ -160,25 +257,28 @@ public class SntAccountingService {
                         row.amount(), row.pricePerKg(), row.paymentMethod()));
             }
         }
+        return new Created(refs, skipped, totalWeight, totalAmount, createdMembers);
+    }
 
-        // Aucune ligne passée : « comptabilisé » serait un mensonge et le
-        // comptable ne verrait qu'un état inchangé (constaté le
-        // 11/09/2026 : le même extrait SNT rejoué sur plusieurs
-        // bordereaux, chaque reçu officiel refusé en doublon). Le
-        // bordereau est rendu à comptabiliser et la première raison
-        // remonte en clair.
-        if (refs.isEmpty()) {
-            intakeRepo.reopenAccounting(note.id);
-            String reason = skipped.isEmpty() || skipped.get(0).issues().isEmpty()
-                    ? "" : skipped.get(0).issues().get(0);
-            throw new BusinessException(Messages.msg("m.itk-commit-all-skipped", reason));
+    /**
+     * La trace que le bordereau garde d'une ligne refusée. Sans elle, le
+     * message d'écran disparaît et plus rien ne dit que le bordereau est
+     * incomplet.
+     */
+    private static List<IntakeSkippedRow> traceOf(List<SntPreviewDto.Row> skipped) {
+        List<IntakeSkippedRow> out = new ArrayList<>();
+        for (SntPreviewDto.Row row : skipped) {
+            IntakeSkippedRow trace = new IntakeSkippedRow();
+            trace.rowNumber = row.rowNumber();
+            trace.reference = row.reference();
+            trace.producerName = row.producerName();
+            trace.weightKg = row.weightKg();
+            trace.amount = row.amount();
+            trace.reason = row.issues() == null || row.issues().isEmpty()
+                    ? null : String.join(" · ", row.issues());
+            out.add(trace);
         }
-
-        intakeRepo.finishAccounting(note.id, totalWeight, totalAmount, refs);
-        BigDecimal gap = note.netWeightKg != null
-                ? note.netWeightKg.subtract(totalWeight) : null;
-        return new SntCommitResultDto(refs.size(), createdMembers, skipped.size(),
-                totalWeight, totalAmount, gap, refs, skipped);
+        return out;
     }
 
     // ─── Analyse commune à la prévisualisation et à la validation ───

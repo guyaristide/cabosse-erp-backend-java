@@ -164,4 +164,22 @@ public class IntakeNoteResource {
         ensureCapability();
         return Response.ok(ApiResponse.ok(accounting.commit(id, request))).build();
     }
+
+    /**
+     * Rattrape les lignes qu'une comptabilisation n'a pas pu créer.
+     *
+     * <p>Un bordereau comptabilisé auquel il manque des lignes n'avait
+     * jusqu'ici aucune issue : il fallait tout défaire pour rejouer une
+     * seule livraison. On réimporte le fichier corrigé et seules les
+     * lignes sans reçu sont créées.</p>
+     */
+    @POST
+    @Path("/{id}/accounting/complete")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    @RequiresPermission({ Permission.COLLECTION_RECEIPT_WRITE, Permission.ACCOUNTING_WRITE })
+    public Response accountingComplete(@PathParam("id") UUID id,
+                                       @Valid SntAccountingRequestDto request) {
+        ensureCapability();
+        return Response.ok(ApiResponse.ok(accounting.complete(id, request))).build();
+    }
 }

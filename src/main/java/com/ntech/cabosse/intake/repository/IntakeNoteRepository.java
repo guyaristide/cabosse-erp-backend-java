@@ -133,17 +133,22 @@ public class IntakeNoteRepository {
                         Updates.unset("accountedWeightKg"),
                         Updates.unset("accountedAmount"),
                         Updates.unset("receiptRefs"),
+                        Updates.unset("skippedRows"),
                         Updates.set("updatedAt", Instant.now())));
     }
 
     /** Pose les totaux et les références une fois les reçus créés. */
     public void finishAccounting(UUID id, BigDecimal weightKg, BigDecimal amount,
-                                 List<String> receiptRefs) {
+                                 List<String> receiptRefs,
+                                 List<com.ntech.cabosse.intake.entity.IntakeSkippedRow> skipped) {
         coll().updateOne(Filters.eq("_id", id),
                 Updates.combine(
                         Updates.set("accountedWeightKg", weightKg),
                         Updates.set("accountedAmount", amount),
                         Updates.set("receiptRefs", receiptRefs),
+                        // La liste est réécrite en entier : après un
+                        // complément, ce qui est passé ne doit plus y être.
+                        Updates.set("skippedRows", skipped),
                         Updates.set("updatedAt", Instant.now())));
     }
 }

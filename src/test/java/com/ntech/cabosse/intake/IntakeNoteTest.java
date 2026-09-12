@@ -265,6 +265,95 @@ class IntakeNoteTest extends AbstractIntegrationTest {
                 .body("data.status", equalTo("TO_ACCOUNT"));
     }
 
+    /**
+     * Le cas de production du 12/09/2026 : le système national de
+     * traçabilité avait donné le même numéro de reçu à deux livraisons.
+     * La seconde a été refusée, à juste titre, mais en silence : le
+     * bordereau s'affichait comptabilisé et rien ne disait qu'il lui
+     * manquait 1 505 kg. Il a fallu une journée pour le retrouver.
+     */
+    @Test
+    void a_refused_row_is_kept_on_the_note_and_can_be_caught_up_later() {
+        UserEntity admin = admin();
+        LocalDate today = LocalDate.now();
+        String frDate = today.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+        String siteId = givenAs(admin).contentType("application/json")
+                .body("{\"name\":\"Magasin central\",\"type\":\"TRANSFORMATION\",\"code\":\"MAG-"
+                        + TestFixtures.randomSlugSuffix() + "\"}")
+                .when().post("/api/v1/sites").then().statusCode(201).extract().path("data.id");
+        String articleId = givenAs(admin).contentType("application/json")
+                .body("{\"type\":\"RAW_MATERIAL\",\"name\":\"Fèves séchées\",\"unit\":\"kg\"}")
+                .when().post("/api/v1/articles").then().statusCode(201).extract().path("data.id");
+
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        [ { "rowNumber": 2, "ref": "BR0271", "date": "%s", "netWeightKg": "500" },
+                          { "rowNumber": 3, "ref": "BR0272", "date": "%s", "netWeightKg": "800" } ]
+                        """.formatted(frDate, frDate))
+                .when().post("/api/v1/intake-notes/import/commit?siteId=" + siteId)
+                .then().statusCode(200);
+        String first = givenAs(admin).when().get("/api/v1/intake-notes")
+                .then().extract().path("data.find { it.ref == 'BR0271' }.id");
+        String second = givenAs(admin).when().get("/api/v1/intake-notes")
+                .then().extract().path("data.find { it.ref == 'BR0272' }.id");
+
+        String shared = "P-777-001";
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "articleId": "%s", "siteId": "%s", "lines": [
+                          { "rowNumber": 2, "reference": "%s", "date": "%s",
+                            "weightKg": "500", "amount": "600000",
+                            "producerName": "SORO ZANGA" } ] }
+                        """.formatted(articleId, siteId, shared, today))
+                .when().post("/api/v1/intake-notes/" + first + "/accounting/commit")
+                .then().statusCode(200);
+
+        // Le second bordereau porte deux lignes : l'une passe, l'autre
+        // réemploie le numéro déjà pris par le premier.
+        String withDuplicate = """
+                { "articleId": "%s", "siteId": "%s", "lines": [
+                  { "rowNumber": 2, "reference": "P-777-002", "date": "%s",
+                    "weightKg": "300", "amount": "360000",
+                    "producerName": "GLAHOU DAVID" },
+                  { "rowNumber": 3, "reference": "%s", "date": "%s",
+                    "weightKg": "500", "amount": "600000",
+                    "producerName": "FIE KEI FRANCK JAURES" } ] }
+                """.formatted(articleId, siteId, today, shared, today);
+        givenAs(admin).contentType("application/json").body(withDuplicate)
+                .when().post("/api/v1/intake-notes/" + second + "/accounting/commit")
+                .then().statusCode(200)
+                .body("data.createdReceipts", equalTo(1))
+                .body("data.skippedRows", equalTo(1));
+
+        // La trace reste sur le bordereau : c'est elle qui manquait.
+        givenAs(admin).when().get("/api/v1/intake-notes/" + second)
+                .then().statusCode(200)
+                .body("data.skippedRows.size()", equalTo(1))
+                .body("data.skippedRows[0].reference", equalTo(shared))
+                .body("data.skippedRows[0].producerName", equalTo("FIE KEI FRANCK JAURES"))
+                .body("data.skippedRows[0].reason", org.hamcrest.Matchers.notNullValue())
+                .body("data.accountedWeightKg", equalTo(300));
+
+        // Le système national corrige son numéro : on réimporte, et seule
+        // la ligne sans reçu est créée. Les autres restent en place.
+        String corrected = withDuplicate.replace(shared, "P-777-003");
+        givenAs(admin).contentType("application/json").body(corrected)
+                .when().post("/api/v1/intake-notes/" + second + "/accounting/complete")
+                .then().statusCode(200)
+                .body("data.createdReceipts", equalTo(1));
+
+        givenAs(admin).when().get("/api/v1/intake-notes/" + second)
+                .then().statusCode(200)
+                .body("data.receiptRefs.size()", equalTo(2))
+                .body("data.skippedRows.size()", equalTo(0))
+                .body("data.accountedWeightKg", equalTo(800));
+
+        // Plus rien à rattraper : le dire plutôt que de recréer en double.
+        givenAs(admin).contentType("application/json").body(corrected)
+                .when().post("/api/v1/intake-notes/" + second + "/accounting/complete")
+                .then().statusCode(422);
+    }
+
     @Test
     void the_keeper_corrects_or_deletes_a_note_before_accounting() {
         UserEntity admin = admin();
