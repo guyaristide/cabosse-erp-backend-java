@@ -253,6 +253,91 @@ class PayableQueueTest extends AbstractIntegrationTest {
         assertThat(advances.doubleValue()).isEqualTo(700_000d);
     }
 
+    /**
+     * Une dette envers un délégué ne s'annonce pas « livraisons
+     * producteur » (signalé par l'expert-comptable le 12/09/2026 : la
+     * file nommait un délégué sous une nature de producteur). La
+     * comptabilité tient déjà les deux dettes séparées, 401100 d'un côté
+     * et 401200 de l'autre ; la file de décaissement doit les nommer
+     * pareil, sans quoi le caissier ne sait pas qui il paie.
+     */
+    @Test
+    void what_is_owed_to_a_delegate_is_not_announced_as_owed_to_a_producer() {
+        UserEntity admin = admin();
+        String delegateId = delegate(admin, "OUEDRAOGO Baba");
+        String articleId = givenAs(admin).contentType("application/json")
+                .body("{\"type\":\"RAW_MATERIAL\",\"name\":\"Cacao marchand\",\"unit\":\"kg\"}")
+                .when().post("/api/v1/articles").then().statusCode(201).extract().path("data.id");
+        String siteId = givenAs(admin).contentType("application/json")
+                .body("{\"name\":\"Magasin central\",\"type\":\"TRANSFORMATION\",\"code\":\"m-"
+                        + TestFixtures.randomSlugSuffix() + "\"}")
+                .when().post("/api/v1/sites").then().statusCode(201).extract().path("data.id");
+        String memberId = givenAs(admin).contentType("application/json")
+                .body("{\"lastName\":\"KOUAME\",\"gender\":\"MALE\",\"status\":\"ACTIVE\"}")
+                .when().post("/api/v1/members").then().statusCode(201).extract().path("data.id");
+
+        // Une livraison passée par un délégué qui n'a reçu aucune avance :
+        // rien ne l'apure, la structure lui doit la totalité.
+        givenAs(admin).contentType("application/json")
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                .body("""
+                        { "date": "%s", "memberId": "%s", "articleId": "%s", "siteId": "%s",
+                          "weightKg": 100, "guaranteedPricePerKg": 1000,
+                          "paymentMethod": "CASH", "delegateSupplierId": "%s" }
+                        """.formatted(LocalDate.now(), memberId, articleId, siteId, delegateId))
+                .when().post("/api/v1/producer-purchases").then().statusCode(201);
+
+        var all = queue(admin, "");
+        List<String> kinds = all.extract().path("data.page.items.kind");
+        assertThat(kinds).contains("DELEGATE_PURCHASE").doesNotContain("PRODUCER_PURCHASE");
+        List<String> names = all.extract().path("data.page.items.beneficiaryName");
+        assertThat(names).contains("OUEDRAOGO Baba");
+
+        // L'onglet des producteurs ne doit rien en montrer, et celui des
+        // délégués doit tout montrer : la somme due ne bouge pas, elle
+        // change seulement de rubrique.
+        Number producers = queue(admin, "?kind=PRODUCER_PURCHASE")
+                .extract().path("data.totalRemaining");
+        assertThat(producers.doubleValue()).isEqualTo(0d);
+        Number delegates = queue(admin, "?kind=DELEGATE_PURCHASE")
+                .extract().path("data.totalRemaining");
+        assertThat(delegates.doubleValue()).isEqualTo(100_000d);
+    }
+
+    @Test
+    void what_is_owed_to_a_producer_stays_under_producer_deliveries() {
+        UserEntity admin = admin();
+        String articleId = givenAs(admin).contentType("application/json")
+                .body("{\"type\":\"RAW_MATERIAL\",\"name\":\"Cacao marchand\",\"unit\":\"kg\"}")
+                .when().post("/api/v1/articles").then().statusCode(201).extract().path("data.id");
+        String siteId = givenAs(admin).contentType("application/json")
+                .body("{\"name\":\"Magasin central\",\"type\":\"TRANSFORMATION\",\"code\":\"m-"
+                        + TestFixtures.randomSlugSuffix() + "\"}")
+                .when().post("/api/v1/sites").then().statusCode(201).extract().path("data.id");
+        String memberId = givenAs(admin).contentType("application/json")
+                .body("{\"lastName\":\"SANGARA\",\"gender\":\"MALE\",\"status\":\"ACTIVE\"}")
+                .when().post("/api/v1/members").then().statusCode(201).extract().path("data.id");
+
+        // Sans paiement fractionné, une livraison directe est réputée
+        // soldée au reçu et ne doit rien : c'est ce réglage qui laisse un
+        // reste dû au producteur.
+        givenAs(admin).contentType("application/json")
+                .body("{\"producerPartialPaymentEnabled\":true}")
+                .when().put("/api/v1/me/tenant/preferences").then().statusCode(200);
+
+        givenAs(admin).contentType("application/json")
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                .body("""
+                        { "date": "%s", "memberId": "%s", "articleId": "%s", "siteId": "%s",
+                          "weightKg": 50, "guaranteedPricePerKg": 1000, "amountPaid": 0,
+                          "paymentMethod": "CASH" }
+                        """.formatted(LocalDate.now(), memberId, articleId, siteId))
+                .when().post("/api/v1/producer-purchases").then().statusCode(201);
+
+        List<String> kinds = queue(admin, "").extract().path("data.page.items.kind");
+        assertThat(kinds).contains("PRODUCER_PURCHASE").doesNotContain("DELEGATE_PURCHASE");
+    }
+
     // ─── Le symétrique : ce qu'on attend ────────────────────────────
 
     @Test

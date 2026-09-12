@@ -98,7 +98,12 @@ public class PayableService {
         if (wants(kind, PayableKind.COLLECTOR_ADVANCE)) collectAdvances(out);
         if (wants(kind, PayableKind.MEMBER_CREDIT)) collectCredits(out);
         if (wants(kind, PayableKind.SUPPLIER_RECEIPT)) collectReceipts(out);
-        if (wants(kind, PayableKind.PRODUCER_PURCHASE)) collectProducerPurchases(out);
+        // Producteurs et délégués sortent du même calcul mais sous deux
+        // natures : le filtre se fait à l'intérieur, pas avant l'appel.
+        if (wants(kind, PayableKind.PRODUCER_PURCHASE)
+                || wants(kind, PayableKind.DELEGATE_PURCHASE)) {
+            collectProducerPurchases(out, kind);
+        }
         if (siteId == null) return out;
         // Une ligne sans site connu reste visible : la masquer sur un
         // filtre de site ferait disparaître une dette réelle du total.
@@ -159,7 +164,7 @@ public class PayableService {
      * reçu : le caissier paie une personne, pas un bordereau. Les reçus
      * détaillés se lisent sur l'échéancier, qui existe déjà.
      */
-    private void collectProducerPurchases(List<PayableDto> out) {
+    private void collectProducerPurchases(List<PayableDto> out, String kind) {
         var outstanding = producerPayments.outstanding(null, null);
         if (outstanding == null || outstanding.beneficiaries() == null) return;
         outstanding.beneficiaries().forEach(b -> {
@@ -169,8 +174,11 @@ public class PayableService {
                     .min(LocalDate::compareTo).orElse(null);
             LocalDate since = oldest == null ? LocalDate.now(ZoneOffset.UTC) : oldest;
             boolean delegate = b.delegateSupplierId() != null;
+            PayableKind nature = delegate
+                    ? PayableKind.DELEGATE_PURCHASE : PayableKind.PRODUCER_PURCHASE;
+            if (!wants(kind, nature)) return;
             out.add(new PayableDto(
-                    PayableKind.PRODUCER_PURCHASE.name(),
+                    nature.name(),
                     delegate ? b.delegateSupplierId() : b.memberId(), null, null,
                     (delegate ? BeneficiaryKind.DELEGATE : BeneficiaryKind.MEMBER).name(),
                     delegate ? b.delegateSupplierId() : b.memberId(), b.name(),

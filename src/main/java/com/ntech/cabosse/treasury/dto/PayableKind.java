@@ -14,6 +14,17 @@ public enum PayableKind {
     MEMBER_CREDIT,
     /** Ligne de réception fournisseur non réglée. */
     SUPPLIER_RECEIPT,
-    /** Reste dû à un producteur ou à un délégué sur ses livraisons. */
-    PRODUCER_PURCHASE
+    /** Reste dû à un producteur sur ses livraisons. */
+    PRODUCER_PURCHASE,
+    /**
+     * Reste dû à un délégué collecteur sur ses livraisons, au-delà de ce
+     * que ses avances ont couvert.
+     *
+     * <p>Séparé du reste dû aux producteurs le 12/09/2026 : la file
+     * annonçait « livraisons producteur » devant le nom d'un délégué,
+     * alors que la comptabilité distingue déjà les deux dettes (401100
+     * producteurs, 401200 délégués). Le caissier paie une personne : il
+     * doit lire laquelle.</p>
+     */
+    DELEGATE_PURCHASE
 }
