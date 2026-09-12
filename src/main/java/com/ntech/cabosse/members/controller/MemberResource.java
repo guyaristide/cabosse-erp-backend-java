@@ -233,7 +233,11 @@ public class MemberResource {
                 .build();
     }
 
+    // Détacher une pièce d'identité est une écriture sur le dossier, pas
+    // une lecture : la garde de classe seule laissait le droit de
+    // consultation suffire (signalé le 12/09/2026).
     @jakarta.ws.rs.DELETE
+    @RequiresPermission(Permission.MEMBER_WRITE)
     @Path("/{id}/documents/{documentId}")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response deleteDocument(@PathParam("id") UUID id,
