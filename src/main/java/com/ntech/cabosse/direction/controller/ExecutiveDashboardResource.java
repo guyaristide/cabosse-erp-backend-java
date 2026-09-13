@@ -27,6 +27,7 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 public class ExecutiveDashboardResource {
 
     @Inject ExecutiveDashboardService service;
+    @Inject com.ntech.cabosse.shared.export.ExportAudit exportAudit;
     @Inject com.ntech.cabosse.direction.service.CampaignDashboardService campaignDashboards;
 
     @GET
@@ -40,5 +41,30 @@ public class ExecutiveDashboardResource {
     @Path("/campaign")
     public Response campaign(@QueryParam("campaignId") java.util.UUID campaignId) {
         return Response.ok(ApiResponse.ok(campaignDashboards.build(campaignId))).build();
+    }
+
+    /**
+     * Le pilotage de campagne, mois par mois, dans un fichier.
+     *
+     * <p>L'écran se lisait sans pouvoir s'emporter (relevé par
+     * l'utilisateur le 13/09/2026) : un comité qui prépare sa réunion
+     * recopiait les chiffres à la main.</p>
+     */
+    @GET
+    @Path("/campaign/export")
+    @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "application/pdf" })
+    public Response campaignExport(@QueryParam("campaignId") java.util.UUID campaignId,
+                                   @QueryParam("format") String formatRaw) {
+        com.ntech.cabosse.shared.export.ExportFormat format =
+                com.ntech.cabosse.shared.export.ExportFormat.parseOrDefault(formatRaw);
+        var dashboard = campaignDashboards.build(campaignId);
+        var dataset = new com.ntech.cabosse.shared.export.ExportDataset<>(
+                com.ntech.cabosse.shared.i18n.Messages.msg("m.exp-t-pilotage-campagne"),
+                CampaignMonthExportColumns.all(), dashboard.months());
+        exportAudit.record("pilotage-campagne", "Pilotage de campagne",
+                format, dashboard.months().size());
+        return com.ntech.cabosse.shared.export.ExportResponses.build(
+                "pilotage-campagne", format, dataset);
     }
 }

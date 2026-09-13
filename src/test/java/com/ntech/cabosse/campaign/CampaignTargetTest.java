@@ -201,6 +201,37 @@ class CampaignTargetTest extends AbstractIntegrationTest {
                 .body("data.scale", nullValue());
     }
 
+    /**
+     * Le pilotage s'emporte : un comité qui prépare sa réunion ne doit
+     * pas recopier les chiffres à la main (relevé le 13/09/2026).
+     */
+    @Test
+    void the_campaign_steering_downloads_with_its_targets_and_gaps() {
+        UserEntity admin = admin();
+        String campaignId = campaign(admin);
+        String month = YearMonth.now().toString();
+        setTarget(admin, campaignId,
+                "{ \"month\": \"%s\", \"collectionTargetKg\": 10000 }".formatted(month))
+                .statusCode(200);
+
+        String csv = givenAs(admin)
+                .queryParam("campaignId", campaignId).queryParam("format", "csv")
+                .when().get("/api/v1/executive-dashboard/campaign/export")
+                .then().statusCode(200).extract().asString();
+
+        // L'objectif et l'écart voyagent avec le réalisé : un fichier qui
+        // ne porterait que le réalisé ferait refaire la soustraction.
+        org.assertj.core.api.Assertions.assertThat(csv)
+                .contains(month)
+                .contains("Objectif de collecte")
+                .contains("Écart collecte");
+        // Les nombres sortent formatés à la française, espace insécable
+        // compris : c'est la règle du produit, on la neutralise pour
+        // comparer la valeur plutôt que sa présentation.
+        String plain = csv.replaceAll("[\\s\\u00A0\\u202F]", "");
+        org.assertj.core.api.Assertions.assertThat(plain).contains("10000");
+    }
+
     @Test
     void a_month_outside_the_campaign_is_refused() {
         UserEntity admin = admin();
