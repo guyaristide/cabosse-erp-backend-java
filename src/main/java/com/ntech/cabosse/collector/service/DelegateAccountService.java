@@ -37,6 +37,7 @@ import java.util.UUID;
 public class DelegateAccountService {
 
     @Inject SupplierRepository suppliers;
+    @Inject DelegateOpeningBalanceService openingBalances;
     @Inject com.ntech.cabosse.suppliercategory.service.SupplierMarginResolver marginResolver;
     @Inject com.ntech.cabosse.tenant.service.TenantPreferencesLookup preferences;
     @Inject com.ntech.cabosse.campaign.repository.CampaignRepository campaigns;
@@ -221,7 +222,13 @@ public class DelegateAccountService {
                 .filter(p -> isBefore(p.campaignId, currentCampaignId, start))
                 .map(p -> nz(p.totalAmount))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-        return advancedBefore.add(paidBefore).subtract(deliveredBefore);
+        // Ce que l'outil n'a pas vu : la première campagne portée par le
+        // logiciel n'a rien derrière elle, et un délégué déjà débiteur
+        // démarrait à zéro (expert, 12/09/2026). La reprise déclarée
+        // s'ajoute au calcul, elle ne le remplace pas : les campagnes
+        // suivantes continuent de se reporter toutes seules.
+        BigDecimal declared = openingBalances.amountFor(delegateSupplierId, currentCampaignId);
+        return advancedBefore.add(paidBefore).subtract(deliveredBefore).add(declared);
     }
 
     /** Une campagne démarrée avant celle qu'on regarde, et pas elle-même. */

@@ -147,6 +147,13 @@ public enum AuditEventType {
     SALE_PAYMENT_REVERTED,
     SALE_CANCELLED,
 
+    /**
+     * Reprise d'antériorité sur le compte d'un délégué : le solde qu'il
+     * traîne à l'ouverture d'une campagne change ce qu'il doit sans
+     * qu'aucune opération ne l'explique. Cela se trace.
+     */
+    DELEGATE_OPENING_BALANCE_SET,
+
     // === Export de données ===
     DATA_EXPORTED;
 
@@ -183,7 +190,8 @@ public enum AuditEventType {
                  COLLECTOR_ADVANCE_CLOSED, COLLECTOR_ADVANCE_ATTACHMENT, PRODUCER_PURCHASE_CREATED,
                  PRODUCER_PURCHASE_CANCELLED,
                  PRODUCER_PAYMENT_CREATED, COMMODITY_SALE_CREATED,
-                 DIRECT_EXPENSE_RECORDED -> AuditCategory.OPERATIONS;
+                 DIRECT_EXPENSE_RECORDED,
+                 DELEGATE_OPENING_BALANCE_SET -> AuditCategory.OPERATIONS;
             case DIRECT_RECEIPT_CREATED, DIRECT_RECEIPT_UPDATED,
                  DIRECT_RECEIPT_LINE_PAID, DIRECT_RECEIPT_LINE_PAYMENT_REVERTED,
                  DIRECT_RECEIPT_CANCELLED -> AuditCategory.OPERATIONS;
