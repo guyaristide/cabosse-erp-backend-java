@@ -60,6 +60,18 @@ public class IntakeNoteRepository {
                 .into(new ArrayList<>());
     }
 
+    /**
+     * Les bordereaux qui revendiquent l'un de ces reçus.
+     *
+     * <p>Sert à remonter du mouvement de stock au bordereau : le
+     * mouvement ne connaît que le reçu, et c'est le numéro de bordereau
+     * que le magasin et la comptabilité se citent.</p>
+     */
+    public List<IntakeNoteEntity> findByReceiptRefs(java.util.Collection<String> receiptRefs) {
+        if (receiptRefs == null || receiptRefs.isEmpty()) return List.of();
+        return coll().find(Filters.in("receiptRefs", receiptRefs)).into(new ArrayList<>());
+    }
+
     public void insert(IntakeNoteEntity e) { coll().insertOne(e); }
 
     /**

@@ -28,6 +28,12 @@ public record StockMovementResponseDto(
         BigDecimal cmupAfter,
         MovementSource sourceType,
         String sourceRef,
+        /**
+         * Le bordereau de réception d'où la matière vient, quand elle
+         * vient d'une livraison. Résolu à la lecture : le mouvement ne
+         * connaît que le reçu, et c'est le bordereau qu'on se cite.
+         */
+        String documentRef,
         UUID sourceEntityId,
         UUID transferId,
         String reason,
@@ -38,13 +44,17 @@ public record StockMovementResponseDto(
         Instant createdAt
 ) {
     public static StockMovementResponseDto from(StockMovementEntity e) {
+        return from(e, null);
+    }
+
+    public static StockMovementResponseDto from(StockMovementEntity e, String documentRef) {
         return new StockMovementResponseDto(
                 e.id, e.ref,
                 e.articleId, e.siteId,
                 e.articleCode, e.articleName, e.articleUnit, e.siteName,
                 e.kind, e.quantitySigned, e.unitPrice, e.total,
                 e.quantityAfter, e.cmupAfter,
-                e.sourceType, e.sourceRef, e.sourceEntityId, e.transferId,
+                e.sourceType, e.sourceRef, documentRef, e.sourceEntityId, e.transferId,
                 e.reason, e.lotRef, e.notes, e.actorEmail,
                 e.occurredAt, e.createdAt
         );

@@ -138,6 +138,50 @@ class DelegateOpeningBalanceTest extends AbstractIntegrationTest {
                 .body("data.previousBalance", equalTo(750000));
     }
 
+    /**
+     * Le suivi détaillé de tous les délégués tient dans un fichier.
+     *
+     * <p>Demandé le 12/09/2026 : l'export existait délégué par délégué,
+     * et lire la campagne obligeait à empiler autant de fichiers que de
+     * délégués.</p>
+     */
+    @Test
+    void every_delegate_ledger_fits_in_one_file() {
+        UserEntity admin = admin();
+        String campaignId = campaign(admin);
+        String first = delegate(admin, "SEHE KOUHOUSSOUI MICHEL");
+        String second = delegate(admin, "KOUI IBODE MARCELIN");
+        // Un solde d'ouverture n'est pas une opération : il faut de
+        // vraies avances pour que le suivi ait des lignes.
+        for (String id : new String[]{first, second}) {
+            String advanceId = givenAs(admin).contentType("application/json")
+                    .body("""
+                            { "delegateSupplierId": "%s", "advanceDate": "%s",
+                              "advanceAmount": 250000, "paymentMethod": "CHEQUE",
+                              "campaignId": "%s" }
+                            """.formatted(id, LocalDate.now(), campaignId))
+                    .when().post("/api/v1/collector-advances").then().statusCode(201)
+                    .extract().path("data.id");
+            givenAs(admin).when().post("/api/v1/collector-advances/" + advanceId + "/approve")
+                    .then().statusCode(200);
+            givenAs(admin).contentType("application/json")
+                    .body("{ \"acknowledgeInsufficientBalance\": true }")
+                    .when().post("/api/v1/collector-advances/" + advanceId + "/disburse")
+                    .then().statusCode(200);
+        }
+
+        String csv = givenAs(admin)
+                .queryParam("campaignId", campaignId).queryParam("format", "csv")
+                .when().get("/api/v1/collector-advances/delegates/ledger/export")
+                .then().statusCode(200).extract().asString();
+
+        // Chaque ligne dit de quel délégué elle parle : réunies sans
+        // cela, les lignes de douze délégués seraient indiscernables.
+        org.assertj.core.api.Assertions.assertThat(csv)
+                .contains("SEHE KOUHOUSSOUI MICHEL")
+                .contains("KOUI IBODE MARCELIN");
+    }
+
     @Test
     void a_supplier_who_is_not_a_delegate_carries_no_opening_balance() {
         UserEntity admin = admin();

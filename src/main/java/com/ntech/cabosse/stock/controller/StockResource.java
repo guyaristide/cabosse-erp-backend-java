@@ -55,6 +55,7 @@ import java.util.UUID;
 public class StockResource {
 
     @Inject StockService service;
+    @Inject com.ntech.cabosse.stock.service.StockMovementViewService movementView;
     @Inject StockMovementRepository movementsRepo;
     @Inject ExportAudit exportAudit;
 
@@ -111,11 +112,10 @@ public class StockResource {
                                    @PathParam("siteId") UUID siteId,
                                    @QueryParam("limit") @DefaultValue("50") int limit,
                                    @QueryParam("skip") @DefaultValue("0") int skip) {
-        List<StockMovementResponseDto> rows = movementsRepo
-                .listByArticleAndSite(articleId, siteId, limit, skip).stream()
-                .map(StockMovementResponseDto::from)
-                .toList();
-        return Response.ok(ApiResponse.ok(rows)).build();
+        // Passe par le service : un contrôleur ne lit pas un dépôt, et
+        // la ligne porte désormais le bordereau d'où la matière vient.
+        return Response.ok(ApiResponse.ok(
+                movementView.listForArticle(articleId, siteId, limit, skip))).build();
     }
 
     // ─── Écriture ──────────────────────────────────────────────────

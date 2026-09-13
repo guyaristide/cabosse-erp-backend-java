@@ -287,6 +287,27 @@ public class CollectorAdvanceResource {
         return ExportResponses.build("suivi-delegue", format, dataset);
     }
 
+    /**
+     * Le suivi détaillé de tous les délégués dans un seul fichier.
+     *
+     * <p>L'export par délégué reste : il sert à remettre son compte à
+     * une personne. Celui-ci sert à lire la campagne d'un coup.</p>
+     */
+    @GET
+    @Path("/delegates/ledger/export")
+    @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "application/pdf" })
+    public Response delegateLedgerAllExport(@QueryParam("campaignId") UUID campaignId,
+                                            @QueryParam("format") String formatRaw) {
+        ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
+        var rows = accountService.ledgerAll(campaignId);
+        var dataset = new ExportDataset<>(Messages.msg("m.exp-t-suivi-delegues"),
+                DelegateLedgerAllExportColumns.all(), rows);
+        exportAudit.record("suivi-delegues", "Suivi détaillé de tous les délégués",
+                format, rows.size());
+        return ExportResponses.build("suivi-delegues", format, dataset);
+    }
+
     public record ClosePayload(String note) {}
 
     // ─── Pièces jointes ─────────────────────────────────────────────

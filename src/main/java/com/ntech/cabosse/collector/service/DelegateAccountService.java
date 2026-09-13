@@ -351,6 +351,33 @@ public class DelegateAccountService {
      * été avancé, ce qui est redescendu du terrain, et à quel moment le
      * délégué est repassé du bon côté.</p>
      */
+    /**
+     * Le suivi détaillé de tous les délégués, dans une seule liste.
+     *
+     * <p>Demandé le 12/09/2026 : l'export existait délégué par délégué,
+     * et reconstituer la campagne obligeait à empiler douze fichiers.
+     * Chaque ligne porte le délégué dont elle parle, sans quoi elles
+     * seraient indiscernables une fois réunies.</p>
+     */
+    public List<com.ntech.cabosse.collector.dto.DelegateLedgerRowDto> ledgerAll(UUID campaignId) {
+        List<com.ntech.cabosse.collector.dto.DelegateLedgerRowDto> rows = new ArrayList<>();
+        for (SupplierEntity delegate : suppliers.listAll()) {
+            if (!delegate.collector) continue;
+            var ledger = ledger(delegate.id, campaignId);
+            for (var line : ledger.lines()) {
+                rows.add(new com.ntech.cabosse.collector.dto.DelegateLedgerRowDto(
+                        ledger.delegateCode(), ledger.delegateName(), ledger.sectionName(),
+                        line.date(),
+                        line.operation() == null ? null : line.operation().name(),
+                        line.ref(), line.fieldNoteRef(),
+                        line.advanced(), line.grossBalance(), line.weightKg(),
+                        line.averagePricePerKg(), line.delivered(), line.retention(),
+                        line.netBalance(), line.repaymentRatePct()));
+            }
+        }
+        return rows;
+    }
+
     public com.ntech.cabosse.collector.dto.DelegateLedgerDto ledger(UUID delegateSupplierId, UUID campaignId) {
         SupplierEntity delegate = suppliers.findById(delegateSupplierId).orElseThrow(
                 () -> new NotFoundException(Messages.msg("m.col-delegate-not-found", delegateSupplierId)));
