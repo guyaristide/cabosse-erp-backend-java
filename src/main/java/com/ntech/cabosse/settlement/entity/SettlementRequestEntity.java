@@ -49,9 +49,22 @@ public class SettlementRequestEntity {
     public BigDecimal approvedAmount;
 
     /**
+     * Le moyen par lequel le règlement doit sortir.
+     *
+     * <p>Il fait partie de ce qui est approuvé, pas seulement de ce qui
+     * est exécuté : le pouvoir de décision n'est pas le même selon
+     * l'instrument (expert-comptable, 13/09/2026). Approuver une sortie
+     * de caisse puis payer par chèque contournerait la décision, aussi
+     * le règlement vérifie-t-il qu'il emploie bien le moyen accordé.</p>
+     */
+    public com.ntech.cabosse.reception.entity.PaymentMethod paymentMethod;
+
+    /**
      * Au-delà du second seuil, l'approbation ordinaire ne suffit pas.
-     * Figé à la demande : déplacer le seuil ensuite ne doit pas changer
-     * ce qu'une demande déjà déposée exigeait.
+     * Le moyen de règlement l'exige aussi, quel que soit le montant.
+     * Figé à la demande : déplacer le seuil ou la liste des moyens
+     * ensuite ne doit pas changer ce qu'une demande déjà déposée
+     * exigeait.
      */
     public Boolean governanceApprovalRequired;
 

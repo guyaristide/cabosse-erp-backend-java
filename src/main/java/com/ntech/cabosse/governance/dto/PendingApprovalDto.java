@@ -33,6 +33,15 @@ public record PendingApprovalDto(
         /** Contrepartie attendue, figée à la demande, et son unité. */
         BigDecimal expectedQuantity,
         String expectedQuantityUnit,
+        /**
+         * Par quel moyen l'argent doit sortir, quand la nature de la
+         * demande le fixe d'avance. Nul ailleurs : une avance ne décide
+         * pas de son instrument au moment de l'accord. Il est ici parce
+         * qu'il détermine qui tranche, un chèque engageant le compte en
+         * banque quand la caisse relève de la direction.
+         */
+        @Schema(description = "Moyen de règlement prévu, en code")
+        String paymentMethod,
         @Schema(description = "Commentaire de l'émetteur de la demande")
         String requesterNote,
         @Schema(description = "Qui a déposé la demande") String requestedByEmail,

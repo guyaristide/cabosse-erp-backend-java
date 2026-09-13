@@ -4,6 +4,7 @@ import com.mongodb.client.model.Updates;
 import com.ntech.cabosse.permission.entity.Permission;
 import com.ntech.cabosse.permission.service.PermissionResolver;
 import com.ntech.cabosse.producerpayment.entity.ProducerPaymentBeneficiary;
+import com.ntech.cabosse.reception.entity.PaymentMethod;
 import com.ntech.cabosse.settlement.dto.SettlementRequestDto;
 import com.ntech.cabosse.settlement.dto.SettlementRequestUpsertDto;
 import com.ntech.cabosse.settlement.entity.SettlementRequestEntity;
@@ -87,17 +88,26 @@ public class SettlementRequestService {
     }
 
     /**
-     * Le second échelon est-il exigé sur ce montant ?
+     * Le second échelon est-il exigé ?
      *
-     * <p>Seuil absent : il n'y a qu'un échelon, et qui peut approuver
+     * <p>Deux raisons distinctes, et il suffit d'une. Le montant :
+     * seuil absent, il n'y a qu'un échelon et qui peut approuver
      * approuve tout. Le distinguer de zéro est délibéré, comme pour les
      * avances : une structure qui écrit zéro veut que tout remonte au
      * conseil, et confondre les deux retournerait son intention.</p>
+     *
+     * <p>Le moyen de règlement ensuite : le pouvoir de décision n'est
+     * pas le même selon l'instrument (expert-comptable, 13/09/2026). Un
+     * chèque engage le compte en banque et remonte au président ; une
+     * sortie de caisse relève de la direction. Un petit chèque reste un
+     * chèque, d'où l'indépendance des deux règles.</p>
      */
-    private boolean governanceRequired(BigDecimal amount) {
+    private boolean governanceRequired(BigDecimal amount, PaymentMethod method) {
         TenantPreferences prefs = preferencesLookup.current();
-        BigDecimal threshold = prefs == null ? null : prefs.settlementGovernanceThreshold;
-        return threshold != null && nz(amount).compareTo(threshold) >= 0;
+        if (prefs == null) return false;
+        BigDecimal threshold = prefs.settlementGovernanceThreshold;
+        if (threshold != null && nz(amount).compareTo(threshold) >= 0) return true;
+        return method != null && prefs.settlementGovernanceMethods().contains(method.name());
     }
 
     // ─── Le circuit ─────────────────────────────────────────────────
@@ -123,9 +133,11 @@ public class SettlementRequestService {
         e.delegateSupplierId = payload.delegateSupplierId();
         e.beneficiaryName = payload.beneficiaryName();
         e.requestedAmount = payload.amount();
+        e.paymentMethod = payload.paymentMethod();
         // Figé à la demande : déplacer le seuil ensuite ne doit pas
         // changer ce qu'une demande déjà déposée exigeait.
-        e.governanceApprovalRequired = governanceRequired(payload.amount());
+        e.governanceApprovalRequired =
+                governanceRequired(payload.amount(), payload.paymentMethod());
         e.status = SettlementRequestStatus.PENDING_APPROVAL;
         e.campaignId = payload.campaignId();
         e.siteId = payload.siteId();

@@ -176,6 +176,7 @@ public final class TenantMapper {
                 entity.preferences.purchaseCostAccounts(),
                 entity.preferences.settlementApprovalThreshold,
                 entity.preferences.settlementGovernanceThreshold,
+                entity.preferences.settlementGovernanceMethods(),
                 entity.preferences.memberCreditAccount(),
                 entity.preferences.cashDiscrepancyAccount(),
                 entity.preferences.productionPotentialBasis(),

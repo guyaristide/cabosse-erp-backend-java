@@ -117,6 +117,7 @@ public class ApprovalQueueService {
                     a.delegateSupplierId, a.delegateName,
                     a.advanceAmount, a.advanceDate, ageOf(a.advanceDate),
                     balance, a.expectedQuantity, a.expectedQuantityUnit,
+                    null,
                     a.notes, a.createdByEmail,
                     a.governanceApprovalRequired,
                     canApprove && (!a.governanceApprovalRequired || canApproveGovernance),
@@ -148,6 +149,7 @@ public class ApprovalQueueService {
                     r.beneficiaryName,
                     r.requestedAmount, r.requestedOn, ageOf(r.requestedOn),
                     balance, null, null,
+                    r.paymentMethod != null ? r.paymentMethod.name() : null,
                     r.notes, r.requestedByEmail,
                     governance,
                     canApprove && (!governance || canApproveGovernance),
@@ -174,6 +176,7 @@ public class ApprovalQueueService {
                         // lirait comme un compte soldé. La contrepartie,
                         // elle, existe depuis le 03/09.
                         null, c.expectedQuantity, c.expectedQuantityUnit,
+                        null,
                         c.notes, c.requestedByEmail,
                         c.governanceApprovalRequired,
                         false,

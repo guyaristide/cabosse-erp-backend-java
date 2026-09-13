@@ -577,6 +577,28 @@ public class TenantPreferences {
      */
     public java.math.BigDecimal settlementGovernanceThreshold;
 
+    /**
+     * Les moyens de règlement qui exigent le second échelon, quel que
+     * soit le montant.
+     *
+     * <p>Réponse de l'expert-comptable le 13/09/2026 : le pouvoir de
+     * régler n'est pas le même selon l'instrument. Un chèque engage le
+     * compte en banque de la structure et remonte au président du
+     * conseil ; une sortie de caisse relève de la direction. Ce n'est
+     * pas une question de montant, c'est une question d'instrument, et
+     * les deux règles coexistent : un gros montant remonte aussi.</p>
+     *
+     * <p>Les valeurs sont des noms de {@code PaymentMethod}. Vide par
+     * défaut, comme le reste du circuit : une structure qui n'a rien
+     * décidé garde un seul échelon.</p>
+     */
+    public java.util.List<String> settlementGovernanceMethods;
+
+    public java.util.List<String> settlementGovernanceMethods() {
+        return settlementGovernanceMethods == null
+                ? java.util.List.of() : settlementGovernanceMethods;
+    }
+
     public java.math.BigDecimal collectorAdvanceApprovalThreshold;
 
     public java.math.BigDecimal collectorAdvanceApprovalThreshold() {

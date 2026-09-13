@@ -16,6 +16,12 @@ public record SettlementRequestUpsertDto(
         UUID delegateSupplierId,
         @Size(max = 200) String beneficiaryName,
         @NotNull @Positive BigDecimal amount,
+        /**
+         * Par quel moyen l'argent doit sortir. Il détermine qui décide,
+         * et le règlement ne pourra pas en employer un autre.
+         */
+        @NotNull(message = "{v.mode-de-paiement-requis}")
+        com.ntech.cabosse.reception.entity.PaymentMethod paymentMethod,
         UUID campaignId,
         UUID siteId,
         /** À quoi correspond la somme, pour celui qui décidera. */

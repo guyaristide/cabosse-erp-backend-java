@@ -145,6 +145,7 @@ public record TenantPreferencesDto(
         java.util.List<String> purchaseCostAccounts,
         java.math.BigDecimal settlementApprovalThreshold,
         java.math.BigDecimal settlementGovernanceThreshold,
+        java.util.List<String> settlementGovernanceMethods,
 
         @Schema(description = "Compte de créance sur les producteurs (crédits et avances).",
                 example = "409200", defaultValue = "409200")

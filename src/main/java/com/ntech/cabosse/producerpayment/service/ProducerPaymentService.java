@@ -5,6 +5,7 @@ import com.ntech.cabosse.accounting.service.AccountingService;
 import com.ntech.cabosse.members.repository.MemberRepository;
 import com.ntech.cabosse.producerpayment.dto.ProducerPaymentDtos;
 import com.ntech.cabosse.producerpayment.entity.ProducerPaymentBeneficiary;
+import com.ntech.cabosse.reception.entity.PaymentMethod;
 import com.ntech.cabosse.producerpayment.entity.ProducerPaymentEntity;
 import com.ntech.cabosse.settlement.entity.SettlementRequestEntity;
 import com.ntech.cabosse.settlement.entity.SettlementRequestStatus;
@@ -16,6 +17,7 @@ import com.ntech.cabosse.shared.api.Pagination;
 import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
+import com.ntech.cabosse.shared.export.ExportEnumLabels;
 import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
@@ -174,7 +176,8 @@ public class ProducerPaymentService {
                 .map(ProducerPaymentDtos.AllocationDto::amount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         SettlementRequestEntity approval =
-                requireApproval(kind, p.memberId(), p.delegateSupplierId(), requested);
+                requireApproval(kind, p.memberId(), p.delegateSupplierId(),
+                        requested, p.paymentMethod());
 
         Instant now = Instant.now();
         ProducerPaymentEntity e = new ProducerPaymentEntity();
@@ -305,7 +308,8 @@ public class ProducerPaymentService {
      */
     private SettlementRequestEntity requireApproval(ProducerPaymentBeneficiary kind,
                                                     UUID memberId, UUID delegateSupplierId,
-                                                    BigDecimal requested) {
+                                                    BigDecimal requested,
+                                                    PaymentMethod method) {
         if (!settlementRequests.approvalRequired(kind, requested)) return null;
         SettlementRequestEntity approval = settlementRequests
                 .openFor(memberId, delegateSupplierId)
@@ -317,6 +321,18 @@ public class ProducerPaymentService {
         if (requested.compareTo(granted) > 0) {
             throw new BusinessException(Messages.msg("m.ppy-above-approved",
                     String.valueOf(requested), String.valueOf(granted), approval.ref));
+        }
+        // Le moyen fait partie de ce qui a été accordé, et pas seulement
+        // de ce qui s'exécute : qui décide dépend de l'instrument. Sans
+        // cette garde, on ferait approuver une sortie de caisse par la
+        // direction puis on paierait par chèque, ce que le président
+        // seul pouvait autoriser.
+        if (approval.paymentMethod != null && approval.paymentMethod != method) {
+            throw new BusinessException(Messages.msg("m.ppy-method-differs-from-approved",
+                    ExportEnumLabels.paymentMethod(
+                            method != null ? method.name() : null),
+                    ExportEnumLabels.paymentMethod(approval.paymentMethod.name()),
+                    approval.ref));
         }
         return approval;
     }

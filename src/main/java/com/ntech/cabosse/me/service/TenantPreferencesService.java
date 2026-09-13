@@ -80,6 +80,7 @@ public class TenantPreferencesService {
                 p.purchaseCostAccounts(),
                 p.settlementApprovalThreshold,
                 p.settlementGovernanceThreshold,
+                p.settlementGovernanceMethods(),
                 p.memberCreditAccount(),
                 p.cashDiscrepancyAccount(),
                 p.productionPotentialBasis(),
@@ -413,6 +414,14 @@ public class TenantPreferencesService {
         }
         if (payload.settlementGovernanceThreshold() != null) {
             t.preferences.settlementGovernanceThreshold = payload.settlementGovernanceThreshold();
+        }
+
+        // Vide est une décision : « aucun moyen ne remonte de lui-même ».
+        if (payload.settlementGovernanceMethods() != null) {
+            diffs.put("settlementGovernanceMethods", Map.of(
+                    "from", t.preferences.settlementGovernanceMethods(),
+                    "to", payload.settlementGovernanceMethods()));
+            t.preferences.settlementGovernanceMethods = payload.settlementGovernanceMethods();
         }
 
         // Une liste vide est une décision : « aucun frais ne compte ».

@@ -187,7 +187,8 @@ class SettlementApprovalTest extends AbstractIntegrationTest {
         String requestId = givenAs(admin).contentType("application/json")
                 .body("""
                         { "delegateSupplierId": "%s", "beneficiaryName": "Délégué Circuit",
-                          "amount": 5000000, "notes": "Solde de la livraison" }
+                          "amount": 5000000, "paymentMethod": "BANK_TRANSFER",
+                          "notes": "Solde de la livraison" }
                         """.formatted(delegateId))
                 .when().post("/api/v1/settlement-requests").then().statusCode(201)
                 .body("data.status", equalTo("PENDING_APPROVAL"))
@@ -201,7 +202,7 @@ class SettlementApprovalTest extends AbstractIntegrationTest {
         // Une seconde demande sur le même bénéficiaire ferait sortir deux
         // fois le même dû.
         givenAs(admin).contentType("application/json")
-                .body("{ \"delegateSupplierId\": \"%s\", \"amount\": 1000 }".formatted(delegateId))
+                .body("{ \"delegateSupplierId\": \"%s\", \"amount\": 1000, \"paymentMethod\": \"BANK_TRANSFER\" }".formatted(delegateId))
                 .when().post("/api/v1/settlement-requests").then().statusCode(422);
 
         givenAs(admin).contentType("application/json")
@@ -234,7 +235,7 @@ class SettlementApprovalTest extends AbstractIntegrationTest {
         String purchaseId = unpaidReceipt(admin, delegateId, 2000, 1000);
 
         String requestId = givenAs(admin).contentType("application/json")
-                .body("{ \"delegateSupplierId\": \"%s\", \"amount\": 2000000 }"
+                .body("{ \"delegateSupplierId\": \"%s\", \"amount\": 2000000, \"paymentMethod\": \"BANK_TRANSFER\" }"
                         .formatted(delegateId))
                 .when().post("/api/v1/settlement-requests").then().statusCode(201)
                 .extract().path("data.id");
@@ -269,7 +270,7 @@ class SettlementApprovalTest extends AbstractIntegrationTest {
         String delegateId = delegate(admin, "Délégué Plafond");
 
         String requestId = givenAs(admin).contentType("application/json")
-                .body("{ \"delegateSupplierId\": \"%s\", \"amount\": 1000000 }"
+                .body("{ \"delegateSupplierId\": \"%s\", \"amount\": 1000000, \"paymentMethod\": \"BANK_TRANSFER\" }"
                         .formatted(delegateId))
                 .when().post("/api/v1/settlement-requests").then().statusCode(201)
                 .extract().path("data.id");
@@ -293,7 +294,7 @@ class SettlementApprovalTest extends AbstractIntegrationTest {
         String delegateId = delegate(admin, "Délégué Gouvernance");
 
         String requestId = givenAs(admin).contentType("application/json")
-                .body("{ \"delegateSupplierId\": \"%s\", \"amount\": 4000000 }"
+                .body("{ \"delegateSupplierId\": \"%s\", \"amount\": 4000000, \"paymentMethod\": \"BANK_TRANSFER\" }"
                         .formatted(delegateId))
                 .when().post("/api/v1/settlement-requests").then().statusCode(201)
                 .body("data.governanceApprovalRequired", equalTo(true))
@@ -306,5 +307,79 @@ class SettlementApprovalTest extends AbstractIntegrationTest {
                 .body("data.page.items.governanceApprovalRequired", hasItem(true));
 
         assertThat(requestId).isNotNull();
+    }
+
+    /**
+     * Le pouvoir de régler n'est pas le même selon l'instrument.
+     *
+     * <p>Réponse de l'expert-comptable le 13/09/2026 : un chèque engage
+     * le compte en banque et remonte au président du conseil, une sortie
+     * de caisse relève de la direction. Ce n'est pas une question de
+     * montant : un petit chèque reste un chèque.</p>
+     */
+    @Test
+    void the_means_of_payment_decides_which_tier_approves() {
+        UserEntity admin = tenantAdmin();
+        setting(admin, "{\"settlementApprovalScope\":\"ALL\","
+                + "\"settlementApprovalThreshold\":0,"
+                + "\"settlementGovernanceMethods\":[\"CHEQUE\"]}");
+
+        // Une grosse sortie de caisse, sans seuil de gouvernance :
+        // la direction suffit.
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "delegateSupplierId": "%s", "amount": 3000000,
+                          "paymentMethod": "CASH" }
+                        """.formatted(delegate(admin, "Délégué Caisse")))
+                .when().post("/api/v1/settlement-requests").then().statusCode(201)
+                .body("data.governanceApprovalRequired", equalTo(false));
+
+        // Un chèque de rien du tout remonte tout de même au président.
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "delegateSupplierId": "%s", "amount": 1000,
+                          "paymentMethod": "CHEQUE" }
+                        """.formatted(delegate(admin, "Délégué Chèque")))
+                .when().post("/api/v1/settlement-requests").then().statusCode(201)
+                .body("data.governanceApprovalRequired", equalTo(true))
+                .body("data.paymentMethod", equalTo("CHEQUE"));
+    }
+
+    /**
+     * Le moyen fait partie de ce qui est approuvé. Sans cette garde, on
+     * ferait approuver une sortie de caisse par la direction puis on
+     * paierait par chèque, ce que le président seul pouvait autoriser.
+     */
+    @Test
+    void a_settlement_cannot_change_the_means_that_was_approved() {
+        UserEntity admin = tenantAdmin();
+        setting(admin, "{\"settlementApprovalScope\":\"ALL\","
+                + "\"settlementApprovalThreshold\":0}");
+        String delegateId = delegate(admin, "Délégué Moyen");
+        String purchaseId = unpaidReceipt(admin, delegateId, 2000, 1000);
+
+        String requestId = givenAs(admin).contentType("application/json")
+                .body("""
+                        { "delegateSupplierId": "%s", "amount": 2000000,
+                          "paymentMethod": "CHEQUE" }
+                        """.formatted(delegateId))
+                .when().post("/api/v1/settlement-requests").then().statusCode(201)
+                .extract().path("data.id");
+        givenAs(admin).contentType("application/json").body("{}")
+                .when().post("/api/v1/settlement-requests/" + requestId + "/approve")
+                .then().statusCode(200);
+
+        // Le helper paie par virement : refusé, le chèque était accordé.
+        // Les deux sortent pourtant du même compte en banque, et c'est
+        // bien le propos : ce ne sont pas les mêmes instruments.
+        pay(admin, delegateId, purchaseId, 2_000_000).statusCode(422);
+
+        givenAs(admin).contentType("application/json")
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                .body("""
+                        { "delegateSupplierId": "%s", "paymentMethod": "CHEQUE",
+                          "date": "%s", "allocations": [ { "purchaseId": "%s", "amount": %d } ] }
+                        """.formatted(delegateId, LocalDate.now(), purchaseId, 2_000_000))
+                .when().post("/api/v1/producer-payments").then().statusCode(201);
     }
 }

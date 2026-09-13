@@ -20,6 +20,8 @@ public record SettlementRequestDto(
         UUID delegateSupplierId,
         String beneficiaryName,
         BigDecimal requestedAmount,
+        /** Le moyen accordé : le règlement ne peut pas en changer. */
+        com.ntech.cabosse.reception.entity.PaymentMethod paymentMethod,
         /** Ce qui a été accordé, et qui commande le règlement. */
         BigDecimal approvedAmount,
         Boolean governanceApprovalRequired,
@@ -38,7 +40,7 @@ public record SettlementRequestDto(
     public static SettlementRequestDto from(SettlementRequestEntity e) {
         return new SettlementRequestDto(
                 e.id, e.ref, e.beneficiaryKind, e.memberId, e.delegateSupplierId,
-                e.beneficiaryName, e.requestedAmount, e.approvedAmount,
+                e.beneficiaryName, e.requestedAmount, e.paymentMethod, e.approvedAmount,
                 e.governanceApprovalRequired, e.status,
                 e.campaignId, e.siteId, e.requestedOn, e.requestedByEmail, e.notes,
                 e.decidedAt, e.decidedByEmail, e.decisionNote, e.paymentRef, e.paidAt);

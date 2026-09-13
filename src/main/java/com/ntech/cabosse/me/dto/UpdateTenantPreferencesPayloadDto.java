@@ -176,6 +176,11 @@ public record UpdateTenantPreferencesPayloadDto(
         java.util.List<String> purchaseCostAccounts,
         java.math.BigDecimal settlementApprovalThreshold,
         java.math.BigDecimal settlementGovernanceThreshold,
+        /**
+         * Moyens de règlement qui exigent le second échelon quel que
+         * soit le montant (expert-comptable, 13/09/2026).
+         */
+        java.util.List<String> settlementGovernanceMethods,
 
         @jakarta.validation.constraints.Pattern(regexp = "^$|^[0-9]{2,8}$",
                 message = "{v.compte-de-creance-2-a-8-chiffres}")
