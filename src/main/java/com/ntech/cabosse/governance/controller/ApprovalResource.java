@@ -48,10 +48,16 @@ public class ApprovalResource {
      * dessus.</p>
      */
     @GET
+    // Les droits de règlement ouvrent la file au même titre que ceux
+    // d'avance : sans eux, un profil taillé pour approuver les seuls
+    // règlements se voyait refuser la file où ses demandes l'attendent
+    // (relevé en auditant le parcours de l'expert, 13/09/2026).
     @RequiresPermission({ Permission.COLLECTION_ADVANCE_APPROVE,
             Permission.COLLECTION_ADVANCE_APPROVE_GOVERNANCE,
             Permission.MEMBER_CREDIT_APPROVE,
-            Permission.MEMBER_CREDIT_APPROVE_GOVERNANCE })
+            Permission.MEMBER_CREDIT_APPROVE_GOVERNANCE,
+            Permission.COLLECTION_SETTLEMENT_APPROVE,
+            Permission.COLLECTION_SETTLEMENT_APPROVE_GOVERNANCE })
     public Response pending(@QueryParam("kind") String kind,
                             @QueryParam("siteId") UUID siteId,
                             @QueryParam("page") @DefaultValue("0") int page,

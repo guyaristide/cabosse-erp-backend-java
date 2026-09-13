@@ -23,6 +23,8 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.nullValue;
 
 /**
  * L'approbation avant de régler un solde.
@@ -381,5 +383,200 @@ class SettlementApprovalTest extends AbstractIntegrationTest {
                           "date": "%s", "allocations": [ { "purchaseId": "%s", "amount": %d } ] }
                         """.formatted(delegateId, LocalDate.now(), purchaseId, 2_000_000))
                 .when().post("/api/v1/producer-payments").then().statusCode(201);
+    }
+
+    /**
+     * La file « À payer » porte l'état de la demande sur sa ligne.
+     *
+     * <p>Signalé en production le 13/09/2026 : la caissière déposait une
+     * demande, le directeur l'approuvait, et la ligne proposait toujours
+     * « demander l'approbation ». L'écran allait chercher les demandes
+     * par un second appel, soumis à un droit de lecture que la caisse ne
+     * porte pas toujours ; son échec était silencieux, et le second dépôt
+     * se faisait refuser sans que rien n'ait prévenu.</p>
+     */
+    @Test
+    void the_payables_queue_carries_the_state_of_its_settlement_request() {
+        UserEntity admin = tenantAdmin();
+        setting(admin, "{\"settlementApprovalScope\":\"ALL\","
+                + "\"settlementApprovalThreshold\":0}");
+        String delegateId = delegate(admin, "Délégué File");
+        unpaidReceipt(admin, delegateId, 3000, 1000);
+
+        // Rien de demandé : la ligne ne porte aucun état.
+        givenAs(admin).queryParam("kind", "DELEGATE_PURCHASE")
+                .when().get("/api/v1/treasury/payables").then().statusCode(200)
+                .body("data.page.items.find { it.beneficiaryId == '%s' }.settlementRequestStatus"
+                        .formatted(delegateId), nullValue());
+
+        String requestId = givenAs(admin).contentType("application/json")
+                .body("""
+                        { "delegateSupplierId": "%s", "amount": 3000000,
+                          "paymentMethod": "BANK_TRANSFER" }
+                        """.formatted(delegateId))
+                .when().post("/api/v1/settlement-requests").then().statusCode(201)
+                .extract().path("data.id");
+
+        givenAs(admin).queryParam("kind", "DELEGATE_PURCHASE")
+                .when().get("/api/v1/treasury/payables").then().statusCode(200)
+                .body("data.page.items.find { it.beneficiaryId == '%s' }.settlementRequestStatus"
+                        .formatted(delegateId), equalTo("PENDING_APPROVAL"));
+
+        givenAs(admin).contentType("application/json").body("{}")
+                .when().post("/api/v1/settlement-requests/" + requestId + "/approve")
+                .then().statusCode(200);
+
+        // Approuvée, la ligne le dit : c'est ce qui manquait pour que
+        // l'écran propose de payer au lieu de redemander.
+        givenAs(admin).queryParam("kind", "DELEGATE_PURCHASE")
+                .when().get("/api/v1/treasury/payables").then().statusCode(200)
+                .body("data.page.items.find { it.beneficiaryId == '%s' }.settlementRequestStatus"
+                        .formatted(delegateId), equalTo("APPROVED"))
+                .body("data.page.items.find { it.beneficiaryId == '%s' }.settlementRequestId"
+                        .formatted(delegateId), equalTo(requestId));
+    }
+
+    /**
+     * Le parcours complet, avec trois personnes distinctes.
+     *
+     * <p>Déroulé par l'expert-comptable le 13/09/2026 : le comptable
+     * comptabilise la livraison du délégué et le solde apparaît ; la
+     * caissière demande l'approbation de le régler en espèces ; le
+     * directeur et le président voient les montants ; la caissière
+     * revient et paie.</p>
+     *
+     * <p>Chaque personne porte ses seuls droits. Un parcours joué par
+     * l'administrateur, qui les a tous, ne prouve rien : c'est justement
+     * un droit manquant chez la caissière qui avait fait disparaître
+     * l'état de sa demande.</p>
+     */
+    @Test
+    void the_whole_path_holds_with_three_people_and_their_own_rights() {
+        UserEntity admin = tenantAdmin();
+        setting(admin, "{\"settlementApprovalScope\":\"ALL\","
+                + "\"settlementApprovalThreshold\":0,"
+                + "\"settlementGovernanceMethods\":[\"CHEQUE\",\"BANK_TRANSFER\"]}");
+
+        String delegateId = delegate(admin, "Délégué Parcours");
+        String purchaseId = unpaidReceipt(admin, delegateId, 2000, 1000);
+
+        UserEntity cashier = withProfile(admin, "caissiere", "Caissière",
+                "\"TREASURY_WRITE\", \"COLLECTION_PAYMENT_WRITE\"");
+        UserEntity director = withProfile(admin, "directeur", "Direction",
+                "\"COLLECTION_SETTLEMENT_APPROVE\"");
+        UserEntity chair = withProfile(admin, "president", "Président du conseil",
+                "\"COLLECTION_SETTLEMENT_APPROVE_GOVERNANCE\"");
+
+        // 1. La caissière ouvre sa file et y voit le solde du délégué.
+        givenAs(cashier).queryParam("kind", "DELEGATE_PURCHASE")
+                .when().get("/api/v1/treasury/payables").then().statusCode(200)
+                .body("data.page.items.find { it.beneficiaryId == '%s' }.settlementRequestStatus"
+                        .formatted(delegateId), nullValue());
+
+        // 2. Elle demande l'approbation d'un règlement en espèces.
+        String requestId = givenAs(cashier).contentType("application/json")
+                .body("""
+                        { "delegateSupplierId": "%s", "amount": 2000000,
+                          "paymentMethod": "CASH", "notes": "Reliquat de campagne" }
+                        """.formatted(delegateId))
+                .when().post("/api/v1/settlement-requests").then().statusCode(201)
+                // Les espèces ne remontent pas au conseil : la direction tranche.
+                .body("data.governanceApprovalRequired", equalTo(false))
+                .extract().path("data.id");
+
+        // 3. Sa file le dit, sans qu'elle porte le droit de lire les
+        //    demandes : c'est la ligne qui porte son état.
+        givenAs(cashier).queryParam("kind", "DELEGATE_PURCHASE")
+                .when().get("/api/v1/treasury/payables").then().statusCode(200)
+                .body("data.page.items.find { it.beneficiaryId == '%s' }.settlementRequestStatus"
+                        .formatted(delegateId), equalTo("PENDING_APPROVAL"));
+
+        // 4. Le directeur et le président voient la demande dans la file
+        //    des décisions, chacun avec son seul droit d'approbation.
+        for (UserEntity who : java.util.List.of(director, chair)) {
+            givenAs(who).queryParam("kind", "SETTLEMENT_REQUEST")
+                    .when().get("/api/v1/governance/approvals").then().statusCode(200)
+                    .body("data.page.items.find { it.sourceId == '%s' }.amount".formatted(requestId),
+                            equalTo(2000000))
+                    .body("data.page.items.find { it.sourceId == '%s' }.paymentMethod"
+                            .formatted(requestId), equalTo("CASH"));
+        }
+
+        // 5. La caissière ne tranche pas ce qu'elle a demandé.
+        givenAs(cashier).contentType("application/json").body("{}")
+                .when().post("/api/v1/settlement-requests/" + requestId + "/approve")
+                .then().statusCode(403);
+
+        // 6. Le directeur approuve.
+        givenAs(director).contentType("application/json")
+                .body("{ \"note\": \"Accord pour le reliquat\" }")
+                .when().post("/api/v1/settlement-requests/" + requestId + "/approve")
+                .then().statusCode(200).body("data.status", equalTo("APPROVED"));
+
+        givenAs(cashier).queryParam("kind", "DELEGATE_PURCHASE")
+                .when().get("/api/v1/treasury/payables").then().statusCode(200)
+                .body("data.page.items.find { it.beneficiaryId == '%s' }.settlementRequestStatus"
+                        .formatted(delegateId), equalTo("APPROVED"));
+
+        // 7. Elle ne peut pas payer par un autre moyen que celui accordé.
+        givenAs(cashier).contentType("application/json")
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                .body("""
+                        { "delegateSupplierId": "%s", "paymentMethod": "BANK_TRANSFER",
+                          "date": "%s", "allocations": [ { "purchaseId": "%s", "amount": %d } ] }
+                        """.formatted(delegateId, LocalDate.now(), purchaseId, 2_000_000))
+                .when().post("/api/v1/producer-payments").then().statusCode(422);
+
+        // 8. Elle paie en espèces. Une caisse vide refuse, et le dit :
+        //    approuver n'a jamais fait apparaître l'argent. C'est l'étape
+        //    que le parcours de l'expert rencontrera en premier.
+        String cashPayload = """
+                { "delegateSupplierId": "%s", "paymentMethod": "CASH",
+                  "date": "%s", "allocations": [ { "purchaseId": "%s", "amount": %d } ] }
+                """.formatted(delegateId, LocalDate.now(), purchaseId, 2_000_000);
+        givenAs(cashier).contentType("application/json")
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                .body(cashPayload)
+                .when().post("/api/v1/producer-payments").then().statusCode(422)
+                .body("statusMessage", containsString("caisse"));
+
+        // 9. La demande reste approuvée : un refus de caisse ne perd
+        //    pas la décision, il attend que les fonds soient là.
+        givenAs(admin).when().get("/api/v1/settlement-requests/" + requestId)
+                .then().statusCode(200).body("data.status", equalTo("APPROVED"));
+
+        // 10. Et le solde reste dans la file : approuver n'est pas payer.
+        givenAs(cashier).queryParam("kind", "DELEGATE_PURCHASE")
+                .when().get("/api/v1/treasury/payables").then().statusCode(200)
+                .body("data.page.items.find { it.beneficiaryId == '%s' }.settlementRequestStatus"
+                        .formatted(delegateId), equalTo("APPROVED"));
+    }
+
+    /** Un compte qui ne porte qu'un profil, et ce profil que ces droits. */
+    private UserEntity withProfile(UserEntity admin, String prefix, String roleName,
+                                   String permissionsJson) {
+        UserEntity u = new UserEntity();
+        u.id = idGenerator.newId();
+        u.email = prefix + "-" + TestFixtures.randomSlugSuffix() + "@" + tenant.slug + ".ci";
+        u.firstName = prefix;
+        u.lastName = "Parcours";
+        u.passwordHash = passwordHasher.hash(TestFixtures.DEFAULT_PASSWORD);
+        u.tenantId = tenant.id;
+        u.roles = new HashSet<>();
+        u.roles.add(Roles.USER);
+        u.status = UserStatus.ACTIVE;
+        u.createdAt = Instant.now();
+        u.updatedAt = u.createdAt;
+        users.persist(u);
+
+        String roleId = givenAs(admin).contentType("application/json")
+                .body("{ \"name\": \"%s\", \"permissions\": [%s] }"
+                        .formatted(roleName, permissionsJson))
+                .when().post("/api/v1/tenant-roles").then().statusCode(201)
+                .extract().path("data.id");
+        givenAs(admin).contentType("application/json")
+                .body("{ \"roleIds\": [\"%s\"] }".formatted(roleId))
+                .when().put("/api/v1/tenant-roles/users/" + u.id).then().statusCode(204);
+        return u;
     }
 }

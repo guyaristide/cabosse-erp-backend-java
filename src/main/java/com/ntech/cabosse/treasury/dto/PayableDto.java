@@ -28,5 +28,19 @@ public record PayableDto(
         UUID siteId,
         UUID campaignId,
         @Schema(description = "Transmission à l'exécution par le comptable, si elle a eu lieu")
-        java.time.Instant executionRequestedAt
+        java.time.Instant executionRequestedAt,
+        /**
+         * L'état de la demande de règlement en cours sur ce bénéficiaire,
+         * s'il y en a une, et son identifiant.
+         *
+         * <p>La ligne le porte elle-même depuis le 13/09/2026. L'écran
+         * interrogeait auparavant les demandes à part, avec un droit de
+         * lecture que la caisse ne porte pas toujours : l'appel échouait
+         * en silence et la ligne réaffichait « demander l'approbation »
+         * alors qu'une demande existait, déjà approuvée. Le second dépôt
+         * était alors refusé sans que rien n'ait prévenu.</p>
+         */
+        @Schema(description = "État de la demande de règlement en cours, en code")
+        String settlementRequestStatus,
+        UUID settlementRequestId
 ) {}

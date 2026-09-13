@@ -51,6 +51,7 @@ public class PayableService {
     @Inject MemberCreditRepository credits;
     @Inject DirectReceiptRepository receipts;
     @Inject ProducerPaymentService producerPayments;
+    @Inject com.ntech.cabosse.settlement.service.SettlementRequestService settlements;
 
     /**
      * @param kind   restreint à une nature d'engagement, {@code null} pour tout
@@ -125,7 +126,7 @@ public class PayableService {
                         // La file à payer annonce ce que la caisse va
                         // sortir : le montant accordé, pas celui sollicité.
                         nz(a.effectiveAmount()), a.advanceDate, ageOf(a.advanceDate),
-                        a.siteId, a.campaignId, a.executionRequestedAt)));
+                        a.siteId, a.campaignId, a.executionRequestedAt, null, null)));
     }
 
     private void collectCredits(List<PayableDto> out) {
@@ -134,7 +135,7 @@ public class PayableService {
                         PayableKind.MEMBER_CREDIT.name(), c.id, null, c.ref,
                         BeneficiaryKind.MEMBER.name(), c.memberId, c.memberName,
                         nz(c.amount), c.requestedAt, ageOf(c.requestedAt),
-                        null, c.campaignId, c.executionRequestedAt)));
+                        null, c.campaignId, c.executionRequestedAt, null, null)));
     }
 
     /**
@@ -154,7 +155,7 @@ public class PayableService {
                                 PayableKind.SUPPLIER_RECEIPT.name(), rd.id, line.id, rd.ref,
                                 BeneficiaryKind.SUPPLIER.name(), line.supplierId, line.supplierName,
                                 nz(line.totalLine), rd.receivedDate, ageOf(rd.receivedDate),
-                                rd.siteId, rd.campaignId, null)));
+                                rd.siteId, rd.campaignId, null, null, null)));
             });
         }
     }
@@ -177,12 +178,22 @@ public class PayableService {
             PayableKind nature = delegate
                     ? PayableKind.DELEGATE_PURCHASE : PayableKind.PRODUCER_PURCHASE;
             if (!wants(kind, nature)) return;
+            // La ligne porte l'état de sa demande plutôt que de laisser
+            // l'écran l'aller chercher : cette lecture demandait un droit
+            // que la caisse ne porte pas toujours, et son échec silencieux
+            // faisait réapparaître « demander l'approbation » sur une
+            // demande déjà approuvée (13/09/2026).
+            var open = settlements.openFor(
+                    delegate ? null : b.memberId(),
+                    delegate ? b.delegateSupplierId() : null);
             out.add(new PayableDto(
                     nature.name(),
                     delegate ? b.delegateSupplierId() : b.memberId(), null, null,
                     (delegate ? BeneficiaryKind.DELEGATE : BeneficiaryKind.MEMBER).name(),
                     delegate ? b.delegateSupplierId() : b.memberId(), b.name(),
-                    nz(b.remaining()), since, ageOf(since), null, null, null));
+                    nz(b.remaining()), since, ageOf(since), null, null, null,
+                    open.map(r -> r.status.name()).orElse(null),
+                    open.map(r -> r.id).orElse(null)));
         });
     }
 
