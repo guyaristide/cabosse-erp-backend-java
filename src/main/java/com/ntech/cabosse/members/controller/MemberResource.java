@@ -60,6 +60,7 @@ import java.util.UUID;
 public class MemberResource {
 
     @Inject MemberService service;
+    @Inject com.ntech.cabosse.members.service.MemberDashboardService dashboardService;
     @Inject MemberContributionsService contributionsService;
     @Inject MemberDocumentService documents;
     @Inject MemberCardService card;
@@ -100,6 +101,19 @@ public class MemberResource {
         MemberStatus statusFilter = parseStatus(statusRaw);
         return Response.ok(ApiResponse.ok(
                 service.page(q, statusFilter, PageRequest.of(page, perPage)))).build();
+    }
+
+    /**
+     * Le portrait du sociétariat : effectifs, âges, superficies.
+     *
+     * <p>Déclaré avant {@code /{id}} : « dashboard » se ferait sinon
+     * lire comme un identifiant et la route ne répondrait jamais.</p>
+     */
+    @GET
+    @Path("/dashboard")
+    public Response dashboard(@QueryParam("campaignId") UUID campaignId,
+                              @QueryParam("cropCode") String cropCode) {
+        return Response.ok(ApiResponse.ok(dashboardService.compute(campaignId, cropCode))).build();
     }
 
     @GET
