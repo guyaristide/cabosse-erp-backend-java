@@ -37,4 +37,40 @@ class ImportFieldsTest {
         assertThat(ImportFields.clean("KOUI IBOBE  MARCELIN ")).isEqualTo("KOUI IBOBE MARCELIN");
         assertThat(ImportFields.phoneKey("+225 01 54 53 66 88")).isEqualTo("54536688");
     }
+
+    /**
+     * Le zéro que personne ne tape.
+     *
+     * <p>« 13/9/2026 » était refusé quand « 13/09/2026 » passait, sur le
+     * même carnet et le même jour : une ligne perdue, et rien à l'écran
+     * pour le dire (13/09/2026).</p>
+     */
+    @Test
+    void a_day_or_month_on_one_digit_is_still_a_date() {
+        LocalDate expected = LocalDate.of(2026, 9, 13);
+        assertThat(ImportFields.parseDate("13/9/2026")).isEqualTo(expected);
+        assertThat(ImportFields.parseDate("13/09/2026")).isEqualTo(expected);
+        assertThat(ImportFields.parseDate("13-9-2026")).isEqualTo(expected);
+        assertThat(ImportFields.parseDate("13.09.2026")).isEqualTo(expected);
+        assertThat(ImportFields.parseDate("13/9/26")).isEqualTo(expected);
+        assertThat(ImportFields.parseDate("2026-09-13")).isEqualTo(expected);
+        assertThat(ImportFields.parseDate("2026-9-13")).isEqualTo(expected);
+        // Une cellule restée un nombre à l'export du classeur.
+        assertThat(ImportFields.parseDate("46278")).isEqualTo(expected);
+        // Une date accompagnée de son heure garde sa part date.
+        assertThat(ImportFields.parseDate("13/9/2026 08:30")).isEqualTo(expected);
+    }
+
+    /**
+     * Élargir les formes n'est pas deviner le contenu : une date qu'on
+     * compléterait fausserait la campagne et le stock sans bruit.
+     */
+    @Test
+    void an_impossible_or_incomplete_date_is_still_refused() {
+        assertThat(ImportFields.parseDate("31/02/2026")).isNull();
+        assertThat(ImportFields.parseDate("13/2026")).isNull();
+        assertThat(ImportFields.parseDate("septembre")).isNull();
+        assertThat(ImportFields.parseDate("")).isNull();
+        assertThat(ImportFields.parseDate(null)).isNull();
+    }
 }
