@@ -62,7 +62,7 @@ public class ExpenseTypeImportService {
             String category = parseCategory(raw.category(), issues);
 
             String syscohada = trimOrNull(raw.syscohadaAccount());
-            if (syscohada != null && !syscohada.matches("\\d{2,8}")) {
+            if (syscohada != null && !syscohada.matches("\\d{3,20}")) {
                 issues.add(new FieldIssue("syscohadaAccount", Messages.msg("m.imp-syscohada-account-digits")));
             }
             String description = trimOrNull(raw.description());

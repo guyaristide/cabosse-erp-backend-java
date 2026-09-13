@@ -19,6 +19,10 @@ public record ExpenseTypeUpsertDto(
         @Size(max = 40)
         String category,
 
-        @Pattern(regexp = "^$|^\\d{2,8}$", message = "{v.compte-syscohada-2-a-8-chiffres}")
+        // Même règle que le plan comptable : la longueur est libre, et
+        // certaines structures travaillent à huit chiffres (expert,
+        // 12/09/2026). Deux règles divergentes faisaient refuser ici un
+        // compte que le plan acceptait.
+        @Pattern(regexp = "^$|^\\d{3,20}$", message = "{v.numero-de-compte-invalide}")
         String syscohadaAccount
 ) {}
