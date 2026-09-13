@@ -16,6 +16,7 @@ import com.ntech.cabosse.direction.dto.CampaignDelegateAdvanceDto;
 import com.ntech.cabosse.direction.dto.CampaignKpisDto;
 import com.ntech.cabosse.campaign.service.CampaignTargetService;
 import com.ntech.cabosse.direction.dto.CampaignLabelShareDto;
+import com.ntech.cabosse.direction.dto.CampaignScaleDto;
 import com.ntech.cabosse.direction.dto.CampaignMonthDto;
 import com.ntech.cabosse.direction.dto.CampaignSynthesisDto;
 import com.ntech.cabosse.producerpurchase.entity.ProducerPurchaseEntity;
@@ -293,6 +294,21 @@ public class CampaignDashboardService {
         }
         labels.sort((a, b) -> b.soldWeight().compareTo(a.soldWeight()));
 
+        // Le barème du conseil de filière, confronté au réalisé au kilo.
+        // Absent tant qu'il n'a pas été saisi : le comparer à un barème
+        // à zéro annoncerait un dépassement qui n'existe pas.
+        CampaignScaleDto scale = null;
+        if (campaign.collectionScale != null && campaign.collectionScale.total() != null) {
+            BigDecimal scaleTotal = campaign.collectionScale.total();
+            scale = new CampaignScaleDto(
+                    campaign.collectionScale.transportPerKg,
+                    campaign.collectionScale.gatheringPerKg,
+                    campaign.collectionScale.buyerRemunerationPerKg,
+                    scaleTotal,
+                    unitMargin,
+                    unitMargin == null ? null : unitMargin.subtract(scaleTotal));
+        }
+
         List<CampaignCustomerShareDto> customers = new ArrayList<>();
         customerWeights.forEach((id, weight) -> customers.add(
                 new CampaignCustomerShareDto(id, customerNames.get(id), weight)));
@@ -305,7 +321,7 @@ public class CampaignDashboardService {
                 tenantContext.currency(),
                 weightUnit != null ? weightUnit : "kg",
                 kpis, synthesis,
-                months, customers, labels, delegates);
+                months, customers, labels, scale, delegates);
     }
 
     /** Mêmes comptes que la vue période : BankAccount déclarés + défauts. */

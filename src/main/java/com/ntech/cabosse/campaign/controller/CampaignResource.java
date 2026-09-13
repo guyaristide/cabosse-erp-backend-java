@@ -120,6 +120,22 @@ public class CampaignResource {
         return Response.ok(ApiResponse.ok(targetService.upsert(id, payload))).build();
     }
 
+    /**
+     * Le barème de collecte du conseil de filière, décomposé au kilo.
+     *
+     * <p>Distinct du barème de prix, verrouillé et historisé : celui-ci
+     * est une référence externe qu'on recopie, pas un prix décidé.</p>
+     */
+    @PUT
+    @RequiresPermission(Permission.REFERENTIAL_WRITE)
+    @Path("/{id}/collection-scale")
+    public Response setCollectionScale(
+            @PathParam("id") UUID id,
+            @Valid com.ntech.cabosse.campaign.dto.CollectionScaleUpsertDto payload) {
+        return Response.ok(ApiResponse.ok(
+                CampaignResponseDto.from(service.setCollectionScale(id, payload)))).build();
+    }
+
     @PUT
     @RequiresPermission(Permission.CAMPAIGN_PRICE_WRITE)
     @Path("/{id}/tariff")

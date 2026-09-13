@@ -244,6 +244,35 @@ public class CampaignService {
         return true;
     }
 
+    /**
+     * Enregistre le barème de collecte publié par le conseil de filière.
+     *
+     * <p>Distinct du barème de prix, qui est verrouillé et historisé :
+     * celui-ci est une référence externe, pas un prix que la structure
+     * décide. Les trois composantes absentes effacent le barème plutôt
+     * que d'en garder un à zéro, contre lequel le réalisé se comparerait
+     * en dépassement permanent.</p>
+     */
+    public CampaignEntity setCollectionScale(
+            UUID id, com.ntech.cabosse.campaign.dto.CollectionScaleUpsertDto payload) {
+        CampaignEntity e = repo.findById(id)
+                .orElseThrow(() -> new NotFoundException(Messages.msg("m.cmp-not-found")));
+        if (payload.transportPerKg() == null && payload.gatheringPerKg() == null
+                && payload.buyerRemunerationPerKg() == null) {
+            e.collectionScale = null;
+        } else {
+            com.ntech.cabosse.campaign.entity.CollectionScale scale =
+                    new com.ntech.cabosse.campaign.entity.CollectionScale();
+            scale.transportPerKg = payload.transportPerKg();
+            scale.gatheringPerKg = payload.gatheringPerKg();
+            scale.buyerRemunerationPerKg = payload.buyerRemunerationPerKg();
+            e.collectionScale = scale;
+        }
+        e.updatedAt = java.time.Instant.now();
+        repo.replace(e);
+        return e;
+    }
+
     public CampaignEntity close(UUID id) {
         ensureCapability();
         CampaignEntity e = get(id);

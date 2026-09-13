@@ -162,6 +162,45 @@ class CampaignTargetTest extends AbstractIntegrationTest {
                 .body("data.labels", hasSize(0));
     }
 
+    /**
+     * Le barème du conseil de filière se saisit composante par
+     * composante, et le total se somme plutôt que de se saisir : deux
+     * vérités sur le même chiffre finiraient par diverger.
+     */
+    @Test
+    void the_collection_scale_sums_its_parts_and_stays_silent_until_entered() {
+        UserEntity admin = admin();
+        String campaignId = campaign(admin);
+
+        givenAs(admin).queryParam("campaignId", campaignId)
+                .when().get("/api/v1/executive-dashboard/campaign")
+                .then().statusCode(200)
+                .body("data.scale", nullValue());
+
+        givenAs(admin).contentType("application/json")
+                .body("{ \"transportPerKg\": 10, \"gatheringPerKg\": 60,"
+                        + " \"buyerRemunerationPerKg\": 30 }")
+                .when().put("/api/v1/campaigns/" + campaignId + "/collection-scale")
+                .then().statusCode(200);
+
+        givenAs(admin).queryParam("campaignId", campaignId)
+                .when().get("/api/v1/executive-dashboard/campaign")
+                .then().statusCode(200)
+                .body("data.scale.scaleTotalPerKg", equalTo(100))
+                .body("data.scale.gatheringPerKg", equalTo(60));
+
+        // Les trois composantes absentes effacent le barème : en garder
+        // un à zéro ferait comparer le réalisé à rien, en dépassement
+        // permanent.
+        givenAs(admin).contentType("application/json").body("{}")
+                .when().put("/api/v1/campaigns/" + campaignId + "/collection-scale")
+                .then().statusCode(200);
+        givenAs(admin).queryParam("campaignId", campaignId)
+                .when().get("/api/v1/executive-dashboard/campaign")
+                .then().statusCode(200)
+                .body("data.scale", nullValue());
+    }
+
     @Test
     void a_month_outside_the_campaign_is_refused() {
         UserEntity admin = admin();

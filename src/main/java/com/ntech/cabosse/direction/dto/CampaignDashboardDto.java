@@ -25,5 +25,10 @@ public record CampaignDashboardDto(
         java.util.List<CampaignCustomerShareDto> customers,
         /** Ce que chaque label de certification a pesé dans les ventes. */
         java.util.List<CampaignLabelShareDto> labels,
+        /**
+         * Le barème de collecte du conseil de filière, confronté au
+         * réalisé. Absent tant qu'il n'a pas été saisi.
+         */
+        CampaignScaleDto scale,
         java.util.List<CampaignDelegateAdvanceDto> delegates
 ) {}

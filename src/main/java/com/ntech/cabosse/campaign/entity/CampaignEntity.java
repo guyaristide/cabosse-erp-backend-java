@@ -116,6 +116,14 @@ public class CampaignEntity {
      * auteur. C'est ce qui permet, une campagne finie, de rapprocher un reçu
      * du prix en vigueur le jour où il a été établi.</p>
      */
+    /**
+     * Le barème de collecte publié par le conseil de filière, décomposé
+     * au kilo (coopérative, 13/09/2026). Absent tant que la structure ne
+     * l'a pas saisi : aucune comparaison n'est alors proposée, plutôt
+     * qu'une confrontation à un barème à zéro.
+     */
+    public CollectionScale collectionScale;
+
     public List<TariffChange> tariffHistory = new ArrayList<>();
 
     public Instant createdAt;
