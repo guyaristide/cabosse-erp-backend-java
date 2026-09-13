@@ -15,6 +15,11 @@ public record JournalPieceResponseDto(
         String ref,
         LocalDate date,
         PostingSourceType sourceType,
+        /**
+         * Le journal auquel l'écriture appartient, déduit de la nature
+         * de l'opération et des comptes mouvementés. Jamais stocké.
+         */
+        com.ntech.cabosse.accounting.entity.JournalCode journalCode,
         UUID sourceId,
         String sourceRef,
         String libelle,
@@ -28,7 +33,9 @@ public record JournalPieceResponseDto(
     public static JournalPieceResponseDto from(JournalPieceEntity e) {
         return new JournalPieceResponseDto(
                 e.id, e.ref, e.date,
-                e.sourceType, e.sourceId, e.sourceRef,
+                e.sourceType,
+                com.ntech.cabosse.accounting.service.JournalCodes.of(e.sourceType, e.entries),
+                e.sourceId, e.sourceRef,
                 e.libelle,
                 e.entries.stream().map(JournalEntryDto::from).toList(),
                 e.totalDebit, e.totalCredit,

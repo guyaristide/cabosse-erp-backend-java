@@ -39,20 +39,16 @@ import java.util.Map;
  * <p><strong>FEC</strong> (Fichier des Écritures Comptables) : format
  * pipe-delimited 18 colonnes, une ligne par {@link JournalEntry}.
  * L'expert-comptable l'importe directement dans son logiciel
- * (Sage, Ciel, Quadra). Pour le MVP on utilise un journal unique
- * <code>GEN</code> ; la ventilation par journal (HA achats, VE ventes,
- * BA banque, OD opérations diverses) sera ajoutée si l'expert-comptable
- * le demande — c'est une enrichissement de l'export, pas une refonte
- * du stockage.</p>
+ * (Sage, Ciel, Quadra). Le code journal est déduit de chaque écriture
+ * (ACH, VTE, BQ, CA, OD) et non stocké : le fichier sortait un journal
+ * unique <code>GEN</code> jusqu'au 13/09/2026, ce qui interdisait tout
+ * rapprochement de journal côté cabinet.</p>
  */
 @ApplicationScoped
 public class AccountingExportService {
 
     /** Format date FEC : YYYYMMDD sans séparateur. */
     private static final DateTimeFormatter FEC_DATE = DateTimeFormatter.ofPattern("yyyyMMdd");
-    /** Code journal unique au MVP — voir doc classe. */
-    private static final String JOURNAL_CODE = "GEN";
-    private static final String JOURNAL_LIB = "Journal général";
 
     @Inject JournalPieceRepository pieces;
     @Inject ChartOfAccountsRepository chart;
@@ -80,11 +76,16 @@ public class AccountingExportService {
         for (JournalPieceEntity p : iteratePieces(from, to)) {
             String ecritureDate = p.date != null ? FEC_DATE.format(p.date) : "";
             String pieceDate = ecritureDate;
+            // Le journal se déduit de l'écriture (13/09/2026). Auparavant
+            // le fichier sortait « GEN » pour tout : un cabinet qui le
+            // reçoit ne peut alors rapprocher aucun de ses journaux.
+            com.ntech.cabosse.accounting.entity.JournalCode journal =
+                    com.ntech.cabosse.accounting.service.JournalCodes.of(p.sourceType, p.entries);
             for (JournalEntry e : p.entries) {
                 String compteLib = labelsByAccount.getOrDefault(e.syscohadaAccount, "");
                 w.println(String.join("|",
-                        sanitize(JOURNAL_CODE),
-                        sanitize(JOURNAL_LIB),
+                        sanitize(journal.name()),
+                        sanitize(journal.label()),
                         sanitize(p.ref),
                         sanitize(ecritureDate),
                         sanitize(e.syscohadaAccount),
