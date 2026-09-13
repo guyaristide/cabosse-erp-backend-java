@@ -453,6 +453,25 @@ public class TenantPreferences {
     }
 
     /** Compte de charge de la rémunération des délégués. Défaut « 632100 ». */
+    /**
+     * Les comptes de charge qui composent le coût d'achat, au-delà du
+     * prix payé au producteur.
+     *
+     * <p>Demandé par la coopérative le 13/09/2026 : son tableau de bord
+     * veut un coût d'achat au kilo qui comprenne les frais, et pas
+     * seulement le prix bord champ. Quels frais exactement dépend du plan
+     * de chaque structure, d'où le réglage plutôt qu'une liste écrite
+     * dans le code.</p>
+     *
+     * <p>Vide, le coût complet ne s'affiche pas : mieux vaut ne rien
+     * annoncer qu'annoncer un coût complet qui serait le prix nu.</p>
+     */
+    public java.util.List<String> purchaseCostAccounts;
+
+    public java.util.List<String> purchaseCostAccounts() {
+        return purchaseCostAccounts == null ? java.util.List.of() : purchaseCostAccounts;
+    }
+
     public String delegateMarginAccount;
 
     public String delegateMarginAccount() {

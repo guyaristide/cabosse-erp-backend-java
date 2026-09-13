@@ -177,7 +177,15 @@ public class CampaignDashboardService {
         delegates.sort((a, b) -> b.advanced().compareTo(a.advanced()));
 
         // ─── Prix moyens ───
+        // Le prix payé au producteur, puis le coût complet qui y ajoute
+        // les frais désignés par la structure (coopérative, 13/09/2026).
+        // Quels frais dépend du plan comptable de chacun : la liste est un
+        // réglage, et vide, le coût complet ne s'affiche pas plutôt que de
+        // valoir le prix nu, ce qui se lirait comme une absence de frais.
         BigDecimal avgPurchase = ratio(purchasedAmount, purchasedWeight);
+        BigDecimal sideCosts = purchaseSideCosts(campaign, horizon);
+        BigDecimal avgFullCost = sideCosts == null ? null
+                : ratio(purchasedAmount.add(sideCosts), purchasedWeight);
         BigDecimal avgSale = ratio(revenue, soldWeight);
         BigDecimal unitMargin = avgPurchase != null && avgSale != null
                 ? avgSale.subtract(avgPurchase) : null;
@@ -215,7 +223,7 @@ public class CampaignDashboardService {
                 revenue, grossMargin,
                 null, // résultat net : DEC-39 ouverte
                 advancesDisbursed, advancesOutstanding, coverageRate,
-                avgPurchase, avgSale, unitMargin);
+                avgPurchase, avgFullCost, sideCosts, avgSale, unitMargin);
 
         CampaignSynthesisDto synthesis = new CampaignSynthesisDto(
                 grossMarginRate, prefs.grossMarginTargetPct(),
@@ -261,6 +269,31 @@ public class CampaignDashboardService {
     }
 
     /** Mêmes comptes que la vue période : BankAccount déclarés + défauts. */
+    /**
+     * Les frais d'achat de la campagne, pris sur les comptes que la
+     * structure a désignés.
+     *
+     * <p>Le solde d'un compte de charge cumule depuis l'origine : on
+     * retranche donc l'état de la veille du premier jour, sans quoi les
+     * campagnes précédentes viendraient gonfler celle qu'on lit.</p>
+     *
+     * @return {@code null} si aucun compte n'est déclaré, pour que
+     *         l'écran n'affiche rien plutôt qu'un coût sans frais
+     */
+    private BigDecimal purchaseSideCosts(CampaignEntity campaign, LocalDate horizon) {
+        var accounts = preferences.current() == null
+                ? java.util.List.<String>of() : preferences.current().purchaseCostAccounts();
+        if (accounts.isEmpty()) return null;
+        LocalDate eve = campaign.startDate == null ? null : campaign.startDate.minusDays(1);
+        BigDecimal total = BigDecimal.ZERO;
+        for (String account : accounts) {
+            BigDecimal atEnd = nz(pieces.balance(account, horizon));
+            BigDecimal before = eve == null ? BigDecimal.ZERO : nz(pieces.balance(account, eve));
+            total = total.add(atEnd.subtract(before));
+        }
+        return total;
+    }
+
     private Set<String> treasuryAccounts() {
         Set<String> accounts = new HashSet<>();
         banks.listActive().forEach(b -> accounts.add(b.syscohadaAccount));

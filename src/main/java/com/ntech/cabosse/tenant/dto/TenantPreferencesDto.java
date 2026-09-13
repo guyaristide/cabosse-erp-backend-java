@@ -142,6 +142,7 @@ public record TenantPreferencesDto(
                 example = "2000000")
         java.math.BigDecimal collectorAdvanceApprovalThreshold,
         String settlementApprovalScope,
+        java.util.List<String> purchaseCostAccounts,
         java.math.BigDecimal settlementApprovalThreshold,
         java.math.BigDecimal settlementGovernanceThreshold,
 

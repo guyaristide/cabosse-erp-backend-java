@@ -169,6 +169,11 @@ public record UpdateTenantPreferencesPayloadDto(
          * NONE, ALL, DELEGATES ou MEMBERS (expert, 12/09/2026).
          */
         String settlementApprovalScope,
+        /**
+         * Comptes de charge qui composent le coût d'achat, au-delà du
+         * prix payé au producteur (coopérative, 13/09/2026).
+         */
+        java.util.List<String> purchaseCostAccounts,
         java.math.BigDecimal settlementApprovalThreshold,
         java.math.BigDecimal settlementGovernanceThreshold,
 

@@ -173,6 +173,7 @@ public final class TenantMapper {
                 entity.preferences.memberCreditApprovalThreshold(),
                 entity.preferences.collectorAdvanceApprovalThreshold,
                 entity.preferences.settlementApprovalScope(),
+                entity.preferences.purchaseCostAccounts(),
                 entity.preferences.settlementApprovalThreshold,
                 entity.preferences.settlementGovernanceThreshold,
                 entity.preferences.memberCreditAccount(),

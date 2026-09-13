@@ -110,6 +110,34 @@ class CampaignTargetTest extends AbstractIntegrationTest {
                 .then().statusCode(200).body("data", hasSize(0));
     }
 
+    /**
+     * Le coût d'achat complet n'existe que si la structure a désigné les
+     * comptes de frais qui le composent. Sans eux, un coût « complet »
+     * égal au prix nu se lirait comme une absence de frais.
+     */
+    @Test
+    void the_full_purchase_cost_stays_silent_until_the_fee_accounts_are_named() {
+        UserEntity admin = admin();
+        String campaignId = campaign(admin);
+
+        givenAs(admin).queryParam("campaignId", campaignId)
+                .when().get("/api/v1/executive-dashboard/campaign")
+                .then().statusCode(200)
+                .body("data.kpis.avgPurchaseCostPerKg", nullValue())
+                .body("data.kpis.purchaseSideCosts", nullValue());
+
+        givenAs(admin).contentType("application/json")
+                .body("{ \"purchaseCostAccounts\": [\"624000\"] }")
+                .when().put("/api/v1/me/tenant/preferences").then().statusCode(200);
+
+        // Déclarés, les frais existent : zéro tant que rien n'a été
+        // enregistré dessus, ce qui est un chiffre, pas une absence.
+        givenAs(admin).queryParam("campaignId", campaignId)
+                .when().get("/api/v1/executive-dashboard/campaign")
+                .then().statusCode(200)
+                .body("data.kpis.purchaseSideCosts", equalTo(0));
+    }
+
     @Test
     void a_month_outside_the_campaign_is_refused() {
         UserEntity admin = admin();

@@ -77,6 +77,7 @@ public class TenantPreferencesService {
                 p.memberCreditApprovalThreshold(),
                 p.collectorAdvanceApprovalThreshold,
                 p.settlementApprovalScope(),
+                p.purchaseCostAccounts(),
                 p.settlementApprovalThreshold,
                 p.settlementGovernanceThreshold,
                 p.memberCreditAccount(),
@@ -412,6 +413,15 @@ public class TenantPreferencesService {
         }
         if (payload.settlementGovernanceThreshold() != null) {
             t.preferences.settlementGovernanceThreshold = payload.settlementGovernanceThreshold();
+        }
+
+        // Une liste vide est une décision : « aucun frais ne compte ».
+        // La distinguer de l'absence permet de revenir en arrière.
+        if (payload.purchaseCostAccounts() != null) {
+            diffs.put("purchaseCostAccounts", Map.of(
+                    "from", t.preferences.purchaseCostAccounts(),
+                    "to", payload.purchaseCostAccounts()));
+            t.preferences.purchaseCostAccounts = payload.purchaseCostAccounts();
         }
 
         if (payload.memberCreditAccount() != null && !payload.memberCreditAccount().isBlank()
