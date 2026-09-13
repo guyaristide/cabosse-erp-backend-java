@@ -39,6 +39,9 @@ public class ExecutiveDashboardResource {
     /** Vue campagne (épic CE-196) : campagne en cours sans paramètre. */
     @GET
     @Path("/campaign")
+    // Deux lectures : le pilotage sans les montants suffit au responsable
+    // de collecte, le droit exécutif y ajoute l'argent (13/09/2026).
+    @RequiresPermission({ Permission.EXECUTIVE_READ, Permission.CAMPAIGN_STEERING_READ })
     public Response campaign(@QueryParam("campaignId") java.util.UUID campaignId) {
         return Response.ok(ApiResponse.ok(campaignDashboards.build(campaignId))).build();
     }
@@ -52,6 +55,7 @@ public class ExecutiveDashboardResource {
      */
     @GET
     @Path("/campaign/export")
+    @RequiresPermission({ Permission.EXECUTIVE_READ, Permission.CAMPAIGN_STEERING_READ })
     @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             "application/pdf" })
     public Response campaignExport(@QueryParam("campaignId") java.util.UUID campaignId,

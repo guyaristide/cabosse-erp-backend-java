@@ -30,5 +30,14 @@ public record CampaignDashboardDto(
          * réalisé. Absent tant qu'il n'a pas été saisi.
          */
         CampaignScaleDto scale,
+        /**
+         * Le lecteur voit-il les montants ?
+         *
+         * <p>Faux, les grandeurs d'argent sont absentes du corps plutôt
+         * que vidées : un écran qui affiche des cases vides fait croire à
+         * une campagne sans chiffre d'affaires, là où il s'agit d'un
+         * droit manquant (13/09/2026).</p>
+         */
+        boolean financialsVisible,
         java.util.List<CampaignDelegateAdvanceDto> delegates
 ) {}

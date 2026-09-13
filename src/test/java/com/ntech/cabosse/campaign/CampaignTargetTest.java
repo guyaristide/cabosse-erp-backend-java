@@ -22,6 +22,7 @@ import java.util.HashSet;
 
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
 /**
@@ -55,6 +56,23 @@ class CampaignTargetTest extends AbstractIntegrationTest {
         u.tenantId = tenant.id;
         u.roles = new HashSet<>();
         u.roles.add(Roles.TENANT_ADMIN);
+        u.status = UserStatus.ACTIVE;
+        u.createdAt = Instant.now();
+        u.updatedAt = u.createdAt;
+        users.persist(u);
+        return u;
+    }
+
+    private UserEntity user(String prefix, String role) {
+        UserEntity u = new UserEntity();
+        u.id = idGenerator.newId();
+        u.email = prefix + "-" + TestFixtures.randomSlugSuffix() + "@" + tenant.slug + ".ci";
+        u.firstName = prefix;
+        u.lastName = "Campagne";
+        u.passwordHash = passwordHasher.hash(TestFixtures.DEFAULT_PASSWORD);
+        u.tenantId = tenant.id;
+        u.roles = new HashSet<>();
+        u.roles.add(role);
         u.status = UserStatus.ACTIVE;
         u.createdAt = Instant.now();
         u.updatedAt = u.createdAt;
@@ -230,6 +248,62 @@ class CampaignTargetTest extends AbstractIntegrationTest {
         // comparer la valeur plutôt que sa présentation.
         String plain = csv.replaceAll("[\\s\\u00A0\\u202F]", "");
         org.assertj.core.api.Assertions.assertThat(plain).contains("10000");
+    }
+
+    /**
+     * Deux lectures du pilotage de campagne. Le responsable de collecte
+     * a besoin des tonnages, des objectifs et des écarts ; il n'a pas à
+     * connaître le chiffre d'affaires, les marges ni la trésorerie.
+     */
+    @Test
+    void the_steering_reads_without_amounts_for_whoever_lacks_the_executive_right() {
+        UserEntity admin = admin();
+        String campaignId = campaign(admin);
+        String month = YearMonth.now().toString();
+        setTarget(admin, campaignId,
+                "{ \"month\": \"%s\", \"collectionTargetKg\": 10000 }".formatted(month))
+                .statusCode(200);
+
+        UserEntity agent = user("collecte", Roles.USER);
+        String roleId = givenAs(admin).contentType("application/json")
+                .body("{ \"name\": \"Responsable collecte\","
+                        + " \"permissions\": [\"CAMPAIGN_STEERING_READ\"] }")
+                .when().post("/api/v1/tenant-roles").then().statusCode(201)
+                .extract().path("data.id");
+        givenAs(admin).contentType("application/json")
+                .body("{ \"roleIds\": [\"%s\"] }".formatted(roleId))
+                .when().put("/api/v1/tenant-roles/users/" + agent.id).then().statusCode(204);
+
+        var response = givenAs(agent).queryParam("campaignId", campaignId)
+                .when().get("/api/v1/executive-dashboard/campaign")
+                .then().statusCode(200);
+
+        // Il voit ce qui sert à son travail.
+        response.body("data.financialsVisible", equalTo(false))
+                .body("data.kpis.purchasedWeight", notNullValue())
+                .body("data.months.find { it.month == '%s' }.collectionTargetKg".formatted(month),
+                        equalTo(10000));
+
+        // Et pas ce qui relève de l'argent. Absent, jamais à zéro : des
+        // cases vides feraient croire à une campagne sans chiffre
+        // d'affaires plutôt qu'à un droit manquant.
+        response.body("data.kpis.revenue", nullValue())
+                .body("data.kpis.grossMargin", nullValue())
+                .body("data.kpis.avgSalePricePerKg", nullValue())
+                .body("data.months.find { it.month == '%s' }.revenue".formatted(month),
+                        nullValue())
+                // Les avances aux délégués ne se vident pas, elles
+                // s'effacent : une liste de noms suivie de zéros dirait
+                // que personne ne doit rien.
+                .body("data.delegates", hasSize(0))
+                .body("data.scale", nullValue());
+
+        // L'administrateur, lui, voit tout.
+        givenAs(admin).queryParam("campaignId", campaignId)
+                .when().get("/api/v1/executive-dashboard/campaign")
+                .then().statusCode(200)
+                .body("data.financialsVisible", equalTo(true))
+                .body("data.kpis.revenue", notNullValue());
     }
 
     @Test

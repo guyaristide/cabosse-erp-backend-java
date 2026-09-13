@@ -16,6 +16,7 @@ import com.ntech.cabosse.direction.dto.CampaignDelegateAdvanceDto;
 import com.ntech.cabosse.direction.dto.CampaignKpisDto;
 import com.ntech.cabosse.campaign.service.CampaignTargetService;
 import com.ntech.cabosse.direction.dto.CampaignLabelShareDto;
+import com.ntech.cabosse.permission.entity.Permission;
 import com.ntech.cabosse.direction.dto.CampaignScaleDto;
 import com.ntech.cabosse.direction.dto.CampaignMonthDto;
 import com.ntech.cabosse.direction.dto.CampaignSynthesisDto;
@@ -65,6 +66,7 @@ public class CampaignDashboardService {
     private static final BigDecimal HUNDRED = new BigDecimal("100");
 
     @Inject CampaignResolver campaignResolver;
+    @Inject com.ntech.cabosse.permission.service.PermissionResolver permissions;
     @Inject com.ntech.cabosse.certification.repository.CertificationRepository certifications;
     @Inject com.ntech.cabosse.campaign.service.CampaignTargetService targetService;
     @Inject ProducerPurchaseRepository purchases;
@@ -314,14 +316,37 @@ public class CampaignDashboardService {
                 new CampaignCustomerShareDto(id, customerNames.get(id), weight)));
         customers.sort((a, b) -> b.soldWeight().compareTo(a.soldWeight()));
 
+        // Les montants ne sortent que pour qui a le droit de les lire.
+        // Ils sont retirés du corps, pas mis à zéro : des cases vides
+        // feraient croire à une campagne sans chiffre d'affaires.
+        // Des variables distinctes : réaffecter celles que les lambdas
+        // ci-dessus ont capturées les rendrait non effectivement finales.
+        boolean financials = permissions.can(Permission.EXECUTIVE_READ);
+        CampaignKpisDto visibleKpis = financials ? kpis : withoutAmounts(kpis);
+        CampaignSynthesisDto visibleSynthesis =
+                financials ? synthesis : withoutAmounts(synthesis);
+        List<CampaignMonthDto> visibleMonths = financials ? months
+                : months.stream().map(CampaignDashboardService::withoutAmounts).toList();
+        CampaignScaleDto visibleScale = financials ? scale : null;
+        // Les avances aux délégués sont des montants de bout en bout :
+        // les vider laisserait une liste de noms suivie de zéros, plus
+        // trompeuse que l'absence. Le nombre de délégués non soldés
+        // reste dans la synthèse, il ne dit pas de somme.
+        List<CampaignDelegateAdvanceDto> visibleDelegates = financials ? delegates : List.of();
+        List<CampaignLabelShareDto> visibleLabels = financials ? labels
+                : labels.stream()
+                        .map(l -> new CampaignLabelShareDto(
+                                l.code(), l.label(), l.soldWeight(), null, l.sharePct()))
+                        .toList();
+
         return new CampaignDashboardDto(
                 campaign.id, campaign.code, campaign.label,
                 campaign.startDate, campaign.endDate,
                 campaign.status != null ? campaign.status.name() : "OPEN",
                 tenantContext.currency(),
                 weightUnit != null ? weightUnit : "kg",
-                kpis, synthesis,
-                months, customers, labels, scale, delegates);
+                visibleKpis, visibleSynthesis,
+                visibleMonths, customers, visibleLabels, visibleScale, financials, visibleDelegates);
     }
 
     /** Mêmes comptes que la vue période : BankAccount déclarés + défauts. */
@@ -364,6 +389,30 @@ public class CampaignDashboardService {
         return stripped.toLowerCase(java.util.Locale.ROOT)
                 .replaceAll("[^a-z0-9]+", " ")
                 .trim();
+    }
+
+    /** La même campagne, sans ce qui relève de l'argent. */
+    private static CampaignKpisDto withoutAmounts(CampaignKpisDto k) {
+        return new CampaignKpisDto(
+                k.purchasedWeight(), k.soldWeight(), k.stockWeight(),
+                null, null, null,
+                null, null, null,
+                null, null, null, null, null);
+    }
+
+    private static CampaignSynthesisDto withoutAmounts(CampaignSynthesisDto s) {
+        return new CampaignSynthesisDto(
+                null, s.grossMarginTargetPct(), null, s.netMarginTargetPct(),
+                null, s.treasuryLowPointMonth(), null,
+                s.residualStockWeight(), s.unsettledDelegatesCount());
+    }
+
+    private static CampaignMonthDto withoutAmounts(CampaignMonthDto m) {
+        return new CampaignMonthDto(
+                m.month(), null, null,
+                m.purchasedWeight(), m.soldWeight(), null,
+                m.collectionTargetKg(), m.collectionGapKg(),
+                m.saleTargetKg(), m.saleGapKg());
     }
 
     private Set<String> treasuryAccounts() {

@@ -150,6 +150,16 @@ public enum Permission {
     // ─── Pilotage ───────────────────────────────────────────────────
     REPORTING_READ(Domain.STEERING, "m.per-reporting-read"),
     EXECUTIVE_READ(Domain.STEERING, "m.per-executive-read"),
+    /**
+     * Lire le pilotage de campagne sans en voir les montants.
+     *
+     * <p>Un responsable de collecte a besoin des tonnages, des objectifs
+     * et des écarts pour faire son travail, et n'a pas à connaître le
+     * chiffre d'affaires, les marges ni la trésorerie. Ce droit ouvre la
+     * vue campagne ; {@link #EXECUTIVE_READ} y ajoute l'argent (demandé
+     * le 13/09/2026).</p>
+     */
+    CAMPAIGN_STEERING_READ(Domain.STEERING, "m.per-campaign-steering-read"),
 
     // ─── Administration du tenant ───────────────────────────────────
     SETTINGS_READ(Domain.ADMIN, "m.per-settings-read"),
