@@ -141,6 +141,9 @@ public record TenantPreferencesDto(
                 + "la gouvernance se prononce sur tout ; au-delà, le montant départage.",
                 example = "2000000")
         java.math.BigDecimal collectorAdvanceApprovalThreshold,
+        String settlementApprovalScope,
+        java.math.BigDecimal settlementApprovalThreshold,
+        java.math.BigDecimal settlementGovernanceThreshold,
 
         @Schema(description = "Compte de créance sur les producteurs (crédits et avances).",
                 example = "409200", defaultValue = "409200")

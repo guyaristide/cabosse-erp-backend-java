@@ -6,6 +6,8 @@ import com.ntech.cabosse.members.repository.MemberRepository;
 import com.ntech.cabosse.producerpayment.dto.ProducerPaymentDtos;
 import com.ntech.cabosse.producerpayment.entity.ProducerPaymentBeneficiary;
 import com.ntech.cabosse.producerpayment.entity.ProducerPaymentEntity;
+import com.ntech.cabosse.settlement.entity.SettlementRequestEntity;
+import com.ntech.cabosse.settlement.entity.SettlementRequestStatus;
 import com.ntech.cabosse.producerpayment.repository.ProducerPaymentRepository;
 import com.ntech.cabosse.producerpurchase.entity.ProducerPurchaseEntity;
 import com.ntech.cabosse.producerpurchase.repository.ProducerPurchaseRepository;
@@ -58,6 +60,7 @@ public class ProducerPaymentService {
     @Inject TenantContext tenantContext;
     @Inject AuditService audit;
     @Inject IdGenerator idGenerator;
+    @Inject com.ntech.cabosse.settlement.service.SettlementRequestService settlementRequests;
     @Inject JsonWebToken jwt;
 
     // ─── Lecture ────────────────────────────────────────────────────
@@ -162,6 +165,17 @@ public class ProducerPaymentService {
             seen.add(a.purchaseId());
         }
 
+        // Le circuit d'approbation, quand la structure l'a activé
+        // (expert, 12/09/2026). Vérifié avant la moindre imputation :
+        // refuser après aurait laissé des livraisons soldées derrière.
+        ProducerPaymentBeneficiary kind = toDelegate
+                ? ProducerPaymentBeneficiary.DELEGATE : ProducerPaymentBeneficiary.MEMBER;
+        BigDecimal requested = p.allocations().stream()
+                .map(ProducerPaymentDtos.AllocationDto::amount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        SettlementRequestEntity approval =
+                requireApproval(kind, p.memberId(), p.delegateSupplierId(), requested);
+
         Instant now = Instant.now();
         ProducerPaymentEntity e = new ProducerPaymentEntity();
         e.id = idGenerator.newId();
@@ -233,6 +247,12 @@ public class ProducerPaymentService {
 
         repo.insert(e);
 
+        // La demande a fait son office : la solder ici, et nulle part
+        // ailleurs, évite qu'elle et le règlement racontent deux choses.
+        if (approval != null) {
+            settlementRequests.markPaid(approval.id, e.id, e.ref);
+        }
+
         audit.event(AuditEventType.PRODUCER_PAYMENT_CREATED)
                 .actorEmail(actor())
                 .target("producer_payment", e.id.toString(), e.ref)
@@ -274,6 +294,33 @@ public class ProducerPaymentService {
     }
 
     /** Ce que la coopérative doit sur la livraison, retenues déduites. */
+    /**
+     * Ce règlement a-t-il l'accord qu'il lui faut ?
+     *
+     * <p>Hors périmètre ou sous le seuil, il n'en faut aucun et rien ne
+     * change. Dans le périmètre, il faut une demande approuvée, et le
+     * montant payé ne peut pas dépasser ce qui a été accordé : si le dû a
+     * grossi entre la décision et la caisse, c'est le montant approuvé
+     * qui sort, sinon l'approbation ne garantit rien.</p>
+     */
+    private SettlementRequestEntity requireApproval(ProducerPaymentBeneficiary kind,
+                                                    UUID memberId, UUID delegateSupplierId,
+                                                    BigDecimal requested) {
+        if (!settlementRequests.approvalRequired(kind, requested)) return null;
+        SettlementRequestEntity approval = settlementRequests
+                .openFor(memberId, delegateSupplierId)
+                .filter(r -> r.status == SettlementRequestStatus.APPROVED)
+                .orElseThrow(() -> new BusinessException(
+                        Messages.msg("m.ppy-approval-required")));
+        BigDecimal granted = approval.approvedAmount == null
+                ? BigDecimal.ZERO : approval.approvedAmount;
+        if (requested.compareTo(granted) > 0) {
+            throw new BusinessException(Messages.msg("m.ppy-above-approved",
+                    String.valueOf(requested), String.valueOf(granted), approval.ref));
+        }
+        return approval;
+    }
+
     private static BigDecimal dueOf(ProducerPurchaseEntity r) {
         return nz(r.amount).subtract(nz(r.creditImputed));
     }

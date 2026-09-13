@@ -505,6 +505,59 @@ public class TenantPreferences {
      * milliers. Zéro : la gouvernance se prononce sur tout, ce qui doit
      * rester possible.</p>
      */
+    // ─── Approbation des règlements de solde ────────────────────────
+
+    /** Personne n'est concerné : le règlement reste un geste direct. */
+    public static final String SETTLEMENT_APPROVAL_NONE = "NONE";
+    /** Délégués et producteurs. */
+    public static final String SETTLEMENT_APPROVAL_ALL = "ALL";
+    /** Les délégués seulement : c'est là que se concentrent les montants. */
+    public static final String SETTLEMENT_APPROVAL_DELEGATES = "DELEGATES";
+    /** Les producteurs seulement. */
+    public static final String SETTLEMENT_APPROVAL_MEMBERS = "MEMBERS";
+
+    /**
+     * Qui doit passer par une approbation avant d'être réglé de son solde.
+     *
+     * <p>Demandé par l'expert-comptable le 12/09/2026 : la comptable veut
+     * pouvoir demander l'accord du président ou du directeur avant que
+     * l'argent sorte. Laissé en réglage plutôt qu'en règle, parce que la
+     * réponse dépend de la gouvernance de chaque structure et non du
+     * logiciel.</p>
+     *
+     * <p>Défaut {@link #SETTLEMENT_APPROVAL_NONE} : tant que la structure
+     * n'a rien décidé, rien ne change pour elle.</p>
+     */
+    public String settlementApprovalScope;
+
+    public String settlementApprovalScope() {
+        return settlementApprovalScope == null || settlementApprovalScope.isBlank()
+                ? SETTLEMENT_APPROVAL_NONE : settlementApprovalScope;
+    }
+
+    /**
+     * Montant à partir duquel l'approbation devient obligatoire.
+     *
+     * <p>Absent, l'approbation vaut dès le premier franc dès lors que le
+     * bénéficiaire entre dans le périmètre. Zéro a le même effet et reste
+     * possible : une structure qui veut tout faire remonter l'écrit.</p>
+     */
+    public java.math.BigDecimal settlementApprovalThreshold;
+
+    public java.math.BigDecimal settlementApprovalThreshold() {
+        return settlementApprovalThreshold == null
+                ? java.math.BigDecimal.ZERO : settlementApprovalThreshold;
+    }
+
+    /**
+     * Montant au-delà duquel l'approbation ordinaire ne suffit plus.
+     *
+     * <p>Absent, il n'y a qu'un échelon : qui peut approuver approuve
+     * tout. Renseigné, le second échelon devient nécessaire au-delà,
+     * exactement comme pour les avances aux délégués.</p>
+     */
+    public java.math.BigDecimal settlementGovernanceThreshold;
+
     public java.math.BigDecimal collectorAdvanceApprovalThreshold;
 
     public java.math.BigDecimal collectorAdvanceApprovalThreshold() {

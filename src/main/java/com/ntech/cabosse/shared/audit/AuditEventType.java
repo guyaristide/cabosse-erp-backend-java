@@ -154,6 +154,11 @@ public enum AuditEventType {
      */
     DELEGATE_OPENING_BALANCE_SET,
 
+    /** Circuit d'approbation du règlement d'un solde (expert, 12/09/2026). */
+    SETTLEMENT_REQUESTED,
+    SETTLEMENT_APPROVED,
+    SETTLEMENT_REJECTED,
+
     // === Export de données ===
     DATA_EXPORTED;
 
@@ -191,7 +196,9 @@ public enum AuditEventType {
                  PRODUCER_PURCHASE_CANCELLED,
                  PRODUCER_PAYMENT_CREATED, COMMODITY_SALE_CREATED,
                  DIRECT_EXPENSE_RECORDED,
-                 DELEGATE_OPENING_BALANCE_SET -> AuditCategory.OPERATIONS;
+                 DELEGATE_OPENING_BALANCE_SET,
+                 SETTLEMENT_REQUESTED, SETTLEMENT_APPROVED,
+                 SETTLEMENT_REJECTED -> AuditCategory.OPERATIONS;
             case DIRECT_RECEIPT_CREATED, DIRECT_RECEIPT_UPDATED,
                  DIRECT_RECEIPT_LINE_PAID, DIRECT_RECEIPT_LINE_PAYMENT_REVERTED,
                  DIRECT_RECEIPT_CANCELLED -> AuditCategory.OPERATIONS;

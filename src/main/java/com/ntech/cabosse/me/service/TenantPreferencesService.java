@@ -76,6 +76,9 @@ public class TenantPreferencesService {
                 p.producerReferenceCodeType,
                 p.memberCreditApprovalThreshold(),
                 p.collectorAdvanceApprovalThreshold,
+                p.settlementApprovalScope(),
+                p.settlementApprovalThreshold,
+                p.settlementGovernanceThreshold,
                 p.memberCreditAccount(),
                 p.cashDiscrepancyAccount(),
                 p.productionPotentialBasis(),
@@ -390,6 +393,25 @@ public class TenantPreferencesService {
                     "to", payload.collectorAdvanceApprovalThreshold()));
             t.preferences.collectorAdvanceApprovalThreshold =
                     payload.collectorAdvanceApprovalThreshold();
+        }
+
+        // Le circuit d'approbation des règlements : trois réglages, parce
+        // que la réponse appartient à la gouvernance de chaque structure
+        // et non au logiciel (expert, 12/09/2026).
+        if (payload.settlementApprovalScope() != null
+                && !payload.settlementApprovalScope().isBlank()) {
+            diffs.put("settlementApprovalScope", Map.of(
+                    "from", t.preferences.settlementApprovalScope(),
+                    "to", payload.settlementApprovalScope()));
+            t.preferences.settlementApprovalScope = payload.settlementApprovalScope();
+        }
+        // Zéro est une décision ici aussi : celle de faire remonter tout
+        // règlement. Le distinguer de l'absence est délibéré.
+        if (payload.settlementApprovalThreshold() != null) {
+            t.preferences.settlementApprovalThreshold = payload.settlementApprovalThreshold();
+        }
+        if (payload.settlementGovernanceThreshold() != null) {
+            t.preferences.settlementGovernanceThreshold = payload.settlementGovernanceThreshold();
         }
 
         if (payload.memberCreditAccount() != null && !payload.memberCreditAccount().isBlank()

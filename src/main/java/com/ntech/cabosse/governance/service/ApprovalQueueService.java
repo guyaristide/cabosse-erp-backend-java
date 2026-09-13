@@ -44,6 +44,7 @@ public class ApprovalQueueService {
     @Inject MemberCreditRepository credits;
     @Inject DelegateAccountService delegateAccount;
     @Inject PermissionResolver permissions;
+    @Inject com.ntech.cabosse.settlement.service.SettlementRequestService settlements;
 
     /**
      * @param kind   restreint à une nature, {@code null} pour les deux
@@ -83,6 +84,7 @@ public class ApprovalQueueService {
         List<PendingApprovalDto> out = new ArrayList<>();
         if (wants(kind, ApprovalKind.COLLECTOR_ADVANCE)) collectAdvances(out);
         if (wants(kind, ApprovalKind.MEMBER_CREDIT)) collectCredits(out);
+        if (wants(kind, ApprovalKind.SETTLEMENT_REQUEST)) collectSettlements(out);
         if (siteId == null) return out;
         // Une demande sans site connu reste visible : la masquer sur un
         // filtre de site la ferait disparaître du total soumis au conseil.
@@ -119,6 +121,37 @@ public class ApprovalQueueService {
                     a.governanceApprovalRequired,
                     canApprove && (!a.governanceApprovalRequired || canApproveGovernance),
                     a.siteId, a.campaignId));
+        });
+    }
+
+    /**
+     * Les règlements de solde qui attendent une décision.
+     *
+     * <p>Le compte courant du délégué est montré comme pour une avance :
+     * décider de sortir de l'argent à quelqu'un sans voir ce qu'il doit
+     * encore serait décider à l'aveugle.</p>
+     */
+    private void collectSettlements(List<PendingApprovalDto> out) {
+        boolean canApprove = permissions.currentIsTenantAdmin()
+                || permissions.can(Permission.COLLECTION_SETTLEMENT_APPROVE);
+        boolean canApproveGovernance = permissions.currentIsTenantAdmin()
+                || permissions.can(Permission.COLLECTION_SETTLEMENT_APPROVE_GOVERNANCE);
+
+        settlements.pending().forEach(r -> {
+            boolean governance = Boolean.TRUE.equals(r.governanceApprovalRequired);
+            BigDecimal balance = r.delegateSupplierId != null
+                    ? delegateAccount.outstanding(r.delegateSupplierId, r.campaignId)
+                    : null;
+            out.add(new PendingApprovalDto(
+                    ApprovalKind.SETTLEMENT_REQUEST.name(), r.id, r.ref,
+                    r.delegateSupplierId != null ? r.delegateSupplierId : r.memberId,
+                    r.beneficiaryName,
+                    r.requestedAmount, r.requestedOn, ageOf(r.requestedOn),
+                    balance, null, null,
+                    r.notes, r.requestedByEmail,
+                    governance,
+                    canApprove && (!governance || canApproveGovernance),
+                    r.siteId, r.campaignId));
         });
     }
 

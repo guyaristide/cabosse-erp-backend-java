@@ -164,6 +164,13 @@ public record UpdateTenantPreferencesPayloadDto(
         @Schema(description = "Seuil d'approbation de gouvernance des avances aux délégués. "
                 + "Réglage distinct de celui des producteurs.")
         java.math.BigDecimal collectorAdvanceApprovalThreshold,
+        /**
+         * Qui passe par une approbation avant d'être réglé de son solde :
+         * NONE, ALL, DELEGATES ou MEMBERS (expert, 12/09/2026).
+         */
+        String settlementApprovalScope,
+        java.math.BigDecimal settlementApprovalThreshold,
+        java.math.BigDecimal settlementGovernanceThreshold,
 
         @jakarta.validation.constraints.Pattern(regexp = "^$|^[0-9]{2,8}$",
                 message = "{v.compte-de-creance-2-a-8-chiffres}")

@@ -64,6 +64,19 @@ public enum Permission {
             TenantCapability.HAS_COMMODITY_TRADE),
     COLLECTION_PAYMENT_WRITE(Domain.COLLECTION, "m.per-collection-payment-write",
             TenantCapability.HAS_COMMODITY_TRADE),
+    // Régler le solde d'un délégué ou d'un producteur après
+    // comptabilisation était un geste unique : la caissière enregistrait
+    // le paiement et l'argent sortait, sans décision ni trace. Ce droit
+    // est celui de trancher, distinct de celui de payer (demande de
+    // l'expert-comptable, 12/09/2026).
+    COLLECTION_SETTLEMENT_APPROVE(Domain.COLLECTION,
+            "m.per-collection-settlement-approve",
+            TenantCapability.HAS_COMMODITY_TRADE),
+    // Au-dessus du second seuil, l'approbation ordinaire ne suffit plus,
+    // comme pour les avances.
+    COLLECTION_SETTLEMENT_APPROVE_GOVERNANCE(Domain.COLLECTION,
+            "m.per-collection-settlement-approve-governance",
+            TenantCapability.HAS_COMMODITY_TRADE),
 
     // ─── Producteurs membres ────────────────────────────────────────
     MEMBER_READ(Domain.MEMBER, "m.per-member-read", TenantCapability.HAS_MEMBERS),

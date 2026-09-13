@@ -11,5 +11,11 @@ public enum ApprovalKind {
     /** Avance à un délégué collecteur. Se décide depuis cet écran. */
     COLLECTOR_ADVANCE,
     /** Crédit à un producteur membre. Consultation seule ici. */
-    MEMBER_CREDIT
+    MEMBER_CREDIT,
+    /**
+     * Règlement du solde d'un délégué ou d'un producteur, après
+     * comptabilisation des livraisons. Se décide depuis cet écran
+     * (demande de l'expert-comptable, 12/09/2026).
+     */
+    SETTLEMENT_REQUEST
 }
