@@ -107,6 +107,17 @@ public class IntakeNoteResource {
      * rattrape une erreur de saisie avant le comptable. Comptabilisé,
      * le bordereau ne bouge plus.
      */
+    /**
+     * Saisie d'un bordereau au magasin : le geste du magasinier devant
+     * un camion, qui n'existait qu'à l'import d'un carnet.
+     */
+    @POST
+    @RequiresPermission({ Permission.STOCK_MOVE, Permission.COLLECTION_RECEIPT_WRITE })
+    public Response create(@Valid com.ntech.cabosse.intake.dto.IntakeNoteCreateDto payload) {
+        return Response.status(Response.Status.CREATED)
+                .entity(ApiResponse.created(service.create(payload))).build();
+    }
+
     @PUT
     @Path("/{id}")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })

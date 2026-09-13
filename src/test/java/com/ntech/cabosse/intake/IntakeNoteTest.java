@@ -21,6 +21,7 @@ import java.util.HashSet;
 
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.nullValue;
 
 /**
  * Bordereaux de réception (épic CE-218, DEC-41) : le constat du magasin
@@ -400,5 +401,60 @@ class IntakeNoteTest extends AbstractIntegrationTest {
                 .then().statusCode(204);
         givenAs(admin).when().get("/api/v1/intake-notes")
                 .then().statusCode(200).body("data", hasSize(1));
+    }
+
+    /**
+     * Le magasinier saisit un bordereau devant son camion.
+     *
+     * <p>Le bordereau ne naissait que d'un import de carnet, ce qui
+     * convient à une reprise d'historique et à rien d'autre : en
+     * déroulant le cycle dans l'ordre réel le 13/09/2026, le magasinier
+     * se retrouvait sans geste, et aucun écran ne disait pourquoi.</p>
+     */
+    @Test
+    void the_keeper_enters_a_note_truck_by_truck() {
+        UserEntity admin = admin();
+        String siteId = givenAs(admin).contentType("application/json")
+                .body("{\"name\":\"Magasin saisie\",\"type\":\"TRANSFORMATION\",\"code\":\"MS-"
+                        + TestFixtures.randomSlugSuffix() + "\"}")
+                .when().post("/api/v1/sites").then().statusCode(201).extract().path("data.id");
+        String delegateId = givenAs(admin).contentType("application/json")
+                .body("{\"name\":\"BABA OUEDRAOGO\",\"collector\":true}")
+                .when().post("/api/v1/suppliers").then().statusCode(201).extract().path("data.id");
+
+        String noteId = givenAs(admin).contentType("application/json")
+                .body("""
+                        { "ref": "BR0300", "date": "%s", "siteId": "%s",
+                          "delegateSupplierId": "%s", "productLabel": "Cacao",
+                          "truckNumber": "4521 CI", "grossWeightKg": 2594,
+                          "bagCount": 39, "netWeightKg": 2555 }
+                        """.formatted(LocalDate.now(), siteId, delegateId))
+                .when().post("/api/v1/intake-notes").then().statusCode(201)
+                // Le délégué désigné nomme le fournisseur : à l'import on
+                // rapproche un libellé faute de mieux, ici on le connaît.
+                .body("data.supplierName", equalTo("BABA OUEDRAOGO"))
+                .body("data.netWeightKg", equalTo(2555))
+                .body("data.status", equalTo("TO_ACCOUNT"))
+                .extract().path("data.id");
+
+        // Il rejoint la file du comptable, comme un bordereau importé.
+        givenAs(admin).queryParam("status", "TO_ACCOUNT")
+                .when().get("/api/v1/intake-notes").then().statusCode(200)
+                .body("data.find { it.ref == 'BR0300' }.id", equalTo(noteId));
+
+        // Le stock n'a pas bougé : la matière entre par les reçus
+        // d'achat, à la comptabilisation, et par eux seuls. Rien n'a
+        // encore été comptabilisé, donc aucun poids ne l'a été.
+        givenAs(admin).when().get("/api/v1/intake-notes/" + noteId)
+                .then().statusCode(200)
+                .body("data.accountedWeightKg", nullValue());
+
+        // Deux bordereaux du même numéro feraient entrer la matière deux
+        // fois : le second est refusé.
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "ref": "BR0300", "date": "%s", "netWeightKg": 1000 }
+                        """.formatted(LocalDate.now()))
+                .when().post("/api/v1/intake-notes").then().statusCode(422);
     }
 }

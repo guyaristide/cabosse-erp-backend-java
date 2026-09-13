@@ -115,6 +115,64 @@ public class IntakeNoteService {
     }
 
     /**
+     * Saisie d'un bordereau au magasin, camion par camion.
+     *
+     * <p>Le bordereau ne naissait que d'un import de carnet, ce qui
+     * convient à une reprise d'historique et à rien d'autre : devant un
+     * camion, le magasinier n'a pas de fichier. Le parcours s'arrêtait
+     * là (13/09/2026).</p>
+     *
+     * <p>La référence est unique : c'est elle que le comptable retrouve
+     * pour comptabiliser, et deux bordereaux du même numéro feraient
+     * entrer la matière deux fois.</p>
+     */
+    public IntakeNoteDto create(com.ntech.cabosse.intake.dto.IntakeNoteCreateDto p) {
+        String ref = clean(p.ref());
+        if (ref == null) {
+            throw new com.ntech.cabosse.shared.exception.BusinessException(
+                    Messages.msg("m.itk-ref-required"));
+        }
+        repo.findByRef(ref).ifPresent(existing -> {
+            throw new com.ntech.cabosse.shared.exception.BusinessException(
+                    Messages.msg("m.itk-ref-already-used", ref));
+        });
+
+        IntakeNoteEntity e = new IntakeNoteEntity();
+        e.id = idGenerator.newId();
+        e.ref = ref;
+        e.date = p.date();
+        e.siteId = p.siteId();
+        e.productLabel = clean(p.productLabel());
+        e.truckNumber = clean(p.truckNumber());
+        e.grossWeightKg = p.grossWeightKg();
+        e.bagCount = p.bagCount();
+        e.netWeightKg = p.netWeightKg();
+        // Le délégué désigné fait foi sur le nom saisi : à l'import on
+        // rapproche un libellé faute de mieux, ici on le connaît.
+        if (p.delegateSupplierId() != null) {
+            SupplierEntity delegate = suppliers.findById(p.delegateSupplierId()).orElseThrow(
+                    () -> new com.ntech.cabosse.shared.exception.NotFoundException(
+                            Messages.msg("m.itk-delegate-not-found")));
+            e.delegateSupplierId = delegate.id;
+            e.supplierName = delegate.name;
+            e.supplierCode = delegate.code;
+        } else {
+            e.supplierName = clean(p.supplierName());
+            e.delegateSupplierId = matchDelegate(null, e.supplierName,
+                    suppliers.listAll().stream().filter(s -> s.collector).toList());
+        }
+        // La campagne se déduit de la date, comme partout ailleurs : la
+        // redemander au magasinier serait lui faire saisir ce que le
+        // système sait déjà.
+        e.campaignId = campaigns.findCurrent().map(c -> c.id).orElse(null);
+        e.createdAt = Instant.now();
+        e.createdByEmail = actor();
+        e.updatedAt = e.createdAt;
+        repo.insert(e);
+        return getById(e.id);
+    }
+
+    /**
      * Correction d'un bordereau encore à comptabiliser (demande expert
      * du 11/09/2026) : le magasinier rattrape une erreur de saisie avant
      * que le comptable ne constate un faux écart. Le fournisseur corrigé
