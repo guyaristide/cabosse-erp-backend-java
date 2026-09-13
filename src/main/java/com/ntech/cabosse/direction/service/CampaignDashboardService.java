@@ -14,6 +14,7 @@ import com.ntech.cabosse.direction.dto.CampaignCustomerShareDto;
 import com.ntech.cabosse.direction.dto.CampaignDashboardDto;
 import com.ntech.cabosse.direction.dto.CampaignDelegateAdvanceDto;
 import com.ntech.cabosse.direction.dto.CampaignKpisDto;
+import com.ntech.cabosse.campaign.service.CampaignTargetService;
 import com.ntech.cabosse.direction.dto.CampaignMonthDto;
 import com.ntech.cabosse.direction.dto.CampaignSynthesisDto;
 import com.ntech.cabosse.producerpurchase.entity.ProducerPurchaseEntity;
@@ -62,6 +63,7 @@ public class CampaignDashboardService {
     private static final BigDecimal HUNDRED = new BigDecimal("100");
 
     @Inject CampaignResolver campaignResolver;
+    @Inject com.ntech.cabosse.campaign.service.CampaignTargetService targetService;
     @Inject ProducerPurchaseRepository purchases;
     @Inject CommoditySaleRepository commoditySales;
     @Inject CollectorAdvanceRepository advances;
@@ -224,10 +226,24 @@ public class CampaignDashboardService {
                 stockWeight,
                 unsettledDelegates.size());
 
+        // Les objectifs du mois, s'ils ont été posés. Absents, l'écart
+        // n'est pas calculé : un zéro se lirait comme une cible décidée
+        // à zéro, et annoncerait un retard que personne n'a fixé
+        // (coopérative, 13/09/2026).
+        var targets = targetService.byMonth(campaign.id);
         List<CampaignMonthDto> months = new ArrayList<>();
-        monthAcc.forEach((m, acc) -> months.add(new CampaignMonthDto(
-                m.toString(), acc.revenue, acc.grossMargin,
-                acc.purchasedWeight, acc.soldWeight, acc.treasuryBalance)));
+        monthAcc.forEach((m, acc) -> {
+            var target = targets.get(m.toString());
+            BigDecimal collectionTarget = target == null ? null : target.collectionTargetKg;
+            BigDecimal saleTarget = target == null ? null : target.saleTargetKg;
+            months.add(new CampaignMonthDto(
+                    m.toString(), acc.revenue, acc.grossMargin,
+                    acc.purchasedWeight, acc.soldWeight, acc.treasuryBalance,
+                    collectionTarget,
+                    CampaignTargetService.gap(acc.purchasedWeight, collectionTarget),
+                    saleTarget,
+                    CampaignTargetService.gap(acc.soldWeight, saleTarget)));
+        });
 
         List<CampaignCustomerShareDto> customers = new ArrayList<>();
         customerWeights.forEach((id, weight) -> customers.add(

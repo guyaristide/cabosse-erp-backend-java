@@ -1,6 +1,7 @@
 package com.ntech.cabosse.campaign.controller;
 
 import com.ntech.cabosse.permission.entity.Permission;
+import com.ntech.cabosse.campaign.dto.CampaignTargetUpsertDto;
 import com.ntech.cabosse.permission.service.RequiresPermission;
 import com.ntech.cabosse.campaign.dto.CampaignResponseDto;
 import com.ntech.cabosse.campaign.dto.CampaignUpsertDto;
@@ -39,6 +40,7 @@ import java.util.UUID;
 public class CampaignResource {
 
     @Inject CampaignService service;
+    @Inject com.ntech.cabosse.campaign.service.CampaignTargetService targetService;
 
     @GET
     public Response list() {
@@ -98,6 +100,26 @@ public class CampaignResource {
      * profils. Le motif est exigé, et le changement laisse sa trace sur la
      * campagne.</p>
      */
+    /**
+     * Les objectifs mensuels de collecte et de vente.
+     *
+     * <p>Le réalisé se calcule de bout en bout ; l'objectif est une
+     * décision qui ne se déduit de rien (coopérative, 13/09/2026).</p>
+     */
+    @GET
+    @Path("/{id}/targets")
+    public Response targets(@PathParam("id") UUID id) {
+        return Response.ok(ApiResponse.ok(targetService.list(id))).build();
+    }
+
+    @PUT
+    @RequiresPermission(Permission.REFERENTIAL_WRITE)
+    @Path("/{id}/targets")
+    public Response setTarget(@PathParam("id") UUID id,
+                              @Valid CampaignTargetUpsertDto payload) {
+        return Response.ok(ApiResponse.ok(targetService.upsert(id, payload))).build();
+    }
+
     @PUT
     @RequiresPermission(Permission.CAMPAIGN_PRICE_WRITE)
     @Path("/{id}/tariff")

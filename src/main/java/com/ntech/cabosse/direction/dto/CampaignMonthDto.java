@@ -13,5 +13,16 @@ public record CampaignMonthDto(
         BigDecimal grossMargin,
         BigDecimal purchasedWeight,
         BigDecimal soldWeight,
-        BigDecimal treasuryBalance
+        BigDecimal treasuryBalance,
+        /**
+         * L'objectif du mois, s'il a été posé, et l'écart au réalisé.
+         *
+         * <p>Absents quand aucun objectif n'existe : un zéro se lirait
+         * comme une cible décidée à zéro, et l'écart annoncerait un
+         * retard que personne n'a fixé (coopérative, 13/09/2026).</p>
+         */
+        BigDecimal collectionTargetKg,
+        BigDecimal collectionGapKg,
+        BigDecimal saleTargetKg,
+        BigDecimal saleGapKg
 ) {}
