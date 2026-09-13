@@ -23,5 +23,7 @@ public record CampaignDashboardDto(
         CampaignSynthesisDto synthesis,
         java.util.List<CampaignMonthDto> months,
         java.util.List<CampaignCustomerShareDto> customers,
+        /** Ce que chaque label de certification a pesé dans les ventes. */
+        java.util.List<CampaignLabelShareDto> labels,
         java.util.List<CampaignDelegateAdvanceDto> delegates
 ) {}

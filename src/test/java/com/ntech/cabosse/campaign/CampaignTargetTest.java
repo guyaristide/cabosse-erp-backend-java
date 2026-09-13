@@ -138,6 +138,30 @@ class CampaignTargetTest extends AbstractIntegrationTest {
                 .body("data.kpis.purchaseSideCosts", equalTo(0));
     }
 
+    /**
+     * Les ventes se ventilent par label de certification, y compris
+     * celles qui n'en portent pas : les écarter ferait mentir le total.
+     */
+    @Test
+    void sales_split_by_label_and_nothing_is_dropped() {
+        UserEntity admin = admin();
+        String campaignId = campaign(admin);
+
+        // Le référentiel connaît « RA » : une vente saisie « ra » doit
+        // s'y reconnaître, accents, casse et ponctuation ignorés.
+        givenAs(admin).contentType("application/json")
+                .body("{\"code\":\"RA\",\"name\":\"Rainforest Alliance\"}")
+                .when().post("/api/v1/certifications").then().statusCode(201);
+
+        givenAs(admin).queryParam("campaignId", campaignId)
+                .when().get("/api/v1/executive-dashboard/campaign")
+                .then().statusCode(200)
+                // Sans vente, aucune ligne : un label à zéro se lirait
+                // comme une certification qui n'a rien vendu, alors que
+                // c'est la campagne entière qui n'a rien vendu.
+                .body("data.labels", hasSize(0));
+    }
+
     @Test
     void a_month_outside_the_campaign_is_refused() {
         UserEntity admin = admin();

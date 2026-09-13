@@ -15,6 +15,7 @@ import com.ntech.cabosse.direction.dto.CampaignDashboardDto;
 import com.ntech.cabosse.direction.dto.CampaignDelegateAdvanceDto;
 import com.ntech.cabosse.direction.dto.CampaignKpisDto;
 import com.ntech.cabosse.campaign.service.CampaignTargetService;
+import com.ntech.cabosse.direction.dto.CampaignLabelShareDto;
 import com.ntech.cabosse.direction.dto.CampaignMonthDto;
 import com.ntech.cabosse.direction.dto.CampaignSynthesisDto;
 import com.ntech.cabosse.producerpurchase.entity.ProducerPurchaseEntity;
@@ -63,6 +64,7 @@ public class CampaignDashboardService {
     private static final BigDecimal HUNDRED = new BigDecimal("100");
 
     @Inject CampaignResolver campaignResolver;
+    @Inject com.ntech.cabosse.certification.repository.CertificationRepository certifications;
     @Inject com.ntech.cabosse.campaign.service.CampaignTargetService targetService;
     @Inject ProducerPurchaseRepository purchases;
     @Inject CommoditySaleRepository commoditySales;
@@ -112,6 +114,11 @@ public class CampaignDashboardService {
         BigDecimal grossMargin = BigDecimal.ZERO;
         Map<UUID, BigDecimal> customerWeights = new LinkedHashMap<>();
         Map<UUID, String> customerNames = new LinkedHashMap<>();
+        // Le label de certification de l'expédition, saisi à la main.
+        // Agrégé sur sa forme normalisée pour que « RA » et « ra » ne
+        // fassent pas deux lignes (coopérative, 13/09/2026).
+        Map<String, BigDecimal[]> labelTotals = new LinkedHashMap<>();
+        Map<String, String> labelRaw = new LinkedHashMap<>();
         for (CommoditySaleEntity s : commoditySales.listAll(campaign.id)) {
             BigDecimal accepted = s.weights != null ? nz(s.weights.acceptedKg) : BigDecimal.ZERO;
             soldWeight = soldWeight.add(accepted);
@@ -123,6 +130,16 @@ public class CampaignDashboardService {
                 customerWeights.merge(s.customerId, accepted, BigDecimal::add);
                 customerNames.putIfAbsent(s.customerId, s.customerName);
             }
+            String rawLabel = s.logistics == null ? null : s.logistics.label;
+            String labelKey = normalizeLabel(rawLabel);
+            labelTotals.compute(labelKey, (k, v) -> {
+                BigDecimal[] sums = v == null
+                        ? new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO} : v;
+                sums[0] = sums[0].add(accepted);
+                return sums;
+            })[1] = labelTotals.get(labelKey)[1].add(nz(s.amountInvoicedHt));
+            labelRaw.putIfAbsent(labelKey, rawLabel);
+
             MonthAccumulator acc = s.date != null ? monthAcc.get(YearMonth.from(s.date)) : null;
             if (acc != null) {
                 acc.soldWeight = acc.soldWeight.add(accepted);
@@ -253,6 +270,29 @@ public class CampaignDashboardService {
                     CampaignTargetService.gap(acc.soldWeight, saleTarget)));
         });
 
+        // Les labels, rapprochés du référentiel des certifications quand
+        // ils s'y reconnaissent. Ce qui ne s'y reconnaît pas garde sa
+        // saisie : l'écarter ferait mentir le total.
+        List<CampaignLabelShareDto> labels = new ArrayList<>();
+        Map<String, com.ntech.cabosse.certification.entity.CertificationEntity> known =
+                new LinkedHashMap<>();
+        for (var c : certifications.listAll()) {
+            if (c.code != null) known.put(normalizeLabel(c.code), c);
+            if (c.name != null) known.putIfAbsent(normalizeLabel(c.name), c);
+        }
+        BigDecimal labelledWeight = labelTotals.values().stream()
+                .map(v -> v[0]).reduce(BigDecimal.ZERO, BigDecimal::add);
+        for (Map.Entry<String, BigDecimal[]> entry : labelTotals.entrySet()) {
+            var match = known.get(entry.getKey());
+            String display = match != null ? match.name : labelRaw.get(entry.getKey());
+            labels.add(new CampaignLabelShareDto(
+                    match != null ? match.code : null,
+                    display,
+                    entry.getValue()[0], entry.getValue()[1],
+                    ratio(entry.getValue()[0].multiply(BigDecimal.valueOf(100)), labelledWeight)));
+        }
+        labels.sort((a, b) -> b.soldWeight().compareTo(a.soldWeight()));
+
         List<CampaignCustomerShareDto> customers = new ArrayList<>();
         customerWeights.forEach((id, weight) -> customers.add(
                 new CampaignCustomerShareDto(id, customerNames.get(id), weight)));
@@ -265,7 +305,7 @@ public class CampaignDashboardService {
                 tenantContext.currency(),
                 weightUnit != null ? weightUnit : "kg",
                 kpis, synthesis,
-                months, customers, delegates);
+                months, customers, labels, delegates);
     }
 
     /** Mêmes comptes que la vue période : BankAccount déclarés + défauts. */
@@ -292,6 +332,22 @@ public class CampaignDashboardService {
             total = total.add(atEnd.subtract(before));
         }
         return total;
+    }
+
+    /**
+     * La forme sur laquelle deux labels se reconnaissent comme un seul.
+     *
+     * <p>Accents, casse et ponctuation ignorés : « RA », « ra » et
+     * « R.A. » désignent la même certification. Un label absent devient
+     * une clé vide, qui garde sa ligne sous un libellé neutre.</p>
+     */
+    private static String normalizeLabel(String raw) {
+        if (raw == null) return "";
+        String stripped = java.text.Normalizer.normalize(raw, java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "");
+        return stripped.toLowerCase(java.util.Locale.ROOT)
+                .replaceAll("[^a-z0-9]+", " ")
+                .trim();
     }
 
     private Set<String> treasuryAccounts() {
