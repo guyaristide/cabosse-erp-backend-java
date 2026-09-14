@@ -21,6 +21,15 @@ public class NotificationEventCatalog {
             new NotificationEventSpec("collector-advance.awaiting-disbursement",
                     "m.ntf-evt-advance-approved",
                     Permission.COLLECTION_ADVANCE_DISBURSE, true),
+            // Le circuit de règlement, livré sans alerte : la caissière
+            // devait prévenir de vive voix puis surveiller la file
+            // elle-même (14/09/2026).
+            new NotificationEventSpec("settlement.pending-approval",
+                    "m.ntf-evt-settlement-pending",
+                    Permission.COLLECTION_SETTLEMENT_APPROVE, true),
+            new NotificationEventSpec("settlement.approved",
+                    "m.ntf-evt-settlement-approved",
+                    Permission.COLLECTION_PAYMENT_WRITE, true),
             new NotificationEventSpec("member-credit.awaiting-disbursement",
                     "m.ntf-evt-member-credit-approved",
                     Permission.MEMBER_CREDIT_DISBURSE, true),

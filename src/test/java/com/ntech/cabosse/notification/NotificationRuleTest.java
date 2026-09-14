@@ -60,6 +60,13 @@ class NotificationRuleTest extends AbstractIntegrationTest {
         return u;
     }
 
+    private UserEntity userWithPhone(String prefix, String phone) {
+        UserEntity u = user(prefix, Roles.USER);
+        u.phone = phone;
+        users.update(u);
+        return u;
+    }
+
     private UserEntity admin() {
         tenant = fixtures.createActiveTenant(
                 "coop-regle-" + TestFixtures.randomSlugSuffix(), "Coopérative Règles");
@@ -115,7 +122,7 @@ class NotificationRuleTest extends AbstractIntegrationTest {
         // ─── Le catalogue et ses défauts ───
         givenAs(admin).when().get("/api/v1/notifications/rules")
                 .then().statusCode(200)
-                .body("data", hasSize(8))
+                .body("data", hasSize(10))
                 .body("data.find { it.eventCode == 'collector-advance.pending-approval' }.enabled",
                         equalTo(true))
                 .body("data.find { it.eventCode == 'collector-advance.pending-approval' }.channels",
@@ -187,5 +194,114 @@ class NotificationRuleTest extends AbstractIntegrationTest {
                 .body("{ \"enabled\": true, \"channels\": [\"EMAIL\"], \"ccEmails\": [\"pas-une-adresse\"] }")
                 .when().put("/api/v1/notifications/rules/collector-advance.pending-approval")
                 .then().statusCode(422);
+    }
+
+    /**
+     * Le SMS part en plus du courriel, quand la structure l'a réglé
+     * ainsi et que le destinataire a un téléphone.
+     *
+     * <p>Demandé le 14/09/2026 : prévenir par courriel suppose une boîte
+     * relevée, ce qui ne va pas de soi pour un président de conseil en
+     * déplacement. Le canal existait dans le socle sans qu'on ait
+     * vérifié qu'un événement d'approbation l'empruntait vraiment.</p>
+     *
+     * <p>Deux conditions, et le message ne part pas si l'une manque :
+     * le canal retenu sur la règle, et un numéro au profil. Un compte
+     * sans téléphone continue de recevoir le courriel, sans qu'aucune
+     * ligne ne reste coincée dans la file.</p>
+     */
+    @Test
+    void an_approval_also_goes_out_by_text_when_the_profile_carries_a_phone() {
+        UserEntity admin = admin();
+        String delegateId = givenAs(admin).contentType("application/json")
+                .body("{\"name\":\"BABA OUEDRAOGO\",\"collector\":true}")
+                .when().post("/api/v1/suppliers").then().statusCode(201)
+                .extract().path("data.id");
+
+        String approverRole = createRole(admin, "Approbateurs", "COLLECTION_ADVANCE_APPROVE");
+        UserEntity director = userWithPhone("directeur", "+2250565710326");
+        UserEntity chair = userWithPhone("president", "+2250707008700");
+        // Un troisième approbateur sans numéro : il ne doit rien coincer.
+        UserEntity auditor = user("commissaire", Roles.USER);
+        for (UserEntity who : List.of(director, chair, auditor)) {
+            assign(admin, who, approverRole);
+        }
+
+        givenAs(admin).contentType("application/json")
+                .body("{ \"enabled\": true, \"channels\": [\"EMAIL\", \"SMS\"] }")
+                .when().put("/api/v1/notifications/rules/collector-advance.pending-approval")
+                .then().statusCode(200);
+
+        requestAdvance(admin, delegateId, 2_000_000);
+
+        // Le tenant vient de naître : la file ne porte que cette alerte.
+        List<String> smsTargets = givenAs(admin).queryParam("channel", "SMS")
+                .when().get("/api/v1/notifications/journal").then().statusCode(200)
+                .extract().path("data.target");
+        assertThat(smsTargets)
+                .containsExactlyInAnyOrder("+2250565710326", "+2250707008700");
+
+        // Le courriel part toujours, y compris à qui n'a pas de numéro :
+        // ajouter un canal n'en retire aucun, et personne n'est oublié
+        // parce qu'il n'a pas donné de téléphone.
+        List<String> mailTargets = givenAs(admin).queryParam("channel", "EMAIL")
+                .when().get("/api/v1/notifications/journal").then().statusCode(200)
+                .extract().path("data.target");
+        assertThat(mailTargets)
+                .containsExactlyInAnyOrder(director.email, chair.email, auditor.email);
+    }
+
+    /**
+     * L'administrateur de la structure ne reçoit aucune alerte métier.
+     *
+     * <p>Il porte tous les droits par construction : il tombait donc
+     * dans toutes les audiences, et recevait chaque avance, chaque
+     * règlement, chaque demande, y compris par SMS et aux frais de la
+     * structure. Son rôle est le paramétrage et les comptes, pas
+     * l'exploitation (14/09/2026).</p>
+     */
+    @Test
+    void the_tenant_administrator_hears_nothing_of_the_daily_business() {
+        UserEntity admin = admin();
+        String delegateId = givenAs(admin).contentType("application/json")
+                .body("{\"name\":\"BABA OUEDRAOGO\",\"collector\":true}")
+                .when().post("/api/v1/suppliers").then().statusCode(201)
+                .extract().path("data.id");
+
+        String approverRole = createRole(admin, "Approbateurs", "COLLECTION_ADVANCE_APPROVE");
+        UserEntity director = userWithPhone("directeur", "+2250565710326");
+        assign(admin, director, approverRole);
+        // Celui qui dépose n'approuve pas : il faut donc un troisième
+        // compte pour que l'audience ne soit pas vidée par l'exclusion.
+        String requesterRole = createRole(admin, "Gestionnaires", "COLLECTION_ADVANCE_REQUEST");
+        UserEntity manager = user("gestionnaire", Roles.USER);
+        assign(admin, manager, requesterRole);
+
+        givenAs(admin).contentType("application/json")
+                .body("{ \"enabled\": true, \"channels\": [\"EMAIL\", \"SMS\", \"IN_APP\"] }")
+                .when().put("/api/v1/notifications/rules/collector-advance.pending-approval")
+                .then().statusCode(200);
+
+        // Déposée par le gestionnaire : l'administrateur n'est ni
+        // déposant ni exclu de gouvernance, rien ne le retirait de
+        // l'audience avant ce jour.
+        requestAdvance(manager, delegateId, 2_000_000);
+
+        List<String> mails = givenAs(admin).queryParam("channel", "EMAIL")
+                .when().get("/api/v1/notifications/journal").then().statusCode(200)
+                .extract().path("data.target");
+        assertThat(mails).doesNotContain(admin.email);
+
+        // Aucun SMS non plus : l'administrateur n'a pas de numéro ici,
+        // mais la règle vaut même s'il en avait un.
+        List<String> texts = givenAs(admin).queryParam("channel", "SMS")
+                .when().get("/api/v1/notifications/journal").then().statusCode(200)
+                .extract().path("data.target");
+        assertThat(texts).containsExactly("+2250565710326");
+
+        // Et sa boîte de réception reste vide, quand le directeur a bien
+        // été prévenu : l'alerte est partie, elle l'a seulement ignoré.
+        assertThat(unreadOf(admin)).isZero();
+        assertThat(unreadOf(director)).isEqualTo(1);
     }
 }

@@ -48,6 +48,10 @@ class AdvanceApprovalAlertTest extends AbstractIntegrationTest {
     }
 
     private UserEntity userIn(TenantEntity t, String prefix) {
+        return userIn(t, prefix, Roles.TENANT_ADMIN);
+    }
+
+    private UserEntity userIn(TenantEntity t, String prefix, String role) {
         UserEntity u = new UserEntity();
         u.id = idGenerator.newId();
         u.email = prefix + "-" + TestFixtures.randomSlugSuffix() + "@" + t.slug + ".ci";
@@ -56,11 +60,37 @@ class AdvanceApprovalAlertTest extends AbstractIntegrationTest {
         u.passwordHash = passwordHasher.hash(TestFixtures.DEFAULT_PASSWORD);
         u.tenantId = t.id;
         u.roles = new HashSet<>();
-        u.roles.add(Roles.TENANT_ADMIN);
+        u.roles.add(role);
         u.status = UserStatus.ACTIVE;
         u.createdAt = Instant.now();
         u.updatedAt = u.createdAt;
         users.persist(u);
+        return u;
+    }
+
+    /**
+     * Un destinataire d'alerte tel qu'il existe vraiment : un compte
+     * ordinaire qui porte un profil, et non l'administrateur.
+     *
+     * <p>Les trois alertes étaient vérifiées sur des comptes
+     * administrateurs, qui portent tous les droits et se trouvaient donc
+     * dans toutes les audiences. Depuis que l'administrateur est écarté
+     * des alertes métier (14/09/2026), un tel compte ne prouve plus
+     * rien : le test décrivait une structure qui n'existe pas.</p>
+     */
+    private UserEntity staff(UserEntity admin, String prefix, String roleName,
+                             String... permissions) {
+        UserEntity u = userIn(tenant, prefix, Roles.USER);
+        String perms = String.join(", ",
+                java.util.Arrays.stream(permissions).map(p -> "\"" + p + "\"").toList());
+        String roleId = givenAs(admin).contentType("application/json")
+                .body("{ \"name\": \"%s\", \"permissions\": [%s] }"
+                        .formatted(roleName, perms))
+                .when().post("/api/v1/tenant-roles").then().statusCode(201)
+                .extract().path("data.id");
+        givenAs(admin).contentType("application/json")
+                .body("{ \"roleIds\": [\"%s\"] }".formatted(roleId))
+                .when().put("/api/v1/tenant-roles/users/" + u.id).then().statusCode(204);
         return u;
     }
 
@@ -125,7 +155,8 @@ class AdvanceApprovalAlertTest extends AbstractIntegrationTest {
     @Test
     void a_pending_advance_alerts_whoever_can_approve_it() {
         UserEntity requester = admin();
-        UserEntity approver = userIn(tenant, "approbateur");
+        UserEntity approver = staff(requester, "approbateur",
+                "Approbateurs", "COLLECTION_ADVANCE_APPROVE");
         String campaign = openCampaign(requester);
         String ref = requestAdvance(requester, delegate(requester, "KONE Adama"), campaign);
 
@@ -138,7 +169,7 @@ class AdvanceApprovalAlertTest extends AbstractIntegrationTest {
     @Test
     void the_person_who_filed_it_is_not_asked_to_decide() {
         UserEntity requester = admin();
-        userIn(tenant, "approbateur");
+        staff(requester, "approbateur", "Approbateurs", "COLLECTION_ADVANCE_APPROVE");
         String campaign = openCampaign(requester);
         String ref = requestAdvance(requester, delegate(requester, "YAO Brou"), campaign);
 
@@ -167,7 +198,8 @@ class AdvanceApprovalAlertTest extends AbstractIntegrationTest {
     @Test
     void an_approved_advance_alerts_whoever_will_pay_it() {
         UserEntity requester = admin();
-        UserEntity cashier = userIn(tenant, "caissier");
+        UserEntity cashier = staff(requester, "caissier",
+                "Caisse", "COLLECTION_ADVANCE_DISBURSE");
         String campaign = openCampaign(requester);
         String id = requestAdvanceId(requester, delegate(requester, "BAMBA Sita"), campaign);
         String ref = approve(requester, id);
@@ -181,25 +213,31 @@ class AdvanceApprovalAlertTest extends AbstractIntegrationTest {
 
     @Test
     void the_approver_is_not_invited_to_pay_what_they_just_granted() {
-        UserEntity requester = admin();
-        UserEntity approver = userIn(tenant, "approbateur");
-        String campaign = openCampaign(requester);
-        String id = requestAdvanceId(requester, delegate(requester, "SORO Awa"), campaign);
+        UserEntity admin = admin();
+        // L'approbateur décaisse aussi : c'est tout l'intérêt du cas,
+        // il a le droit et se voit pourtant écarté de cette alerte.
+        UserEntity approver = staff(admin, "approbateur", "Conseil",
+                "COLLECTION_ADVANCE_APPROVE", "COLLECTION_ADVANCE_DISBURSE");
+        UserEntity cashier = staff(admin, "caissier", "Caisse",
+                "COLLECTION_ADVANCE_DISBURSE");
+        String campaign = openCampaign(admin);
+        String id = requestAdvanceId(admin, delegate(admin, "SORO Awa"), campaign);
         approve(approver, id);
-        String ref = givenAs(requester).when().get("/api/v1/collector-advances/" + id)
+        String ref = givenAs(admin).when().get("/api/v1/collector-advances/" + id)
                 .then().extract().path("data.ref");
 
         // La règle des deux paires d'yeux lui refusera de sortir les
         // fonds : l'y inviter l'enverrait au-devant d'un refus.
-        List<String> targets = queuedFor(requester, ref, "collector-advance.awaiting-disbursement");
-        assertThat(targets).contains(requester.email);
+        List<String> targets = queuedFor(admin, ref, "collector-advance.awaiting-disbursement");
+        assertThat(targets).contains(cashier.email);
         assertThat(targets).doesNotContain(approver.email);
     }
 
     @Test
     void one_organization_is_never_alerted_for_another() {
         UserEntity first = admin();
-        UserEntity outsider = userIn(tenant, "voisin");
+        UserEntity outsider = staff(first, "voisin", "Approbateurs",
+                "COLLECTION_ADVANCE_APPROVE");
 
         UserEntity second = admin();
         String ref = requestAdvance(second, delegate(second, "TRAORE Solange"),

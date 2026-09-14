@@ -27,6 +27,18 @@ import java.util.function.Function;
  * n'approuve pas, l'approbateur ne décaisse pas) restent appliquées
  * quelle que soit la règle : elles sont dans l'audience passée et dans
  * {@code excludedUserIds}, la configuration ne les lève pas.</p>
+ *
+ * <p>L'administrateur de la structure ne reçoit rien d'ici. Il porte
+ * tous les droits par construction, donc il tombait dans toutes les
+ * audiences : chaque avance, chaque règlement, chaque demande lui
+ * arrivait, y compris par SMS et à ses frais. Son rôle est le
+ * paramétrage et les comptes, pas l'exploitation. Une personne qui doit
+ * réellement suivre les opérations porte un profil métier, et le reçoit
+ * à ce titre (14/09/2026).</p>
+ *
+ * <p>Les envois du socle qui ne passent pas par ici, invitation et
+ * réinitialisation de mot de passe, continuent de lui parvenir : ils
+ * s'adressent à son compte, pas à sa fonction.</p>
  */
 @ApplicationScoped
 public class NotificationRouter {
@@ -66,6 +78,7 @@ public class NotificationRouter {
                 : usersOfRoles(rule.recipientRoleIds(), excludedUserIds);
 
         for (UserEntity user : recipients) {
+            if (isTenantAdmin(user)) continue;
             Locale locale = Locales.firstOf(user.locale, fallback);
             String renderedSubject = subject.apply(locale);
             String renderedBody = body.apply(locale);
@@ -98,6 +111,18 @@ public class NotificationRouter {
                     cc, subject.apply(structureLocale), body.apply(structureLocale),
                     eventCode, subjectRef, Locales.tag(structureLocale), null));
         }
+    }
+
+    /**
+     * L'administrateur de la structure, qu'aucune alerte métier ne vise.
+     *
+     * <p>Sur le rôle, pas sur les droits : c'est le rôle qui les lui
+     * accorde tous, et raisonner sur le droit reviendrait à exclure
+     * aussi le directeur qui le porte légitimement.</p>
+     */
+    private boolean isTenantAdmin(UserEntity user) {
+        return user.roles != null
+                && user.roles.contains(com.ntech.cabosse.shared.security.Roles.TENANT_ADMIN);
     }
 
     /** Les comptes actifs des profils retenus, exclusions de gouvernance comprises. */

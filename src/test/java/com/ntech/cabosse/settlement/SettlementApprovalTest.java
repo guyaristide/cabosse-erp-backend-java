@@ -579,4 +579,63 @@ class SettlementApprovalTest extends AbstractIntegrationTest {
                 .when().put("/api/v1/tenant-roles/users/" + u.id).then().statusCode(204);
         return u;
     }
+
+    /**
+     * Le circuit prévient, à ses deux moments.
+     *
+     * <p>Il était livré sans alerte : la caissière déposait sa demande
+     * puis allait le dire de vive voix, et surveillait la file
+     * elle-même pour savoir qu'on avait tranché (14/09/2026).</p>
+     */
+    @Test
+    void the_settlement_circuit_warns_the_decider_then_the_cash_desk() {
+        UserEntity admin = tenantAdmin();
+        setting(admin, "{\"settlementApprovalScope\":\"ALL\","
+                + "\"settlementApprovalThreshold\":0}");
+        String delegateId = delegate(admin, "Délégué Alerte");
+
+        // Le SMS part à côté du courriel dès que le profil porte un
+        // numéro : c'est le réglage demandé par la coopérative.
+        givenAs(admin).contentType("application/json")
+                .body("{ \"enabled\": true, \"channels\": [\"EMAIL\", \"SMS\"] }")
+                .when().put("/api/v1/notifications/rules/settlement.pending-approval")
+                .then().statusCode(200);
+
+        UserEntity director = withProfile(admin, "directeur", "Direction alerte",
+                "\"COLLECTION_SETTLEMENT_APPROVE\"");
+        // Relire avant d'écrire : l'instance d'avant l'attribution du
+        // profil ne porte pas les rôles, et la réécrire les effacerait.
+        UserEntity stored = users.findById(director.id);
+        stored.phone = "+2250565710326";
+        users.update(stored);
+        UserEntity cashier = withProfile(admin, "caissiere", "Caisse alerte",
+                "\"COLLECTION_PAYMENT_WRITE\", \"TREASURY_WRITE\"");
+
+        String requestId = givenAs(cashier).contentType("application/json")
+                .body("""
+                        { "delegateSupplierId": "%s", "amount": 1500000,
+                          "paymentMethod": "CASH" }
+                        """.formatted(delegateId))
+                .when().post("/api/v1/settlement-requests").then().statusCode(201)
+                .extract().path("data.id");
+
+        // Le directeur est prévenu, par les deux canaux retenus.
+        givenAs(admin).queryParam("channel", "SMS")
+                .when().get("/api/v1/notifications/journal").then().statusCode(200)
+                .body("data.target", hasItem("+2250565710326"));
+        givenAs(admin).queryParam("channel", "EMAIL")
+                .when().get("/api/v1/notifications/journal").then().statusCode(200)
+                .body("data.target", hasItem(director.email));
+
+        givenAs(director).contentType("application/json").body("{}")
+                .when().post("/api/v1/settlement-requests/" + requestId + "/approve")
+                .then().statusCode(200);
+
+        // La caisse apprend qu'elle peut payer, sans avoir à surveiller
+        // la file. Le décideur, lui, ne s'annonce pas à lui-même.
+        java.util.List<String> mails = givenAs(admin).queryParam("channel", "EMAIL")
+                .when().get("/api/v1/notifications/journal").then().statusCode(200)
+                .extract().path("data.target");
+        assertThat(mails).contains(cashier.email);
+    }
 }

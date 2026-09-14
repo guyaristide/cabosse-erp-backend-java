@@ -60,6 +60,7 @@ public class SettlementRequestService {
     @Inject AuditService audit;
     @Inject JsonWebToken jwt;
     @Inject com.ntech.cabosse.tenant.service.TenantPreferencesLookup preferencesLookup;
+    @Inject SettlementNotifier notifier;
 
     // ─── Le réglage ─────────────────────────────────────────────────
 
@@ -149,6 +150,10 @@ public class SettlementRequestService {
         e.updatedAt = e.requestedAt;
         repo.insert(e);
 
+        // Après l'écriture : une alerte qui part sur une demande que la
+        // base n'a pas gardée annoncerait une décision à prendre sur rien.
+        notifier.settlementAwaitsApproval(e);
+
         audit.event(AuditEventType.SETTLEMENT_REQUESTED)
                 .actorEmail(actor())
                 .target("settlement_request", e.id.toString(), e.ref)
@@ -186,7 +191,11 @@ public class SettlementRequestService {
                 .tenant(tenantContext.tenantId(), null)
                 .description("Règlement " + e.ref + " approuvé pour " + granted)
                 .record();
-        return SettlementRequestDto.from(load(id));
+        SettlementRequestEntity decided = load(id);
+        // La caisse attend ce feu vert pour sortir l'argent : c'est le
+        // second moment où quelqu'un doit être prévenu.
+        notifier.settlementApproved(decided, currentUserId());
+        return SettlementRequestDto.from(decided);
     }
 
     public SettlementRequestDto reject(UUID id, String reason) {
@@ -273,6 +282,14 @@ public class SettlementRequestService {
         if (!governance && !permissions.can(Permission.COLLECTION_SETTLEMENT_APPROVE)
                 && !permissions.can(Permission.COLLECTION_SETTLEMENT_APPROVE_GOVERNANCE)) {
             throw new BusinessException(Messages.msg("m.set-approval-right-required"));
+        }
+    }
+
+    private UUID currentUserId() {
+        try {
+            return tenantContext.userId();
+        } catch (RuntimeException e) {
+            return null;
         }
     }
 
