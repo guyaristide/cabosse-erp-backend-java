@@ -93,8 +93,15 @@ public class IntakeNoteService {
                 trace.rejected(raw.rowNumber(), Messages.msg("m.itk-net-weight-required"), ref);
                 continue;
             }
-            if (repo.findByRef(ref).isPresent()) {
+            var existing = repo.findByRef(ref);
+            if (existing.isPresent()) {
                 skipped++;
+                // Un numéro déjà connu n'est pas une erreur, mais il
+                // laisse l'opérateur devant une liste inchangée sans
+                // savoir pourquoi : la trace dit lequel, et dans quel
+                // état il se trouve déjà (15/09/2026).
+                trace.decided("ALREADY_KNOWN", "numéro de bordereau", ref,
+                        existing.get().status);
                 continue;
             }
 
