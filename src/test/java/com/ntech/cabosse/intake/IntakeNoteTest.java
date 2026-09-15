@@ -524,4 +524,65 @@ class IntakeNoteTest extends AbstractIntegrationTest {
                 .body("data.decisions.find { it.field == 'fournisseur' }.occurrences",
                         equalTo(2));
     }
+
+    /**
+     * Un bordereau arrivé sans délégué se rattrape, il ne se refait pas.
+     *
+     * <p>Demandé le 15/09/2026 : « l'outil doit permettre des corrections
+     * manuelles après enregistrement, et non des erreurs silencieuses qui
+     * bloqueraient le processus sans possibilité de rattrapage ». Le
+     * rejeu d'un import n'est pas une réponse : l'idempotence est
+     * difficile, et réimporter coûte plus cher que corriger.</p>
+     *
+     * <p>Corriger le nom ne suffisait pas : le rapprochement reste
+     * approximatif, et un carnet dont la colonne fournisseur est vide n'a
+     * rien à rapprocher. Désigner la fiche tranche pour de bon.</p>
+     */
+    @Test
+    void a_note_that_arrived_without_a_delegate_is_fixed_rather_than_redone() {
+        UserEntity admin = admin();
+        LocalDate today = LocalDate.now();
+        String frDate = today.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+        String siteId = givenAs(admin).contentType("application/json")
+                .body("{\"name\":\"Magasin rattrapage\",\"type\":\"TRANSFORMATION\",\"code\":\"MR-"
+                        + TestFixtures.randomSlugSuffix() + "\"}")
+                .when().post("/api/v1/sites").then().statusCode(201).extract().path("data.id");
+        String delegateId = givenAs(admin).contentType("application/json")
+                .body("{\"name\":\"OUEDRAOGO ALI\",\"collector\":true}")
+                .when().post("/api/v1/suppliers").then().statusCode(201).extract().path("data.id");
+
+        // Le carnet de la coopérative : colonne « Code fournisseur »
+        // vide, et un nom que le référentiel ne connaît pas encore.
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        [ { "rowNumber": 2, "ref": "BR0260", "date": "%s",
+                            "netWeightKg": "2555", "supplierName": "OUEDRAOGO ALl" } ]
+                        """.formatted(frDate))
+                .when().post("/api/v1/intake-notes/import/commit?siteId=" + siteId)
+                .then().statusCode(200)
+                .body("data.createdCount", equalTo(1))
+                // Le bordereau est créé, et l'avertissement part avec lui :
+                // c'est ce qui manquait le 15/09/2026.
+                .body("data.warnedRows", hasSize(1))
+                .body("data.warnedRows[0].ref", equalTo("BR0260"));
+
+        String noteId = givenAs(admin).when().get("/api/v1/intake-notes")
+                .then().statusCode(200)
+                .extract().path("data.find { it.ref == 'BR0260' }.id");
+        givenAs(admin).when().get("/api/v1/intake-notes/" + noteId)
+                .then().statusCode(200).body("data.delegateSupplierId", nullValue());
+
+        // Le rattrapage : on désigne la fiche, sans toucher au fichier.
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "date": "%s", "siteId": "%s", "delegateSupplierId": "%s",
+                          "netWeightKg": 2555 }
+                        """.formatted(today, siteId, delegateId))
+                .when().put("/api/v1/intake-notes/" + noteId)
+                .then().statusCode(200)
+                .body("data.delegateSupplierId", equalTo(delegateId))
+                // Le délégué désigné nomme le fournisseur : plus de nom
+                // approchant qui traîne à côté de la bonne fiche.
+                .body("data.supplierName", equalTo("OUEDRAOGO ALI"));
+    }
 }

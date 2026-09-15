@@ -198,6 +198,7 @@ public class TenantDiagnosticsService {
         checks.add(receiptsWithoutStockMovement(db));
         checks.add(advancesConsumedBeyondTheirAmount(db));
         checks.add(producersSharingTheSameName(db));
+        checks.add(notesThatWillNeverBeAccounted(db));
 
         audit.event(AuditEventType.CROSS_TENANT_ACCESS)
                 .actorEmail(actorEmail)
@@ -294,6 +295,35 @@ public class TenantDiagnosticsService {
             }
         }
         return new ConsistencyCheckDto("receiptWithoutCampaign", anomalies, samples);
+    }
+
+    /**
+     * Les bordereaux qui attendent une comptabilisation qui les refusera.
+     *
+     * <p>Un bordereau sans délégué rapproché bloque le lot entier au
+     * moment de comptabiliser. Il reste pourtant dans la file, à côté de
+     * ceux qui n'attendent que le comptable : rien ne les distingue, et
+     * on ne découvre le blocage qu'en essayant. Les compter, c'est voir
+     * venir (15/09/2026).</p>
+     */
+    private ConsistencyCheckDto notesThatWillNeverBeAccounted(MongoDatabase db) {
+        List<String> samples = new ArrayList<>();
+        long anomalies = 0;
+        for (Document note : find(db, "intake_notes",
+                Filters.and(
+                        Filters.eq("status", "TO_ACCOUNT"),
+                        Filters.or(Filters.exists("delegateSupplierId", false),
+                                Filters.eq("delegateSupplierId", null))), 0)) {
+            anomalies++;
+            if (samples.size() < MAX_SAMPLES) {
+                String supplier = note.getString("supplierName");
+                samples.add(note.getString("ref")
+                        + (supplier == null || supplier.isBlank()
+                                ? " · sans fournisseur au fichier"
+                                : " · « " + supplier + " » inconnu au référentiel"));
+            }
+        }
+        return new ConsistencyCheckDto("noteWithoutDelegate", anomalies, samples);
     }
 
     /** Un reçu qui n'a pas fait entrer sa matière : la création a cassé en chemin. */

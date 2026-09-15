@@ -41,6 +41,7 @@ import java.util.UUID;
 public class TenantDiagnosticsResource {
 
     @Inject TenantDiagnosticsService service;
+    @Inject com.ntech.cabosse.diagnostics.service.PlatformSignalsService platformSignals;
     @Inject com.ntech.cabosse.importjournal.service.ImportRunReadService importRuns;
     @Inject ExportAudit exportAudit;
     @Inject JsonWebToken jwt;
@@ -56,6 +57,26 @@ public class TenantDiagnosticsResource {
     public Response lookup(@PathParam("tenantId") UUID tenantId, @QueryParam("q") String q) {
         DiagnosticLookupDto result = service.lookup(tenantId, q, actor());
         return Response.ok(ApiResponse.ok(result)).build();
+    }
+
+    /**
+     * Ce qui va mal, toutes structures confondues.
+     *
+     * <p>Les contrôles de cohérence répondent à qui les interroge, une
+     * structure à la fois, après qu'un utilisateur s'est plaint. Cette
+     * vue-ci est l'inverse : elle se lit sans rien demander, et c'est
+     * elle qui permet d'aller au-devant (15/09/2026).</p>
+     */
+    @GET
+    @Path("/signals")
+    @Operation(summary = "Les signaux de toutes les structures",
+            description = "Bordereaux qui ne pourront pas être comptabilisés, bordereaux "
+                    + "qui attendent trop, bordereaux incomplets, reçus hors campagne, "
+                    + "imports entièrement refusés. La structure la plus en difficulté "
+                    + "vient en premier.")
+    @APIResponse(responseCode = "200", description = "Signaux lus")
+    public Response signals() {
+        return Response.ok(ApiResponse.ok(platformSignals.signals(actor()))).build();
     }
 
     /**

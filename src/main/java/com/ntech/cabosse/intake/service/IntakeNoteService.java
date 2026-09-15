@@ -70,6 +70,7 @@ public class IntakeNoteService {
         int created = 0;
         int skipped = 0;
         List<IntakeImportResultDto.RejectedRow> rejected = new ArrayList<>();
+        List<IntakeImportResultDto.WarnedRow> warned = new ArrayList<>();
         for (IntakeNoteImportRowDto raw : rows == null ? List.<IntakeNoteImportRowDto>of() : rows) {
             String ref = clean(raw.ref());
             if (ref == null) {
@@ -121,8 +122,15 @@ public class IntakeNoteService {
             // délégué, la comptabilisation refusera le bordereau ; sans
             // campagne, il sortira des états. Ni l'un ni l'autre ne
             // produit d'erreur : c'est pourquoi on les consigne.
-            if (e.delegateSupplierId == null && e.supplierName != null) {
-                trace.decided("LEFT_NULL", "fournisseur", e.supplierName, "aucun délégué reconnu");
+            if (e.delegateSupplierId == null) {
+                trace.decided("LEFT_NULL", "fournisseur",
+                        e.supplierName == null ? "(vide)" : e.supplierName,
+                        "aucun délégué reconnu");
+                // Dit tout de suite, pas à la comptabilisation : sans
+                // délégué, ce bordereau bloquera le lot entier, et
+                // l'apprendre des jours plus tard coûte la journée.
+                warned.add(new IntakeImportResultDto.WarnedRow(
+                        raw.rowNumber(), ref, Messages.msg("m.itk-w-delegate-unmatched")));
             }
             if (e.campaignId == null && e.campaignLabel != null) {
                 trace.decided("LEFT_NULL", "campagne", e.campaignLabel, "aucune campagne reconnue");
@@ -139,7 +147,7 @@ public class IntakeNoteService {
             created++;
         }
         trace.counts(created, skipped).close();
-        return new IntakeImportResultDto(created, skipped, rejected);
+        return new IntakeImportResultDto(created, skipped, rejected, warned);
     }
 
     /**
@@ -217,8 +225,20 @@ public class IntakeNoteService {
                 .filter(s -> s.collector).toList();
         IntakeNoteEntity values = new IntakeNoteEntity();
         values.date = p.date();
-        values.supplierName = clean(p.supplierName());
-        values.delegateSupplierId = matchDelegate(e.supplierCode, values.supplierName, collectors);
+        if (p.delegateSupplierId() != null) {
+            // Désigné à la main : il fait foi, et nomme le fournisseur.
+            // C'est la sortie de secours quand aucun rapprochement ne
+            // peut aboutir, faute de nom au fichier ou au référentiel.
+            SupplierEntity delegate = suppliers.findById(p.delegateSupplierId()).orElseThrow(
+                    () -> new com.ntech.cabosse.shared.exception.NotFoundException(
+                            Messages.msg("m.itk-delegate-not-found")));
+            values.delegateSupplierId = delegate.id;
+            values.supplierName = delegate.name;
+        } else {
+            values.supplierName = clean(p.supplierName());
+            values.delegateSupplierId =
+                    matchDelegate(e.supplierCode, values.supplierName, collectors);
+        }
         values.grossWeightKg = p.grossWeightKg();
         values.bagCount = p.bagCount();
         values.netWeightKg = p.netWeightKg();

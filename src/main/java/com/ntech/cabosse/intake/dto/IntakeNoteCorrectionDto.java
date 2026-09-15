@@ -23,6 +23,20 @@ public record IntakeNoteCorrectionDto(
          * comptabilisation : c'est le magasinier qui le sait.
          */
         java.util.UUID siteId,
+        /**
+         * Le délégué, désigné au référentiel.
+         *
+         * <p>C'est le geste de rattrapage du bordereau : un carnet dont
+         * le fournisseur ne correspond à personne arrive sans délégué, et
+         * la comptabilisation refusera le lot entier. Corriger le nom ne
+         * suffit pas toujours, le rapprochement restant approximatif ;
+         * désigner la fiche tranche pour de bon (15/09/2026).</p>
+         *
+         * <p>Fourni, il fait foi et nomme le fournisseur. Absent, le
+         * rapprochement par nom continue de s'appliquer, pour ne rien
+         * changer aux corrections qui marchaient déjà.</p>
+         */
+        java.util.UUID delegateSupplierId,
         @Size(max = 160) String supplierName,
         @DecimalMin(value = "0", message = "{v.valeur-negative-interdite}") BigDecimal grossWeightKg,
         Integer bagCount,
