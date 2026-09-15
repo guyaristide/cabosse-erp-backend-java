@@ -35,6 +35,7 @@ public class IntakeNoteService {
     @Inject CampaignRepository campaigns;
     @Inject com.ntech.cabosse.supplier.repository.SupplierRepository suppliers;
     @Inject IdGenerator idGenerator;
+    @Inject com.ntech.cabosse.importjournal.service.ImportJournal journal;
     @Inject JsonWebToken jwt;
 
     public List<IntakeNoteDto> list(String status) {
@@ -57,6 +58,11 @@ public class IntakeNoteService {
      * raison, pour corriger le fichier plutôt que deviner.
      */
     public IntakeImportResultDto importCommit(List<IntakeNoteImportRowDto> rows, UUID siteId) {
+        // La trace est ouverte ici et close à la toute fin, hors du
+        // chemin qui écrit : elle observe, elle n'intervient pas.
+        var trace = journal.open("intake-notes", "COMMIT")
+                .site(siteId)
+                .received(rows == null ? 0 : rows.size());
         List<CampaignEntity> allCampaigns = campaigns.listAll();
         List<SupplierEntity> collectors = suppliers.listAll().stream()
                 .filter(s -> s.collector).toList();
@@ -69,18 +75,22 @@ public class IntakeNoteService {
             if (ref == null) {
                 rejected.add(new IntakeImportResultDto.RejectedRow(
                         raw.rowNumber(), Messages.msg("m.itk-ref-required")));
+                trace.rejected(raw.rowNumber(), Messages.msg("m.itk-ref-required"),
+                        clean(raw.supplierName()));
                 continue;
             }
             LocalDate date = parseDate(raw.date());
             if (date == null) {
                 rejected.add(new IntakeImportResultDto.RejectedRow(
                         raw.rowNumber(), Messages.msg("m.itk-date-required")));
+                trace.rejected(raw.rowNumber(), Messages.msg("m.itk-date-required"), ref);
                 continue;
             }
             BigDecimal net = parseDecimal(raw.netWeightKg());
             if (net == null || net.signum() <= 0) {
                 rejected.add(new IntakeImportResultDto.RejectedRow(
                         raw.rowNumber(), Messages.msg("m.itk-net-weight-required")));
+                trace.rejected(raw.rowNumber(), Messages.msg("m.itk-net-weight-required"), ref);
                 continue;
             }
             if (repo.findByRef(ref).isPresent()) {
@@ -100,6 +110,16 @@ public class IntakeNoteService {
             e.supplierCode = clean(raw.supplierCode());
             e.supplierName = clean(raw.supplierName());
             e.delegateSupplierId = matchDelegate(e.supplierCode, e.supplierName, collectors);
+            // Les deux rattachements qui décident de la suite. Sans
+            // délégué, la comptabilisation refusera le bordereau ; sans
+            // campagne, il sortira des états. Ni l'un ni l'autre ne
+            // produit d'erreur : c'est pourquoi on les consigne.
+            if (e.delegateSupplierId == null && e.supplierName != null) {
+                trace.decided("LEFT_NULL", "fournisseur", e.supplierName, "aucun délégué reconnu");
+            }
+            if (e.campaignId == null && e.campaignLabel != null) {
+                trace.decided("LEFT_NULL", "campagne", e.campaignLabel, "aucune campagne reconnue");
+            }
             e.lineNumber = parseInt(raw.lineNumber());
             e.grossWeightKg = parseDecimal(raw.grossWeightKg());
             e.bagCount = parseInt(raw.bagCount());
@@ -111,6 +131,7 @@ public class IntakeNoteService {
             repo.insert(e);
             created++;
         }
+        trace.counts(created, skipped).close();
         return new IntakeImportResultDto(created, skipped, rejected);
     }
 

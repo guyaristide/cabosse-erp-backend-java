@@ -20,6 +20,7 @@ import java.time.LocalDate;
 import java.util.HashSet;
 
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.nullValue;
 
@@ -456,5 +457,71 @@ class IntakeNoteTest extends AbstractIntegrationTest {
                         { "ref": "BR0300", "date": "%s", "netWeightKg": 1000 }
                         """.formatted(LocalDate.now()))
                 .when().post("/api/v1/intake-notes").then().statusCode(422);
+    }
+
+    /**
+     * L'import laisse une trace consultable, et cette trace ne pèse sur
+     * rien.
+     *
+     * <p>La revue du 15/09/2026 a montré que la plupart des anomalies
+     * d'import ne sont pas des erreurs bruyantes mais des silences : une
+     * ligne écartée sans compteur, un rattachement laissé nul. Rien ne
+     * permettait ensuite de reconstituer ce qui s'était passé.</p>
+     *
+     * <p>Le test vérifie les deux moitiés : ce que la trace retient, et
+     * qu'elle n'a rien changé à l'import lui-même.</p>
+     */
+    @Test
+    void an_import_leaves_a_trace_without_changing_what_it_imported() {
+        UserEntity admin = admin();
+        LocalDate today = LocalDate.now();
+        String frDate = today.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+        String siteId = givenAs(admin).contentType("application/json")
+                .body("{\"name\":\"Magasin trace\",\"type\":\"TRANSFORMATION\",\"code\":\"MT-"
+                        + TestFixtures.randomSlugSuffix() + "\"}")
+                .when().post("/api/v1/sites").then().statusCode(201).extract().path("data.id");
+
+        // Deux lignes bonnes, une sans date, une sans poids. Le délégué
+        // n'existe pas au référentiel : c'est une décision silencieuse.
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        [ { "rowNumber": 2, "ref": "BRT-1", "date": "%s", "netWeightKg": "2555",
+                            "supplierName": "DELEGUE INCONNU" },
+                          { "rowNumber": 3, "ref": "BRT-2", "date": "%s", "netWeightKg": "1200",
+                            "supplierName": "DELEGUE INCONNU" },
+                          { "rowNumber": 4, "ref": "BRT-3", "netWeightKg": "900" },
+                          { "rowNumber": 5, "ref": "BRT-4", "date": "%s" } ]
+                        """.formatted(frDate, frDate, frDate))
+                .when().post("/api/v1/intake-notes/import/commit?siteId=" + siteId)
+                .then().statusCode(200)
+                // L'import se comporte exactement comme avant la trace.
+                .body("data.createdCount", equalTo(2))
+                .body("data.rejectedRows", hasSize(2));
+
+        // Les deux bordereaux valides sont bien là : la trace n'a rien pris.
+        givenAs(admin).when().get("/api/v1/intake-notes").then().statusCode(200)
+                .body("data.find { it.ref == 'BRT-1' }.netWeightKg", equalTo(2555));
+
+        UserEntity platform = fixtures.createPlatformAdmin();
+        var run = givenAs(platform)
+                .when().get("/api/v1/admin/diagnostics/" + tenant.id + "/import-runs")
+                .then().statusCode(200)
+                .body("data[0].domain", equalTo("intake-notes"))
+                .body("data[0].rowsReceived", equalTo(4))
+                .body("data[0].rowsCreated", equalTo(2))
+                .body("data[0].rowsRejected", equalTo(2))
+                .extract().path("data[0].id").toString();
+
+        givenAs(platform)
+                .when().get("/api/v1/admin/diagnostics/" + tenant.id + "/import-runs/" + run)
+                .then().statusCode(200)
+                // Les motifs groupés : c'est ce qui fait gagner du temps
+                // quand quarante lignes tombent pour la même raison.
+                .body("data.reasons.size()", equalTo(2))
+                .body("data.rejections.rowNumber", hasItems(4, 5))
+                // Et la décision que personne ne voyait : le bordereau
+                // est créé sans délégué, donc il ne se comptabilisera pas.
+                .body("data.decisions.find { it.field == 'fournisseur' }.occurrences",
+                        equalTo(2));
     }
 }

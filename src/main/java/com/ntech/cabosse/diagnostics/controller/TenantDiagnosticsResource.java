@@ -41,6 +41,7 @@ import java.util.UUID;
 public class TenantDiagnosticsResource {
 
     @Inject TenantDiagnosticsService service;
+    @Inject com.ntech.cabosse.importjournal.service.ImportRunReadService importRuns;
     @Inject ExportAudit exportAudit;
     @Inject JsonWebToken jwt;
 
@@ -55,6 +56,42 @@ public class TenantDiagnosticsResource {
     public Response lookup(@PathParam("tenantId") UUID tenantId, @QueryParam("q") String q) {
         DiagnosticLookupDto result = service.lookup(tenantId, q, actor());
         return Response.ok(ApiResponse.ok(result)).build();
+    }
+
+    /**
+     * Le journal des imports de la structure.
+     *
+     * <p>Il vit ici parce qu'on l'ouvre pour la même raison qu'on ouvre le
+     * diagnostic : un chiffre surprend, et il faut remonter à ce qui l'a
+     * produit. Le rapprochement se fait souvent dans le même écran, un
+     * bordereau cherché par son numéro d'un côté, l'import qui l'a créé de
+     * l'autre (15/09/2026).</p>
+     */
+    @GET
+    @Path("/{tenantId}/import-runs")
+    @Operation(summary = "Les imports passés d'une structure",
+            description = "Du plus récent au plus ancien, avec leurs compteurs. "
+                    + "Filtrable par domaine.")
+    @APIResponse(responseCode = "200", description = "Imports trouvés")
+    @APIResponse(responseCode = "404", description = "Tenant introuvable")
+    public Response importRuns(@PathParam("tenantId") UUID tenantId,
+                               @QueryParam("domain") String domain,
+                               @QueryParam("skip") @jakarta.ws.rs.DefaultValue("0") int skip,
+                               @QueryParam("limit") @jakarta.ws.rs.DefaultValue("50") int limit) {
+        return Response.ok(ApiResponse.ok(
+                importRuns.search(tenantId, domain, skip, limit, actor()))).build();
+    }
+
+    @GET
+    @Path("/{tenantId}/import-runs/{runId}")
+    @Operation(summary = "Le déroulé d'un import",
+            description = "Refus groupés par motif, lignes refusées et décisions prises "
+                    + "sans message : valeur par défaut posée, rattachement laissé nul.")
+    @APIResponse(responseCode = "200", description = "Déroulé trouvé")
+    @APIResponse(responseCode = "404", description = "Import ou tenant introuvable")
+    public Response importRun(@PathParam("tenantId") UUID tenantId,
+                              @PathParam("runId") UUID runId) {
+        return Response.ok(ApiResponse.ok(importRuns.get(tenantId, runId, actor()))).build();
     }
 
     @GET
