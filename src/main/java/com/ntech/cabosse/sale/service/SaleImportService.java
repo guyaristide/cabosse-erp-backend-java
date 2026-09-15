@@ -175,8 +175,15 @@ public class SaleImportService {
             throw ex;
         }
 
+        // Le fichier disait « livrée », la vente s'arrête à « confirmée » :
+        // le dire, sinon le stock reste surévalué sans que personne sache
+        // quelles ventes reprendre (15/09/2026).
+        boolean deliveryPostponed = "DELIVERED".equalsIgnoreCase(
+                payload.initialStatus() == null ? "" : payload.initialStatus().trim())
+                && sale.status() != SaleStatus.DELIVERED;
         return SaleImportResultDto.created(
-                sale, customer.created(), customer.id(), customer.name(), createdArticles
+                sale, customer.created(), customer.id(), customer.name(), createdArticles,
+                deliveryPostponed
         );
     }
 

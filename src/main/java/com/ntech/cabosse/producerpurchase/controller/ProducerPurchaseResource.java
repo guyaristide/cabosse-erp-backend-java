@@ -200,6 +200,19 @@ public class ProducerPurchaseResource {
      * supprimable : il est déjà entré en stock, a fixé le coût moyen et
      * produit une écriture. On annule, puis on ressaisit.
      */
+    /**
+     * Rattache un reçu à une campagne, quand l'import n'a pas su la
+     * reconnaître. Le reçu sort sinon de tous les états de campagne.
+     */
+    @POST
+    @Path("/{id}/campaign")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    @RequiresPermission(Permission.COLLECTION_RECEIPT_WRITE)
+    public Response attachCampaign(@PathParam("id") UUID id,
+                                   @QueryParam("campaignId") UUID campaignId) {
+        return Response.ok(ApiResponse.ok(service.attachCampaign(id, campaignId))).build();
+    }
+
     @POST
     @Path("/{id}/cancel")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })

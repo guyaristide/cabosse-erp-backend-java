@@ -37,7 +37,20 @@ public record SaleImportResultDto(
         /** Référence de la vente déjà en base ayant le même n° facture. */
         String existingSaleRef,
         /** Id de la vente déjà en base ayant le même n° facture. */
-        UUID existingSaleId
+        UUID existingSaleId,
+
+        /**
+         * Le fichier annonçait une livraison, la vente est enregistrée
+         * confirmée.
+         *
+         * <p>Le stock du jour de l'import n'est pas celui du jour de la
+         * vente : sortir la matière rétroactivement échouerait sur un
+         * stock insuffisant et ferait perdre la ligne entière. La vente
+         * s'arrête donc à « confirmée », ce qui est le bon choix, mais se
+         * faisait en silence : le stock restait surévalué et rien ne
+         * disait quelles ventes livrer à la main (15/09/2026).</p>
+         */
+        boolean deliveryPostponed
 
 ) {
 
@@ -49,11 +62,12 @@ public record SaleImportResultDto(
             boolean customerCreated,
             UUID customerId,
             String customerName,
-            List<CreatedArticleRef> createdArticles
+            List<CreatedArticleRef> createdArticles,
+            boolean deliveryPostponed
     ) {
         return new SaleImportResultDto(
                 sale, customerCreated, customerId, customerName, createdArticles,
-                false, null, null, null
+                false, null, null, null, deliveryPostponed
         );
     }
 
@@ -65,7 +79,7 @@ public record SaleImportResultDto(
                 null, false, null, null, List.of(),
                 true,
                 "Facture " + invoiceNumber + " déjà importée (vente " + existingRef + ")",
-                existingRef, existingId
+                existingRef, existingId, false
         );
     }
 }

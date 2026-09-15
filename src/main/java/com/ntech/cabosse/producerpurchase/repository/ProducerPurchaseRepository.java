@@ -182,6 +182,27 @@ public class ProducerPurchaseRepository {
      *
      * @return {@code true} si le règlement a été appliqué
      */
+    /**
+     * Rattache un reçu à une campagne, à condition qu'il n'en ait pas.
+     *
+     * <p>La condition est évaluée par la base : deux rattrapages
+     * concurrents ne peuvent pas se succéder en silence, et le second
+     * apprend qu'il est arrivé après. Écraser une campagne déjà posée
+     * déplacerait un reçu d'un exercice à l'autre, ce qu'aucun geste de
+     * correction ne doit pouvoir faire sans le dire.</p>
+     */
+    public boolean setCampaign(UUID id, UUID campaignId) {
+        var result = coll().updateOne(
+                Filters.and(
+                        Filters.eq("_id", id),
+                        Filters.or(Filters.exists("campaignId", false),
+                                Filters.eq("campaignId", null))),
+                com.mongodb.client.model.Updates.combine(
+                        com.mongodb.client.model.Updates.set("campaignId", campaignId),
+                        com.mongodb.client.model.Updates.set("updatedAt", java.time.Instant.now())));
+        return result.getModifiedCount() > 0;
+    }
+
     public boolean tryPay(UUID id, java.math.BigDecimal amount) {
         var result = coll().updateOne(
                 Filters.and(

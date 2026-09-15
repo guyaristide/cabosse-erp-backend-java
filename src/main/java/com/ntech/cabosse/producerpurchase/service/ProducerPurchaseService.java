@@ -897,6 +897,39 @@ public class ProducerPurchaseService {
         return ProducerPurchaseResponseDto.from(e);
     }
 
+    /**
+     * Rattache un reçu à une campagne, après coup.
+     *
+     * <p>Un reçu dont le libellé de campagne n'a pas été reconnu à
+     * l'import est créé sans rattachement : il écrit bien le stock et la
+     * dette, mais sort de tous les états filtrés par campagne, production
+     * et rendement compris. On le découvre en constatant un tonnage qui
+     * ne tombe pas juste, et il n'existait aucun geste pour le réparer :
+     * l'annulation aurait défait des écritures, et la réimportation
+     * recréé un doublon (15/09/2026).</p>
+     *
+     * <p>La campagne est une donnée de classement : la poser ne touche ni
+     * au stock, ni à la dette, ni aux écritures. C'est ce qui rend ce
+     * rattrapage sûr, là où corriger un poids ne le serait pas.</p>
+     */
+    public ProducerPurchaseResponseDto attachCampaign(UUID id, UUID campaignId) {
+        ProducerPurchaseEntity e = loadOrFail(id);
+        if (e.campaignId != null) {
+            throw new BusinessException(Messages.msg("m.ppu-campaign-already-set", e.ref));
+        }
+        CampaignEntity campaign = campaignResolver.resolve(campaignId);
+        if (!repo.setCampaign(id, campaign.id)) {
+            throw new BusinessException(Messages.msg("m.ppu-campaign-already-set", e.ref));
+        }
+        audit.event(AuditEventType.PRODUCER_PURCHASE_CREATED)
+                .actorEmail(actor())
+                .target("producer_purchase", id.toString(), e.ref)
+                .tenant(tenantContext.tenantId(), null)
+                .description("Reçu " + e.ref + " rattaché à la campagne " + campaign.label)
+                .record();
+        return ProducerPurchaseResponseDto.from(loadOrFail(id));
+    }
+
     private static BigDecimal nz(BigDecimal v) {
         return v == null ? BigDecimal.ZERO : v;
     }
