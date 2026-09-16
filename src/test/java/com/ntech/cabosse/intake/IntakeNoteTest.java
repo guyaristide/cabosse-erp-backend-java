@@ -240,6 +240,18 @@ class IntakeNoteTest extends AbstractIntegrationTest {
                         """.formatted(frDate, frDate))
                 .when().post("/api/v1/intake-notes/import/commit?siteId=" + siteId)
                 .then().statusCode(200).body("data.createdCount", equalTo(2));
+
+        // Le même fichier rejoué : on veut savoir lesquels, pas combien.
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        [ { "rowNumber": 2, "ref": "BR0261", "date": "%s", "netWeightKg": "305" } ]
+                        """.formatted(frDate))
+                .when().post("/api/v1/intake-notes/import/commit?siteId=" + siteId)
+                .then().statusCode(200)
+                .body("data.createdCount", equalTo(0))
+                .body("data.skippedExistingCount", equalTo(1))
+                .body("data.skippedRows[0].ref", equalTo("BR0261"))
+                .body("data.skippedRows[0].status", equalTo("TO_ACCOUNT"));
         String first = givenAs(admin).when().get("/api/v1/intake-notes")
                 .then().extract().path("data.find { it.ref == 'BR0261' }.id");
         String second = givenAs(admin).when().get("/api/v1/intake-notes")

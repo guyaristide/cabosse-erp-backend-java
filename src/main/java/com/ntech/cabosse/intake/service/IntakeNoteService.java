@@ -71,6 +71,7 @@ public class IntakeNoteService {
         int skipped = 0;
         List<IntakeImportResultDto.RejectedRow> rejected = new ArrayList<>();
         List<IntakeImportResultDto.WarnedRow> warned = new ArrayList<>();
+        List<IntakeImportResultDto.SkippedRow> skippedRows = new ArrayList<>();
         for (IntakeNoteImportRowDto raw : rows == null ? List.<IntakeNoteImportRowDto>of() : rows) {
             String ref = clean(raw.ref());
             if (ref == null) {
@@ -103,6 +104,8 @@ public class IntakeNoteService {
                 // état il se trouve déjà (15/09/2026).
                 trace.decided("ALREADY_KNOWN", "numéro de bordereau", ref,
                         existing.get().status);
+                skippedRows.add(new IntakeImportResultDto.SkippedRow(
+                        raw.rowNumber(), ref, existing.get().status));
                 continue;
             }
 
@@ -147,7 +150,7 @@ public class IntakeNoteService {
             created++;
         }
         trace.counts(created, skipped).close();
-        return new IntakeImportResultDto(created, skipped, rejected, warned);
+        return new IntakeImportResultDto(created, skipped, rejected, warned, skippedRows);
     }
 
     /**
