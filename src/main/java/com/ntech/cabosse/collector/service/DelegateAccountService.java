@@ -37,6 +37,11 @@ import java.util.UUID;
 public class DelegateAccountService {
 
     @Inject SupplierRepository suppliers;
+    // Le dépôt plutôt que le service : DelegateStatusPositionService lit
+    // déjà l'encours d'ici, et deux services qui s'injectent l'un l'autre
+    // ne tiennent que par le proxy CDI.
+    @Inject com.ntech.cabosse.delegatestatus.repository.DelegateStatusPositionRepository positions;
+    @Inject com.ntech.cabosse.delegatestatus.repository.DelegateStatusRepository delegateStatuses;
     @Inject DelegateOpeningBalanceService openingBalances;
     @Inject com.ntech.cabosse.suppliercategory.service.SupplierMarginResolver marginResolver;
     @Inject com.ntech.cabosse.tenant.service.TenantPreferencesLookup preferences;
@@ -258,6 +263,13 @@ public class DelegateAccountService {
                 : campaignIds.stream().filter(java.util.Objects::nonNull).distinct().toList();
         var prefs = preferences.current();
 
+        // Positions courantes et drapeau d'avertissement, lus une fois pour
+        // tout l'état : ce sont deux petites collections, et les relire par
+        // délégué multiplierait les allers-retours sans rien apporter.
+        var currentPositions = positions.currentByDelegate();
+        java.util.Map<String, Boolean> warningByCode = new java.util.HashMap<>();
+        for (var st : delegateStatuses.listAll()) warningByCode.put(st.code, st.warning);
+
         List<com.ntech.cabosse.collector.dto.DelegateStatementDto.Row> rows = new ArrayList<>();
         BigDecimal totalAdvanced = BigDecimal.ZERO;
         BigDecimal totalRetention = BigDecimal.ZERO;
@@ -311,6 +323,10 @@ public class DelegateAccountService {
             // au-delà de ses avances.
             BigDecimal balance = advanced.subtract(delivered.add(retention));
             BigDecimal owed = owedByDelegate.getOrDefault(delegate.id, BigDecimal.ZERO);
+            // Position courante, lue en une fois avant la boucle : une
+            // requête par ligne ferait autant d'allers-retours que la
+            // coopérative a de collecteurs.
+            var position = currentPositions.get(delegate.id);
             rows.add(new com.ntech.cabosse.collector.dto.DelegateStatementDto.Row(
                     delegate.id, delegate.code, delegate.name,
                     delegate.sectionId != null
@@ -318,7 +334,12 @@ public class DelegateAccountService {
                     advanced,
                     delegate.collectorRetentionPerKg, retention,
                     resolved.isPerKg() ? resolved.rate() : null, margin,
-                    weight, delivered, balance, owed));
+                    weight, delivered, balance, owed,
+                    position == null ? null : position.statusCode,
+                    position == null ? null : position.statusLabel,
+                    position == null ? null : warningByCode.get(position.statusCode),
+                    position == null ? null : position.effectiveDate,
+                    position == null ? null : position.owedAmount));
 
             totalAdvanced = totalAdvanced.add(advanced);
             totalRetention = totalRetention.add(retention);

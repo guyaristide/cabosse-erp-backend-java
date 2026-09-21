@@ -3,6 +3,7 @@ package com.ntech.cabosse.collector.dto;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -62,7 +63,26 @@ public record DelegateStatementDto(
              * pour lire la position du délégué dans un même état, sans
              * compensation silencieuse.
              */
-            BigDecimal owedToDelegate) {}
+            BigDecimal owedToDelegate,
+            /**
+             * Position courante tenue sur le délégué (backlog DEL-04), et
+             * ce qu'il devait le jour où elle a été prise.
+             *
+             * <p>Les deux se lisent ensemble : un délégué déclaré douteux à
+             * un million et toujours au même montant six mois plus tard n'a
+             * rien remboursé, un autre descendu à trois cent mille s'apure.
+             * Sans le montant figé, les deux se ressemblent.</p>
+             *
+             * <p>Tout est {@code null} pour un délégué sur lequel aucune
+             * position n'a jamais été prise : un statut par défaut inventé
+             * ici laisserait croire à une décision que personne n'a prise.</p>
+             */
+            String statusCode,
+            String statusLabel,
+            /** La position vaut-elle avertissement, sans connaître les libellés du tenant. */
+            Boolean statusWarning,
+            LocalDate statusSince,
+            BigDecimal owedAtStatus) {}
 
     /** Totaux de la période. Les taux ne s'additionnent pas : ils sont absents. */
     public record Totals(
