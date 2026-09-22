@@ -45,6 +45,14 @@ public class DispatchNoteEntity {
     /** Camion, comme sur le bordereau de réception. */
     public String truckNumber;
 
+    /**
+     * Où le camion décharge : port de San Pedro, Abidjan, un magasin
+     * client. Saisie libre, par choix de la coopérative (22/09/2026) :
+     * les destinations sont peu nombreuses mais varient d'une campagne à
+     * l'autre, et un référentiel à tenir coûterait plus qu'il ne rendrait.
+     */
+    public String destination;
+
     public UUID campaignId;
     public Integer campaignYear;
 

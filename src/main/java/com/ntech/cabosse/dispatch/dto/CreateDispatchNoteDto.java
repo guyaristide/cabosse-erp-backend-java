@@ -16,6 +16,8 @@ public record CreateDispatchNoteDto(
         UUID siteId,
         UUID customerId,
         @Size(max = 40) String truckNumber,
+        /** Où le camion décharge. Saisie libre. */
+        @Size(max = 120) String destination,
         @NotEmpty(message = "{v.lignes-requises}")
         List<@jakarta.validation.Valid DispatchLineInputDto> lines,
         @Size(max = 500) String notes

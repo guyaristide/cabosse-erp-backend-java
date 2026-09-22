@@ -155,6 +155,7 @@ public class DispatchNoteService {
                 });
             }
             e.truckNumber = blankToNull(p.truckNumber());
+            e.destination = blankToNull(p.destination());
             CampaignEntity campaign = campaignResolver.resolveOptionalForInstant(now, null);
             e.campaignId = campaign != null ? campaign.id : null;
             e.campaignYear = campaign != null ? campaign.campaignYear : null;

@@ -22,6 +22,7 @@ public record DispatchNoteResponseDto(
         UUID customerId,
         String customerName,
         String truckNumber,
+        String destination,
         UUID campaignId,
         Integer campaignYear,
         List<DispatchLineView> lines,
@@ -39,7 +40,7 @@ public record DispatchNoteResponseDto(
         return new DispatchNoteResponseDto(
                 e.id, e.ref, e.date, e.siteId, e.siteName,
                 e.articleId, e.articleName, e.articleUnit,
-                e.customerId, e.customerName, e.truckNumber,
+                e.customerId, e.customerName, e.truckNumber, e.destination,
                 e.campaignId, e.campaignYear,
                 e.lines == null ? List.of() : e.lines.stream().map(DispatchLineView::from).toList(),
                 e.totalGrossKg, e.totalBags, e.totalNetKg,
