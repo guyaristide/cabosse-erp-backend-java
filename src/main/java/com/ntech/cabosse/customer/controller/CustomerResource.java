@@ -48,7 +48,17 @@ public class CustomerResource {
     @Inject CustomerImportService importService;
     @Inject ExportAudit exportAudit;
 
+    // Nommer le client d'un chargement n'est pas lire le référentiel
+    // commercial : le magasinier compose un bordereau de sortie et doit
+    // désigner où part le camion, sans porter pour autant le droit de
+    // parcourir articles, campagnes et plan comptable. Troisième fois que
+    // ce cas se pose, après le sélecteur de campagne (10/09/2026) et celui
+    // de site (11/09/2026) ; ici la liste porte des données commerciales,
+    // donc elle s'ouvre aux droits d'exploitation qui en ont l'usage,
+    // pas à tout compte authentifié (22/09/2026, magasinier SCOOPANAB).
     @GET
+    @RequiresPermission({ Permission.REFERENTIAL_READ, Permission.STOCK_READ,
+            Permission.SALE_READ })
     public Response list(@QueryParam("q") String q,
                          @QueryParam("type") String type,
                          @QueryParam("page") @DefaultValue("0") int page,
