@@ -86,7 +86,7 @@ public class ProducerPurchaseImportTemplate {
                         buyer.name, buyer.agrement, buyer.city, buyer.phone,
                         "Campagne principale 2025-2026", "0012345",
                         "KOUASSI Yao", "CCC-12345", "", "Méagui", "0700000000", "Méagui",
-                        "2026-01-15", "Cacao marchand", "20", "1300",
+                        "15/01/2026", "Cacao marchand", "20", "1300",
                         "1000", "1300000", "1300000", "CASH", "REC-2026-001",
                         "DEL-001", "KONE Adama"
                 ),
@@ -94,7 +94,7 @@ public class ProducerPurchaseImportTemplate {
                         buyer.name, buyer.agrement, buyer.city, buyer.phone,
                         "Campagne principale 2025-2026", "0012346",
                         "DIABATE Awa", "", "MB-2026-0087", "Soubré", "0701010101", "Soubré",
-                        "2026-01-16", "Cacao marchand", "12", "780",
+                        "16/01/2026", "Cacao marchand", "12", "780",
                         "1000", "780000", "780000", "PRODUCER_CARD", "",
                         "DEL-001", "KONE Adama"
                 )

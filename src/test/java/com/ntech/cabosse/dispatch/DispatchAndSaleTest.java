@@ -43,6 +43,7 @@ class DispatchAndSaleTest extends AbstractIntegrationTest {
     @Inject PasswordHasher passwordHasher;
     @Inject IdGenerator idGenerator;
 
+
     private TenantEntity tenant;
 
     private UserEntity tenantAdmin() {
@@ -118,6 +119,14 @@ class DispatchAndSaleTest extends AbstractIntegrationTest {
     void the_full_journey_from_loading_to_collection() {
         UserEntity admin = tenantAdmin();
         Seed s = seed(admin);
+        // Aperçu : une campagne ouverte, pour que le bordereau la porte.
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "label": "Campagne principale 2026-2027", "kind": "MAIN",
+                          "startDate": "%s", "endDate": "%s", "basePricePerKg": 900 }
+                        """.formatted(java.time.LocalDate.now().minusMonths(1),
+                        java.time.LocalDate.now().plusMonths(5)))
+                .when().post("/api/v1/campaigns").then().statusCode(201);
 
         // ─── Le chargement : reçu 1 entier, reçu 2 en partie ───
         String noteId = createNote(admin, s, """
@@ -142,6 +151,10 @@ class DispatchAndSaleTest extends AbstractIntegrationTest {
                 .then().statusCode(200).contentType("application/pdf")
                 .extract().asByteArray();
         assertThat(new String(pdf, 0, 4)).isEqualTo("%PDF");
+        // Le bordereau porte sa campagne : c'est elle que le PDF nomme,
+        // par son libellé et non par son millésime.
+        givenAs(admin).when().get("/api/v1/dispatch-notes/" + noteId)
+                .then().statusCode(200).body("data.campaignId", notNullValue());
 
         // ─── Le reliquat, jamais deux fois ───
         createNote(admin, s, """

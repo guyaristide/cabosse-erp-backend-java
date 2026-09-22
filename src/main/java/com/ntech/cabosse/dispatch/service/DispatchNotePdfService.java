@@ -2,6 +2,7 @@ package com.ntech.cabosse.dispatch.service;
 
 import com.lowagie.text.Document;
 import com.lowagie.text.Element;
+import com.lowagie.text.Image;
 import com.lowagie.text.Font;
 import com.lowagie.text.FontFactory;
 import com.lowagie.text.PageSize;
@@ -47,6 +48,8 @@ public class DispatchNotePdfService {
     private static final Color HEADER_BG = new Color(0xF0, 0xF0, 0xF0);
 
     @Inject DispatchNoteService notes;
+    @Inject com.ntech.cabosse.campaign.repository.CampaignRepository campaigns;
+    @Inject com.ntech.cabosse.tenant.service.TenantLogoService logos;
     @Inject TenantRepository tenants;
     @Inject TenantContext tenantContext;
 
@@ -70,7 +73,26 @@ public class DispatchNotePdfService {
             Font cellFont = FontFactory.getFont(FontFactory.HELVETICA, 10, Color.BLACK);
             Font totalFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10, Color.BLACK);
 
-            doc.add(new Paragraph(organization, orgFont));
+            // Le bordereau accompagne le camion et se présente au client :
+            // c'est la coopérative qui le signe, son emblème a donc sa place
+            // en tête. Discret : il identifie, il ne décore pas.
+            PdfPTable letterhead = new PdfPTable(new float[]{ 3, 1 });
+            letterhead.setWidthPercentage(100);
+            PdfPCell name = new PdfPCell(new Paragraph(organization, orgFont));
+            name.setBorder(Rectangle.NO_BORDER);
+            name.setVerticalAlignment(Element.ALIGN_MIDDLE);
+            letterhead.addCell(name);
+            PdfPCell mark = new PdfPCell();
+            mark.setBorder(Rectangle.NO_BORDER);
+            mark.setHorizontalAlignment(Element.ALIGN_RIGHT);
+            Image logo = tenantLogo();
+            if (logo != null) {
+                logo.scaleToFit(64, 34);
+                logo.setAlignment(Element.ALIGN_RIGHT);
+                mark.addElement(logo);
+            }
+            letterhead.addCell(mark);
+            doc.add(letterhead);
             Paragraph title = new Paragraph(
                     Messages.msg(locale, "m.dsp-note-title").toUpperCase(locale), titleFont);
             title.setSpacingBefore(6);
@@ -83,7 +105,7 @@ public class DispatchNotePdfService {
             header.setWidthPercentage(100);
             header.setSpacingAfter(14);
             addField(header, Messages.msg(locale, "m.ppu-note-campaign"),
-                    e.campaignYear != null ? String.valueOf(e.campaignYear) : "-", labelFont, valueFont);
+                    campaignLabel(e), labelFont, valueFont);
             addField(header, Messages.msg(locale, "m.ppu-note-product"),
                     e.articleName != null ? e.articleName : "", labelFont, valueFont);
             addField(header, Messages.msg(locale, "m.ppu-note-date"),
@@ -171,4 +193,40 @@ public class DispatchNotePdfService {
         }
         return table;
     }
+
+    /**
+     * Le libellé de la campagne, et non son millésime.
+     *
+     * <p>« 2026 » ne dit pas laquelle : une saison porte une campagne
+     * principale et une intermédiaire, avec des prix différents. Le
+     * libellé est lu à l'impression plutôt que figé à la création, pour
+     * que les bordereaux déjà émis en profitent aussi.</p>
+     */
+    private String campaignLabel(DispatchNoteEntity e) {
+        if (e.campaignId != null) {
+            String label = campaigns.findById(e.campaignId)
+                    .map(c -> c.label).filter(l -> l != null && !l.isBlank()).orElse(null);
+            if (label != null) return label;
+        }
+        return e.campaignYear != null ? String.valueOf(e.campaignYear) : "-";
+    }
+
+    /**
+     * L'emblème de la coopérative, ou rien.
+     *
+     * <p>Une structure qui n'en a pas déposé garde un en-tête propre :
+     * l'absence de logo n'est pas une anomalie, et ne doit ni bloquer
+     * l'impression ni y laisser un trou signalé.</p>
+     */
+    private Image tenantLogo() {
+        try {
+            var stream = logos.openLogo(tenantContext.tenantId());
+            try (var content = stream.content()) {
+                return Image.getInstance(content.readAllBytes());
+            }
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
 }

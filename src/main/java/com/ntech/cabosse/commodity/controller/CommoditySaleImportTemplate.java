@@ -76,7 +76,7 @@ final class CommoditySaleImportTemplate {
         );
         List<TemplateRow> samples = List.of(
                 new TemplateRow(
-                        "Cargill", "Cacao marchand", "2026-02-10",
+                        "Cargill", "Cacao marchand", "10/02/2026",
                         "5", "1", "Principale",
                         "Méagui", "Port d'Abidjan", "CONN-2026-045",
                         "RA", "Méagui, Soubré",
