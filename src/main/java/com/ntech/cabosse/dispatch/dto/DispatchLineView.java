@@ -13,10 +13,11 @@ public record DispatchLineView(
         BigDecimal grossKg,
         Integer bagsCount,
         BigDecimal netKg,
-        BigDecimal cmupAtDispatch
+        BigDecimal cmupAtDispatch,
+        String comment
 ) {
     public static DispatchLineView from(DispatchLine l) {
         return new DispatchLineView(l.receiptId, l.receiptRef, l.lotRef,
-                l.grossKg, l.bagsCount, l.netKg, l.cmupAtDispatch);
+                l.grossKg, l.bagsCount, l.netKg, l.cmupAtDispatch, l.comment);
     }
 }

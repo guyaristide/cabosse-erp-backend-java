@@ -21,6 +21,16 @@ public class DispatchLine {
     public Integer bagsCount;
     public BigDecimal netKg;
 
+    /**
+     * Ce que le magasinier note sur cette ligne.
+     *
+     * <p>Un appel partiel se justifie : « reliquat gardé pour le prochain
+     * chargement », « sacs éventrés écartés ». Sans champ, l'explication
+     * se perd et personne ne saura plus pourquoi ce reçu n'est sorti
+     * qu'à moitié.</p>
+     */
+    public String comment;
+
     /** CMUP photographié à la sortie, pour un coût des ventes exact. */
     public BigDecimal cmupAtDispatch;
 

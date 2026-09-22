@@ -175,6 +175,8 @@ public class DispatchNoteService {
                 line.receiptRef = receipt.ref;
                 line.lotRef = receipt.deliveryRef != null ? receipt.deliveryRef : receipt.ref;
                 line.netKg = input.netKg();
+                line.comment = input.comment() == null || input.comment().isBlank()
+                        ? null : input.comment().trim();
                 line.bagsCount = input.bagsCount();
                 line.grossKg = input.bagsCount() != null
                         ? input.netKg().add(BigDecimal.valueOf(input.bagsCount()))

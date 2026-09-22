@@ -2,6 +2,7 @@ package com.ntech.cabosse.dispatch.dto;
 
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Size;
 import jakarta.validation.constraints.NotNull;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
 
@@ -19,5 +20,7 @@ public record DispatchLineInputDto(
         @DecimalMin(value = "0", inclusive = false, message = "{v.poids-positif-requis}")
         BigDecimal netKg,
         @Min(value = 0, message = "{v.pesee-sacs-positifs}")
-        Integer bagsCount
+        Integer bagsCount,
+        /** Ce que le magasinier note sur la ligne, souvent pour un appel partiel. */
+        @Size(max = 300) String comment
 ) {}
