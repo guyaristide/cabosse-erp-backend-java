@@ -151,6 +151,7 @@ Dans l'UI Coolify, onglet **Environment Variables**, ajouter :
 | `JWT_ISSUER` | `https://api.tondomaine.com` | Doit matcher le `iss` claim. |
 | `FILE_STORAGE_BACKEND` | `local` | Bascule à `s3` quand prêt. |
 | `S3_*` | (vide en local) | À remplir pour S3. |
+| `PLATFORM_RESTORE_SECRET` | `openssl rand -base64 48` | **Marquer "Is Build Secret"**. Exigé pour remonter tout le serveur depuis une sauvegarde. Absent, la route refuse. Voir §8.2. |
 
 ### 4.3 Domaine + SSL
 
@@ -277,6 +278,32 @@ Pour restorer :
 docker exec -i cabosse-mongo mongorestore --archive --gzip --drop \
   < /var/backups/cabosse-mongo/mongo-20260524.gz
 ```
+
+Ce `mongodump` sauvegarde les bases, **pas les fichiers** : logos, pièces
+jointes et justificatifs vivent sur le volume de stockage et n'y figurent
+pas. Sauvegarder le volume à part, ou passer par §8.2.
+
+### 8.2 Sauvegarde applicative, fichiers compris
+
+Le back-office produit une archive qui se suffit à elle-même : plan de
+contrôle, base de chaque structure **et** binaires. Elle est le seul
+chemin qui rend un serveur complet sans toucher au volume de stockage.
+
+- **Écran** : Back-office → Paramètres → onglet Sauvegarde.
+- **Route** : `GET /api/v1/admin/platform/archive`, rôle plateforme.
+
+La restauration remplace le plan de contrôle et la base de chaque
+structure de l'archive : tout ce qui a été saisi depuis la sauvegarde est
+perdu, pour tous les clients à la fois. Elle exige, **en plus** du rôle
+plateforme, le secret `PLATFORM_RESTORE_SECRET` posé ci-dessus : le geste
+efface précisément les comptes qui l'autorisent, un jeton
+d'administrateur ne peut donc pas suffire.
+
+Détail complet dans `backup-and-restore.md` (NEIBA-ARCH-2026-004).
+
+Une archive limitée à une seule structure existe aussi, sur la fiche du
+tenant : elle **crée** une structure neuve au lieu de remplacer, et sert
+à déplacer un client ou à éprouver une sauvegarde en local.
 
 ---
 

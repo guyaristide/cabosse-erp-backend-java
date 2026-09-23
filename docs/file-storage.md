@@ -72,6 +72,16 @@ public class CloudFileEntity extends PanacheMongoEntityBase {
 
 Cohérent avec l'isolation database-per-tenant : supprimer un tenant supprime aussi les métadonnées de ses fichiers. Le binaire physique est nettoyé par un job orphan-scan (Phase D+).
 
+**Conséquence à connaître : `tenantId` est nul en scope plateforme.** `FileUploadService` le pose ainsi par construction :
+
+```java
+file.tenantId = scope == CloudFileScope.TENANT ? tenantContext.tenantId() : null;
+```
+
+Le logo d'un tenant étant un fichier de plateforme, **il ne se trouve pas en filtrant `cloud_files` sur `tenantId`**. Tout code qui rassemble les fichiers d'un tenant parcourt donc les deux registres, et rattache les fichiers de plateforme par la référence que porte le tenant (`tenant.branding.logoFileId`).
+
+L'omission a produit un défaut silencieux entre le 18 et le 23/09/2026 : les archives de tenant sortaient sans un seul fichier, avec un manifeste annonçant zéro. Détail dans `backup-and-restore.md` (NEIBA-ARCH-2026-004) §1.
+
 ---
 
 ## 3. Convention de chemin

@@ -169,6 +169,8 @@ L'entité métier référence le fichier par son `UUID` (ex. `TenantBranding.log
 
 Le service métier ne touche **jamais** `FileStorage` ni `CloudFileEntity` directement : il passe par `FileUploadService`. Le détail complet est dans **`file-storage.md`** (NEIBA-ARCH-2026-003).
 
+Emporter ou rejouer des données — archive d'une structure, sauvegarde complète du serveur, secret de restauration — relève de **`backup-and-restore.md`** (NEIBA-ARCH-2026-004). À lire avant de toucher à `tenant.transfer` ou `platform.transfer`.
+
 ---
 
 ## 7. Multi-tenant
@@ -372,6 +374,8 @@ Aucun endpoint ne doit être livré sans annotation OpenAPI complète.
 | Endpoint sans authentification explicite | `@Authenticated` par défaut |
 | `entity.persist()` dans un service | Appel via repository |
 | `byte[]` ou `Binary` dans une entité métier | Référence par `UUID` à `CloudFileEntity` (cf. `file-storage.md`) |
+| Rassembler les fichiers d'un tenant par `tenantId` seul | Parcourir les deux registres `cloud_files` (cf. `backup-and-restore.md` §1) |
+| Ajouter un en-tête CORS dans un seul environnement | Les trois, plus l'entrée dans `CorsHeadersTest` (cf. `backup-and-restore.md` §4) |
 | Service métier qui injecte `FileStorage` ou `CloudFileRepository` | Passer par `FileUploadService` |
 | Entité retournée par un service ou exposée par l'API | DTO `record` (Request / Response) |
 | `@Transactional` sur repository ou contrôleur | `@Transactional` sur service uniquement |
