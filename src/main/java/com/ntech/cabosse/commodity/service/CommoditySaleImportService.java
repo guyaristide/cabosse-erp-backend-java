@@ -35,6 +35,7 @@ import java.util.UUID;
 public class CommoditySaleImportService {
 
     @Inject CustomerRepository customers;
+    @Inject com.ntech.cabosse.dispatch.repository.DispatchNoteRepository dispatchNotes;
     @Inject ArticleRepository articles;
     @Inject CommoditySaleService saleService;
 
@@ -101,6 +102,22 @@ public class CommoditySaleImportService {
                 }
             }
 
+            // Le chargement est-il déjà sorti sur un bordereau ? La vente
+            // l'appelle alors au lieu de redemander du stock. Le dire ici
+            // évite le « stock insuffisant » sur une marchandise partie.
+            String noteRef = blankToNull(raw.dispatchNoteNumber());
+            if (noteRef != null) {
+                var note = dispatchNotes.findByRef(noteRef);
+                if (note.isPresent() && note.get().status
+                        == com.ntech.cabosse.dispatch.entity.DispatchNoteStatus.OPEN) {
+                    notices.add(new FieldIssue("dispatchNoteNumber",
+                            Messages.msg("m.imp-dispatch-note-called", note.get().ref)));
+                } else {
+                    notices.add(new FieldIssue("dispatchNoteNumber",
+                            Messages.msg("m.imp-dispatch-note-unknown", noteRef)));
+                }
+            }
+
             Status status = issues.isEmpty() ? Status.READY : Status.INVALID;
             if (status == Status.READY) ready++; else invalid++;
 
@@ -146,9 +163,15 @@ public class CommoditySaleImportService {
                         parseUuid(raw.campaignId()),
                         blankToNull(raw.campaignType()),
                         null,
-                        // L'import ne référence pas de bordereau de sortie :
-                        // c'est une reprise, la sortie de stock reste à la vente.
-                        null,
+                        // Le bordereau nommé par le fichier, quand il existe.
+                        // Sans ce rattachement, la vente redemandait une
+                        // sortie de stock pour des kilos déjà sortis avec le
+                        // chargement : « stock insuffisant, 0 disponible »
+                        // pour une marchandise qui était bien partie.
+                        dispatchNotes.findByRef(blankToNull(raw.dispatchNoteNumber()))
+                                .filter(n -> n.status == com.ntech.cabosse.dispatch.entity
+                                        .DispatchNoteStatus.OPEN)
+                                .map(n -> n.id).orElse(null),
                         new CommoditySaleUpsertDto.LogisticsDto(
                                 blankToNull(raw.dispatchNoteNumber()), blankToNull(raw.loadingNumber()),
                                 blankToNull(raw.departureLocation()), blankToNull(raw.destination()),
@@ -174,7 +197,7 @@ public class CommoditySaleImportService {
                 createdRefs.add(created.ref());
             } catch (RuntimeException e) {
                 skipped.add(new Row(row.rowNumber(), Status.INVALID, nrm,
-                        List.of(new FieldIssue("_", e.getMessage()))));
+                        List.of(new FieldIssue("_", explain(e, raw, nrm)))));
             }
         }
         return new CommoditySaleImportCommitResponseDto(
@@ -199,6 +222,25 @@ public class CommoditySaleImportService {
     private static UUID parseUuid(String s) {
         if (s == null || s.isBlank()) return null;
         try { return UUID.fromString(s.trim()); } catch (Exception e) { return null; }
+    }
+
+    /**
+     * Le refus, complété de ce qu'il ne dit pas.
+     *
+     * <p>« Stock insuffisant : 0 disponible » est exact et inutile quand
+     * la marchandise vient de partir sur un chargement : le stock est à
+     * zéro parce qu'elle est sortie, pas parce qu'elle manque. On nomme
+     * alors le bordereau, et la colonne qui permet de l'appeler.</p>
+     */
+    private String explain(RuntimeException e, CommoditySaleImportRowDto raw, Normalized nrm) {
+        String message = e.getMessage();
+        boolean outOfStock = e instanceof com.ntech.cabosse.shared.exception.BusinessException be
+                && be.errorCode() == com.ntech.cabosse.shared.exception.ErrorCode.STOCK_INSUFFICIENT;
+        if (!outOfStock) return message;
+        var open = dispatchNotes.listOpenFor(parseUuid(raw.siteId()), nrm.articleId());
+        if (open.isEmpty()) return message;
+        String refs = open.stream().map(n -> n.ref).collect(java.util.stream.Collectors.joining(", "));
+        return message + " " + Messages.msg("m.imp-stock-left-on-note", refs);
     }
 
     private static String blankToNull(String s) { return s == null || s.isBlank() ? null : s.trim(); }

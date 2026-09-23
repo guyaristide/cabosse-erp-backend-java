@@ -33,6 +33,37 @@ public class DispatchNoteRepository {
         return Optional.ofNullable(coll().find(Filters.eq("_id", id)).first());
     }
 
+    /**
+     * Le bordereau que porte un fichier d'import, par sa référence.
+     *
+     * <p>Sans casse : le magasinier recopie « bs-2026-0001 » aussi
+     * souvent que « BS-2026-0001 », et ce n'est pas deux bordereaux.</p>
+     */
+    public Optional<DispatchNoteEntity> findByRef(String ref) {
+        if (ref == null || ref.isBlank()) return Optional.empty();
+        return Optional.ofNullable(coll().find(Filters.regex("ref",
+                "^" + java.util.regex.Pattern.quote(ref.trim()) + "$", "i")).first());
+    }
+
+    /**
+     * Les bordereaux encore ouverts qui portent une marchandise donnée.
+     *
+     * <p>Sert à expliquer un « stock insuffisant » : quand les kilos
+     * demandés sont déjà partis sur un chargement, le stock est
+     * légitimement à zéro et l'erreur, exacte, n'apprend rien. Nommer
+     * le bordereau dit où la marchandise est passée.</p>
+     */
+    public List<DispatchNoteEntity> listOpenFor(UUID siteId, UUID articleId) {
+        List<Bson> filters = new ArrayList<>();
+        filters.add(Filters.eq("status", DispatchNoteStatus.OPEN.name()));
+        if (siteId != null) filters.add(Filters.eq("siteId", siteId));
+        if (articleId != null) filters.add(Filters.eq("articleId", articleId));
+        return coll().find(Filters.and(filters))
+                .sort(new Document("date", -1))
+                .limit(5)
+                .into(new ArrayList<>());
+    }
+
     public List<DispatchNoteEntity> list(DispatchNoteStatus status, UUID siteId,
                                          int skip, int limit) {
         List<Bson> filters = new ArrayList<>();
