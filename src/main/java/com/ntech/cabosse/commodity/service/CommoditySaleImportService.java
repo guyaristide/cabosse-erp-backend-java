@@ -38,6 +38,9 @@ public class CommoditySaleImportService {
     @Inject ArticleRepository articles;
     @Inject CommoditySaleService saleService;
 
+    @jakarta.inject.Inject
+    com.ntech.cabosse.qualitygrade.service.QualityGradeService qualityGrades;
+
     public CommoditySaleImportPreviewDto preview(List<CommoditySaleImportRowDto> input) {
         if (input == null || input.isEmpty()) {
             return new CommoditySaleImportPreviewDto(0, 0, 0, List.of());
@@ -82,6 +85,22 @@ public class CommoditySaleImportService {
 
             BigDecimal montant = parseDecimal(raw.montantFacture());
 
+            // Le grade était refusé à l'enregistrement sans que l'aperçu
+            // s'en aperçoive : « prête », puis écartée. Il se juge donc
+            // ici, sur les mêmes règles, et un grade simplement absent
+            // s'ouvre au lieu de faire échouer le fichier.
+            List<FieldIssue> notices = new ArrayList<>();
+            String grade = blankToNull(raw.grade());
+            if (grade != null) {
+                switch (qualityGrades.planForImport(grade)) {
+                    case WILL_BE_CREATED -> notices.add(new FieldIssue("grade",
+                            Messages.msg("m.imp-grade-will-be-created", grade)));
+                    case INACTIVE -> issues.add(new FieldIssue("grade",
+                            Messages.msg("m.qgr-inactive", grade)));
+                    case EXISTS -> { }
+                }
+            }
+
             Status status = issues.isEmpty() ? Status.READY : Status.INVALID;
             if (status == Status.READY) ready++; else invalid++;
 
@@ -93,7 +112,7 @@ public class CommoditySaleImportService {
                             article != null ? article.name : null,
                             date != null ? date.toString() : null,
                             declared, accepted, montant),
-                    issues));
+                    issues, notices));
         }
         return new CommoditySaleImportPreviewDto(input.size(), ready, invalid, rows);
     }
@@ -109,6 +128,11 @@ public class CommoditySaleImportService {
             if (row.status() != Status.READY || row.normalized() == null) { skipped.add(row); continue; }
             CommoditySaleImportRowDto raw = byRow.get(row.rowNumber());
             Normalized nrm = row.normalized();
+            // Le grade annoncé « à créer » par l'aperçu s'ouvre ici, avant
+            // l'écriture de la vente : sans lui, la création la refuserait
+            // et la ligne repartirait écartée, ce que l'aperçu venait de
+            // promettre qu'elle ne serait pas.
+            qualityGrades.ensureForImport(blankToNull(raw.grade()));
             // Prix déduit du montant facturé (montant ÷ poids accepté).
             BigDecimal price = (nrm.amount() != null && nrm.acceptedKg() != null
                     && nrm.acceptedKg().signum() > 0)

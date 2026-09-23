@@ -139,4 +139,63 @@ public class QualityGradeService {
     private UUID safeUserId() {
         try { return tenantContext.userId(); } catch (Exception e) { return null; }
     }
+
+    /** Ce qu'un import doit savoir d'un grade avant de l'écrire. */
+    public enum ImportPlan { EXISTS, WILL_BE_CREATED, INACTIVE }
+
+    /**
+     * Ce qu'il adviendra d'un grade rencontré dans un fichier.
+     *
+     * <p>La recherche est déjà insensible à la casse : un grade « absent »
+     * l'est réellement, ce n'est pas « G1 » écrit « g1 ». Il sera donc
+     * créé, comme le sont déjà les fournisseurs et les articles d'un
+     * import.</p>
+     *
+     * <p>Un grade <strong>désactivé</strong> est un cas différent, et ne
+     * se rattrape pas : quelqu'un l'a retiré du jeu, le réveiller en
+     * silence défferait sa décision. Il reste donc un refus.</p>
+     */
+    public ImportPlan planForImport(String raw) {
+        if (raw == null || raw.isBlank()) return ImportPlan.EXISTS;
+        return repo.findByCode(raw.trim())
+                .map(found -> found.active ? ImportPlan.EXISTS : ImportPlan.INACTIVE)
+                .orElse(ImportPlan.WILL_BE_CREATED);
+    }
+
+    /**
+     * Crée le grade s'il manque, et rend son code.
+     *
+     * <p>Appelé par les imports seulement. {@link #requireCode} reste
+     * intransigeant : le contrôle qualité et la grille tarifaire d'une
+     * campagne classent sur une nomenclature décidée, ils n'ont pas à
+     * l'étendre au passage.</p>
+     */
+    public String ensureForImport(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        String code = raw.trim();
+        var existing = repo.findByCode(code);
+        if (existing.isPresent()) return requireCode(code);
+
+        QualityGradeEntity e = new QualityGradeEntity();
+        e.id = idGenerator.newId();
+        e.code = code.toUpperCase(Locale.ROOT);
+        // Le libellé reprend le code : personne ne sait ce que « G1 »
+        // désigne à part la structure, et inventer un intitulé serait
+        // lui prêter un sens qu'on ignore.
+        e.label = code.toUpperCase(Locale.ROOT);
+        e.sortOrder = nextOrder();
+        e.active = true;
+        e.createdAt = Instant.now();
+        e.updatedAt = e.createdAt;
+        e.createdBy = safeUserId();
+        repo.insert(e);
+        audit.event(AuditEventType.CATALOG_UPDATED)
+                .actorEmail(actor())
+                .target("quality_grade", e.id.toString(), e.code)
+                .tenant(tenantContext.tenantId(), null)
+                .description("Grade « " + e.code + " » créé automatiquement à l'import")
+                .record();
+        return e.code;
+    }
+
 }

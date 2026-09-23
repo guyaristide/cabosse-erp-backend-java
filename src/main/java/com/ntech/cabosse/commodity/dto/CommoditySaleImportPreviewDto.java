@@ -16,7 +16,22 @@ public record CommoditySaleImportPreviewDto(
 ) {
     public enum Status { READY, INVALID }
 
-    public record Row(int rowNumber, Status status, Normalized normalized, List<FieldIssue> issues) {}
+    /**
+     * Une ligne, ce qui l'empêche, et ce qui se fera pour elle.
+     *
+     * <p>{@code issues} bloque, {@code notices} prévient. Une valeur
+     * absente du référentiel sera créée : l'annoncer avant la validation
+     * vaut mieux que de la créer en silence, ou que de refuser un fichier
+     * pour un grade qu'il suffisait d'ouvrir.</p>
+     */
+    public record Row(int rowNumber, Status status, Normalized normalized,
+                      List<FieldIssue> issues, List<FieldIssue> notices) {
+
+        /** Ligne sans avis, pour les appelants qui n'en produisent pas. */
+        public Row(int rowNumber, Status status, Normalized normalized, List<FieldIssue> issues) {
+            this(rowNumber, status, normalized, issues, List.of());
+        }
+    }
 
     public record Normalized(
             UUID customerId,
