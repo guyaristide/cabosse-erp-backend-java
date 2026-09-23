@@ -22,7 +22,10 @@ quarkus:
       # règlement producteur) : sans elle dans cette liste, le
       # navigateur refuse la requête au preflight et la saisie échoue
       # sur « réseau indisponible », alors que le réseau va bien.
-      headers: "Content-Type,Authorization,Idempotency-Key"
+      # X-Platform-Restore-Secret porte le secret de remontée du serveur :
+      # même piège, et il ne se voit qu'en navigateur (relevé le
+      # 23/09/2026, la restauration échouait sans rien atteindre).
+      headers: "Content-Type,Authorization,Idempotency-Key,X-Platform-Restore-Secret"
 
   mongodb:
     connection-string: ${MONGO_URI}

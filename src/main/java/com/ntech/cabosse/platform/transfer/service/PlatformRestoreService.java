@@ -220,8 +220,20 @@ public class PlatformRestoreService {
             if (entry == null) { tally[1]++; continue; }
             try (InputStream in = zip.getInputStream(entry)) {
                 byte[] bytes = in.readAllBytes();
-                String path = files.store(new ByteArrayInputStream(bytes), bytes.length,
-                        owner + "/" + id);
+                String path = owner + "/" + id;
+                // Le stockage écrit en création stricte. Le chemin d'un
+                // binaire ne dépendant que de son identifiant, une
+                // seconde restauration de la même sauvegarde butait sur
+                // le fichier posé par la première et s'arrêtait au
+                // milieu, bases déjà remplacées (relevé le 23/09/2026).
+                // Remonter un serveur deux fois de suite est le cas
+                // normal quand la première tentative a mal tourné.
+                try {
+                    files.delete(path);
+                } catch (RuntimeException absent) {
+                    // Rien à retirer : c'est le cas courant.
+                }
+                files.store(new ByteArrayInputStream(bytes), bytes.length, path);
                 registry.updateOne(Filters.eq("_id", id),
                         new Document("$set", new Document("storagePath", path)
                                 .append("storageBackend", files.backendId())));
