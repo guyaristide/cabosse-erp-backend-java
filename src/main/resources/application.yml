@@ -84,3 +84,11 @@ application:
     # Générer avec : openssl rand -base64 32
     # JAMAIS de défaut en clair — la variable d'env doit être posée.
     encryption-key: ${PLATFORM_SETTINGS_ENCRYPTION_KEY:}
+
+  platform-archive:
+    # Secret exigé pour restaurer la plateforme entière. Le geste remplace
+    # le plan de contrôle et toutes les bases de structures : un jeton
+    # d'administrateur ne suffit pas à l'autoriser.
+    # Absent, la route de restauration refuse.
+    # Générer avec : openssl rand -base64 48
+    restore-secret: ${PLATFORM_RESTORE_SECRET:}

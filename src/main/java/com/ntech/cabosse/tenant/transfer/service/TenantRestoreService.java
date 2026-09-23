@@ -114,7 +114,7 @@ public class TenantRestoreService {
                             slice, new Rebind(manifest.tenantId(), newTenantId, slug, databaseName));
                 }
 
-                restoredFiles = restoreFiles(zip, control, newTenantId, notes);
+                restoredFiles = restoreFiles(zip, control, target, newTenantId, notes);
             } catch (RuntimeException failure) {
                 undo(control, newTenantId, databaseName);
                 throw failure;
@@ -214,33 +214,55 @@ public class TenantRestoreService {
      * structure sur des fichiers qui ne sont pas les siens, ou sur
      * rien.</p>
      */
-    private long restoreFiles(ZipFile zip, MongoDatabase control,
+    private long restoreFiles(ZipFile zip, MongoDatabase control, MongoDatabase target,
                               UUID newTenantId, List<String> notes) throws IOException {
         Map<String, ZipEntry> binaries = new HashMap<>();
         for (ZipEntry entry : entriesUnder(zip, TenantArchiveLayout.FILES_DIR)) {
             binaries.put(entry.getName().substring(TenantArchiveLayout.FILES_DIR.length()), entry);
         }
-        long restored = 0, missing = 0;
-        var cloudFiles = control.getCollection(ControlPlane.Collections.CLOUD_FILES);
-        for (Document file : cloudFiles.find(Filters.eq("tenantId", newTenantId))) {
+        long[] tally = new long[2];
+
+        // Les deux registres, comme à l'export. Celui du plan de contrôle
+        // porte le logo, réétiqueté au tenant neuf par le passage
+        // précédent ; celui de la base porte les pièces métier, qui
+        // reviennent avec leurs identifiants d'origine.
+        restoreInto(zip, binaries, control.getCollection(ControlPlane.Collections.CLOUD_FILES),
+                Filters.eq("tenantId", newTenantId), newTenantId, tally);
+        restoreInto(zip, binaries, target.getCollection(ControlPlane.Collections.CLOUD_FILES),
+                new Document(), newTenantId, tally);
+
+        if (tally[1] > 0) {
+            notes.add(tally[1] + " fichier(s) référencés mais absents de l'archive : "
+                    + "ils manquaient déjà au serveur d'origine.");
+        }
+        return tally[0];
+    }
+
+    /**
+     * Repose les binaires d'un registre et réécrit leur chemin.
+     *
+     * <p>Le chemin d'origine appartient au serveur qui a produit
+     * l'archive. Le laisser en place ferait pointer la structure neuve
+     * sur les fichiers d'une autre, ou sur rien.</p>
+     */
+    private void restoreInto(ZipFile zip, Map<String, ZipEntry> binaries,
+                             com.mongodb.client.MongoCollection<Document> registry,
+                             org.bson.conversions.Bson filter, UUID newTenantId,
+                             long[] tally) throws IOException {
+        for (Document file : registry.find(filter)) {
             Object id = file.get("_id");
             ZipEntry entry = id == null ? null : binaries.get(id.toString());
-            if (entry == null) { missing++; continue; }
+            if (entry == null) { tally[1]++; continue; }
             try (InputStream in = zip.getInputStream(entry)) {
                 byte[] bytes = in.readAllBytes();
                 String path = files.store(new ByteArrayInputStream(bytes), bytes.length,
                         newTenantId + "/" + id);
-                cloudFiles.updateOne(Filters.eq("_id", id),
+                registry.updateOne(Filters.eq("_id", id),
                         new Document("$set", new Document("storagePath", path)
                                 .append("storageBackend", files.backendId())));
-                restored++;
+                tally[0]++;
             }
         }
-        if (missing > 0) {
-            notes.add(missing + " fichier(s) référencés mais absents de l'archive : "
-                    + "ils manquaient déjà au serveur d'origine.");
-        }
-        return restored;
     }
 
     private List<ZipEntry> entriesUnder(ZipFile zip, String prefix) {

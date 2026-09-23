@@ -90,11 +90,12 @@ public class TenantExportService {
                 }
 
                 MongoDatabase control = mongoClient.getDatabase(ControlPlane.DATABASE);
+                UUID logoFileId = tenant.branding == null ? null : tenant.branding.logoFileId;
                 for (TenantArchiveLayout.Slice slice : TenantArchiveLayout.CONTROL_SLICES) {
                     long written = writeCollection(zip,
                             TenantArchiveLayout.CONTROL_DIR + slice.collection() + ".jsonl",
                             control.getCollection(slice.collection())
-                                    .find(Filters.eq(slice.tenantField(), tenantId)));
+                                    .find(controlFilter(slice, tenantId, logoFileId)));
                     controlSlices.add(
                             new TenantArchiveManifest.CollectionCount(slice.collection(), written));
                 }
@@ -102,8 +103,16 @@ public class TenantExportService {
                 // Les binaires, nommés par leur identifiant de fichier : le
                 // chemin de stockage est propre au serveur d'origine et ne
                 // vaudra plus rien sur celui d'arrivée.
-                for (Document file : control.getCollection(ControlPlane.Collections.CLOUD_FILES)
-                        .find(Filters.eq("tenantId", tenantId))) {
+                //
+                // Ils viennent de deux registres, et l'archive n'en lisait
+                // qu'un. Les pièces métier (documents de membres, pièces
+                // jointes, justificatifs) sont inscrites dans la base du
+                // tenant ; le logo, lui, est un fichier de plateforme, pour
+                // lequel le code pose délibérément un tenantId nul. Les
+                // chercher tous par tenantId dans le plan de contrôle ne
+                // rendait donc rien : les archives partaient sans un seul
+                // fichier (relevé le 23/09/2026).
+                for (Document file : fileRegistry(control, tenantDb, tenantId, logoFileId)) {
                     String storagePath = file.getString("storagePath");
                     Object id = file.get("_id");
                     if (storagePath == null || id == null) continue;
@@ -148,6 +157,47 @@ public class TenantExportService {
         } catch (IOException e) {
             throw new IllegalStateException(Messages.msg("m.tnt-archive-failed", tenant.name), e);
         }
+    }
+
+    /**
+     * Ce qu'on emporte d'une collection du plan de contrôle.
+     *
+     * <p>Le rattachement se fait par tenantId, sauf pour le registre de
+     * fichiers : le logo d'une structure y est inscrit sous le périmètre
+     * plateforme, dont la règle est justement de ne porter aucun
+     * tenantId. Sans l'exception, la fiche du logo restait dehors, et
+     * son binaire avec.</p>
+     */
+    private org.bson.conversions.Bson controlFilter(TenantArchiveLayout.Slice slice,
+                                                    UUID tenantId, UUID logoFileId) {
+        org.bson.conversions.Bson base = Filters.eq(slice.tenantField(), tenantId);
+        if (logoFileId == null
+                || !ControlPlane.Collections.CLOUD_FILES.equals(slice.collection())) {
+            return base;
+        }
+        return Filters.or(base, Filters.eq("_id", logoFileId));
+    }
+
+    /**
+     * Toutes les fiches de fichiers d'une structure, des deux registres.
+     *
+     * <p>Une structure range ses pièces métier dans sa propre base et son
+     * logo dans le plan de contrôle. Une sauvegarde qui n'en lit qu'un
+     * revient sans pièces jointes ou sans identité visuelle, et ne se
+     * découvre qu'à la restauration.</p>
+     */
+    private List<Document> fileRegistry(MongoDatabase control, MongoDatabase tenantDb,
+                                        UUID tenantId, UUID logoFileId) {
+        List<Document> registry = new ArrayList<>();
+        control.getCollection(ControlPlane.Collections.CLOUD_FILES)
+                .find(controlFilter(
+                        new TenantArchiveLayout.Slice(
+                                ControlPlane.Collections.CLOUD_FILES, "tenantId"),
+                        tenantId, logoFileId))
+                .forEach(registry::add);
+        tenantDb.getCollection(ControlPlane.Collections.CLOUD_FILES)
+                .find().forEach(registry::add);
+        return registry;
     }
 
     /** Écrit une collection en JSON ligne à ligne, et rend le nombre de documents. */

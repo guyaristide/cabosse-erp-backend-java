@@ -107,6 +107,81 @@ class TenantArchiveTest extends AbstractIntegrationTest {
         }
     }
 
+    /** Un PNG minimal valide, suffisant pour que l'envoi soit accepté. */
+    private static final byte[] PNG = java.util.Base64.getDecoder().decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==");
+
+    @Test
+    void l_archive_emporte_les_fichiers_de_la_structure() throws Exception {
+        UserEntity admin = tenantAdmin();
+        UserEntity platform = fixtures.createPlatformAdmin();
+
+        // Le logo est un fichier de plateforme : le code pose
+        // délibérément un tenantId nul pour ce périmètre. L'archive le
+        // cherchait par tenantId et ne le trouvait donc jamais : elle
+        // repartait sans un seul fichier (relevé le 23/09/2026).
+        givenAs(platform).multiPart("logo", "logo.png", PNG, "image/png")
+                .when().put("/api/v1/admin/tenants/" + tenant.id + "/logo")
+                .then().statusCode(204);
+
+        byte[] zip = download(platform, tenant.id);
+
+        Path tmp = Files.createTempFile("archive-fichiers", ".zip");
+        Files.write(tmp, zip);
+        try (ZipFile z = new ZipFile(tmp.toFile())) {
+            long binaries = z.stream()
+                    .filter(e -> e.getName().startsWith("files/") && !e.isDirectory())
+                    .count();
+            assertThat(binaries).isEqualTo(1);
+
+            // Et le manifeste compte ce qu'il emporte : une archive qui
+            // annonce zéro fichier alors qu'elle en porte un ne sert plus
+            // à vérifier une sauvegarde.
+            String manifest = new String(z.getInputStream(z.getEntry("manifest.json"))
+                    .readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            assertThat(manifest).contains("\"filesCount\" : 1");
+        } finally {
+            Files.deleteIfExists(tmp);
+        }
+    }
+
+    @Test
+    void le_logo_revient_avec_la_structure_restauree() throws Exception {
+        UserEntity admin = tenantAdmin();
+        UserEntity platform = fixtures.createPlatformAdmin();
+        givenAs(platform).multiPart("logo", "logo.png", PNG, "image/png")
+                .when().put("/api/v1/admin/tenants/" + tenant.id + "/logo")
+                .then().statusCode(204);
+
+        byte[] zip = download(platform, tenant.id);
+        forgetOriginal();
+
+        Path tmp = Files.createTempFile("archive-logo", ".zip");
+        Files.write(tmp, zip);
+        try {
+            String restoredId = givenAs(platform)
+                    .multiPart("file", "archive.zip", Files.readAllBytes(tmp), "application/zip")
+                    .multiPart("slug", "coop-logo-" + TestFixtures.randomSlugSuffix())
+                    .when().post("/api/v1/admin/tenants/restore")
+                    .then().statusCode(201)
+                    .body("data.filesRestored", equalTo(1))
+                    .extract().path("data.tenantId");
+
+            // Le binaire est reposé et sa fiche pointe sur le nouveau
+            // chemin : reprendre celui de l'archive ferait pointer la
+            // structure neuve sur les fichiers d'une autre, ou sur rien.
+            // On le télécharge donc vraiment, plutôt que de se contenter
+            // d'un lien que rien ne sert.
+            byte[] served = givenAs(platform)
+                    .when().get("/api/v1/admin/tenants/" + restoredId + "/logo")
+                    .then().statusCode(200)
+                    .extract().asByteArray();
+            assertThat(served).isEqualTo(PNG);
+        } finally {
+            Files.deleteIfExists(tmp);
+        }
+    }
+
     @Test
     void restaurer_une_structure_deja_presente_est_refuse_avant_d_ecrire() throws Exception {
         UserEntity admin = tenantAdmin();
@@ -182,6 +257,18 @@ class TenantArchiveTest extends AbstractIntegrationTest {
     private void forgetOriginal() {
         var control = mongoClient.getDatabase(
                 com.ntech.cabosse.shared.persistence.ControlPlane.DATABASE);
+        // Le logo est un fichier de plateforme, sans tenantId : la boucle
+        // ci-dessous ne l'atteindrait pas, et sa fiche survivrait à la
+        // structure qu'elle habillait.
+        var original = control.getCollection("tenants")
+                .find(com.mongodb.client.model.Filters.eq("_id", tenant.id)).first();
+        if (original != null && original.get("branding") instanceof org.bson.Document branding) {
+            Object logoFileId = branding.get("logoFileId");
+            if (logoFileId != null) {
+                control.getCollection("cloud_files")
+                        .deleteMany(com.mongodb.client.model.Filters.eq("_id", logoFileId));
+            }
+        }
         control.getCollection("tenants")
                 .deleteMany(com.mongodb.client.model.Filters.eq("_id", tenant.id));
         for (String c : new String[] { "users", "subscriptions", "support_tickets",

@@ -48,6 +48,28 @@ public interface ApplicationConfig {
     @WithName("platform-settings")
     PlatformSettings platformSettings();
 
+    @WithName("platform-archive")
+    PlatformArchive platformArchive();
+
+    /**
+     * La sauvegarde complète de la plateforme.
+     *
+     * <p>Sa restauration remplace le plan de contrôle et toutes les bases
+     * de structures. Aucun rôle ne suffit à l'autoriser : le geste efface
+     * l'état de tous les clients à la fois, y compris les comptes qui
+     * l'autorisent. Il demande donc un secret que seul l'exploitant du
+     * serveur possède, posé hors de l'application.</p>
+     */
+    interface PlatformArchive {
+        /**
+         * Secret exigé pour restaurer la plateforme entière. Absent, la
+         * route refuse : mieux vaut une restauration impossible qu'une
+         * restauration accessible à qui obtient un jeton d'administrateur.
+         */
+        @WithName("restore-secret")
+        Optional<String> restoreSecret();
+    }
+
     /**
      * Paramètres techniques liés au stockage chiffré des paramètres
      * plateforme en BD ({@code cabosse_control.platform_settings}).
