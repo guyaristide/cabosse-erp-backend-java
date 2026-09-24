@@ -18,6 +18,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.HashSet;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
 
@@ -100,6 +101,106 @@ class PurchaseRequestTest extends AbstractIntegrationTest {
                 .then().statusCode(200)
                 .body("data.status", equalTo("CONVERTED"))
                 .body("data.convertedOrderRef", notNullValue());
+    }
+
+    /** Une personne du tenant, avec les droits qu'on lui donne. */
+    private UserEntity withRights(UserEntity admin, String prefix, String... permissions) {
+        UserEntity u = new UserEntity();
+        u.id = idGenerator.newId();
+        u.email = prefix + "-" + TestFixtures.randomSlugSuffix() + "@coop.ci";
+        u.firstName = prefix;
+        u.lastName = "Test";
+        u.passwordHash = passwordHasher.hash(TestFixtures.DEFAULT_PASSWORD);
+        u.tenantId = admin.tenantId;
+        u.roles = new HashSet<>();
+        u.roles.add(Roles.USER);
+        u.status = UserStatus.ACTIVE;
+        u.createdAt = Instant.now();
+        u.updatedAt = u.createdAt;
+        users.persist(u);
+
+        String perms = String.join(", ",
+                java.util.Arrays.stream(permissions).map(x -> "\"" + x + "\"").toList());
+        String roleId = givenAs(admin).contentType("application/json")
+                .body("{ \"name\": \"%s\", \"permissions\": [%s] }"
+                        .formatted(prefix + "-" + TestFixtures.randomSlugSuffix(), perms))
+                .when().post("/api/v1/tenant-roles").then().statusCode(201)
+                .extract().path("data.id");
+        givenAs(admin).contentType("application/json")
+                .body("{ \"roleIds\": [\"%s\"] }".formatted(roleId))
+                .when().put("/api/v1/tenant-roles/users/" + u.id)
+                .then().statusCode(204);
+        return u;
+    }
+
+    @Test
+    void approuver_demande_le_droit_d_approuver_et_non_celui_de_saisir() {
+        UserEntity admin = tenantAdmin();
+        String articleId = createArticle(admin, "Engrais NPK");
+        String supplierId = createSupplier(admin, "AgroFournitures");
+
+        // Le droit d'approuver existait, était attribué au profil
+        // Directeur, et ne gardait rien : les deux routes de décision
+        // exigeaient le droit de saisie. Qui pouvait déposer une demande
+        // pouvait donc l'autoriser (relevé le 24/09/2026).
+        UserEntity saisie = withRights(admin, "saisie", "PURCHASE_READ", "PURCHASE_WRITE");
+        String daId = createRequest(saisie, articleId, supplierId, 100, 1500);
+        givenAs(saisie).contentType("application/json")
+                .when().post("/api/v1/purchase-requests/" + daId + "/submit")
+                .then().statusCode(200);
+
+        givenAs(saisie).contentType("application/json")
+                .when().post("/api/v1/purchase-requests/" + daId + "/approve")
+                .then().statusCode(403);
+        givenAs(saisie).contentType("application/json").body("{ \"reason\": \"Trop cher\" }")
+                .when().post("/api/v1/purchase-requests/" + daId + "/reject")
+                .then().statusCode(403);
+    }
+
+    @Test
+    void celui_qui_depose_la_demande_ne_la_tranche_pas() {
+        UserEntity admin = tenantAdmin();
+        String articleId = createArticle(admin, "Engrais NPK");
+        String supplierId = createSupplier(admin, "AgroFournitures");
+
+        // Le contrôle interne d'une demande d'achat ne tient qu'à cela :
+        // sans la règle, la même personne engage la dépense et
+        // l'autorise. Elle existait déjà sur les crédits membres et les
+        // avances délégués, elle manquait ici.
+        UserEntity acheteur = withRights(admin, "acheteur",
+                "PURCHASE_READ", "PURCHASE_WRITE", "PURCHASE_APPROVE");
+        String daId = createRequest(acheteur, articleId, supplierId, 100, 1500);
+        givenAs(acheteur).contentType("application/json")
+                .when().post("/api/v1/purchase-requests/" + daId + "/submit")
+                .then().statusCode(200);
+
+        givenAs(acheteur).contentType("application/json")
+                .when().post("/api/v1/purchase-requests/" + daId + "/approve")
+                .then().statusCode(422)
+                .body("statusMessage", containsString("quelqu'un d'autre"));
+
+        // Une autre personne, elle, tranche.
+        UserEntity directeur = withRights(admin, "directeur", "PURCHASE_READ", "PURCHASE_APPROVE");
+        givenAs(directeur).contentType("application/json")
+                .when().post("/api/v1/purchase-requests/" + daId + "/approve")
+                .then().statusCode(200).body("data.status", equalTo("APPROVED"));
+    }
+
+    @Test
+    void l_administrateur_reste_exempt_de_la_separation_des_taches() {
+        UserEntity admin = tenantAdmin();
+        String articleId = createArticle(admin, "Engrais NPK");
+        String supplierId = createSupplier(admin, "AgroFournitures");
+        String daId = createRequest(admin, articleId, supplierId, 100, 1500);
+
+        // Une structure à compte unique doit rester opérable, et ce
+        // compte répond de tout devant le journal d'audit.
+        givenAs(admin).contentType("application/json")
+                .when().post("/api/v1/purchase-requests/" + daId + "/submit")
+                .then().statusCode(200);
+        givenAs(admin).contentType("application/json")
+                .when().post("/api/v1/purchase-requests/" + daId + "/approve")
+                .then().statusCode(200).body("data.status", equalTo("APPROVED"));
     }
 
     @Test

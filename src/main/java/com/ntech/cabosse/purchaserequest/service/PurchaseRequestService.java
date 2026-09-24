@@ -50,6 +50,7 @@ public class PurchaseRequestService {
     @Inject TenantContext tenantContext;
     @Inject AuditService audit;
     @Inject JsonWebToken jwt;
+    @Inject com.ntech.cabosse.permission.service.PermissionResolver permissions;
 
     // ─── Lecture ────────────────────────────────────────────────────
 
@@ -109,9 +110,36 @@ public class PurchaseRequestService {
         return PurchaseRequestResponseDto.from(e);
     }
 
+    /**
+     * Séparation des tâches : celui qui a déposé la demande ne la tranche
+     * pas.
+     *
+     * <p>Elle manquait ici, alors qu'elle existe sur les crédits membres
+     * et les avances délégués. Le contrôle interne d'une demande d'achat
+     * ne tient qu'à cela : sans elle, la même personne engage la dépense
+     * et l'autorise (relevé le 24/09/2026).</p>
+     *
+     * <p>L'administrateur du tenant en est exempt, pour qu'une structure
+     * à compte unique reste opérable.</p>
+     */
+    private void refuseSelfDecision(PurchaseRequestEntity e) {
+        if (isSameActor(e.createdBy, e.createdByEmail) && !permissions.currentIsTenantAdmin()) {
+            throw new BusinessException(Messages.msg("m.prq-decide-self-forbidden", e.ref));
+        }
+    }
+
+    /** Le décideur est-il celui qui a déposé la demande ? */
+    private boolean isSameActor(UUID otherId, String otherEmail) {
+        UUID me = safeUserId();
+        if (me != null && otherId != null) return me.equals(otherId);
+        String email = actor();
+        return email != null && otherEmail != null && email.equalsIgnoreCase(otherEmail);
+    }
+
     public PurchaseRequestResponseDto approve(UUID id) {
         PurchaseRequestEntity e = loadOrFail(id);
         requireStatus(e, PurchaseRequestStatus.SUBMITTED, "m.prq-approve-submitted-only");
+        refuseSelfDecision(e);
         e.status = PurchaseRequestStatus.APPROVED;
         e.decidedAt = Instant.now();
         e.decidedByEmail = actor();
@@ -128,6 +156,7 @@ public class PurchaseRequestService {
         }
         PurchaseRequestEntity e = loadOrFail(id);
         requireStatus(e, PurchaseRequestStatus.SUBMITTED, "m.prq-reject-submitted-only");
+        refuseSelfDecision(e);
         e.status = PurchaseRequestStatus.REJECTED;
         e.decisionReason = reason.trim();
         e.decidedAt = Instant.now();

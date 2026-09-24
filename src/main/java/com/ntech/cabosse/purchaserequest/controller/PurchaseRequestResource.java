@@ -98,9 +98,9 @@ public class PurchaseRequestResource {
 
     /** L'approbation engage le circuit de contrôle : réservée à l'administrateur. */
     @POST
-    @RequiresPermission(Permission.PURCHASE_WRITE)
+    @RequiresPermission(Permission.PURCHASE_APPROVE)
     @Path("/{id}/approve")
-    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN, Roles.USER })
     public Response approve(@PathParam("id") UUID id) {
         return Response.ok(ApiResponse.ok(service.approve(id))).build();
     }
@@ -108,9 +108,9 @@ public class PurchaseRequestResource {
     public record RejectPayload(String reason) {}
 
     @POST
-    @RequiresPermission(Permission.PURCHASE_WRITE)
+    @RequiresPermission(Permission.PURCHASE_APPROVE)
     @Path("/{id}/reject")
-    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN, Roles.USER })
     public Response reject(@PathParam("id") UUID id, RejectPayload payload) {
         return Response.ok(ApiResponse.ok(
                 service.reject(id, payload != null ? payload.reason() : null))).build();
