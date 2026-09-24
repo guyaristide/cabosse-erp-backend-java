@@ -75,6 +75,22 @@ public class UserEntity extends PanacheMongoEntityBase {
      */
     public java.util.List<UUID> allowedSiteIds = new java.util.ArrayList<>();
 
+    /**
+     * Droits accordés ou retirés à cette personne seule, hors profils
+     * (backlog ADM-03).
+     *
+     * <p>Un profil se partage : le compléter pour une personne le donne
+     * à toutes celles qui le portent, et l'amputer les prive toutes.
+     * Restait à fabriquer un profil sur mesure par cas particulier, ce
+     * que ces exceptions évitent.</p>
+     *
+     * <p>Elles s'appliquent après les profils et <strong>avant</strong>
+     * le filtre des capacités : une exception n'ouvre jamais un droit
+     * que l'abonnement de la structure n'inclut pas, sinon elle
+     * promettrait un accès qui n'existe pas.</p>
+     */
+    public java.util.List<UserPermissionException> permissionExceptions = new java.util.ArrayList<>();
+
     public UserStatus status;
 
     /**

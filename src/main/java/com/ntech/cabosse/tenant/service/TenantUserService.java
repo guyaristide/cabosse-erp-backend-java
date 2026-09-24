@@ -372,7 +372,12 @@ public class TenantUserService {
                 u.lastLoginAt,
                 u.invitationExpiresAt,
                 u.tenantRoleIds != null ? java.util.List.copyOf(u.tenantRoleIds) : java.util.List.of(),
-                u.allowedSiteIds != null ? java.util.List.copyOf(u.allowedSiteIds) : java.util.List.of()
+                u.allowedSiteIds != null ? java.util.List.copyOf(u.allowedSiteIds) : java.util.List.of(),
+                u.permissionExceptions == null ? java.util.List.of()
+                        : u.permissionExceptions.stream()
+                                .map(e -> new com.ntech.cabosse.tenant.dto.UserPermissionExceptionDto(
+                                        e.code, e.mode, e.reason, e.grantedByEmail, e.grantedAt))
+                                .toList()
         );
     }
 }

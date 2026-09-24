@@ -159,6 +159,33 @@ public class MeTenantAdminResource {
                 payload != null ? payload.siteIds() : null))).build();
     }
 
+    /**
+     * Les droits accordés ou retirés à une personne seule (ADM-03).
+     *
+     * <p>Un profil se partage : le compléter pour quelqu'un le donne à
+     * tous ceux qui le portent. L'exception ouvre ou ferme un droit sur
+     * une personne, sans toucher au référentiel des profils.</p>
+     */
+    @PUT
+    @RequiresPermission(Permission.USER_MANAGE)
+    @Path("/users/{userId}/permission-exceptions")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    @Operation(summary = "Remplace les exceptions de droits d'un utilisateur",
+            description = "Liste complète : une exception absente du corps est retirée. "
+                    + "Refusée sur un administrateur, sur un code inconnu, sur une permission "
+                    + "hors des capacités de la structure, et sur un retrait qui priverait "
+                    + "l'appelant de la gestion des utilisateurs.")
+    @APIResponse(responseCode = "200",
+            content = @Content(schema = @Schema(implementation = TenantUserSummaryDto.class)))
+    @APIResponse(responseCode = "422", description = "Exception refusée")
+    public Response setPermissionExceptions(
+            @PathParam("userId") UUID userId,
+            com.ntech.cabosse.me.dto.SetPermissionExceptionsPayloadDto payload) {
+        return Response.ok(ApiResponse.ok(adminService.setPermissionExceptions(
+                tenantContext.tenantId(), userId,
+                payload != null ? payload.exceptions() : null))).build();
+    }
+
     @PATCH
     @RequiresPermission(Permission.USER_MANAGE)
     @Path("/users/{userId}/active")

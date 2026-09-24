@@ -40,5 +40,13 @@ public record TenantUserSummaryDto(
          * les sites de la structure.
          */
         @Schema(description = "Identifiants des sites de travail, vide pour tous")
-        java.util.List<UUID> allowedSiteIds
+        java.util.List<UUID> allowedSiteIds,
+
+        /**
+         * Droits accordés ou retirés à cette personne seule, hors profils
+         * (backlog ADM-03). Vide pour un administrateur, que les
+         * exceptions ne touchent pas.
+         */
+        @Schema(description = "Exceptions de droits propres à cet utilisateur")
+        java.util.List<UserPermissionExceptionDto> permissionExceptions
 ) {}

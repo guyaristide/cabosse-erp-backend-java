@@ -7,7 +7,9 @@ import com.ntech.cabosse.shared.security.Roles;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.tenant.capability.TenantCapability;
 import com.ntech.cabosse.tenant.capability.TenantCapabilityService;
+import com.ntech.cabosse.user.entity.PermissionExceptionMode;
 import com.ntech.cabosse.user.entity.UserEntity;
+import com.ntech.cabosse.user.entity.UserPermissionException;
 import com.ntech.cabosse.user.repository.UserRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -27,6 +29,11 @@ import java.util.UUID;
  *       tenant hors de sa propre administration.</li>
  *   <li>Un utilisateur standard détient l'union des permissions des profils
  *       actifs qui lui sont rattachés. Sans profil, il n'a rien.</li>
+ *   <li>Ses <strong>exceptions</strong> s'appliquent ensuite, accordant ou
+ *       retirant un droit à cette personne seule (backlog ADM-03). Un profil
+ *       se partage : le compléter pour quelqu'un le donne à tous ceux qui le
+ *       portent. Les exceptions ne touchent pas l'administrateur, qui détient
+ *       déjà tout et dont on ne veut pas pouvoir amputer les droits.</li>
  *   <li><strong>Les capacités tranchent en dernier</strong> : une permission
  *       dont le tenant n'a pas les capacités est retirée, y compris à
  *       l'administrateur. Un droit sur une fonctionnalité absente n'est pas
@@ -56,8 +63,7 @@ public class PermissionResolver {
         Set<TenantCapability> caps = capabilities.capabilitiesOf(tenantId);
         Set<Permission> granted = EnumSet.noneOf(Permission.class);
 
-        if (user.roles != null
-                && (user.roles.contains(Roles.TENANT_ADMIN) || user.roles.contains(Roles.PLATFORM_ADMIN))) {
+        if (isAdmin(user)) {
             granted.addAll(EnumSet.allOf(Permission.class));
         } else if (user.tenantRoleIds != null && !user.tenantRoleIds.isEmpty()) {
             for (TenantRoleEntity role : roles.listByIds(user.tenantRoleIds)) {
@@ -69,8 +75,26 @@ public class PermissionResolver {
             }
         }
 
+        // Les exceptions passent après les profils et avant les capacités.
+        // Un administrateur en est exempt : un retrait sur lui enfermerait
+        // la structure hors de sa propre administration.
+        if (!isAdmin(user) && user.permissionExceptions != null) {
+            for (UserPermissionException exception : user.permissionExceptions) {
+                Permission p = Permission.ofCode(exception.code);
+                if (p == null || exception.mode == null) continue;
+                if (exception.mode == PermissionExceptionMode.GRANT) granted.add(p);
+                else granted.remove(p);
+            }
+        }
+
         granted.removeIf(p -> !p.availableFor(caps));
         return granted;
+    }
+
+    /** Administrateur du tenant, ou de la plateforme. */
+    private static boolean isAdmin(UserEntity user) {
+        return user.roles != null
+                && (user.roles.contains(Roles.TENANT_ADMIN) || user.roles.contains(Roles.PLATFORM_ADMIN));
     }
 
     /** Le catalogue proposable à ce tenant, capacités comprises. */
@@ -93,7 +117,6 @@ public class PermissionResolver {
      */
     public boolean currentIsTenantAdmin() {
         UserEntity user = users.findById(tenantContext.userId());
-        return user != null && user.roles != null
-                && (user.roles.contains(Roles.TENANT_ADMIN) || user.roles.contains(Roles.PLATFORM_ADMIN));
+        return user != null && isAdmin(user);
     }
 }
