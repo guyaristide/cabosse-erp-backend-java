@@ -57,7 +57,11 @@ public class ApprovalResource {
             Permission.MEMBER_CREDIT_APPROVE,
             Permission.MEMBER_CREDIT_APPROVE_GOVERNANCE,
             Permission.COLLECTION_SETTLEMENT_APPROVE,
-            Permission.COLLECTION_SETTLEMENT_APPROVE_GOVERNANCE })
+            Permission.COLLECTION_SETTLEMENT_APPROVE_GOVERNANCE,
+            // Même raison depuis le 24/09/2026 : les demandes d'achat y
+            // remontent, et un profil taillé pour elles seules doit
+            // pouvoir ouvrir la file où elles l'attendent.
+            Permission.PURCHASE_APPROVE })
     public Response pending(@QueryParam("kind") String kind,
                             @QueryParam("siteId") UUID siteId,
                             @QueryParam("page") @DefaultValue("0") int page,

@@ -99,6 +99,60 @@ class ApprovalQueueTest extends AbstractIntegrationTest {
                 .extract().path("data.id");
     }
 
+    /** Une demande d'achat soumise, prête à être tranchée. */
+    private String submitPurchaseRequest(UserEntity admin, UserEntity who) {
+        String articleId = givenAs(admin).contentType("application/json")
+                .body("{\"type\":\"RAW_MATERIAL\",\"name\":\"Engrais NPK\",\"unit\":\"kg\"}")
+                .when().post("/api/v1/articles").then().statusCode(201).extract().path("data.id");
+        String supplierId = givenAs(admin).contentType("application/json")
+                .body("{\"name\":\"AgroFournitures\"}")
+                .when().post("/api/v1/suppliers").then().statusCode(201).extract().path("data.id");
+        String id = givenAs(who).contentType("application/json")
+                .body("""
+                        { "requestDate": "%s", "supplierId": "%s", "justification": "Besoin campagne",
+                          "lines": [ { "articleId": "%s", "quantity": 100, "estimatedUnitPrice": 1500 } ] }
+                        """.formatted(LocalDate.now(), supplierId, articleId))
+                .when().post("/api/v1/purchase-requests").then().statusCode(201)
+                .extract().path("data.id");
+        givenAs(who).contentType("application/json")
+                .when().post("/api/v1/purchase-requests/" + id + "/submit").then().statusCode(200);
+        return id;
+    }
+
+    @Test
+    void une_demande_d_achat_soumise_remonte_dans_la_file() {
+        UserEntity admin = tenantAdmin();
+        UserEntity acheteur = operator(admin, "acheteur", "PURCHASE_READ", "PURCHASE_WRITE");
+        submitPurchaseRequest(admin, acheteur);
+
+        // Elle n'attendait que sur son propre écran : une dépense engagée
+        // pouvait dormir des semaines sans que le conseil le sache.
+        givenAs(admin).when().get("/api/v1/governance/approvals?kind=PURCHASE_REQUEST")
+                .then().statusCode(200)
+                .body("data.page.items.kind", org.hamcrest.Matchers.hasItem("PURCHASE_REQUEST"))
+                .body("data.page.items[0].requestedByEmail", equalTo(acheteur.email))
+                .body("data.page.items[0].amount", org.hamcrest.Matchers.notNullValue());
+    }
+
+    @Test
+    void la_file_ne_propose_pas_de_trancher_sa_propre_demande() {
+        UserEntity admin = tenantAdmin();
+        UserEntity acheteur = operator(admin, "acheteur",
+                "PURCHASE_READ", "PURCHASE_WRITE", "PURCHASE_APPROVE");
+        submitPurchaseRequest(admin, acheteur);
+
+        // Proposer le geste puis le refuser au clic ferait passer une
+        // règle de contrôle interne pour une panne.
+        givenAs(acheteur).when().get("/api/v1/governance/approvals?kind=PURCHASE_REQUEST")
+                .then().statusCode(200)
+                .body("data.page.items[0].actionable", equalTo(false));
+
+        UserEntity directeur = operator(admin, "directeur", "PURCHASE_READ", "PURCHASE_APPROVE");
+        givenAs(directeur).when().get("/api/v1/governance/approvals?kind=PURCHASE_REQUEST")
+                .then().statusCode(200)
+                .body("data.page.items[0].actionable", equalTo(true));
+    }
+
     // ─── Ce que la file rassemble ───────────────────────────────────
 
     @Test

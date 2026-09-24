@@ -9,11 +9,14 @@ import com.ntech.cabosse.governance.dto.PendingApprovalDto;
 import com.ntech.cabosse.membercredit.entity.MemberCreditStatus;
 import com.ntech.cabosse.membercredit.repository.MemberCreditRepository;
 import com.ntech.cabosse.permission.entity.Permission;
+import com.ntech.cabosse.purchaserequest.entity.PurchaseRequestStatus;
+import com.ntech.cabosse.purchaserequest.repository.PurchaseRequestRepository;
 import com.ntech.cabosse.permission.service.PermissionResolver;
 import com.ntech.cabosse.shared.api.PageRequest;
 import com.ntech.cabosse.shared.api.Pagination;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import org.eclipse.microprofile.jwt.JsonWebToken;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -44,6 +47,8 @@ public class ApprovalQueueService {
     @Inject MemberCreditRepository credits;
     @Inject DelegateAccountService delegateAccount;
     @Inject PermissionResolver permissions;
+    @Inject PurchaseRequestRepository purchaseRequests;
+    @Inject JsonWebToken jwt;
     @Inject com.ntech.cabosse.settlement.service.SettlementRequestService settlements;
 
     /**
@@ -85,6 +90,7 @@ public class ApprovalQueueService {
         if (wants(kind, ApprovalKind.COLLECTOR_ADVANCE)) collectAdvances(out);
         if (wants(kind, ApprovalKind.MEMBER_CREDIT)) collectCredits(out);
         if (wants(kind, ApprovalKind.SETTLEMENT_REQUEST)) collectSettlements(out);
+        if (wants(kind, ApprovalKind.PURCHASE_REQUEST)) collectPurchaseRequests(out);
         if (siteId == null) return out;
         // Une demande sans site connu reste visible : la masquer sur un
         // filtre de site la ferait disparaître du total soumis au conseil.
@@ -184,6 +190,45 @@ public class ApprovalQueueService {
     }
 
     /** Ancienneté en jours, sur l'horloge du serveur. */
+    /**
+     * Les demandes d'achat soumises, qui attendent leur décision.
+     *
+     * <p>Elles ne se voyaient que sur leur propre écran : une dépense
+     * engagée pouvait dormir des semaines sans que le conseil sache
+     * qu'elle attendait.</p>
+     *
+     * <p>{@code canDecide} tient compte de la séparation des tâches :
+     * l'écran ne propose pas de trancher une demande qu'on a déposée
+     * soi-même, pour ne pas offrir un geste que le serveur refusera.</p>
+     */
+    private void collectPurchaseRequests(List<PendingApprovalDto> out) {
+        boolean canApprove = permissions.currentIsTenantAdmin()
+                || permissions.can(Permission.PURCHASE_APPROVE);
+        boolean isAdmin = permissions.currentIsTenantAdmin();
+        String me = currentActorEmail();
+
+        purchaseRequests.search(PurchaseRequestStatus.SUBMITTED.name(), 0, Integer.MAX_VALUE)
+                .forEach(r -> {
+                    boolean mine = me != null && me.equalsIgnoreCase(r.createdByEmail);
+                    LocalDate since = r.requestDate != null ? r.requestDate : LocalDate.now();
+                    out.add(new PendingApprovalDto(
+                            ApprovalKind.PURCHASE_REQUEST.name(), r.id, r.ref,
+                            r.supplierId, r.supplierName,
+                            r.estimatedTotal, since, ageOf(since),
+                            null, null, null,
+                            null,
+                            r.justification, r.createdByEmail,
+                            false,
+                            canApprove && (isAdmin || !mine),
+                            r.siteId, r.campaignId));
+                });
+    }
+
+    /** L'adresse de qui regarde, pour la séparation des tâches. */
+    private String currentActorEmail() {
+        return jwt == null ? null : jwt.getName();
+    }
+
     private static long ageOf(LocalDate since) {
         if (since == null) return 0;
         return Math.max(0, ChronoUnit.DAYS.between(since, LocalDate.now()));

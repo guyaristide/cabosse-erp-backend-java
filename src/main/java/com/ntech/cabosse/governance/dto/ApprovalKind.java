@@ -17,5 +17,11 @@ public enum ApprovalKind {
      * comptabilisation des livraisons. Se décide depuis cet écran
      * (demande de l'expert-comptable, 12/09/2026).
      */
-    SETTLEMENT_REQUEST
+    SETTLEMENT_REQUEST,
+    /**
+     * Demande d'achat de biens ou de services. Elle attendait sa décision
+     * sur son propre écran seulement, alors que l'écran des approbations
+     * existe pour que rien n'attende sans qu'on le voie (24/09/2026).
+     */
+    PURCHASE_REQUEST
 }
