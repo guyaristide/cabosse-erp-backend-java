@@ -53,7 +53,7 @@ import java.util.UUID;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Authenticated
-@RequiresPermission(Permission.REFERENTIAL_READ)
+@RequiresPermission(Permission.REF_ARTICLE_READ)
 public class ArticleResource {
 
     @Inject ArticleService service;
@@ -72,25 +72,25 @@ public class ArticleResource {
     }
 
     @POST
-    @RequiresPermission(Permission.REFERENTIAL_WRITE)
-    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
+    @RequiresPermission(Permission.REF_ARTICLE_WRITE)
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN, Roles.USER })
     public Response create(@Valid ArticleUpsertDto p) {
         return Response.status(Response.Status.CREATED)
                 .entity(ApiResponse.created(service.create(p))).build();
     }
 
     @PUT
-    @RequiresPermission(Permission.REFERENTIAL_WRITE)
+    @RequiresPermission(Permission.REF_ARTICLE_WRITE)
     @Path("/{id}")
-    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN, Roles.USER })
     public Response update(@PathParam("id") UUID id, @Valid ArticleUpsertDto p) {
         return Response.ok(ApiResponse.ok(service.update(id, p))).build();
     }
 
     @PATCH
-    @RequiresPermission(Permission.REFERENTIAL_WRITE)
+    @RequiresPermission(Permission.REF_ARTICLE_WRITE)
     @Path("/{id}/active")
-    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN, Roles.USER })
     public Response setActive(@PathParam("id") UUID id, @QueryParam("value") boolean value) {
         return Response.ok(ApiResponse.ok(service.setActive(id, value))).build();
     }
@@ -98,10 +98,10 @@ public class ArticleResource {
     // ─── Image ───────────────────────────────────────────────────────
 
     @PUT
-    @RequiresPermission(Permission.REFERENTIAL_WRITE)
+    @RequiresPermission(Permission.REF_ARTICLE_WRITE)
     @Path("/{id}/image")
     @Consumes(MediaType.MULTIPART_FORM_DATA)
-    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN, Roles.USER })
     public Response uploadImage(@PathParam("id") UUID id, @RestForm("image") FileUpload image) {
         byte[] bytes = readBytes(image);
         if (bytes == null) {
@@ -112,9 +112,9 @@ public class ArticleResource {
     }
 
     @DELETE
-    @RequiresPermission(Permission.REFERENTIAL_WRITE)
+    @RequiresPermission(Permission.REF_ARTICLE_WRITE)
     @Path("/{id}/image")
-    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN, Roles.USER })
     public Response deleteImage(@PathParam("id") UUID id) {
         imageService.detachImage(id);
         return Response.noContent().build();
@@ -192,7 +192,7 @@ public class ArticleResource {
     }
 
     @POST
-    @RequiresPermission(Permission.REFERENTIAL_WRITE)
+    @RequiresPermission(Permission.REF_ARTICLE_WRITE)
     @Path("/import/preview")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response importPreview(java.util.List<ArticleImportRowDto> rows) {
@@ -201,7 +201,7 @@ public class ArticleResource {
     }
 
     @POST
-    @RequiresPermission(Permission.REFERENTIAL_WRITE)
+    @RequiresPermission(Permission.REF_ARTICLE_WRITE)
     @Path("/import/commit")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response importCommit(java.util.List<ArticleImportRowDto> rows) {

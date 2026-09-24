@@ -30,7 +30,7 @@ import java.util.UUID;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Authenticated
-@RequiresPermission(Permission.REFERENTIAL_READ)
+@RequiresPermission(Permission.REF_CERTIFICATION_READ)
 public class CertificationResource {
 
     @Inject CertificationService service;
@@ -43,7 +43,7 @@ public class CertificationResource {
     // USER autorisé : la création à la volée depuis la fiche parcelle est
     // le chemin normal d'alimentation.
     @POST
-    @RequiresPermission(Permission.REFERENTIAL_WRITE)
+    @RequiresPermission(Permission.REF_CERTIFICATION_WRITE)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER, Roles.PLATFORM_ADMIN })
     public Response create(@Valid CertificationUpsertDto p) {
         return Response.status(Response.Status.CREATED)
@@ -51,17 +51,17 @@ public class CertificationResource {
     }
 
     @PUT
-    @RequiresPermission(Permission.REFERENTIAL_WRITE)
+    @RequiresPermission(Permission.REF_CERTIFICATION_WRITE)
     @Path("/{id}")
-    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN, Roles.USER })
     public Response update(@PathParam("id") UUID id, @Valid CertificationUpsertDto p) {
         return Response.ok(ApiResponse.ok(service.update(id, p))).build();
     }
 
     @PATCH
-    @RequiresPermission(Permission.REFERENTIAL_WRITE)
+    @RequiresPermission(Permission.REF_CERTIFICATION_WRITE)
     @Path("/{id}/active")
-    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN, Roles.USER })
     public Response setActive(@PathParam("id") UUID id, @QueryParam("value") boolean value) {
         return Response.ok(ApiResponse.ok(service.setActive(id, value))).build();
     }

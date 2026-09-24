@@ -31,7 +31,7 @@ import java.util.UUID;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Authenticated
-@RequiresPermission(Permission.REFERENTIAL_READ)
+@RequiresPermission(Permission.REF_CROP_READ)
 public class CropResource {
 
     @Inject CropService service;
@@ -43,7 +43,7 @@ public class CropResource {
     }
 
     @POST
-    @RequiresPermission(Permission.REFERENTIAL_WRITE)
+    @RequiresPermission(Permission.REF_CROP_WRITE)
     @Operation(summary = "Ajoute une culture au référentiel")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER, Roles.PLATFORM_ADMIN })
     public Response create(@Valid CropUpsertDto p) {
@@ -52,19 +52,19 @@ public class CropResource {
     }
 
     @PUT
-    @RequiresPermission(Permission.REFERENTIAL_WRITE)
+    @RequiresPermission(Permission.REF_CROP_WRITE)
     @Path("/{id}")
     @Operation(summary = "Renomme une culture")
-    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN, Roles.USER })
     public Response update(@PathParam("id") UUID id, @Valid CropUpsertDto p) {
         return Response.ok(ApiResponse.ok(service.update(id, p))).build();
     }
 
     @PATCH
-    @RequiresPermission(Permission.REFERENTIAL_WRITE)
+    @RequiresPermission(Permission.REF_CROP_WRITE)
     @Path("/{id}/active")
     @Operation(summary = "Active ou désactive une culture")
-    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN, Roles.USER })
     public Response setActive(@PathParam("id") UUID id, @QueryParam("value") boolean value) {
         return Response.ok(ApiResponse.ok(service.setActive(id, value))).build();
     }

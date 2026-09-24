@@ -30,7 +30,7 @@ import java.util.UUID;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Authenticated
-@RequiresPermission(Permission.REFERENTIAL_READ)
+@RequiresPermission(Permission.REF_OPERATOR_READ)
 public class OperatorResource {
 
     @Inject OperatorService service;
@@ -41,7 +41,7 @@ public class OperatorResource {
     }
 
     @POST
-    @RequiresPermission(Permission.REFERENTIAL_WRITE)
+    @RequiresPermission(Permission.REF_OPERATOR_WRITE)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER, Roles.PLATFORM_ADMIN })
     public Response create(@Valid OperatorUpsertDto p) {
         return Response.status(Response.Status.CREATED)
@@ -49,17 +49,17 @@ public class OperatorResource {
     }
 
     @PUT
-    @RequiresPermission(Permission.REFERENTIAL_WRITE)
+    @RequiresPermission(Permission.REF_OPERATOR_WRITE)
     @Path("/{id}")
-    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN, Roles.USER })
     public Response update(@PathParam("id") UUID id, @Valid OperatorUpsertDto p) {
         return Response.ok(ApiResponse.ok(service.update(id, p))).build();
     }
 
     @PATCH
-    @RequiresPermission(Permission.REFERENTIAL_WRITE)
+    @RequiresPermission(Permission.REF_OPERATOR_WRITE)
     @Path("/{id}/active")
-    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN, Roles.USER })
     public Response setActive(@PathParam("id") UUID id, @QueryParam("value") boolean value) {
         return Response.ok(ApiResponse.ok(service.setActive(id, value))).build();
     }

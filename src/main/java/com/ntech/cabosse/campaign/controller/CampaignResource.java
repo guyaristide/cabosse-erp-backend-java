@@ -36,7 +36,7 @@ import java.util.UUID;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Authenticated
-@RequiresPermission(Permission.REFERENTIAL_READ)
+@RequiresPermission(Permission.REF_CAMPAIGN_READ)
 public class CampaignResource {
 
     @Inject CampaignService service;
@@ -74,7 +74,7 @@ public class CampaignResource {
     }
 
     @POST
-    @RequiresPermission(Permission.REFERENTIAL_WRITE)
+    @RequiresPermission(Permission.REF_CAMPAIGN_WRITE)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response create(@Valid CampaignUpsertDto payload) {
         var created = service.create(payload);
@@ -84,7 +84,7 @@ public class CampaignResource {
     }
 
     @PUT
-    @RequiresPermission(Permission.REFERENTIAL_WRITE)
+    @RequiresPermission(Permission.REF_CAMPAIGN_WRITE)
     @Path("/{id}")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response update(@PathParam("id") UUID id, @Valid CampaignUpsertDto payload) {
@@ -113,7 +113,7 @@ public class CampaignResource {
     }
 
     @PUT
-    @RequiresPermission(Permission.REFERENTIAL_WRITE)
+    @RequiresPermission(Permission.REF_CAMPAIGN_WRITE)
     @Path("/{id}/targets")
     public Response setTarget(@PathParam("id") UUID id,
                               @Valid CampaignTargetUpsertDto payload) {
@@ -127,7 +127,7 @@ public class CampaignResource {
      * est une référence externe qu'on recopie, pas un prix décidé.</p>
      */
     @PUT
-    @RequiresPermission(Permission.REFERENTIAL_WRITE)
+    @RequiresPermission(Permission.REF_CAMPAIGN_WRITE)
     @Path("/{id}/collection-scale")
     public Response setCollectionScale(
             @PathParam("id") UUID id,
@@ -147,7 +147,7 @@ public class CampaignResource {
     }
 
     @POST
-    @RequiresPermission(Permission.REFERENTIAL_WRITE)
+    @RequiresPermission(Permission.REF_CAMPAIGN_WRITE)
     @Path("/{id}/close")
     // Aucun corps attendu : sans cela, un POST vide se heurte au
     // @Consumes de la classe et repart en 415.
@@ -160,7 +160,7 @@ public class CampaignResource {
 
     /** Défait une clôture : elle ne posait qu'un statut. */
     @POST
-    @RequiresPermission(Permission.REFERENTIAL_WRITE)
+    @RequiresPermission(Permission.REF_CAMPAIGN_WRITE)
     @Path("/{id}/reopen")
     @Consumes(MediaType.WILDCARD)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
@@ -177,7 +177,7 @@ public class CampaignResource {
      * de chevauchement.</p>
      */
     @DELETE
-    @RequiresPermission(Permission.REFERENTIAL_WRITE)
+    @RequiresPermission(Permission.REF_CAMPAIGN_WRITE)
     @Path("/{id}")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response delete(@PathParam("id") UUID id) {

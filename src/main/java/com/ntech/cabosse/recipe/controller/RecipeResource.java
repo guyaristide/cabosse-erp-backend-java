@@ -35,7 +35,7 @@ import java.util.UUID;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Authenticated
-@RequiresPermission(Permission.REFERENTIAL_READ)
+@RequiresPermission(Permission.REF_RECIPE_READ)
 public class RecipeResource {
 
     @Inject RecipeService service;
@@ -51,25 +51,25 @@ public class RecipeResource {
     }
 
     @POST
-    @RequiresPermission(Permission.REFERENTIAL_WRITE)
-    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
+    @RequiresPermission(Permission.REF_RECIPE_WRITE)
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN, Roles.USER })
     public Response create(@Valid RecipeUpsertDto p) {
         return Response.status(Response.Status.CREATED)
                 .entity(ApiResponse.created(service.create(p))).build();
     }
 
     @PUT
-    @RequiresPermission(Permission.REFERENTIAL_WRITE)
+    @RequiresPermission(Permission.REF_RECIPE_WRITE)
     @Path("/{id}")
-    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN, Roles.USER })
     public Response update(@PathParam("id") UUID id, @Valid RecipeUpsertDto p) {
         return Response.ok(ApiResponse.ok(service.update(id, p))).build();
     }
 
     @PATCH
-    @RequiresPermission(Permission.REFERENTIAL_WRITE)
+    @RequiresPermission(Permission.REF_RECIPE_WRITE)
     @Path("/{id}/active")
-    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN, Roles.USER })
     public Response setActive(@PathParam("id") UUID id, @QueryParam("value") boolean value) {
         return Response.ok(ApiResponse.ok(service.setActive(id, value))).build();
     }

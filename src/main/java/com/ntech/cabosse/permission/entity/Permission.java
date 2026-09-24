@@ -35,6 +35,61 @@ public enum Permission {
     // conseil, sans que le logiciel en tranche à sa place.
     CAMPAIGN_PRICE_WRITE(Domain.REFERENTIAL, "m.per-campaign-price-write"),
 
+    // Les droits par référentiel, ajoutés le 24/09/2026. Les deux droits
+    // globaux ci-dessus restent : qui les détient détient toute cette
+    // liste, l'expansion est faite dans PermissionResolver. Ils
+    // permettent de confier un seul référentiel à quelqu'un sans lui
+    // ouvrir les vingt et un autres.
+    //
+    // Aucune capacité n'y est déclarée, volontairement. Les deux droits
+    // globaux n'en déclarent pas non plus : en attacher une ici
+    // retirerait un accès qui existe aujourd'hui, et le découpage doit
+    // rester sans effet pour qui détient déjà le droit global.
+    REF_SUPPLIER_READ(Domain.REFERENTIAL, "m.per-ref-supplier-read"),
+    REF_SUPPLIER_WRITE(Domain.REFERENTIAL, "m.per-ref-supplier-write"),
+    REF_SUPPLIER_CATEGORY_READ(Domain.REFERENTIAL, "m.per-ref-supplier-category-read"),
+    REF_SUPPLIER_CATEGORY_WRITE(Domain.REFERENTIAL, "m.per-ref-supplier-category-write"),
+    REF_CUSTOMER_READ(Domain.REFERENTIAL, "m.per-ref-customer-read"),
+    REF_CUSTOMER_WRITE(Domain.REFERENTIAL, "m.per-ref-customer-write"),
+    REF_ARTICLE_READ(Domain.REFERENTIAL, "m.per-ref-article-read"),
+    REF_ARTICLE_WRITE(Domain.REFERENTIAL, "m.per-ref-article-write"),
+    REF_UNIT_READ(Domain.REFERENTIAL, "m.per-ref-unit-read"),
+    REF_UNIT_WRITE(Domain.REFERENTIAL, "m.per-ref-unit-write"),
+    REF_RECIPE_READ(Domain.REFERENTIAL, "m.per-ref-recipe-read"),
+    REF_RECIPE_WRITE(Domain.REFERENTIAL, "m.per-ref-recipe-write"),
+    REF_QUALITY_GRADE_READ(Domain.REFERENTIAL, "m.per-ref-quality-grade-read"),
+    REF_QUALITY_GRADE_WRITE(Domain.REFERENTIAL, "m.per-ref-quality-grade-write"),
+    REF_QUALITY_NORM_READ(Domain.REFERENTIAL, "m.per-ref-quality-norm-read"),
+    REF_QUALITY_NORM_WRITE(Domain.REFERENTIAL, "m.per-ref-quality-norm-write"),
+    REF_CERTIFICATION_READ(Domain.REFERENTIAL, "m.per-ref-certification-read"),
+    REF_CERTIFICATION_WRITE(Domain.REFERENTIAL, "m.per-ref-certification-write"),
+    REF_SITE_READ(Domain.REFERENTIAL, "m.per-ref-site-read"),
+    REF_SITE_WRITE(Domain.REFERENTIAL, "m.per-ref-site-write"),
+    REF_REGION_READ(Domain.REFERENTIAL, "m.per-ref-region-read"),
+    REF_REGION_WRITE(Domain.REFERENTIAL, "m.per-ref-region-write"),
+    REF_DEPARTMENT_READ(Domain.REFERENTIAL, "m.per-ref-department-read"),
+    REF_DEPARTMENT_WRITE(Domain.REFERENTIAL, "m.per-ref-department-write"),
+    REF_LOCALITY_READ(Domain.REFERENTIAL, "m.per-ref-locality-read"),
+    REF_LOCALITY_WRITE(Domain.REFERENTIAL, "m.per-ref-locality-write"),
+    REF_SECTION_READ(Domain.REFERENTIAL, "m.per-ref-section-read"),
+    REF_SECTION_WRITE(Domain.REFERENTIAL, "m.per-ref-section-write"),
+    REF_CROP_READ(Domain.REFERENTIAL, "m.per-ref-crop-read"),
+    REF_CROP_WRITE(Domain.REFERENTIAL, "m.per-ref-crop-write"),
+    REF_VARIETY_READ(Domain.REFERENTIAL, "m.per-ref-variety-read"),
+    REF_VARIETY_WRITE(Domain.REFERENTIAL, "m.per-ref-variety-write"),
+    REF_PAYMENT_TERM_READ(Domain.REFERENTIAL, "m.per-ref-payment-term-read"),
+    REF_PAYMENT_TERM_WRITE(Domain.REFERENTIAL, "m.per-ref-payment-term-write"),
+    REF_EXPENSE_TYPE_READ(Domain.REFERENTIAL, "m.per-ref-expense-type-read"),
+    REF_EXPENSE_TYPE_WRITE(Domain.REFERENTIAL, "m.per-ref-expense-type-write"),
+    REF_CAMPAIGN_READ(Domain.REFERENTIAL, "m.per-ref-campaign-read"),
+    REF_CAMPAIGN_WRITE(Domain.REFERENTIAL, "m.per-ref-campaign-write"),
+    REF_DELEGATE_STATUS_READ(Domain.REFERENTIAL, "m.per-ref-delegate-status-read"),
+    REF_DELEGATE_STATUS_WRITE(Domain.REFERENTIAL, "m.per-ref-delegate-status-write"),
+    REF_ID_DOCUMENT_TYPE_READ(Domain.REFERENTIAL, "m.per-ref-id-document-type-read"),
+    REF_ID_DOCUMENT_TYPE_WRITE(Domain.REFERENTIAL, "m.per-ref-id-document-type-write"),
+    REF_OPERATOR_READ(Domain.REFERENTIAL, "m.per-ref-operator-read"),
+    REF_OPERATOR_WRITE(Domain.REFERENTIAL, "m.per-ref-operator-write"),
+
     // ─── Achats de biens et services ────────────────────────────────
     PURCHASE_READ(Domain.PURCHASE, "m.per-purchase-read"),
     PURCHASE_WRITE(Domain.PURCHASE, "m.per-purchase-write"),
@@ -229,6 +284,31 @@ public enum Permission {
     /** Catalogue applicable à un tenant, dans l'ordre de déclaration. */
     public static List<Permission> availableIn(Set<TenantCapability> capabilities) {
         return Arrays.stream(values()).filter(p -> p.availableFor(capabilities)).toList();
+    }
+
+    /**
+     * Les droits de lecture par référentiel, que {@code REFERENTIAL_READ}
+     * ouvre en bloc.
+     *
+     * <p>Dérivés du nom plutôt que listés à la main : une liste parallèle
+     * oublie le droit qu'on vient d'ajouter, et l'oubli ne se voit
+     * qu'au moment où quelqu'un perd un accès.</p>
+     */
+    public static Set<Permission> referentialReads() {
+        return byPrefixAndSuffix("REF_", "_READ");
+    }
+
+    /** Les droits d'écriture par référentiel, ouverts par {@code REFERENTIAL_WRITE}. */
+    public static Set<Permission> referentialWrites() {
+        return byPrefixAndSuffix("REF_", "_WRITE");
+    }
+
+    private static Set<Permission> byPrefixAndSuffix(String prefix, String suffix) {
+        Set<Permission> out = new LinkedHashSet<>();
+        for (Permission p : values()) {
+            if (p.name().startsWith(prefix) && p.name().endsWith(suffix)) out.add(p);
+        }
+        return out;
     }
 
     public static Permission ofCode(String code) {

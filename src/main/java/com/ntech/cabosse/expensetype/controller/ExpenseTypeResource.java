@@ -39,7 +39,7 @@ import java.util.UUID;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Authenticated
-@RequiresPermission(Permission.REFERENTIAL_READ)
+@RequiresPermission(Permission.REF_EXPENSE_TYPE_READ)
 public class ExpenseTypeResource {
 
     @Inject ExpenseTypeService service;
@@ -50,25 +50,25 @@ public class ExpenseTypeResource {
     public Response list() { return Response.ok(ApiResponse.ok(service.list())).build(); }
 
     @POST
-    @RequiresPermission(Permission.REFERENTIAL_WRITE)
-    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
+    @RequiresPermission(Permission.REF_EXPENSE_TYPE_WRITE)
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN, Roles.USER })
     public Response create(@Valid ExpenseTypeUpsertDto p) {
         return Response.status(Response.Status.CREATED)
                 .entity(ApiResponse.created(service.create(p))).build();
     }
 
     @PUT
-    @RequiresPermission(Permission.REFERENTIAL_WRITE)
+    @RequiresPermission(Permission.REF_EXPENSE_TYPE_WRITE)
     @Path("/{id}")
-    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN, Roles.USER })
     public Response update(@PathParam("id") UUID id, @Valid ExpenseTypeUpsertDto p) {
         return Response.ok(ApiResponse.ok(service.update(id, p))).build();
     }
 
     @PATCH
-    @RequiresPermission(Permission.REFERENTIAL_WRITE)
+    @RequiresPermission(Permission.REF_EXPENSE_TYPE_WRITE)
     @Path("/{id}/active")
-    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN, Roles.USER })
     public Response setActive(@PathParam("id") UUID id, @QueryParam("value") boolean value) {
         return Response.ok(ApiResponse.ok(service.setActive(id, value))).build();
     }
@@ -98,7 +98,7 @@ public class ExpenseTypeResource {
     }
 
     @POST
-    @RequiresPermission(Permission.REFERENTIAL_WRITE)
+    @RequiresPermission(Permission.REF_EXPENSE_TYPE_WRITE)
     @Path("/import/preview")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response importPreview(java.util.List<ExpenseTypeImportRowDto> rows) {
@@ -107,7 +107,7 @@ public class ExpenseTypeResource {
     }
 
     @POST
-    @RequiresPermission(Permission.REFERENTIAL_WRITE)
+    @RequiresPermission(Permission.REF_EXPENSE_TYPE_WRITE)
     @Path("/import/commit")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response importCommit(java.util.List<ExpenseTypeImportRowDto> rows) {

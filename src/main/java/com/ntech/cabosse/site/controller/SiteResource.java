@@ -45,7 +45,7 @@ import java.util.UUID;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @Authenticated
-@RequiresPermission(Permission.REFERENTIAL_READ)
+@RequiresPermission(Permission.REF_SITE_READ)
 public class SiteResource {
 
     @Inject SiteService service;
@@ -65,8 +65,8 @@ public class SiteResource {
     }
 
     @POST
-    @RequiresPermission(Permission.REFERENTIAL_WRITE)
-    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
+    @RequiresPermission(Permission.REF_SITE_WRITE)
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN, Roles.USER })
     public Response create(@Valid SiteUpsertDto payload) {
         return Response.status(Response.Status.CREATED)
                 .entity(ApiResponse.created(service.create(payload)))
@@ -74,17 +74,17 @@ public class SiteResource {
     }
 
     @PUT
-    @RequiresPermission(Permission.REFERENTIAL_WRITE)
+    @RequiresPermission(Permission.REF_SITE_WRITE)
     @Path("/{id}")
-    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN, Roles.USER })
     public Response update(@PathParam("id") UUID id, @Valid SiteUpsertDto payload) {
         return Response.ok(ApiResponse.ok(service.update(id, payload))).build();
     }
 
     @PATCH
-    @RequiresPermission(Permission.REFERENTIAL_WRITE)
+    @RequiresPermission(Permission.REF_SITE_WRITE)
     @Path("/{id}/active")
-    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN, Roles.USER })
     public Response toggleActive(@PathParam("id") UUID id,
                                  @QueryParam("value") boolean value) {
         return Response.ok(ApiResponse.ok(service.setActive(id, value))).build();
@@ -116,7 +116,7 @@ public class SiteResource {
     }
 
     @POST
-    @RequiresPermission(Permission.REFERENTIAL_WRITE)
+    @RequiresPermission(Permission.REF_SITE_WRITE)
     @Path("/import/preview")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response importPreview(java.util.List<SiteImportRowDto> rows) {
@@ -125,7 +125,7 @@ public class SiteResource {
     }
 
     @POST
-    @RequiresPermission(Permission.REFERENTIAL_WRITE)
+    @RequiresPermission(Permission.REF_SITE_WRITE)
     @Path("/import/commit")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response importCommit(java.util.List<SiteImportRowDto> rows) {

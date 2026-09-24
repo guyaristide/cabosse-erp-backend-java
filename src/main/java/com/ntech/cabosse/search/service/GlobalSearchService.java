@@ -69,9 +69,14 @@ public class GlobalSearchService {
             customers.search(s, null, 0, n).forEach(c ->
                     hits.add(new SearchHitDto("customer", c.id.toString(), c.name, c.code)));
         }
-        if (granted.contains(Permission.REFERENTIAL_READ)) {
+        // Un droit par référentiel depuis le 24/09/2026 : les regrouper
+        // ici laisserait la palette montrer les articles à qui n'a que
+        // les fournisseurs, et la granularité fuirait par la recherche.
+        if (granted.contains(Permission.REF_SUPPLIER_READ)) {
             suppliers.search(s, 0, n).forEach(x ->
                     hits.add(new SearchHitDto("supplier", x.id.toString(), x.name, x.code)));
+        }
+        if (granted.contains(Permission.REF_ARTICLE_READ)) {
             articles.search(null, s, 0, n).forEach(a ->
                     hits.add(new SearchHitDto("article", a.id.toString(), a.name, a.code)));
         }

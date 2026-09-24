@@ -75,6 +75,22 @@ public class PermissionResolver {
             }
         }
 
+        // Les deux droits globaux sur les référentiels ouvrent tous les
+        // droits par référentiel (24/09/2026). Sans cette expansion, le
+        // découpage casserait tous les profils existants d'un coup : ils
+        // portent le droit global, et les écrans exigent désormais le
+        // droit précis.
+        //
+        // Elle vient avant les exceptions, et c'est délibéré : on peut
+        // ainsi détenir l'écriture globale et se voir retirer un seul
+        // référentiel. L'inverse rendrait ce retrait sans effet.
+        if (granted.contains(Permission.REFERENTIAL_READ)) {
+            granted.addAll(Permission.referentialReads());
+        }
+        if (granted.contains(Permission.REFERENTIAL_WRITE)) {
+            granted.addAll(Permission.referentialWrites());
+        }
+
         // Les exceptions passent après les profils et avant les capacités.
         // Un administrateur en est exempt : un retrait sur lui enfermerait
         // la structure hors de sa propre administration.

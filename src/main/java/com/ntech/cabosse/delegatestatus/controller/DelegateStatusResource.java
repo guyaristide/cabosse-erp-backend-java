@@ -28,7 +28,7 @@ import java.util.UUID;
 @Tag(name = "Délégués", description = "Positions tenues sur les délégués collecteurs")
 @Produces(MediaType.APPLICATION_JSON)
 @Authenticated
-@RequiresPermission(Permission.REFERENTIAL_READ)
+@RequiresPermission(Permission.REF_DELEGATE_STATUS_READ)
 public class DelegateStatusResource {
 
     @Inject DelegateStatusService service;
@@ -41,7 +41,7 @@ public class DelegateStatusResource {
 
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
-    @RequiresPermission(Permission.REFERENTIAL_WRITE)
+    @RequiresPermission(Permission.REF_DELEGATE_STATUS_WRITE)
     @Operation(summary = "Créer une position")
     public Response create(@Valid DelegateStatusUpsertDto payload) {
         DelegateStatusDto created = service.create(payload);
@@ -52,7 +52,7 @@ public class DelegateStatusResource {
     @PUT
     @Path("/{id}")
     @Consumes(MediaType.APPLICATION_JSON)
-    @RequiresPermission(Permission.REFERENTIAL_WRITE)
+    @RequiresPermission(Permission.REF_DELEGATE_STATUS_WRITE)
     @Operation(summary = "Modifier une position")
     public Response update(@PathParam("id") UUID id, @Valid DelegateStatusUpsertDto payload) {
         return Response.ok(ApiResponse.ok(service.update(id, payload))).build();

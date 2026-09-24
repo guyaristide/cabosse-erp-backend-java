@@ -45,7 +45,7 @@ public class DelegateStatusPositionResource {
 
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
-    @RequiresPermission(Permission.REFERENTIAL_WRITE)
+    @RequiresPermission(Permission.REF_DELEGATE_STATUS_WRITE)
     @Operation(summary = "Poser une position sur un délégué",
             description = "Le montant dû est calculé et figé par le serveur, jamais fourni par l'appelant.")
     public Response record(@PathParam("delegateId") UUID delegateId,
