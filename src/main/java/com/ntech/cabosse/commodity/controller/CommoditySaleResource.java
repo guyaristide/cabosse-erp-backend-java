@@ -90,8 +90,15 @@ public class CommoditySaleResource {
     /** Constat d'un encaissement client (CE-194) : les flux d'argent exigent la clé. */
     @POST
     @Path("/{id}/payments")
-    @com.ntech.cabosse.permission.service.RequiresPermission(
-            com.ntech.cabosse.permission.entity.Permission.ACCOUNTING_WRITE)
+    // SALE_PAYMENT est le droit fait pour ce geste, et il ne gardait
+    // rien : l'encaissement exigeait un droit de comptabilité, si bien
+    // que la caissière et le directeur, qui le portent tous deux, ne
+    // pouvaient pas encaisser une vente en gros (relevé le 26/09/2026).
+    // Le droit d'origine reste accepté pour ne retirer l'accès à
+    // personne au passage.
+    @com.ntech.cabosse.permission.service.RequiresPermission({
+            com.ntech.cabosse.permission.entity.Permission.SALE_PAYMENT,
+            com.ntech.cabosse.permission.entity.Permission.ACCOUNTING_WRITE })
     @com.ntech.cabosse.shared.idempotency.RequiresIdempotencyKey
     public Response recordPayment(@PathParam("id") UUID id,
                                   @jakarta.validation.Valid

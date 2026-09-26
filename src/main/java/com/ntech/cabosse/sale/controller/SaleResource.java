@@ -128,8 +128,12 @@ public class SaleResource {
         return Response.ok(ApiResponse.ok(service.markDelivered(id))).build();
     }
 
+    // Encaisser n'est pas saisir une vente : SALE_PAYMENT est le droit
+    // fait pour ce geste. Il ne gardait rien nulle part, et la caissière
+    // qui le porte ne pouvait pas encaisser (relevé le 26/09/2026). Le
+    // droit d'écriture reste accepté pour ne rien retirer au passage.
     @POST
-    @RequiresPermission(Permission.SALE_WRITE)
+    @RequiresPermission({ Permission.SALE_PAYMENT, Permission.SALE_WRITE })
     @Path("/{id}/payments")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response recordPayment(@PathParam("id") UUID id, @Valid SalePaymentDto payload) {
@@ -137,7 +141,7 @@ public class SaleResource {
     }
 
     @DELETE
-    @RequiresPermission(Permission.SALE_WRITE)
+    @RequiresPermission({ Permission.SALE_PAYMENT, Permission.SALE_WRITE })
     @Path("/{id}/payments/{paymentId}")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response removePayment(@PathParam("id") UUID id,
