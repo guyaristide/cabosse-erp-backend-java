@@ -55,6 +55,12 @@ public enum ErrorCode {
 
     // ─── Incidents passagers : réessayer a du sens ───
 
+    /**
+     * Trop de tentatives. Rejouer plus tard a du sens : le refus porte
+     * sur la cadence, pas sur le contenu de la demande.
+     */
+    TOO_MANY_REQUESTS(true),
+
     /** Panne inattendue côté serveur. */
     INTERNAL(true),
     /** Ressource momentanément verrouillée par une autre opération. */

@@ -6,6 +6,7 @@ import com.ntech.cabosse.auth.dto.LogoutRequestDto;
 import com.ntech.cabosse.auth.dto.RefreshRequestDto;
 import com.ntech.cabosse.auth.service.AuthService;
 import com.ntech.cabosse.shared.api.ApiResponse;
+import com.ntech.cabosse.shared.i18n.Messages;
 import io.vertx.core.http.HttpServerRequest;
 import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
@@ -45,6 +46,7 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 public class AuthResource {
 
     @Inject AuthService authService;
+    @Inject com.ntech.cabosse.auth.service.LoginThrottle throttle;
 
     @POST
     @Path("/login")
@@ -56,13 +58,35 @@ public class AuthResource {
             content = @Content(schema = @Schema(implementation = LoginResponseDto.class)))
     @APIResponse(responseCode = "400", description = "Payload invalide")
     @APIResponse(responseCode = "401", description = "Identifiants invalides ou compte/tenant non actif")
+    @APIResponse(responseCode = "429", description = "Trop de tentatives, réessayer plus tard")
     public Response login(
             @Valid @RequestBody LoginRequestDto request,
             @HeaderParam(HttpHeaders.USER_AGENT) String userAgent,
             @Context HttpServerRequest http
     ) {
-        LoginResponseDto body = authService.login(request, userAgent, clientIp(http));
-        return Response.ok(ApiResponse.ok(body)).build();
+        String ip = clientIp(http);
+        String email = request != null ? request.email() : null;
+
+        // Le frein se consulte avant d'aller voir le mot de passe :
+        // sinon chaque tentative refusée coûterait quand même une
+        // vérification d'empreinte, qui est délibérément lente.
+        java.time.Duration wait = throttle.retryAfter(email, ip);
+        if (!wait.isZero()) {
+            throw new com.ntech.cabosse.shared.exception.TooManyRequestsException(
+                    Messages.msg("m.aut-too-many-attempts", wait.toMinutes() + 1), wait);
+        }
+
+        try {
+            LoginResponseDto body = authService.login(request, userAgent, ip);
+            throttle.recordSuccess(email, ip);
+            return Response.ok(ApiResponse.ok(body)).build();
+        } catch (RuntimeException failed) {
+            // Tout refus compte, y compris sur une adresse inventée :
+            // ne compter que les comptes existants ferait du frein
+            // lui-même un moyen de savoir lesquels existent.
+            throttle.recordFailure(email, ip);
+            throw failed;
+        }
     }
 
     @POST

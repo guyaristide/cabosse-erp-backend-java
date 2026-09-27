@@ -6,6 +6,12 @@
 # ────────────────────────────────────────────────────────────────────────
 
 quarkus:
+  # Le schéma était public : il cartographiait toute l'API sans jeton
+  # (relevé le 27/09/2026). Le client TypeScript du front se génère
+  # depuis un environnement de développement, pas depuis la production.
+  smallrye-openapi:
+    enable: false
+
   log:
     level: INFO
     category:
@@ -15,7 +21,20 @@ quarkus:
   http:
     cors:
       enabled: true
-      origins: ${CORS_ORIGINS}
+      # Liste blanche stricte, plus les postes de développement.
+      #
+      # Le serveur en ligne renvoyait n'importe quelle origine, y compris
+      # une origine pirate : la liste n'était pas appliquée (relevé le
+      # 27/09/2026). Elle l'est ici, et les ports locaux passent par une
+      # expression régulière plutôt que par un caractère générique, pour
+      # que « localhost » reste la seule exception.
+      #
+      # L'authentification est par jeton porté en en-tête, non par
+      # cookie, et les requêtes n'emportent pas d'identifiants : une page
+      # servie depuis un poste local ne peut pas rejouer la session de
+      # quelqu'un d'autre. C'est ce qui rend cette exception tenable.
+      origins: ${CORS_ORIGINS},/https?://localhost(:\d+)?/,/https?://127\.0\.0\.1(:\d+)?/
+      access-control-allow-credentials: false
       methods: "GET,POST,PUT,DELETE,PATCH,OPTIONS"
       # Idempotency-Key voyage sur les flux d'argent (reçu d'achat,
       # règlement producteur) : sans elle dans cette liste, le
@@ -25,6 +44,27 @@ quarkus:
       # même piège, et il ne se voit qu'en navigateur (relevé le
       # 23/09/2026, la restauration échouait sans rien atteindre).
       headers: "Content-Type,Authorization,Idempotency-Key,X-Platform-Restore-Secret"
+
+    # ── En-têtes de sécurité (relevé du 27/09/2026 : il n'y en avait aucun) ──
+    # Posés par le serveur et non par le proxy : ils suivent
+    # l'application partout où elle est déployée. Quarkus attend une
+    # table nommée par en-tête, pas une liste.
+    header:
+      # L'API ne rend que du JSON : sans cela un navigateur peut décider
+      # d'interpréter une réponse autrement que son type déclaré.
+      "X-Content-Type-Options":
+        value: nosniff
+      # Une réponse d'API n'a aucune raison d'être encadrée ailleurs.
+      "X-Frame-Options":
+        value: DENY
+      # Une adresse de ressource porte souvent un identifiant : elle ne
+      # part pas vers un site tiers.
+      "Referrer-Policy":
+        value: no-referrer
+      # Le proxy force déjà HTTPS ; cet en-tête couvre la toute première
+      # requête, celle qui précède toute redirection.
+      "Strict-Transport-Security":
+        value: "max-age=31536000; includeSubDomains"
 
   mongodb:
     connection-string: ${MONGO_URI}
