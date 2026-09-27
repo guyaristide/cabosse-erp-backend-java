@@ -73,7 +73,14 @@ public class M086_SeedDelegateStatuses {
                     .append("statusId", principalId)
                     .append("statusCode", PRINCIPAL)
                     .append("statusLabel", "Délégué principal")
-                    .append("effectiveDate", LocalDate.now().toString())
+                    // Une date, pas son texte. Écrite en chaîne, elle
+                    // se relisait en LocalDate et faisait tomber toute
+                    // lecture de position, donc l'état des avances aux
+                    // délégués entier (relevé le 27/09/2026). M088
+                    // répare les documents déjà posés ; celle-ci est
+                    // rejouable, il fallait donc la corriger d'abord.
+                    .append("effectiveDate", java.util.Date.from(
+                            LocalDate.now().atStartOfDay(java.time.ZoneOffset.UTC).toInstant()))
                     .append("reason", "Position posée à la reprise, sans décision de la structure.")
                     .append("owedAmount", null)
                     .append("campaignId", null)
