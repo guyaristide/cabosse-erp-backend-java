@@ -155,13 +155,17 @@ class MemberImportTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void an_imported_base_never_feeds_the_cash_box_with_share_capital() {
+    void an_import_follows_the_share_capital_setting_like_the_counter_does() {
         UserEntity admin = tenantAdmin();
 
-        // La base reprise porte les parts sociales de ses membres : ces
-        // sommes ont été versées et dépensées il y a des années. L'import
-        // les enregistre sur la fiche, mais ne fabrique aucune écriture :
-        // créditer la caisse membre par membre inventerait des espèces.
+        // L'import sautait la pièce quoi qu'il arrive. Le motif était bon
+        // pour une reprise — les parts d'une base ancienne ont été versées
+        // et dépensées il y a des années, et les réinscrire créditerait la
+        // caisse d'espèces qui n'existent pas — mais il ne vaut pas pour
+        // tous les imports, et ce n'était pas au logiciel de trancher à la
+        // place de la structure (arbitrage du 27/09/2026).
+        //
+        // Réglage actif : le fichier produit ses pièces, comme le guichet.
         givenAs(admin).contentType("application/json").body("""
                 [
                   { "rowNumber": 1, "lastName": "Kobenan", "firstName": "Adjoua",
@@ -172,29 +176,54 @@ class MemberImportTest extends AbstractIntegrationTest {
                 .when().post("/api/v1/members/import/commit")
                 .then().statusCode(200)
                 .body("data.createdCount", equalTo(1));
-        java.util.List<java.util.Map<String, Object>> pieces = givenAs(admin)
-                .when().get("/api/v1/accounting/journal?perPage=100")
-                .then().statusCode(200).extract().path("data.items");
-        org.assertj.core.api.Assertions.assertThat(
-                pieces.stream().anyMatch(pc -> String.valueOf(pc.get("sourceType"))
-                        .startsWith("MEMBER_CAPITAL")))
-                .as("aucune pièce de part sociale à l'import")
+        org.assertj.core.api.Assertions.assertThat(hasCapitalPiece(admin))
+                .as("pièce de part sociale à l'import, réglage actif")
+                .isTrue();
+    }
+
+    @Test
+    void carrying_over_a_history_is_protected_by_switching_the_setting_off() {
+        UserEntity admin = tenantAdmin();
+
+        // Le geste qui protège une reprise : couper le réglage le temps du
+        // fichier. Visible, réversible, et décidé par la structure, là où
+        // la règle codée en dur ne se voyait pas et ne se levait pas.
+        givenAs(admin).contentType("application/json")
+                .body("{ \"postMemberCapitalEntries\": false }")
+                .when().put("/api/v1/me/tenant/preferences").then().statusCode(200);
+
+        givenAs(admin).contentType("application/json").body("""
+                [
+                  { "rowNumber": 1, "lastName": "Kobenan", "firstName": "Adjoua",
+                    "gender": "Femme", "partsSocialesAmount": "25000" }
+                ]
+                """)
+                .when().post("/api/v1/members/import/commit")
+                .then().statusCode(200)
+                .body("data.createdCount", equalTo(1));
+        org.assertj.core.api.Assertions.assertThat(hasCapitalPiece(admin))
+                .as("aucune pièce pendant une reprise")
                 .isFalse();
 
-        // L'adhésion au guichet, elle, encaisse réellement : la pièce part.
+        // Et l'adhésion au guichet est coupée de la même façon : le
+        // réglage vaut pour tous les chemins, sinon il ne protège rien.
         givenAs(admin).contentType("application/json").body("""
                 { "lastName": "Gnaman", "firstName": "Koffi", "gender": "MALE",
                   "status": "ACTIVE", "partsSocialesAmount": 25000 }
                 """)
                 .when().post("/api/v1/members").then().statusCode(201);
-        java.util.List<java.util.Map<String, Object>> after = givenAs(admin)
+        org.assertj.core.api.Assertions.assertThat(hasCapitalPiece(admin))
+                .as("le réglage vaut aussi au guichet")
+                .isFalse();
+    }
+
+    /** Une pièce de part sociale figure-t-elle au journal ? */
+    private boolean hasCapitalPiece(UserEntity who) {
+        java.util.List<java.util.Map<String, Object>> pieces = givenAs(who)
                 .when().get("/api/v1/accounting/journal?perPage=100")
                 .then().statusCode(200).extract().path("data.items");
-        org.assertj.core.api.Assertions.assertThat(
-                after.stream().anyMatch(pc -> String.valueOf(pc.get("sourceType"))
-                        .startsWith("MEMBER_CAPITAL")))
-                .as("la pièce de part sociale du guichet")
-                .isTrue();
+        return pieces.stream().anyMatch(pc -> String.valueOf(pc.get("sourceType"))
+                .startsWith("MEMBER_CAPITAL"));
     }
 
     @Test

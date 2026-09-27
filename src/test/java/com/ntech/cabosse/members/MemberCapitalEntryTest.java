@@ -24,21 +24,21 @@ import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.not;
 
 /**
- * L'écriture de part sociale, et les deux portes qu'elle ne franchit pas
- * de la même façon (signalé le 27/09/2026).
+ * L'écriture de part sociale, par tous les chemins qui créent un membre
+ * (signalé le 27/09/2026).
  *
- * <p>Le réglage promet une pièce à la validation d'une adhésion. Il est
- * bien honoré à la création et à l'approbation. L'import de masse, lui,
- * en est exempt <strong>délibérément</strong> : un fichier repris décrit
- * des adhésions passées, dont l'argent a été encaissé il y a des années
- * et dépensé depuis. Créditer la caisse à l'import fabriquerait des
- * espèces imaginaires, membre par membre, et les soldes réels entrent
- * par les à-nouveaux.</p>
+ * <p>L'import sautait la pièce, toujours, au motif qu'une base reprise
+ * décrit des adhésions dont l'argent est encaissé depuis des années. Le
+ * raisonnement vaut pour une reprise, pas pour tous les imports, et il
+ * n'appartenait pas au logiciel de trancher à la place de la structure :
+ * le réglage est là pour ça. Qui reprend un historique le coupe le temps
+ * de l'import, qui enregistre des adhésions réelles par fichier le laisse
+ * actif.</p>
  *
- * <p>Cette exception était juste mais muette : ni le réglage ni l'écran
- * d'import ne la mentionnaient, et on ne pouvait que la découvrir en
- * constatant l'absence de pièce. Ce test la tient dans les deux sens,
- * pour qu'elle ne bascule pas en silence.</p>
+ * <p>Ces tests tiennent donc une seule règle, valable partout : la pièce
+ * suit le réglage, la saisie et l'import compris. Une porte qui
+ * déciderait pour son compte est un piège, quel que soit le sens dans
+ * lequel elle tranche.</p>
  */
 @QuarkusTest
 @QuarkusTestResource(MongoReplicaSetTestResource.class)
@@ -126,6 +126,45 @@ class MemberCapitalEntryTest extends AbstractIntegrationTest {
                           "joinedAt": "%s" }
                         """.formatted(LocalDate.now()))
                 .when().post("/api/v1/members").then().statusCode(201);
+
+        journal(a).body("data.items.sourceType", not(hasItem("MEMBER_CAPITAL")));
+    }
+
+    @Test
+    void l_import_produit_la_piece_quand_le_reglage_est_actif() {
+        UserEntity a = admin();
+
+        // L'import sautait l'écriture quoi qu'il arrive : le réglage ne
+        // servait à rien de ce côté, alors qu'il existe pour décider.
+        givenAs(a).contentType("application/json")
+                .body("""
+                        [ { "rowNumber": 1, "lastName": "IMPORTE", "firstName": "Awa",
+                            "gender": "FEMALE", "partsSocialesAmount": "25000" } ]
+                        """)
+                .when().post("/api/v1/members/import/commit?includeWarnings=true")
+                .then().statusCode(200);
+
+        journal(a).body("data.items.sourceType", hasItem("MEMBER_CAPITAL"));
+    }
+
+    @Test
+    void l_import_d_un_historique_se_coupe_par_le_reglage() {
+        UserEntity a = admin();
+
+        // Le geste qui protège une reprise : couper le réglage le temps
+        // du fichier, plutôt qu'une règle codée en dur que personne ne
+        // voit et que personne ne peut lever.
+        givenAs(a).contentType("application/json")
+                .body("{ \"postMemberCapitalEntries\": false }")
+                .when().put("/api/v1/me/tenant/preferences").then().statusCode(200);
+
+        givenAs(a).contentType("application/json")
+                .body("""
+                        [ { "rowNumber": 1, "lastName": "REPRISE", "firstName": "Koffi",
+                            "gender": "MALE", "partsSocialesAmount": "25000" } ]
+                        """)
+                .when().post("/api/v1/members/import/commit?includeWarnings=true")
+                .then().statusCode(200);
 
         journal(a).body("data.items.sourceType", not(hasItem("MEMBER_CAPITAL")));
     }

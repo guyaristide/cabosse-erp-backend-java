@@ -123,15 +123,26 @@ public class MemberService {
     }
 
     /**
-     * Création par l'import de masse : mêmes règles que l'adhésion, sans
-     * la pièce de part sociale. Une base reprise décrit des adhésions
-     * passées dont l'argent est dépensé depuis longtemps : créditer la
-     * caisse à l'import fabriquerait des espèces imaginaires, membre par
-     * membre. Les soldes réels d'ouverture entrent par les écritures à
-     * nouveau, pas par la reprise du fichier des membres.
+     * Création par l'import de masse.
+     *
+     * <p>Elle sautait la pièce de part sociale, toujours, au motif qu'une
+     * base reprise décrit des adhésions passées dont l'argent est encaissé
+     * depuis des années : la reprendre créditerait la caisse d'espèces
+     * imaginaires, membre par membre.</p>
+     *
+     * <p>Le raisonnement vaut pour une reprise, pas pour tous les imports,
+     * et il n'appartenait pas au logiciel de trancher : le réglage
+     * {@code postMemberCapitalEntries} est là pour ça. Qui reprend un
+     * historique le coupe le temps de l'import ; qui enregistre des
+     * adhésions réelles par fichier le laisse actif et obtient ses pièces
+     * (arbitrage du 27/09/2026).</p>
+     *
+     * <p>L'import suit donc le même chemin que la saisie. La méthode
+     * subsiste pour nommer l'intention de l'appelant, non pour changer la
+     * règle.</p>
      */
     public MemberResponseDto createImported(MemberUpsertDto payload) {
-        return create(payload, false);
+        return create(payload, true);
     }
 
     private MemberResponseDto create(MemberUpsertDto payload, boolean postCapital) {
