@@ -45,22 +45,63 @@ public class MemberRepository {
     }
 
     public long countSearch(String q, MemberStatus statusFilter) {
-        return coll().countDocuments(searchFilter(q, statusFilter));
+        return countSearch(new MemberSearchCriteria(q, statusFilter, null, null, null, null));
     }
 
     public List<MemberEntity> search(String q, MemberStatus statusFilter, int skip, int limit) {
-        return coll().find(searchFilter(q, statusFilter))
+        return search(new MemberSearchCriteria(q, statusFilter, null, null, null, null),
+                skip, limit);
+    }
+
+    public long countSearch(MemberSearchCriteria criteria) {
+        return coll().countDocuments(searchFilter(criteria));
+    }
+
+    public List<MemberEntity> search(MemberSearchCriteria criteria, int skip, int limit) {
+        return coll().find(searchFilter(criteria))
                 .sort(new Document("name", 1))
                 .skip(skip)
                 .limit(limit)
                 .into(new ArrayList<>());
     }
 
-    private static Bson searchFilter(String q, MemberStatus statusFilter) {
+    /**
+     * Les villages réellement portés par des fiches.
+     *
+     * <p>Le village est une saisie libre : proposer un référentiel
+     * n'aurait pas les mêmes valeurs que les fiches, et le filtre
+     * rendrait des listes vides sur des noms pourtant présents.</p>
+     */
+    public List<String> distinctVillages() {
+        List<String> out = new ArrayList<>();
+        coll().distinct("village", String.class).forEach(v -> {
+            if (v != null && !v.isBlank()) out.add(v);
+        });
+        out.sort(String.CASE_INSENSITIVE_ORDER);
+        return out;
+    }
+
+    private static Bson searchFilter(MemberSearchCriteria c) {
         List<Bson> filters = new ArrayList<>();
-        if (statusFilter != null) filters.add(Filters.eq("status", statusFilter.name()));
-        if (q != null && !q.isBlank()) {
-            String escaped = java.util.regex.Pattern.quote(q.trim());
+        if (c.status() != null) filters.add(Filters.eq("status", c.status().name()));
+        // Faux se dit aussi des fiches anciennes où le champ n'existe
+        // pas : sans ce « ou absent », les producteurs d'avant la
+        // livraison du drapeau disparaîtraient du filtre.
+        if (Boolean.TRUE.equals(c.collector())) {
+            filters.add(Filters.eq("collector", true));
+        } else if (Boolean.FALSE.equals(c.collector())) {
+            filters.add(Filters.or(
+                    Filters.eq("collector", false),
+                    Filters.exists("collector", false)));
+        }
+        if (c.sectionId() != null) filters.add(Filters.eq("sectionId", c.sectionId()));
+        if (c.village() != null && !c.village().isBlank()) {
+            filters.add(Filters.regex("village",
+                    "^" + java.util.regex.Pattern.quote(c.village().trim()) + "$", "i"));
+        }
+        if (c.gender() != null) filters.add(Filters.eq("gender", c.gender().name()));
+        if (c.q() != null && !c.q().isBlank()) {
+            String escaped = java.util.regex.Pattern.quote(c.q().trim());
             filters.add(Filters.or(
                     Filters.regex("code", escaped, "i"),
                     Filters.regex("name", escaped, "i"),

@@ -87,17 +87,39 @@ public class MemberService {
     public Pagination<MemberResponseDto> page(String q,
                                               com.ntech.cabosse.members.entity.MemberStatus statusFilter,
                                               PageRequest pr) {
-        long total = members.countSearch(q, statusFilter);
+        return page(new com.ntech.cabosse.members.repository.MemberSearchCriteria(
+                q, statusFilter, null, null, null, null), pr);
+    }
+
+    public Pagination<MemberResponseDto> page(
+            com.ntech.cabosse.members.repository.MemberSearchCriteria criteria, PageRequest pr) {
+        long total = members.countSearch(criteria);
         int validityMonths = fileValidityMonths();
         java.util.Set<String> proofTypes = producerRefKeys.identityProofTypeNames();
-        List<MemberResponseDto> items = members.search(q, statusFilter, pr.skip(), pr.perPage())
+        List<MemberResponseDto> items = members.search(criteria, pr.skip(), pr.perPage())
                 .stream()
                 .map(m -> MemberResponseDto.from(m, validityMonths, proofTypes))
                 .toList();
+        // Rendus à l'appelant pour que l'écran puisse redire ce qu'il
+        // montre : une liste restreinte sans rappel de sa restriction
+        // se lit comme un effectif complet.
         Map<String, String> filters = new HashMap<>();
-        if (q != null && !q.isBlank()) filters.put("q", q.trim());
-        if (statusFilter != null) filters.put("status", statusFilter.name());
+        if (criteria.q() != null && !criteria.q().isBlank()) filters.put("q", criteria.q().trim());
+        if (criteria.status() != null) filters.put("status", criteria.status().name());
+        if (criteria.collector() != null) {
+            filters.put("collector", String.valueOf(criteria.collector()));
+        }
+        if (criteria.sectionId() != null) filters.put("sectionId", criteria.sectionId().toString());
+        if (criteria.village() != null && !criteria.village().isBlank()) {
+            filters.put("village", criteria.village().trim());
+        }
+        if (criteria.gender() != null) filters.put("gender", criteria.gender().name());
         return Pagination.of(total, pr, new String[]{"name"}, "asc", filters, items);
+    }
+
+    /** Les villages portés par des fiches, pour alimenter le filtre. */
+    public List<String> villages() {
+        return members.distinctVillages();
     }
 
     public MemberResponseDto getById(UUID id) {

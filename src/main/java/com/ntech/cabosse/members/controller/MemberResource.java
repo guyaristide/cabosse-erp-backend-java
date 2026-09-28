@@ -95,12 +95,51 @@ public class MemberResource {
     @GET
     public Response list(@QueryParam("q") String q,
                          @QueryParam("status") String statusRaw,
+                         @QueryParam("collector") String collectorRaw,
+                         @QueryParam("sectionId") UUID sectionId,
+                         @QueryParam("village") String village,
+                         @QueryParam("gender") String genderRaw,
                          @QueryParam("page") @DefaultValue("0") int page,
                          @QueryParam("perPage") @DefaultValue("20") int perPage) {
         ensureCapability();
-        MemberStatus statusFilter = parseStatus(statusRaw);
-        return Response.ok(ApiResponse.ok(
-                service.page(q, statusFilter, PageRequest.of(page, perPage)))).build();
+        return Response.ok(ApiResponse.ok(service.page(
+                new com.ntech.cabosse.members.repository.MemberSearchCriteria(
+                        q, parseStatus(statusRaw), parseCollector(collectorRaw),
+                        sectionId, village, parseGender(genderRaw)),
+                PageRequest.of(page, perPage)))).build();
+    }
+
+    /**
+     * Les villages portés par des fiches, pour le filtre de la liste.
+     *
+     * <p>Déclarée avant {@code /{id}}, sans quoi « villages » se lirait
+     * comme un identifiant et la route ne répondrait jamais.</p>
+     */
+    @GET
+    @Path("/villages")
+    public Response villages() {
+        ensureCapability();
+        return Response.ok(ApiResponse.ok(service.villages())).build();
+    }
+
+    /** Vrai, faux, ou rien du tout : l'absence ne restreint pas. */
+    private static Boolean parseCollector(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        String v = raw.trim().toLowerCase();
+        if ("true".equals(v)) return Boolean.TRUE;
+        if ("false".equals(v)) return Boolean.FALSE;
+        return null;
+    }
+
+    /** Un genre inconnu ne restreint pas : il ne vide pas la liste non plus. */
+    private static com.ntech.cabosse.members.entity.MemberGender parseGender(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        try {
+            return com.ntech.cabosse.members.entity.MemberGender.valueOf(
+                    raw.trim().toUpperCase());
+        } catch (IllegalArgumentException unknown) {
+            return null;
+        }
     }
 
     /**
