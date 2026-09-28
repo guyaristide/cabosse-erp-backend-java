@@ -1,4 +1,4 @@
-package com.ntech.cabosse.members.dto;
+package com.ntech.cabosse.supplier.dto;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
@@ -16,6 +16,10 @@ import java.util.UUID;
  * dire qu'aucun taux particulier n'a été convenu pour elle, et le taux
  * commun du délégué reprend la main. Un envoi partiel laisserait des
  * campagnes anciennes actives sans que personne ne les voie.</p>
+ *
+ * <p>Rangé du côté du fournisseur, où la qualité de délégué se porte
+ * réellement : un délégué peut n'être pas sociétaire, et la fiche du
+ * producteur n'est qu'une des deux portes vers ces taux.</p>
  */
 @Schema(description = "Rémunération d'un délégué, campagne par campagne")
 public record CollectorMarginsDto(

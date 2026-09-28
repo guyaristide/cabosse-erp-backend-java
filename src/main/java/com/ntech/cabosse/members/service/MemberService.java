@@ -25,7 +25,8 @@ import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.tenant.TenantContext;
-import com.ntech.cabosse.members.dto.CollectorMarginsDto;
+import com.ntech.cabosse.supplier.dto.CollectorMarginsDto;
+import com.ntech.cabosse.supplier.service.CampaignMarginValidator;
 import com.ntech.cabosse.supplier.entity.SupplierEntity;
 import com.ntech.cabosse.supplier.repository.SupplierRepository;
 import com.ntech.cabosse.tenant.entity.TenantPreferences;
@@ -59,6 +60,8 @@ public class MemberService {
 
     @jakarta.inject.Inject
     com.ntech.cabosse.accounting.repository.ChartOfAccountsRepository chartAccounts;
+
+    @Inject CampaignMarginValidator marginValidator;
 
     @Inject MemberRepository members;
     @Inject com.ntech.cabosse.plan.service.PlanLimitService planLimits;
@@ -624,21 +627,10 @@ public class MemberService {
         if (!e.collector) {
             throw new BusinessException(Messages.msg("m.mem-not-a-delegate", e.name));
         }
-        List<SupplierEntity.CampaignMargin> margins = new ArrayList<>();
-        java.util.Set<UUID> seen = new java.util.HashSet<>();
-        for (var entry : payload.margins() == null ? List.<CollectorMarginsDto.Entry>of()
-                : payload.margins()) {
-            // Deux taux pour une même campagne rendraient le résultat
-            // dépendant de l'ordre de la liste.
-            if (!seen.add(entry.campaignId())) {
-                throw new BusinessException(
-                        Messages.msg("m.mem-margin-duplicate-campaign", entry.campaignId()));
-            }
-            campaigns.findById(entry.campaignId()).orElseThrow(() -> new NotFoundException(
-                    Messages.msg("m.cmp-campaign-not-found", entry.campaignId())));
-            margins.add(new SupplierEntity.CampaignMargin(entry.campaignId(), entry.rate()));
-        }
-        e.collectorMarginByCampaign = margins;
+        // Même contrôle que la porte fournisseur : deux chemins qui
+        // valideraient différemment finiraient par accepter d'un côté ce
+        // que l'autre refuse.
+        e.collectorMarginByCampaign = marginValidator.validated(payload);
         e.updatedAt = Instant.now();
         members.replace(e);
         syncMirrorSupplier(e);

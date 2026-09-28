@@ -50,9 +50,21 @@ public class SupplierResource {
 
     @GET
     public Response list(@QueryParam("q") String q,
+                         @QueryParam("collector") String collectorRaw,
                          @QueryParam("page") @DefaultValue("0") int page,
                          @QueryParam("perPage") @DefaultValue("20") int perPage) {
-        return Response.ok(ApiResponse.ok(service.page(q, PageRequest.of(page, perPage)))).build();
+        return Response.ok(ApiResponse.ok(
+                service.page(q, parseCollector(collectorRaw), PageRequest.of(page, perPage))))
+                .build();
+    }
+
+    /** Vrai, faux, ou rien du tout : l'absence ne restreint pas. */
+    private static Boolean parseCollector(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        String v = raw.trim().toLowerCase();
+        if ("true".equals(v)) return Boolean.TRUE;
+        if ("false".equals(v)) return Boolean.FALSE;
+        return null;
     }
 
     /**
@@ -105,6 +117,25 @@ public class SupplierResource {
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN, Roles.USER })
     public Response update(@PathParam("id") UUID id, @Valid SupplierUpsertDto p) {
         return Response.ok(ApiResponse.ok(service.update(id, p))).build();
+    }
+
+    /**
+     * Fixe ce qu'un délégué touche pour une campagne donnée.
+     *
+     * <p>La même chose se règle depuis la fiche d'un producteur, mais un
+     * délégué peut n'être pas sociétaire : il n'a alors pas de fiche
+     * producteur, et cette porte-ci est la seule qui lui soit ouverte.
+     * Elle se garde sur le droit d'écriture du référentiel fournisseurs,
+     * la rémunération d'un prestataire ne relevant pas du sociétariat.</p>
+     */
+    @PUT
+    @RequiresPermission(Permission.REF_SUPPLIER_WRITE)
+    @Path("/{id}/collector-margins")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN, Roles.USER })
+    public Response setCollectorMargins(
+            @PathParam("id") UUID id,
+            @Valid com.ntech.cabosse.supplier.dto.CollectorMarginsDto payload) {
+        return Response.ok(ApiResponse.ok(service.setCollectorMargins(id, payload))).build();
     }
 
     @PATCH

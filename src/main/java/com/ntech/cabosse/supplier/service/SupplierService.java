@@ -9,6 +9,7 @@ import com.ntech.cabosse.shared.exception.ConflictException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.tenant.TenantContext;
+import com.ntech.cabosse.supplier.dto.CollectorMarginsDto;
 import com.ntech.cabosse.supplier.dto.SupplierResponseDto;
 import com.ntech.cabosse.supplier.dto.SupplierDuplicateDto;
 import com.ntech.cabosse.supplier.dto.SupplierUpsertDto;
@@ -34,6 +35,7 @@ public class SupplierService {
     @Inject com.ntech.cabosse.members.repository.MemberRepository members;
 
     @Inject SupplierRepository repo;
+    @Inject CampaignMarginValidator marginValidator;
     @Inject com.ntech.cabosse.locality.repository.LocalityRepository localities;
     @Inject TenantContext tenantContext;
     @Inject AuditService audit;
@@ -51,13 +53,27 @@ public class SupplierService {
     }
 
     public Pagination<SupplierResponseDto> page(String q, PageRequest pr) {
-        long total = repo.countSearch(q);
+        return page(q, null, pr);
+    }
+
+    /**
+     * Le référentiel, restreint aux délégués ou aux autres.
+     *
+     * <p>Aucun écran ne listait les délégués : on les cherchait dans la
+     * liste des membres, qui n'en montre que les sociétaires, ou dans un
+     * état financier. Un prestataire extérieur n'apparaissait nulle part
+     * en tant que tel (relevé le 28/09/2026).</p>
+     */
+    public Pagination<SupplierResponseDto> page(String q, Boolean collector, PageRequest pr) {
+        long total = repo.countSearch(q, collector);
         var refs = categories.byId();
-        List<SupplierResponseDto> items = repo.search(q, pr.skip(), pr.perPage()).stream()
+        List<SupplierResponseDto> items = repo.search(q, collector, pr.skip(), pr.perPage())
+                .stream()
                 .map(e -> SupplierResponseDto.from(e, categoryName(refs, e)))
                 .toList();
         java.util.Map<String, String> filters = new java.util.HashMap<>();
         if (q != null && !q.isBlank()) filters.put("q", q.trim());
+        if (collector != null) filters.put("collector", String.valueOf(collector));
         return Pagination.of(total, pr, new String[]{"name"}, "asc", filters, items);
     }
 
@@ -129,14 +145,48 @@ public class SupplierService {
     private void syncMirroredMember(SupplierEntity e) {
         members.findBySupplierId(e.id).ifPresent(m -> {
             if (m.collector == e.collector
-                    && java.util.Objects.equals(m.collectorMarginRate, e.collectorMarginRate)) {
+                    && java.util.Objects.equals(m.collectorMarginRate, e.collectorMarginRate)
+                    && java.util.Objects.equals(
+                            m.collectorMarginByCampaign, e.collectorMarginByCampaign)) {
                 return;
             }
             m.collector = e.collector;
             m.collectorMarginRate = e.collectorMarginRate;
+            // Les taux négociés suivent aussi : posés ici, ils laissaient
+            // sinon la fiche du producteur en afficher d'anciens, et la
+            // rémunération convenue avait deux réponses.
+            m.collectorMarginByCampaign = e.collectorMarginByCampaign;
             m.updatedAt = Instant.now();
             members.replace(m);
         });
+    }
+
+    /**
+     * Fixe ce qu'un délégué touche, campagne par campagne.
+     *
+     * <p>Cette porte-ci existe parce qu'un délégué peut n'être pas
+     * sociétaire : la seule qui existait passait par la fiche du
+     * producteur, et un prestataire extérieur ne pouvait donc recevoir
+     * aucun taux négocié. Le calcul retombait alors en silence sur le
+     * taux commun, ce que rien n'indiquait (relevé le 28/09/2026).</p>
+     *
+     * <p>La qualité de délégué est jugée ici sur le fournisseur, où elle
+     * se porte réellement, et non sur la copie que garde la fiche du
+     * producteur, qui peut en diverger.</p>
+     */
+    public SupplierResponseDto setCollectorMargins(UUID id, CollectorMarginsDto payload) {
+        SupplierEntity e = repo.findById(id).orElseThrow(() -> new NotFoundException(
+                Messages.msg("m.sup-not-found", id)));
+        if (!e.collector) {
+            throw new com.ntech.cabosse.shared.exception.BusinessException(
+                    Messages.msg("m.sup-not-a-delegate", e.name));
+        }
+        e.collectorMarginByCampaign = marginValidator.validated(payload);
+        e.updatedAt = Instant.now();
+        repo.replace(e);
+        auditEvt(e, "Rémunération par campagne");
+        syncMirroredMember(e);
+        return SupplierResponseDto.from(e);
     }
 
     public SupplierResponseDto setActive(UUID id, boolean active) {

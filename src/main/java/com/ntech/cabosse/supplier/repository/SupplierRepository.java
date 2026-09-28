@@ -29,24 +29,44 @@ public class SupplierRepository {
     }
 
     public long countSearch(String q) {
-        return coll().countDocuments(searchFilter(q));
+        return countSearch(q, null);
+    }
+
+    public long countSearch(String q, Boolean collector) {
+        return coll().countDocuments(searchFilter(q, collector));
     }
 
     public List<SupplierEntity> search(String q, int skip, int limit) {
-        return coll().find(searchFilter(q))
+        return search(q, null, skip, limit);
+    }
+
+    public List<SupplierEntity> search(String q, Boolean collector, int skip, int limit) {
+        return coll().find(searchFilter(q, collector))
                 .sort(new org.bson.Document("name", 1))
                 .skip(skip)
                 .limit(limit)
                 .into(new ArrayList<>());
     }
 
-    private static org.bson.conversions.Bson searchFilter(String q) {
-        if (q == null || q.isBlank()) return new org.bson.Document();
-        String escaped = java.util.regex.Pattern.quote(q.trim());
-        return Filters.or(
-                Filters.regex("name", escaped, "i"),
-                Filters.regex("code", escaped, "i")
-        );
+    private static org.bson.conversions.Bson searchFilter(String q, Boolean collector) {
+        List<org.bson.conversions.Bson> filters = new ArrayList<>();
+        if (q != null && !q.isBlank()) {
+            String escaped = java.util.regex.Pattern.quote(q.trim());
+            filters.add(Filters.or(
+                    Filters.regex("name", escaped, "i"),
+                    Filters.regex("code", escaped, "i")));
+        }
+        // Les fiches anciennes n'ont pas le champ : les compter du côté
+        // « pas délégué », sans quoi les deux vues additionnées ne
+        // feraient plus le référentiel.
+        if (Boolean.TRUE.equals(collector)) {
+            filters.add(Filters.eq("collector", true));
+        } else if (Boolean.FALSE.equals(collector)) {
+            filters.add(Filters.or(
+                    Filters.eq("collector", false),
+                    Filters.exists("collector", false)));
+        }
+        return filters.isEmpty() ? new org.bson.Document() : Filters.and(filters);
     }
 
     public Optional<SupplierEntity> findById(UUID id) {

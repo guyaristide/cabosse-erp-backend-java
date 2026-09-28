@@ -220,7 +220,7 @@ public class MemberResource {
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
     public Response setCollectorMargins(
             @PathParam("id") UUID id,
-            @Valid com.ntech.cabosse.members.dto.CollectorMarginsDto payload) {
+            @Valid com.ntech.cabosse.supplier.dto.CollectorMarginsDto payload) {
         ensureCapability();
         return Response.ok(ApiResponse.ok(service.setCollectorMargins(id, payload))).build();
     }
