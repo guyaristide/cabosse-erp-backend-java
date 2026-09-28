@@ -34,23 +34,24 @@ quarkus:
       # cookie, et les requêtes n'emportent pas d'identifiants : une page
       # servie depuis un poste local ne peut pas rejouer la session de
       # quelqu'un d'autre. C'est ce qui rend cette exception tenable.
-      # L'adresse du site est écrite ici, et non tirée d'une variable.
+      # L'adresse du site vient du déploiement : elle change d'une
+      # installation à l'autre, la figer ici ferait payer chaque nouveau
+      # domaine. Les postes locaux, eux, sont une constante de
+      # l'outillage et restent écrits ici.
+      #
       # CORS_ORIGINS était définie vide au déploiement : tant que la
       # liste ne contenait qu'elle, elle était vide, et une liste vide ne
       # restreint rien — c'est ce qui laissait passer n'importe quelle
       # origine. Y ajouter les postes locaux a rendu la liste non vide,
       # donc appliquée, et l'adresse du site n'y figurait pas : toute
-      # l'application a répondu 403 le 28/09/2026. Une variable vide
-      # écrase aussi bien un défaut, elle ne pouvait pas servir de filet.
-      #
-      # Pour ajouter une origine sans toucher au dépôt, poser
-      # QUARKUS_HTTP_CORS_ORIGINS au déploiement : elle remplace cette
-      # ligne entière, et ne peut pas la vider par accident.
+      # l'application a répondu 403 le 28/09/2026. Les deux états sont
+      # mauvais et aucun ne se voyait, d'où CorsOriginsCheck, qui arrête
+      # le démarrage quand la liste ne désigne aucun site.
       #
       # Les antislashs sont doublés : dans une liste de configuration,
       # l'antislash échappe le caractère suivant, et « \d » arriverait au
       # moteur d'expressions sous la forme « d ».
-      origins: https://cabosse.poc-demo.com,/https?://localhost(:\\d+)?/,/https?://127\\.0\\.0\\.1(:\\d+)?/
+      origins: ${CORS_ORIGINS:},/https?://localhost(:\\d+)?/,/https?://127\\.0\\.0\\.1(:\\d+)?/
       access-control-allow-credentials: false  # liste blanche stricte fournie en deploy
       methods: "GET,POST,PUT,DELETE,PATCH,OPTIONS"
       # Idempotency-Key voyage sur les flux d'argent (reçu d'achat,
