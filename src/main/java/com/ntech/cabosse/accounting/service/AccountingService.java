@@ -654,7 +654,7 @@ public class AccountingService {
             UUID purchaseId, String ref, UUID articleId, ArticleType articleType,
             String articleName, BigDecimal amount, LocalDate date,
             PurchaseLeg payable, PurchaseLeg marginCharge,
-            List<SettlementLine> settlements) {
+            List<SettlementLine> settlements, String beneficiary) {
         if (amount == null || amount.signum() <= 0) return Optional.empty();
         LocalDate pieceDate = date != null ? date : LocalDate.now();
 
@@ -686,10 +686,18 @@ public class AccountingService {
             entries.add(JournalEntry.credit(
                     payable.account(), marginCharge.label(), marginCharge.amount()));
         }
+        // Le titre nomme la livraison et celui à qui elle est due. Il
+        // disait « Achat producteur » suivi de la seule référence : sur
+        // une liste, plus rien ne distinguait deux lignes voisines, et il
+        // fallait déplier la pièce pour savoir de qui elle parlait
+        // (demandé le 29/09/2026).
+        String title = beneficiary == null || beneficiary.isBlank()
+                ? "Livraison " + ref
+                : "Livraison " + ref + " " + beneficiary.trim();
         return postPiece(new PostingRequest(
                 pieceDate,
                 PostingSourceType.PRODUCER_PURCHASE, purchaseId, ref,
-                "Achat producteur " + ref, entries));
+                title, entries));
     }
 
     /**

@@ -501,7 +501,8 @@ public class ProducerPurchaseService {
                     prefs.delegateMarginAccount(), "Rémunération délégué " + delegate.name, margin);
         }
         accounting.postFromProducerPurchase(e.id, e.ref, article.id, parseType(article.type),
-                        article.name, amount, e.date, payable, marginCharge, settlements)
+                        article.name, amount, e.date, payable, marginCharge, settlements,
+                        beneficiary)
                 .ifPresent(piece -> e.pieceRef = piece.ref);
     }
 
