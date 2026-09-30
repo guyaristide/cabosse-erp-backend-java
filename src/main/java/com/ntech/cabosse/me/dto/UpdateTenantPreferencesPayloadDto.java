@@ -146,6 +146,14 @@ public record UpdateTenantPreferencesPayloadDto(
         @Schema(description = "Autorise un reçu partiellement payé au producteur.")
         Boolean producerPartialPaymentEnabled,
 
+        @Schema(description = "La collecte se comptabilise en mandat, sans charge d'achat.")
+        Boolean collectionOnBehalf,
+
+        @jakarta.validation.constraints.Pattern(regexp = "^$|^[0-9]{2,8}$",
+                message = "{v.numero-de-compte-invalide}")
+        @Schema(description = "Compte d'avances de collecte, contrepartie du reçu en mandat.")
+        String collectionAdvanceAccount,
+
         @jakarta.validation.constraints.Pattern(regexp = "^$|^[0-9]{2,8}$",
                 message = "{v.compte-de-dette-producteur-2-a-8-chiffres}")
         @Schema(description = "Compte de dette envers les producteurs (reliquats).")

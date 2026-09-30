@@ -631,6 +631,45 @@ public class TenantPreferences {
                 ? "658800" : cashDiscrepancyAccount;
     }
 
+    /**
+     * La collecte se comptabilise en mandat, sans charge ni produit.
+     *
+     * <p>Une coopérative n'achète pas à ses membres, elle collecte pour
+     * leur compte : elle avance l'argent, expédie la matière, et déduit
+     * sa commission du règlement qu'elle reçoit. Passer la collecte en
+     * charge d'achat ferait apparaître au compte de résultat un achat
+     * qui n'en est pas un, avec les conséquences fiscales qui suivent
+     * (arbitré par l'expert-comptable le 29/09/2026).</p>
+     *
+     * <p>Actif, la contrepartie du reçu quitte la classe 6 pour le
+     * compte d'avances de collecte. Rien d'autre ne change : la dette
+     * envers le producteur, son règlement, le stock et le coût moyen
+     * suivent le même chemin qu'avant.</p>
+     *
+     * <p>Défaut faux : une structure qui achète réellement pour la
+     * revendre tient une charge d'achat, et c'est le cas général.</p>
+     */
+    public Boolean collectionOnBehalf;
+
+    public boolean collectionOnBehalf() {
+        return collectionOnBehalf != null && collectionOnBehalf;
+    }
+
+    /**
+     * Compte d'avances de collecte, contrepartie du reçu en mandat.
+     *
+     * <p>Défaut « 471100 », débiteurs divers. Il porte ce que la
+     * structure a avancé pour le compte du donneur d'ordre, et s'éteint
+     * au règlement que celui-ci verse. Paramétrable : chaque structure
+     * ouvre ses comptes dans son propre plan.</p>
+     */
+    public String collectionAdvanceAccount;
+
+    public String collectionAdvanceAccount() {
+        return collectionAdvanceAccount == null || collectionAdvanceAccount.isBlank()
+                ? "471100" : collectionAdvanceAccount;
+    }
+
     /** Compte de dette envers les producteurs (reliquats). Défaut « 401100 ». */
     public String producerPayableAccount;
 

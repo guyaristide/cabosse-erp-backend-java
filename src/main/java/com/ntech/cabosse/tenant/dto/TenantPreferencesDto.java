@@ -123,6 +123,8 @@ public record TenantPreferencesDto(
 
         @Schema(description = "Compte de dette envers les producteurs (reliquats de paiement).",
                 example = "401100", defaultValue = "401100")
+        Boolean collectionOnBehalf,
+        String collectionAdvanceAccount,
         String producerPayableAccount,
         String delegatePayableAccount,
 

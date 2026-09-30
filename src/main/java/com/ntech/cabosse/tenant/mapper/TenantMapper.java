@@ -167,6 +167,8 @@ public final class TenantMapper {
                 entity.preferences.delegateMarginRate(),
                 entity.preferences.delegateMarginAccount(),
                 entity.preferences.producerPartialPaymentEnabled(),
+                entity.preferences.collectionOnBehalf(),
+                entity.preferences.collectionAdvanceAccount(),
                 entity.preferences.producerPayableAccount(),
                 entity.preferences.delegatePayableAccount(),
                 entity.preferences.producerReferenceCodeType,

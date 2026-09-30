@@ -71,6 +71,8 @@ public class TenantPreferencesService {
                 p.delegateMarginRate(),
                 p.delegateMarginAccount(),
                 p.producerPartialPaymentEnabled(),
+                p.collectionOnBehalf(),
+                p.collectionAdvanceAccount(),
                 p.producerPayableAccount(),
                 p.delegatePayableAccount(),
                 p.producerReferenceCodeType,
@@ -343,6 +345,22 @@ public class TenantPreferencesService {
             t.preferences.producerPartialPaymentEnabled = payload.producerPartialPaymentEnabled();
         }
 
+        if (payload.collectionOnBehalf() != null
+                && payload.collectionOnBehalf() != t.preferences.collectionOnBehalf()) {
+            diffs.put("collectionOnBehalf", Map.of(
+                    "from", t.preferences.collectionOnBehalf(),
+                    "to", payload.collectionOnBehalf()));
+            t.preferences.collectionOnBehalf = payload.collectionOnBehalf();
+        }
+        if (payload.collectionAdvanceAccount() != null
+                && !payload.collectionAdvanceAccount().isBlank()
+                && !payload.collectionAdvanceAccount()
+                        .equals(t.preferences.collectionAdvanceAccount())) {
+            diffs.put("collectionAdvanceAccount", Map.of(
+                    "from", t.preferences.collectionAdvanceAccount(),
+                    "to", payload.collectionAdvanceAccount()));
+            t.preferences.collectionAdvanceAccount = payload.collectionAdvanceAccount().trim();
+        }
         if (payload.producerPayableAccount() != null && !payload.producerPayableAccount().isBlank()
                 && !payload.producerPayableAccount().equals(t.preferences.producerPayableAccount())) {
             diffs.put("producerPayableAccount", Map.of(

@@ -672,12 +672,26 @@ public class AccountingService {
                     "Solde livraison " + ref, settlementEntries));
         }
 
-        String chargeAccount = chargeAccountFor(articleId, articleType, new java.util.HashMap<>());
-        JournalEntry charge = imputeCharge(
-                JournalEntry.debit(chargeAccount, "Achat producteur " + nullSafe(articleName), amount),
-                articleId, new java.util.HashMap<>(), costCenters.byCode());
+        // En mandat, la collecte n'est pas une charge : la structure avance
+        // l'argent pour le compte du donneur d'ordre et se fait rembourser.
+        // La contrepartie quitte donc la classe 6 pour un compte de tiers,
+        // et le mot « achat » quitte le libellé avec elle (arbitré par
+        // l'expert-comptable le 29/09/2026).
+        var prefs = preferencesLookup.current();
+        boolean onBehalf = prefs.collectionOnBehalf();
         List<JournalEntry> entries = new ArrayList<>();
-        entries.add(charge);
+        if (onBehalf) {
+            entries.add(JournalEntry.debit(
+                    prefs.collectionAdvanceAccount(),
+                    "Collecte " + nullSafe(articleName), amount));
+        } else {
+            String chargeAccount = chargeAccountFor(
+                    articleId, articleType, new java.util.HashMap<>());
+            entries.add(imputeCharge(
+                    JournalEntry.debit(
+                            chargeAccount, "Achat producteur " + nullSafe(articleName), amount),
+                    articleId, new java.util.HashMap<>(), costCenters.byCode()));
+        }
         entries.add(JournalEntry.credit(payable.account(), payable.label(), amount));
         if (marginCharge != null && marginCharge.amount() != null
                 && marginCharge.amount().signum() > 0) {
