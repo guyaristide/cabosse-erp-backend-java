@@ -75,6 +75,8 @@ public class ImportJournal {
         private final long startedAt = System.currentTimeMillis();
         private final List<ImportRejection> rejections = new ArrayList<>();
         private final Map<String, ImportDecision> decisions = new LinkedHashMap<>();
+        private final List<com.ntech.cabosse.importjournal.entity.ImportCreation> creations =
+                new ArrayList<>();
 
         private UUID siteId;
         private String fileName;
@@ -119,6 +121,22 @@ public class ImportJournal {
         }
 
         /**
+         * Une chose créée, retenue pour pouvoir la défaire.
+         *
+         * <p>Sans borne, contrairement aux refus : un import de quatre
+         * mille producteurs doit pouvoir s'annuler en entier, et un
+         * échantillon ne défait rien. C'est le seul endroit du journal
+         * où la liste complète est nécessaire.</p>
+         */
+        public Trace createdEntity(String kind, UUID id, String label, int rowNumber) {
+            if (id != null) {
+                creations.add(new com.ntech.cabosse.importjournal.entity.ImportCreation(
+                        kind, id, label, rowNumber));
+            }
+            return this;
+        }
+
+        /**
          * Une décision prise à la place de l'opérateur.
          *
          * @param kind    {@code DEFAULT_APPLIED}, {@code FUZZY_MATCH},
@@ -158,6 +176,7 @@ public class ImportJournal {
                 e.rowsCreated = created;
                 e.rowsSkipped = skipped;
                 e.rowsRejected = rejected;
+                e.creations = List.copyOf(creations);
                 e.durationMs = System.currentTimeMillis() - startedAt;
                 e.rejections = List.copyOf(rejections);
                 e.decisions = List.copyOf(decisions.values());

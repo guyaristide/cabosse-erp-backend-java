@@ -91,6 +91,7 @@ public class MemberImportService {
     );
 
     @Inject MemberRepository members;
+    @Inject com.ntech.cabosse.importjournal.service.ImportJournal journal;
     @Inject com.ntech.cabosse.plan.service.PlanLimitService planLimits;
     @Inject MemberService memberService;
     @Inject SectionRepository sections;
@@ -371,6 +372,12 @@ public class MemberImportService {
         if (creations > 0) {
             planLimits.enforceMemberCapacity(creations);
         }
+        // Le journal : un import de quatre mille lignes qui en crée
+        // trente-quatre de moins ne s'explique plus une fois la page
+        // fermée. La trace vit dans la base et se relit après coup
+        // (relevé le 30/09/2026).
+        var trace = journal.open("members", "COMMIT").received(preview.totalRows());
+
         List<UUID> created = new ArrayList<>();
         List<UUID> updated = new ArrayList<>();
         List<Row> skipped = new ArrayList<>();
@@ -432,6 +439,11 @@ public class MemberImportService {
                     MemberResponseDto dto = memberService.createImported(toUpsert(n, sectionId, localityId));
                     created.add(dto.id());
                     memberId = dto.id();
+                    trace.createdEntity("member", dto.id(), dto.name(), row.rowNumber());
+                    if (dto.supplierId() != null) {
+                        trace.createdEntity("supplier", dto.supplierId(), dto.name(),
+                                row.rowNumber());
+                    }
                 }
                 String key = dedupKey(n);
                 if (key != null) memberByKey.putIfAbsent(key, memberId);
@@ -445,8 +457,13 @@ public class MemberImportService {
                 issues.add(new FieldIssue("server", e.getMessage()));
                 skipped.add(new Row(row.rowNumber(), Status.INVALID, row.normalized(),
                         row.matchedMemberId(), row.matchedOn(), row.localityMatch(), issues));
+                // Le motif tombait avec la page : il se relit désormais.
+                trace.rejected(row.rowNumber(), e.getMessage(),
+                        row.normalized() == null ? null : row.normalized().name());
             }
         }
+
+        trace.counts(created.size(), updated.size()).close();
 
         return new MemberImportCommitResponseDto(
                 preview.totalRows(), created.size(), updated.size(), skipped.size(),

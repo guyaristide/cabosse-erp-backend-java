@@ -90,5 +90,22 @@ public class ImportRunEntity {
      */
     public List<ImportDecision> decisions;
 
+    /**
+     * Ce que l'import a créé, pour pouvoir le défaire.
+     *
+     * <p>Les compteurs disent combien ; ceci dit lesquels. Sans cette
+     * liste, annuler un import n'a rien à quoi s'appliquer : on saurait
+     * qu'il a créé quatre mille producteurs sans savoir lesquels, et il
+     * faudrait deviner à la date, ce qui emporterait tout ce qui a été
+     * saisi à la main le même jour (demandé le 30/09/2026).</p>
+     *
+     * <p>Une entrée par nature créée : {@code member}, {@code supplier},
+     * {@code parcel}. Les référentiels ouverts au passage n'y figurent
+     * pas : une section ou un village peut avoir accueilli d'autres
+     * fiches depuis, et les défaire emporterait des données étrangères à
+     * l'import.</p>
+     */
+    public List<ImportCreation> creations;
+
     public Instant createdAt;
 }

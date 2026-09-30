@@ -131,4 +131,18 @@ public class SupplierRepository {
                 coll().find(com.mongodb.client.model.Filters.eq("advanceAccount", account.trim()))
                         .first());
     }
+
+    /**
+     * Supprime définitivement une fiche.
+     *
+     * <p>Le produit radie, il ne supprime pas : une fiche porte des faits
+     * qui lui survivent. La seule exception est l'annulation d'un import,
+     * qui défait des fiches créées par erreur et qui n'ont rien produit —
+     * le service qui l'appelle vérifie d'abord qu'aucune livraison,
+     * aucun crédit ni aucune écriture ne s'y rattache. Ne pas employer
+     * ailleurs : radier est ce qu'il faut partout ailleurs.</p>
+     */
+    public void deleteById(UUID id) {
+        coll().deleteOne(com.mongodb.client.model.Filters.eq("_id", id));
+    }
 }
