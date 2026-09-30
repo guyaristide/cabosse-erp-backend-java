@@ -293,6 +293,7 @@ class SaleImportServiceTest {
                 CUSTOMER_ID, "nouveau-client", "Nouveau Client Hotellerie",
                 "INDIVIDUAL", "HOTELLERIE",
                 null, null, null, null, null, null, null, null, null, null,
+                java.util.List.of(),
                 true, Instant.now(), Instant.now()
         );
         when(customerService.create(any(CustomerUpsertDto.class))).thenReturn(created);

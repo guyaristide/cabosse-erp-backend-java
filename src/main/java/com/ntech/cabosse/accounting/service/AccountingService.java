@@ -748,7 +748,8 @@ public class AccountingService {
      */
     public Optional<JournalPieceEntity> postFromCommoditySale(
             UUID saleId, String ref, String customerName, String revenueAccount,
-            BigDecimal htAmount, BigDecimal vatAmount, LocalDate date) {
+            BigDecimal htAmount, BigDecimal vatAmount, LocalDate date,
+            BigDecimal commission) {
         BigDecimal ht = nz(htAmount);
         BigDecimal vat = nz(vatAmount);
         if (ht.signum() <= 0) return Optional.empty();
@@ -757,7 +758,25 @@ public class AccountingService {
                 ? SyscohadaAccounts.VENTES_PRODUITS_FINIS : revenueAccount;
         List<JournalEntry> entries = new ArrayList<>();
         entries.add(JournalEntry.debit(SyscohadaAccounts.CLIENTS, "Créance " + nullSafe(customerName), ttc));
-        entries.add(JournalEntry.credit(revenue, "Vente en gros " + ref, ht));
+        var salePrefs = preferencesLookup.current();
+        if (salePrefs.collectionOnBehalf()) {
+            // En mandat, le décompte du client n'est pas une vente : il
+            // rembourse ce que la structure a avancé et lui laisse sa
+            // commission, seul produit et seul montant imposable. Le
+            // reste appartient aux producteurs, il n'a jamais été à elle.
+            BigDecimal fee = nz(commission).min(ht).max(BigDecimal.ZERO);
+            BigDecimal reimbursed = ht.subtract(fee);
+            if (reimbursed.signum() > 0) {
+                entries.add(JournalEntry.credit(salePrefs.collectionAdvanceAccount(),
+                        "Remboursement avances de collecte " + ref, reimbursed));
+            }
+            if (fee.signum() > 0) {
+                entries.add(JournalEntry.credit(salePrefs.collectionCommissionAccount(),
+                        "Commission de collecte " + ref, fee));
+            }
+        } else {
+            entries.add(JournalEntry.credit(revenue, "Vente en gros " + ref, ht));
+        }
         if (vat.signum() > 0) {
             entries.add(JournalEntry.credit(preferencesLookup.current().vatCollectedAccount(), "TVA collectée " + ref, vat));
         }

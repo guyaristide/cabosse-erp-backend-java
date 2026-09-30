@@ -86,6 +86,27 @@ public class CommoditySaleService {
     }
 
     /** État de suivi des pertes / qualité pour une campagne (backlog NEG-02). */
+    /**
+     * La commission de collecte due sur ce décompte.
+     *
+     * <p>Un montant par kilo facturé, convenu avec le client et pour une
+     * campagne donnée. Hors mandat, ou sans taux convenu pour la
+     * campagne, il n'y a pas de commission : la structure vend pour son
+     * compte et son produit est le prix de vente.</p>
+     */
+    private BigDecimal commissionFor(CommoditySaleEntity e, BigDecimal acceptedKg) {
+        if (e.customerId == null || e.campaignId == null || acceptedKg == null) {
+            return BigDecimal.ZERO;
+        }
+        var customer = customers.findById(e.customerId).orElse(null);
+        if (customer == null || customer.commissionByCampaign == null) return BigDecimal.ZERO;
+        return customer.commissionByCampaign.stream()
+                .filter(m -> m != null && e.campaignId.equals(m.campaignId) && m.rate != null)
+                .findFirst()
+                .map(m -> m.rate.multiply(acceptedKg))
+                .orElse(BigDecimal.ZERO);
+    }
+
     public com.ntech.cabosse.commodity.dto.CommodityLossReportDto lossReport(UUID campaignId) {
         CampaignEntity campaign = campaignResolver.resolveOptional(campaignId);
         List<CommoditySaleEntity> sales = repo.listAll(campaign != null ? campaign.id : null);
@@ -373,7 +394,7 @@ public class CommoditySaleService {
         //    défait ce que l'étape 1 a fait.
         try {
             accounting.postFromCommoditySale(e.id, e.ref, e.customerName, article.salesRevenueAccount,
-                            ht, vat, p.date())
+                            ht, vat, p.date(), commissionFor(e, acceptedKg))
                     .ifPresent(piece -> e.pieceRef = piece.ref);
         } catch (RuntimeException ex) {
             if (dispatchNote != null) {

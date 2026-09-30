@@ -74,6 +74,23 @@ public class CustomerResource {
                 .entity(ApiResponse.created(service.create(p))).build();
     }
 
+    /**
+     * Fixe la commission de collecte convenue avec ce client.
+     *
+     * <p>Un montant par kilo facturé, négocié campagne par campagne.
+     * Même geste que la rémunération d'un délégué, sur l'autre bout de
+     * la chaîne : ici la structure encaisse, là elle verse.</p>
+     */
+    @PUT
+    @RequiresPermission(Permission.REF_CUSTOMER_WRITE)
+    @Path("/{id}/collection-commissions")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN, Roles.USER })
+    public Response setCollectionCommissions(
+            @PathParam("id") UUID id,
+            @Valid com.ntech.cabosse.supplier.dto.CollectorMarginsDto payload) {
+        return Response.ok(ApiResponse.ok(service.setCollectionCommissions(id, payload))).build();
+    }
+
     @PUT
     @RequiresPermission(Permission.REF_CUSTOMER_WRITE)
     @Path("/{id}")

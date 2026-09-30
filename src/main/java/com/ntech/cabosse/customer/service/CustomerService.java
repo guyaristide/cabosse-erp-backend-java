@@ -29,6 +29,7 @@ import java.util.UUID;
 public class CustomerService {
 
     @Inject CustomerRepository repo;
+    @Inject com.ntech.cabosse.supplier.service.CampaignMarginValidator marginValidator;
     @Inject TenantContext tenantContext;
     @Inject AuditService audit;
     @Inject JsonWebToken jwt;
@@ -84,6 +85,28 @@ public class CustomerService {
         e.updatedAt = Instant.now();
         repo.replace(e);
         auditEvt(e, "Modification");
+        return CustomerResponseDto.from(e);
+    }
+
+    /**
+     * Fixe la commission de collecte convenue avec ce client.
+     *
+     * <p>La liste remplace celle en place : retirer une campagne revient
+     * à dire qu'aucune commission n'a été convenue pour elle, et rien
+     * n'est alors facturé sur ses décomptes.</p>
+     *
+     * <p>Le taux ne vaut que pour les décomptes enregistrés ensuite.
+     * Ceux déjà saisis portent la commission figée à leur enregistrement
+     * : les relire au taux du jour réécrirait des comptes arrêtés.</p>
+     */
+    public CustomerResponseDto setCollectionCommissions(
+            UUID id, com.ntech.cabosse.supplier.dto.CollectorMarginsDto payload) {
+        CustomerEntity e = repo.findById(id).orElseThrow(
+                () -> new NotFoundException(Messages.msg("m.cst-customer-not-found", id)));
+        e.commissionByCampaign = marginValidator.validated(payload);
+        e.updatedAt = Instant.now();
+        repo.replace(e);
+        auditEvt(e, "Commission de collecte");
         return CustomerResponseDto.from(e);
     }
 

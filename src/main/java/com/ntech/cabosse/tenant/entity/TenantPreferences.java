@@ -670,6 +670,20 @@ public class TenantPreferences {
                 ? "471100" : collectionAdvanceAccount;
     }
 
+    /**
+     * Compte de la commission de collecte. Défaut « 706100 ».
+     *
+     * <p>Services vendus : en mandat, c'est le seul produit de la
+     * structure sur la collecte, et le seul montant imposable. Le reste
+     * du décompte éteint les avances.</p>
+     */
+    public String collectionCommissionAccount;
+
+    public String collectionCommissionAccount() {
+        return collectionCommissionAccount == null || collectionCommissionAccount.isBlank()
+                ? "706100" : collectionCommissionAccount;
+    }
+
     /** Compte de dette envers les producteurs (reliquats). Défaut « 401100 ». */
     public String producerPayableAccount;
 

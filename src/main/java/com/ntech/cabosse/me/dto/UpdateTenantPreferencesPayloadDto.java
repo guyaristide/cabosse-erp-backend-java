@@ -155,6 +155,11 @@ public record UpdateTenantPreferencesPayloadDto(
         String collectionAdvanceAccount,
 
         @jakarta.validation.constraints.Pattern(regexp = "^$|^[0-9]{2,8}$",
+                message = "{v.numero-de-compte-invalide}")
+        @Schema(description = "Compte de la commission de collecte.")
+        String collectionCommissionAccount,
+
+        @jakarta.validation.constraints.Pattern(regexp = "^$|^[0-9]{2,8}$",
                 message = "{v.compte-de-dette-producteur-2-a-8-chiffres}")
         @Schema(description = "Compte de dette envers les producteurs (reliquats).")
         String producerPayableAccount,

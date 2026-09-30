@@ -169,6 +169,7 @@ public final class TenantMapper {
                 entity.preferences.producerPartialPaymentEnabled(),
                 entity.preferences.collectionOnBehalf(),
                 entity.preferences.collectionAdvanceAccount(),
+                entity.preferences.collectionCommissionAccount(),
                 entity.preferences.producerPayableAccount(),
                 entity.preferences.delegatePayableAccount(),
                 entity.preferences.producerReferenceCodeType,

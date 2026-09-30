@@ -125,6 +125,7 @@ public record TenantPreferencesDto(
                 example = "401100", defaultValue = "401100")
         Boolean collectionOnBehalf,
         String collectionAdvanceAccount,
+        String collectionCommissionAccount,
         String producerPayableAccount,
         String delegatePayableAccount,
 

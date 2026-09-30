@@ -73,6 +73,7 @@ public class TenantPreferencesService {
                 p.producerPartialPaymentEnabled(),
                 p.collectionOnBehalf(),
                 p.collectionAdvanceAccount(),
+                p.collectionCommissionAccount(),
                 p.producerPayableAccount(),
                 p.delegatePayableAccount(),
                 p.producerReferenceCodeType,
@@ -360,6 +361,16 @@ public class TenantPreferencesService {
                     "from", t.preferences.collectionAdvanceAccount(),
                     "to", payload.collectionAdvanceAccount()));
             t.preferences.collectionAdvanceAccount = payload.collectionAdvanceAccount().trim();
+        }
+        if (payload.collectionCommissionAccount() != null
+                && !payload.collectionCommissionAccount().isBlank()
+                && !payload.collectionCommissionAccount()
+                        .equals(t.preferences.collectionCommissionAccount())) {
+            diffs.put("collectionCommissionAccount", Map.of(
+                    "from", t.preferences.collectionCommissionAccount(),
+                    "to", payload.collectionCommissionAccount()));
+            t.preferences.collectionCommissionAccount =
+                    payload.collectionCommissionAccount().trim();
         }
         if (payload.producerPayableAccount() != null && !payload.producerPayableAccount().isBlank()
                 && !payload.producerPayableAccount().equals(t.preferences.producerPayableAccount())) {

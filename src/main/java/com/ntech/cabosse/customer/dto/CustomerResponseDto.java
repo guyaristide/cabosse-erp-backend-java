@@ -15,6 +15,9 @@ public record CustomerResponseDto(
         String email, String phone,
         String addressLine, String cityName, String countryCode,
         String contactName, BigDecimal creditLimit, String notes,
+        /** Commission de collecte convenue, campagne par campagne. */
+        java.util.List<com.ntech.cabosse.supplier.entity.SupplierEntity.CampaignMargin>
+                commissionByCampaign,
         boolean active, Instant createdAt, Instant updatedAt
 ) {
     public static CustomerResponseDto from(CustomerEntity e) {
@@ -23,6 +26,7 @@ public record CustomerResponseDto(
                 e.legalName, e.taxNumber,
                 e.email, e.phone, e.addressLine, e.cityName, e.countryCode,
                 e.contactName, e.creditLimit, e.notes,
+                e.commissionByCampaign == null ? java.util.List.of() : e.commissionByCampaign,
                 e.active, e.createdAt, e.updatedAt
         );
     }
