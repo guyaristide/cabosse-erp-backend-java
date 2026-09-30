@@ -20,7 +20,8 @@ public record SupplierImportPreviewDto(
     public record Normalized(
             String code, String name, String legalName, String taxNumber,
             String email, String phone, String addressLine, String cityName, String countryCode,
-            String contactName, String paymentTerms, String notes
+            String contactName, String paymentTerms, String notes,
+            String subsidiaryAccount, String collectiveAccount
     ) {}
 
     public record FieldIssue(String field, String message) {}

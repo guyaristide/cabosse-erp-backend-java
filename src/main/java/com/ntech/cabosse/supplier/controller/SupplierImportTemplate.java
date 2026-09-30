@@ -13,7 +13,8 @@ final class SupplierImportTemplate {
     record TemplateRow(
             String code, String name, String legalName, String taxNumber,
             String email, String phone, String addressLine, String cityName, String countryCode,
-            String contactName, String paymentTerms, String notes
+            String contactName, String paymentTerms, String notes,
+            String subsidiaryAccount, String collectiveAccount
     ) {}
 
     static ExportDataset<TemplateRow> dataset() {
@@ -29,20 +30,26 @@ final class SupplierImportTemplate {
                 ExportColumn.of(Messages.msg("m.imp-h-country"),                     TemplateRow::countryCode),
                 ExportColumn.of(Messages.msg("m.imp-h-contact"),                     TemplateRow::contactName),
                 ExportColumn.of(Messages.msg("m.imp-h-supplier-payment-terms"),      TemplateRow::paymentTerms),
-                ExportColumn.of(Messages.msg("m.imp-h-notes"),                       TemplateRow::notes)
+                ExportColumn.of(Messages.msg("m.imp-h-notes"),                       TemplateRow::notes),
+                // Facultatifs : sans eux les écritures passent sur le
+                // compte collectif de la structure, comme avant.
+                ExportColumn.of(Messages.msg("m.imp-h-subsidiary-account"),          TemplateRow::subsidiaryAccount),
+                ExportColumn.of(Messages.msg("m.imp-h-collective-account"),          TemplateRow::collectiveAccount)
         );
         List<TemplateRow> samples = List.of(
                 new TemplateRow(
                         "scoops-cacao", "SCOOPS Cacao", "Société Coopérative Cacao",
                         "CI-RCCM-2018-B-12345", "contact@scoops-cacao.ci", "+225 27 34 78 92",
                         "Rue 12, Méagui", "Méagui", "CI",
-                        "M. Konan", "30j fin de mois", ""
+                        "M. Konan", "30j fin de mois", "",
+                        "401001", "401000"
                 ),
                 new TemplateRow(
                         "", "Emballages Pro CI", "",
                         "", "ventes@emballagespro.ci", "",
                         "Zone industrielle Yopougon", "Abidjan", "CI",
-                        "", "Comptant", ""
+                        "", "Comptant", "",
+                        "", ""
                 )
         );
         return new ExportDataset<>(Messages.msg("m.exp-t-modele-d-import-fournisseurs"), cols, samples);

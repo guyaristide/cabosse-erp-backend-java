@@ -103,6 +103,28 @@ class SubsidiaryLedgerTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void l_import_pose_les_comptes_du_tiers() {
+        UserEntity a = admin();
+
+        // Les colonnes sont au modèle, donc elles doivent arriver jusqu'à
+        // la fiche : un champ qu'on propose de remplir et qui se perd en
+        // route est pire que pas de champ du tout.
+        givenAs(a).contentType("application/json")
+                .body("""
+                        [ { "rowNumber": 1, "name": "Zamacom", "type": "Entreprise",
+                            "subsidiaryAccount": " 411001 ", "collectiveAccount": "411000" } ]
+                        """)
+                .when().post("/api/v1/customers/import/commit").then().statusCode(200);
+
+        givenAs(a).queryParam("q", "Zamacom").when().get("/api/v1/customers")
+                .then().statusCode(200)
+                // L'espace autour du numéro tombe : deux comptes qui ne
+                // diffèrent que par elle casseraient le rapprochement.
+                .body("data.items[0].subsidiaryAccount", equalTo("411001"))
+                .body("data.items[0].collectiveAccount", equalTo("411000"));
+    }
+
+    @Test
     void chaque_tiers_se_lit_sous_son_collectif() {
         UserEntity a = admin();
         customerWithAccount(a, "Kouassi", "411001");

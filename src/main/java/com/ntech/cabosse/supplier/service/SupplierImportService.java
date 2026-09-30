@@ -107,10 +107,14 @@ public class SupplierImportService {
                 ready++;
             }
 
+            // Un numéro de compte se saisit au clavier : il traîne
+            // souvent une espace, et deux comptes qui ne diffèrent que
+            // par elle casseraient le rapprochement avec le collectif.
             Normalized normalized = new Normalized(
                     resolvedCode, name, legalName, taxNumber,
                     email, phone, addressLine, cityName, countryCode,
-                    contactName, paymentTerms, notes
+                    contactName, paymentTerms, notes,
+                    trimOrNull(raw.subsidiaryAccount()), trimOrNull(raw.collectiveAccount())
             );
 
             rows.add(new Row(raw.rowNumber(), status, normalized, issues));
@@ -135,7 +139,7 @@ public class SupplierImportService {
                         n.code(), n.name(), n.legalName(), n.taxNumber(),
                         n.email(), n.phone(), n.addressLine(), n.cityName(), n.countryCode(),
                         n.contactName(), n.paymentTerms(), n.notes(),
-                        /* subsidiaryAccount */ null, /* collectiveAccount */ null,
+                        n.subsidiaryAccount(), n.collectiveAccount(),
                         /* collector */ null, /* sectionId */ null, /* localityIds */ null,
                         /* collectorMarginRate */ null, /* advanceAccount */ null,
                         /* collectorRetentionPerKg */ null,

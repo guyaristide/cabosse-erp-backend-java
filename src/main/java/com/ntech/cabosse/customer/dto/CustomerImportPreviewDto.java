@@ -22,7 +22,8 @@ public record CustomerImportPreviewDto(
             String code, String name, String type,
             String legalName, String taxNumber,
             String email, String phone, String addressLine, String cityName, String countryCode,
-            String contactName, BigDecimal creditLimit, String notes
+            String contactName, BigDecimal creditLimit, String notes,
+            String subsidiaryAccount, String collectiveAccount
     ) {}
 
     public record FieldIssue(String field, String message) {}

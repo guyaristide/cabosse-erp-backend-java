@@ -16,5 +16,7 @@ public record SupplierImportRowDto(
         String countryCode,
         String contactName,
         String paymentTerms,
-        String notes
+        String notes,
+        String subsidiaryAccount,
+        String collectiveAccount
 ) {}

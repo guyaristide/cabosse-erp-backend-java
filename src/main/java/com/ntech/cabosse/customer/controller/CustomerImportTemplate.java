@@ -13,7 +13,8 @@ final class CustomerImportTemplate {
     record TemplateRow(
             String code, String name, String type, String legalName, String taxNumber,
             String email, String phone, String addressLine, String cityName, String countryCode,
-            String contactName, String creditLimit, String notes
+            String contactName, String creditLimit, String notes,
+            String subsidiaryAccount, String collectiveAccount
     ) {}
 
     static ExportDataset<TemplateRow> dataset() {
@@ -30,7 +31,11 @@ final class CustomerImportTemplate {
                 ExportColumn.of(Messages.msg("m.imp-h-country"),                 TemplateRow::countryCode),
                 ExportColumn.of(Messages.msg("m.imp-h-contact"),                 TemplateRow::contactName),
                 ExportColumn.of(Messages.msg("m.imp-h-customer-credit-limit"),   TemplateRow::creditLimit),
-                ExportColumn.of(Messages.msg("m.imp-h-notes"),                   TemplateRow::notes)
+                ExportColumn.of(Messages.msg("m.imp-h-notes"),                   TemplateRow::notes),
+                // Facultatifs : sans eux les écritures passent sur le
+                // compte collectif de la structure, comme avant.
+                ExportColumn.of(Messages.msg("m.imp-h-subsidiary-account"),      TemplateRow::subsidiaryAccount),
+                ExportColumn.of(Messages.msg("m.imp-h-collective-account"),      TemplateRow::collectiveAccount)
         );
         List<TemplateRow> samples = List.of(
                 new TemplateRow(
@@ -38,13 +43,15 @@ final class CustomerImportTemplate {
                         "SARL Pâtisserie Louis", "CI-RCCM-2020-B-67890",
                         "compta@patisserie-louis.ci", "+225 27 21 45 67",
                         "Plateau, rue 7", "Abidjan", "CI",
-                        "Mme Toure", "2500000", "Bon payeur"
+                        "Mme Toure", "2500000", "Bon payeur",
+                        "411001", "411000"
                 ),
                 new TemplateRow(
                         "", "Adjoua Konan", "Particulier",
                         "", "", "", "+225 07 12 34 56",
                         "", "Méagui", "CI",
-                        "", "", ""
+                        "", "", "",
+                        "", ""
                 )
         );
         return new ExportDataset<>(Messages.msg("m.exp-t-modele-d-import-clients"), cols, samples);

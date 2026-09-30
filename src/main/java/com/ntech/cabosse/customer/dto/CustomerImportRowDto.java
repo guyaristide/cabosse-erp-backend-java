@@ -17,5 +17,7 @@ public record CustomerImportRowDto(
         String countryCode,
         String contactName,
         String creditLimit,
-        String notes
+        String notes,
+        String subsidiaryAccount,
+        String collectiveAccount
 ) {}
