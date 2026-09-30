@@ -78,6 +78,7 @@ public class ImportJournal {
         private final List<com.ntech.cabosse.importjournal.entity.ImportCreation> creations =
                 new ArrayList<>();
 
+        private UUID runId;
         private UUID siteId;
         private String fileName;
         private int received;
@@ -88,6 +89,25 @@ public class ImportJournal {
         private Trace(String domain, String phase) {
             this.domain = domain;
             this.phase = phase;
+        }
+
+        /**
+         * Écrit dans une trace déjà ouverte plutôt que d'en créer une.
+         *
+         * <p>Une tâche de fond ouvre sa trace avant de commencer, pour
+         * que l'écran ait un identifiant à suivre dès la première
+         * seconde. La clôture remplace alors cette trace au lieu d'en
+         * insérer une seconde.</p>
+         */
+        public Trace id(UUID runId) {
+            this.runId = runId;
+            return this;
+        }
+
+        /** Combien de lignes sont passées, pendant que ça tourne. */
+        public Trace progress(int rowsProcessed) {
+            if (runId != null) repo.progress(runId, rowsProcessed);
+            return this;
         }
 
         public Trace site(UUID siteId) {
@@ -165,7 +185,7 @@ public class ImportJournal {
         public void close() {
             try {
                 ImportRunEntity e = new ImportRunEntity();
-                e.id = idGenerator.newId();
+                e.id = runId != null ? runId : idGenerator.newId();
                 e.domain = domain;
                 e.phase = phase;
                 e.at = Instant.now();
@@ -181,7 +201,13 @@ public class ImportJournal {
                 e.rejections = List.copyOf(rejections);
                 e.decisions = List.copyOf(decisions.values());
                 e.createdAt = e.at;
-                repo.insert(e);
+                e.rowsProcessed = received;
+                e.status = "DONE";
+                // Une trace ouverte d'avance se remplace : l'insérer une
+                // seconde fois laisserait l'écran suivre celle qui ne se
+                // termine jamais.
+                if (runId != null) repo.replace(e);
+                else repo.insert(e);
             } catch (RuntimeException ex) {
                 LOG.warnf(ex, "Trace d'import non écrite pour le domaine %s", domain);
             }

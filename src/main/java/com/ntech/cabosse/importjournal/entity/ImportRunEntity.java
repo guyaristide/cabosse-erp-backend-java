@@ -107,5 +107,25 @@ public class ImportRunEntity {
      */
     public List<ImportCreation> creations;
 
+    /**
+     * Où en est l'import : {@code RUNNING}, {@code DONE}, {@code FAILED}.
+     *
+     * <p>Un fichier de quatre mille lignes met plusieurs minutes à
+     * s'écrire, et le serveur d'entrée coupe bien avant : l'écran
+     * recevait une erreur pendant que le traitement continuait, et
+     * n'atteignait jamais son résultat. L'import rend donc la main tout
+     * de suite et cet état dit où il en est (relevé le 30/09/2026).</p>
+     *
+     * <p>Absent sur les imports d'avant : ils étaient terminés quand la
+     * réponse partait, et se lisent comme tels.</p>
+     */
+    public String status;
+
+    /** Lignes traitées jusqu'ici, pour que l'écran suive l'avancement. */
+    public int rowsProcessed;
+
+    /** Le message de l'échec, quand le traitement s'est arrêté net. */
+    public String failure;
+
     public Instant createdAt;
 }

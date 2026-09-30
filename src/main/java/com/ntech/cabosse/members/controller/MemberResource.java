@@ -66,6 +66,7 @@ public class MemberResource {
     @Inject MemberCardService card;
     @Inject MemberProfileSheetService profileSheet;
     @Inject MemberImportService importService;
+    @Inject com.ntech.cabosse.members.service.MemberImportRunner importRunner;
     @Inject MemberRegisterService registerService;
     @Inject ExportAudit exportAudit;
     @Inject TenantCapabilityService capabilities;
@@ -372,8 +373,18 @@ public class MemberResource {
     @Path("/import/commit")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response importCommit(java.util.List<MemberImportRowDto> rows,
-                                 @QueryParam("includeWarnings") boolean includeWarnings) {
+                                 @QueryParam("includeWarnings") boolean includeWarnings,
+                                 @QueryParam("async") boolean async) {
         ensureCapability();
+        // Un gros fichier met plusieurs minutes : la requête est coupée
+        // par le serveur d'entrée bien avant la fin, et l'écran n'atteint
+        // jamais son résultat pendant que le traitement continue. En
+        // asynchrone, l'appel rend l'identifiant de la trace et l'écran
+        // la suit (relevé le 30/09/2026).
+        if (async) {
+            java.util.UUID runId = importRunner.start(rows, includeWarnings);
+            return Response.accepted(ApiResponse.ok(java.util.Map.of("runId", runId))).build();
+        }
         return Response.ok(ApiResponse.ok(importService.commit(rows, includeWarnings))).build();
     }
 

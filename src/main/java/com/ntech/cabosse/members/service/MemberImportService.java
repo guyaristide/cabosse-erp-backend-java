@@ -359,7 +359,22 @@ public class MemberImportService {
      *                        vues : on importe la donnée telle quelle plutôt
      *                        que de perdre le producteur.
      */
-    public MemberImportCommitResponseDto commit(List<MemberImportRowDto> input, boolean includeWarnings) {
+    public MemberImportCommitResponseDto commit(List<MemberImportRowDto> input,
+                                               boolean includeWarnings) {
+        return commitInto(null, input, includeWarnings);
+    }
+
+    /**
+     * Applique l'import en rendant compte dans une trace déjà ouverte.
+     *
+     * <p>Appelé par la tâche de fond : la trace existe avant le premier
+     * écrit, pour que l'écran ait quelque chose à suivre dès la première
+     * seconde. Sans identifiant, l'import se comporte comme avant et
+     * ouvre la sienne.</p>
+     */
+    public MemberImportCommitResponseDto commitInto(java.util.UUID runId,
+                                                   List<MemberImportRowDto> input,
+                                                   boolean includeWarnings) {
         MemberImportPreviewDto preview = preview(input);
         // Le plafond du plan se vérifie sur le lot entier, avant la première
         // écriture : un import qui s'arrêterait au producteur n° 412 sur 500
@@ -377,6 +392,7 @@ public class MemberImportService {
         // fermée. La trace vit dans la base et se relit après coup
         // (relevé le 30/09/2026).
         var trace = journal.open("members", "COMMIT").received(preview.totalRows());
+        if (runId != null) trace.id(runId);
 
         List<UUID> created = new ArrayList<>();
         List<UUID> updated = new ArrayList<>();
@@ -393,7 +409,11 @@ public class MemberImportService {
         // n'aurait personne à qui appartenir.
         Map<String, UUID> memberByKey = new HashMap<>();
 
+        int processed = 0;
         for (Row row : preview.rows()) {
+            // L'avancement se pousse par paliers : une écriture par ligne
+            // ferait plus de trafic que l'import lui-même.
+            if (++processed % 50 == 0) trace.progress(processed);
             boolean applicable = row.status() == Status.READY
                     || row.status() == Status.UPDATE
                     || row.status() == Status.ADDITIONAL_PARCEL

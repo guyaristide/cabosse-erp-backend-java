@@ -42,6 +42,23 @@ public class ImportRunRepository {
                 .into(new ArrayList<>());
     }
 
+    /**
+     * Met à jour l'avancement sans réécrire la trace entière.
+     *
+     * <p>Un remplacement complet depuis le thread de fond écraserait ce
+     * que la clôture vient d'écrire : on ne touche que les champs
+     * d'avancement.</p>
+     */
+    public void progress(UUID id, int rowsProcessed) {
+        coll().updateOne(Filters.eq("_id", id),
+                new org.bson.Document("$set",
+                        new org.bson.Document("rowsProcessed", rowsProcessed)));
+    }
+
+    public void replace(ImportRunEntity e) {
+        coll().replaceOne(Filters.eq("_id", e.id), e);
+    }
+
     public long count(String domain) {
         var filter = domain == null || domain.isBlank()
                 ? new org.bson.Document() : Filters.eq("domain", domain);
