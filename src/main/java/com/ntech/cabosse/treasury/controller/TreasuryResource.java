@@ -66,7 +66,14 @@ public class TreasuryResource {
     // la file des décaissements est le poste de travail de la caissière
     // (09/09/2026), et elle ne porte pas la lecture comptable générale.
     @Path("/payables")
-    @RequiresPermission({ Permission.ACCOUNTING_READ, Permission.TREASURY_WRITE })
+    // Qui décaisse doit pouvoir atteindre la file où l'on décaisse. Le
+    // profil d'une caissière portait trois droits de décaissement et
+    // aucun ne menait ici : elle avait le geste, pas le chemin (relevé
+    // le 30/09/2026). Même motif que l'approbation d'une demande d'achat
+    // et l'encaissement d'une vente, corrigés avant lui.
+    @RequiresPermission({ Permission.ACCOUNTING_READ, Permission.TREASURY_WRITE,
+            Permission.COLLECTION_ADVANCE_DISBURSE, Permission.MEMBER_CREDIT_DISBURSE,
+            Permission.COLLECTION_PAYMENT_WRITE })
     public Response payables(@QueryParam("kind") String kind,
                              @QueryParam("siteId") UUID siteId,
                              @QueryParam("page") @DefaultValue("0") int page,
