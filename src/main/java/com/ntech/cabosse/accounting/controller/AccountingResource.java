@@ -75,6 +75,8 @@ import java.util.UUID;
 @RequiresPermission(Permission.ACCOUNTING_READ)
 public class AccountingResource {
 
+    @Inject com.ntech.cabosse.accounting.service.SubsidiaryLedgerService subsidiary;
+
     @Inject AccountingQueryService query;
     @Inject com.ntech.cabosse.campaign.service.CampaignResolver campaignResolver;
     @Inject com.ntech.cabosse.accounting.service.QuarantineService quarantine;
@@ -162,6 +164,30 @@ public class AccountingResource {
         var updated = chartService.setActive(id, value);
         return Response.ok(ApiResponse.ok(ChartOfAccountsResponseDto.from(
                 updated, java.math.BigDecimal.ZERO, 0))).build();
+    }
+
+    // ─── Comptabilité auxiliaire ────────────────────────────────────
+
+    /**
+     * La balance auxiliaire : ce que doit chaque tiers, sous son
+     * collectif, avec ce que le collectif porte encore lui-même.
+     */
+    @GET
+    @Path("/subsidiary-balance")
+    public Response subsidiaryBalance(@QueryParam("from") String fromRaw,
+                                      @QueryParam("to") String toRaw) {
+        return Response.ok(ApiResponse.ok(
+                subsidiary.balance(parseDate(fromRaw), parseDate(toRaw)))).build();
+    }
+
+    /** Le grand livre d'un tiers, facture et règlement rapprochés. */
+    @GET
+    @Path("/subsidiary-ledger/{account}")
+    public Response partyLedger(@PathParam("account") String account,
+                                @QueryParam("from") String fromRaw,
+                                @QueryParam("to") String toRaw) {
+        return Response.ok(ApiResponse.ok(
+                subsidiary.partyLedger(account, parseDate(fromRaw), parseDate(toRaw)))).build();
     }
 
     // ─── Journal général ────────────────────────────────────────────
