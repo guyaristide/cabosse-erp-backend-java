@@ -57,7 +57,12 @@ public class SubsidiaryLedgerService {
         // tiers rattaché reste affiché s'il porte du mouvement, sinon la
         // somme n'aurait nulle part où se lire.
         Map<String, List<Party>> byCollective = new LinkedHashMap<>();
+        // Tout compte collectif de tiers admet des auxiliaires : clients,
+        // fournisseurs, mais aussi les avances de collecte, qui sont des
+        // débiteurs divers. Omettre ce dernier le ferait passer pour un
+        // compte orphelin alors qu'il est tenu à dessein.
         for (String c : List.of(prefs.producerPayableAccount(), prefs.delegatePayableAccount(),
+                prefs.collectionAdvanceAccount(),
                 com.ntech.cabosse.accounting.entity.SyscohadaAccounts.CLIENTS,
                 com.ntech.cabosse.accounting.entity.SyscohadaAccounts.FOURNISSEURS)) {
             byCollective.computeIfAbsent(c, k -> new ArrayList<>());

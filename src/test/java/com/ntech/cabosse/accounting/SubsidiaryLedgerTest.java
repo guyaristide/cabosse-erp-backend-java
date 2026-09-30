@@ -175,6 +175,20 @@ class SubsidiaryLedgerTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void un_collectif_de_tiers_connu_n_est_pas_pris_pour_un_orphelin() {
+        UserEntity a = admin();
+        // Les avances de collecte sont un compte de tiers, tenu à
+        // dessein : le signaler comme sans fiche ferait chercher une
+        // erreur qui n'existe pas.
+        entry(a, "471100", "521000", 400000, "Avance de collecte");
+
+        givenAs(a).when().get("/api/v1/accounting/subsidiary-balance")
+                .then().statusCode(200)
+                .body("data.orphans.account", not(hasItem("471100")))
+                .body("data.groups.collectiveAccount", hasItem("471100"));
+    }
+
+    @Test
     void une_facture_et_son_reglement_portent_la_meme_lettre() {
         UserEntity a = admin();
         customerWithAccount(a, "Kouassi", "411001");
