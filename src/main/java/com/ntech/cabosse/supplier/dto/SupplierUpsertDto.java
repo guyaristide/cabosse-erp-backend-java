@@ -29,6 +29,12 @@ public record SupplierUpsertDto(
         @Size(max = 120) String contactName,
         @Size(max = 120) String paymentTerms,
         @Size(max = 1000) String notes,
+        @jakarta.validation.constraints.Pattern(regexp = "^$|^[0-9]{2,20}$",
+                message = "{v.numero-de-compte-invalide}")
+        String subsidiaryAccount,
+        @jakarta.validation.constraints.Pattern(regexp = "^$|^[0-9]{2,20}$",
+                message = "{v.numero-de-compte-invalide}")
+        String collectiveAccount,
 
         /** Délégué collecteur (backlog ACH-02). */
         Boolean collector,

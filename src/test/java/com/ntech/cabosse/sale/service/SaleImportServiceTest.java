@@ -293,6 +293,7 @@ class SaleImportServiceTest {
                 CUSTOMER_ID, "nouveau-client", "Nouveau Client Hotellerie",
                 "INDIVIDUAL", "HOTELLERIE",
                 null, null, null, null, null, null, null, null, null, null,
+                /* subsidiaryAccount */ null, /* collectiveAccount */ null,
                 java.util.List.of(),
                 true, Instant.now(), Instant.now()
         );

@@ -230,6 +230,7 @@ public class SaleImportService {
                 blankToNull(c.countryCode()),
                 blankToNull(c.contactName()),
                 /* creditLimit */ null,
+                /* subsidiaryAccount */ null, /* collectiveAccount */ null,
                 /* notes */ null
         );
         var created = customerService.create(create);

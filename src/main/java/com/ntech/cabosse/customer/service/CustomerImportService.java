@@ -135,7 +135,9 @@ public class CustomerImportService {
                         null, // canal non géré dans l'import legacy — renseigné via l'écran d'édition
                         n.legalName(), n.taxNumber(),
                         n.email(), n.phone(), n.addressLine(), n.cityName(), n.countryCode(),
-                        n.contactName(), n.creditLimit(), n.notes()
+                        n.contactName(), n.creditLimit(),
+                        /* subsidiaryAccount */ null, /* collectiveAccount */ null,
+                        n.notes()
                 );
                 CustomerResponseDto created = customerService.create(payload);
                 createdIds.add(created.id());

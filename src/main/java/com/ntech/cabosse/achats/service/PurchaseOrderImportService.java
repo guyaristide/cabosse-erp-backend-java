@@ -168,6 +168,7 @@ public class PurchaseOrderImportService {
                 blankToNull(s.contactName()),
                 blankToNull(s.paymentTerms()),
                 /* notes */ null,
+                /* subsidiaryAccount */ null, /* collectiveAccount */ null,
                 /* collector */ null,
                 /* sectionId */ null,
                 /* localityIds */ null,

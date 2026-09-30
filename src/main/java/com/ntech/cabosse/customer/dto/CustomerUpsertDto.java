@@ -46,5 +46,11 @@ public record CustomerUpsertDto(
         @DecimalMin(value = "0", message = "{v.plafond-de-credit-negatif-interdit}")
         BigDecimal creditLimit,
 
+        @jakarta.validation.constraints.Pattern(regexp = "^$|^[0-9]{2,20}$",
+                message = "{v.numero-de-compte-invalide}")
+        String subsidiaryAccount,
+        @jakarta.validation.constraints.Pattern(regexp = "^$|^[0-9]{2,20}$",
+                message = "{v.numero-de-compte-invalide}")
+        String collectiveAccount,
         @Size(max = 1000) String notes
 ) {}

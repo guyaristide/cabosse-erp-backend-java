@@ -212,6 +212,8 @@ public class SupplierService {
         e.contactName = blank(p.contactName());
         e.paymentTerms = blank(p.paymentTerms());
         e.notes = blank(p.notes());
+        e.subsidiaryAccount = blank(p.subsidiaryAccount());
+        e.collectiveAccount = blank(p.collectiveAccount());
         e.collector = p.collector() != null && p.collector();
         e.localityIds = e.collector ? distinctIds(p.localityIds()) : new java.util.ArrayList<>();
         ensureLocalitiesAreFree(e);

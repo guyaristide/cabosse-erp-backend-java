@@ -83,6 +83,8 @@ public class AccountingService {
     @Inject TenantContext tenantContext;
     @Inject com.ntech.cabosse.tenant.service.TenantPreferencesLookup preferencesLookup;
     @Inject com.ntech.cabosse.article.repository.ArticleRepository articles;
+    @Inject com.ntech.cabosse.customer.repository.CustomerRepository customersRepo;
+    @Inject com.ntech.cabosse.supplier.repository.SupplierRepository suppliersRepo;
     @Inject com.ntech.cabosse.analytics.repository.CostCenterRepository costCenters;
     @Inject com.ntech.cabosse.analytics.repository.AllocationKeyRepository allocationKeys;
 
@@ -618,6 +620,40 @@ public class AccountingService {
      * rattaché à une avance délégué. Pas de TVA (producteurs non assujettis).
      */
     /** Une contrepartie de l'achat producteur : compte, libellé, montant. */
+    /**
+     * Le compte sur lequel s'impute un tiers.
+     *
+     * <p>Son compte auxiliaire d'abord, celui qui dit ce que lui doit ou
+     * ce qu'il doit ; à défaut son compte collectif de rattachement ; à
+     * défaut le compte collectif retenu par la structure. Une fiche sans
+     * compte continue donc de fonctionner comme avant, et ouvrir un
+     * compte auxiliaire ne demande aucune reprise (demandé le
+     * 29/09/2026).</p>
+     */
+    public static String partyAccount(String subsidiary, String collective, String fallback) {
+        if (subsidiary != null && !subsidiary.isBlank()) return subsidiary.trim();
+        if (collective != null && !collective.isBlank()) return collective.trim();
+        return fallback;
+    }
+
+    /** Le compte du client, son collectif, ou celui de la structure. */
+    private String customerAccount(UUID customerId) {
+        if (customerId == null) return SyscohadaAccounts.CLIENTS;
+        return customersRepo.findById(customerId)
+                .map(c -> partyAccount(c.subsidiaryAccount, c.collectiveAccount,
+                        SyscohadaAccounts.CLIENTS))
+                .orElse(SyscohadaAccounts.CLIENTS);
+    }
+
+    /** Le compte du fournisseur, son collectif, ou celui de la structure. */
+    private String supplierAccount(UUID supplierId) {
+        if (supplierId == null) return SyscohadaAccounts.FOURNISSEURS;
+        return suppliersRepo.findById(supplierId)
+                .map(x -> partyAccount(x.subsidiaryAccount, x.collectiveAccount,
+                        SyscohadaAccounts.FOURNISSEURS))
+                .orElse(SyscohadaAccounts.FOURNISSEURS);
+    }
+
     public record PurchaseLeg(String account, String label, BigDecimal amount) {}
 
     /**
@@ -747,7 +783,7 @@ public class AccountingService {
      * ventes n'est pas journalisé (dérivé du CMUP comme les ventes de PF).
      */
     public Optional<JournalPieceEntity> postFromCommoditySale(
-            UUID saleId, String ref, String customerName, String revenueAccount,
+            UUID saleId, String ref, UUID customerId, String customerName, String revenueAccount,
             BigDecimal htAmount, BigDecimal vatAmount, LocalDate date,
             BigDecimal commission) {
         BigDecimal ht = nz(htAmount);
@@ -757,7 +793,8 @@ public class AccountingService {
         String revenue = (revenueAccount == null || revenueAccount.isBlank())
                 ? SyscohadaAccounts.VENTES_PRODUITS_FINIS : revenueAccount;
         List<JournalEntry> entries = new ArrayList<>();
-        entries.add(JournalEntry.debit(SyscohadaAccounts.CLIENTS, "Créance " + nullSafe(customerName), ttc));
+        entries.add(JournalEntry.debit(customerAccount(customerId),
+                "Créance " + nullSafe(customerName), ttc));
         var salePrefs = preferencesLookup.current();
         if (salePrefs.collectionOnBehalf()) {
             // En mandat, le décompte du client n'est pas une vente : il
@@ -793,13 +830,13 @@ public class AccountingService {
      * partiel laisse le solde au 411.
      */
     public Optional<JournalPieceEntity> postFromCommoditySalePayment(
-            UUID paymentId, String saleRef, String customerName,
+            UUID paymentId, String saleRef, UUID customerId, String customerName,
             String treasuryAccount, BigDecimal amount, LocalDate date, String paymentRef) {
         if (amount == null || amount.signum() <= 0) return Optional.empty();
         String settlement = paymentRef != null ? " (" + paymentRef + ")" : "";
         List<JournalEntry> entries = List.of(
                 JournalEntry.debit(treasuryAccount, "Encaissement " + saleRef + settlement, amount),
-                JournalEntry.credit(SyscohadaAccounts.CLIENTS,
+                JournalEntry.credit(customerAccount(customerId),
                         "Règlement client " + nullSafe(customerName) + settlement, amount));
         return postPiece(new PostingRequest(
                 date != null ? date : LocalDate.now(),
@@ -1013,7 +1050,7 @@ public class AccountingService {
         }
 
         entries.add(JournalEntry.credit(
-                SyscohadaAccounts.FOURNISSEURS,
+                supplierAccount(bc.supplierId),
                 "Dette " + bc.supplierName,
                 totalTtc
         ));
@@ -1051,7 +1088,7 @@ public class AccountingService {
             totalDue = totalDue.add(lineTtc);
             // Crédit 401 par ligne (pour préserver l'analytique par fournisseur).
             entries.add(JournalEntry.credit(
-                    SyscohadaAccounts.FOURNISSEURS,
+                    supplierAccount(line.supplierId),
                     "Dette " + nullSafe(line.supplierName),
                     lineTtc
             ));
@@ -1096,7 +1133,7 @@ public class AccountingService {
         BigDecimal ttc = nz(sale.totalTtc);
 
         entries.add(JournalEntry.debit(
-                SyscohadaAccounts.CLIENTS,
+                customerAccount(sale.customerId),
                 "Créance " + nullSafe(sale.customerName),
                 ttc
         ));
@@ -1129,7 +1166,7 @@ public class AccountingService {
         String treasury = treasuryAccountFor(payment.method);
         List<JournalEntry> entries = List.of(
                 JournalEntry.debit(treasury, "Encaissement " + sale.ref, nz(payment.amount)),
-                JournalEntry.credit(SyscohadaAccounts.CLIENTS, "Apurement " + nullSafe(sale.customerName), nz(payment.amount))
+                JournalEntry.credit(customerAccount(sale.customerId), "Apurement " + nullSafe(sale.customerName), nz(payment.amount))
         );
         return postPiece(new PostingRequest(
                 payment.paidOn != null ? payment.paidOn : LocalDate.now(),

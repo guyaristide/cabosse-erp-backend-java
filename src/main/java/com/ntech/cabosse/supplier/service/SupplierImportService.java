@@ -135,6 +135,7 @@ public class SupplierImportService {
                         n.code(), n.name(), n.legalName(), n.taxNumber(),
                         n.email(), n.phone(), n.addressLine(), n.cityName(), n.countryCode(),
                         n.contactName(), n.paymentTerms(), n.notes(),
+                        /* subsidiaryAccount */ null, /* collectiveAccount */ null,
                         /* collector */ null, /* sectionId */ null, /* localityIds */ null,
                         /* collectorMarginRate */ null, /* advanceAccount */ null,
                         /* collectorRetentionPerKg */ null,

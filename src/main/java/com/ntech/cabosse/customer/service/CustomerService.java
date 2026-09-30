@@ -134,6 +134,8 @@ public class CustomerService {
         e.contactName = blank(p.contactName());
         e.creditLimit = p.creditLimit();
         e.notes = blank(p.notes());
+        e.subsidiaryAccount = blank(p.subsidiaryAccount());
+        e.collectiveAccount = blank(p.collectiveAccount());
     }
 
     private void auditEvt(CustomerEntity e, String action) {

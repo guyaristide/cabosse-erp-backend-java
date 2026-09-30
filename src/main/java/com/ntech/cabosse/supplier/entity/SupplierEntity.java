@@ -35,6 +35,31 @@ public class SupplierEntity {
     public String notes;
 
     /**
+     * Compte auxiliaire de ce tiers : son compte à lui dans le plan.
+     *
+     * <p>Le compte collectif donne le total dû par l'ensemble, le compte
+     * auxiliaire dit ce que doit celui-ci. Sans lui, le grand livre ne
+     * répond pas à « combien nous doit ce client », question qu'on pose
+     * pourtant chaque semaine (demandé le 29/09/2026).</p>
+     *
+     * <p>Vide, les écritures passent sur le compte collectif : une
+     * structure qui n'a pas ouvert de compte par tiers continue de
+     * fonctionner comme avant.</p>
+     */
+    public String subsidiaryAccount;
+
+    /**
+     * Compte collectif de rattachement, celui qui totalise ce tiers.
+     *
+     * <p>Il sert quand aucun compte auxiliaire n'est ouvert, et il dit à
+     * quel regroupement ce tiers appartient : tous les clients ne vont
+     * pas forcément au même collectif. Vide, le compte retenu par la
+     * structure s'applique.</p>
+     */
+    public String collectiveAccount;
+
+
+    /**
      * Fournisseur qui est un délégué collecteur (backlog ACH-02) :
      * représentant d'une section auprès duquel la coopérative fait des
      * avances pour sourcer la matière première.

@@ -393,7 +393,7 @@ public class CommoditySaleService {
         // 2) Écriture 411/701 (+ TVA). Si elle échoue (période close), on
         //    défait ce que l'étape 1 a fait.
         try {
-            accounting.postFromCommoditySale(e.id, e.ref, e.customerName, article.salesRevenueAccount,
+            accounting.postFromCommoditySale(e.id, e.ref, e.customerId, e.customerName, article.salesRevenueAccount,
                             ht, vat, p.date(), commissionFor(e, acceptedKg))
                     .ifPresent(piece -> e.pieceRef = piece.ref);
         } catch (RuntimeException ex) {
@@ -561,7 +561,7 @@ public class CommoditySaleService {
         payment.recordedByEmail = actor();
         payment.recordedAt = Instant.now();
 
-        accounting.postFromCommoditySalePayment(payment.id, e.ref, e.customerName,
+        accounting.postFromCommoditySalePayment(payment.id, e.ref, e.customerId, e.customerName,
                         treasuryAccount, p.amount(), p.paidOn(), payment.paymentRef)
                 .ifPresent(piece -> payment.pieceRef = piece.ref);
 
