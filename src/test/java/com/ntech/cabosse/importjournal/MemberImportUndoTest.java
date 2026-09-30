@@ -111,7 +111,7 @@ class MemberImportUndoTest extends AbstractIntegrationTest {
         importTwo(a);
         String runId = lastRunId(a);
 
-        givenAs(a).contentType("application/json")
+        givenAs(a).contentType("application/json").body("{ \"confirmation\": \"2\" }")
                 .when().post("/api/v1/import-runs/" + runId + "/undo")
                 .then().statusCode(200)
                 .body("data.undone", greaterThanOrEqualTo(2))
@@ -121,6 +121,44 @@ class MemberImportUndoTest extends AbstractIntegrationTest {
                 .then().statusCode(200)
                 .body("data.items.name", not(hasItem("KOUAME Awa")))
                 .body("data.items.name", not(hasItem("TRAORE Issouf")));
+    }
+
+    @Test
+    void sans_le_nombre_recopie_rien_n_est_supprime() {
+        UserEntity a = admin();
+        importTwo(a);
+        String runId = lastRunId(a);
+
+        // Supprimer des milliers de fiches derrière un simple dialogue,
+        // comme n'importe quelle action courante, n'allait pas : le
+        // nombre recopié oblige à regarder ce qu'on défait.
+        givenAs(a).contentType("application/json").body("{ \"confirmation\": \"7\" }")
+                .when().post("/api/v1/import-runs/" + runId + "/undo")
+                .then().statusCode(422);
+
+        givenAs(a).queryParam("perPage", 100).when().get("/api/v1/members")
+                .then().statusCode(200)
+                .body("data.items.name", hasItem("KOUAME Awa"));
+    }
+
+    @Test
+    void un_import_defait_le_dit_et_ne_se_defait_pas_deux_fois() {
+        UserEntity a = admin();
+        importTwo(a);
+        String runId = lastRunId(a);
+        givenAs(a).contentType("application/json").body("{ \"confirmation\": \"2\" }")
+                .when().post("/api/v1/import-runs/" + runId + "/undo").then().statusCode(200);
+
+        // Le journal montrait encore quatre mille créations pour un
+        // import défait, et rien ne disait qu'il l'avait été.
+        givenAs(a).when().get("/api/v1/import-runs/" + runId)
+                .then().statusCode(200)
+                .body("data.status", equalTo("UNDONE"))
+                .body("data.rowsUndone", greaterThanOrEqualTo(2));
+
+        givenAs(a).contentType("application/json").body("{ \"confirmation\": \"2\" }")
+                .when().post("/api/v1/import-runs/" + runId + "/undo")
+                .then().statusCode(422);
     }
 
     @Test
@@ -151,7 +189,7 @@ class MemberImportUndoTest extends AbstractIntegrationTest {
                 .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                 .when().post("/api/v1/producer-purchases").then().statusCode(201);
 
-        givenAs(a).contentType("application/json")
+        givenAs(a).contentType("application/json").body("{ \"confirmation\": \"2\" }")
                 .when().post("/api/v1/import-runs/" + runId + "/undo")
                 .then().statusCode(200)
                 // L'autre part, celui-ci reste, et le compte rendu dit

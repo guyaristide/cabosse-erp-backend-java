@@ -80,7 +80,10 @@ public class ImportRunResource {
     @POST
     @Path("/{id}/undo")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
-    public Response undo(@PathParam("id") UUID id) {
-        return Response.ok(ApiResponse.ok(undoService.undo(id))).build();
+    public Response undo(@PathParam("id") UUID id,
+                         @jakarta.validation.Valid
+                         com.ntech.cabosse.importjournal.dto.ImportUndoPayloadDto payload) {
+        return Response.ok(ApiResponse.ok(
+                undoService.undo(id, payload == null ? null : payload.confirmation()))).build();
     }
 }

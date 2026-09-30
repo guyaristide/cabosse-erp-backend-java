@@ -50,7 +50,7 @@ public class ImportUndoService {
     @Inject AuditService audit;
     @Inject com.ntech.cabosse.shared.tenant.TenantContext tenantContext;
 
-    public ImportUndoResultDto undo(UUID runId) {
+    public ImportUndoResultDto undo(UUID runId, String confirmation) {
         ImportRunEntity run = runs.findById(runId).orElseThrow(
                 () -> new NotFoundException(Messages.msg("m.imr-run-not-found", runId)));
         if (!"members".equals(run.domain)) {
@@ -58,6 +58,16 @@ public class ImportUndoService {
         }
         if (run.creations == null || run.creations.isEmpty()) {
             throw new BusinessException(Messages.msg("m.imr-undo-nothing-recorded"));
+        }
+        if ("UNDONE".equals(run.status)) {
+            throw new BusinessException(Messages.msg("m.imr-undo-already"));
+        }
+        // Le compte des fiches créées, recopié : le seul geste qui
+        // distingue une destruction voulue d'un clic malheureux, et qui
+        // oblige à regarder ce qu'on s'apprête à défaire.
+        long created = run.creations.stream().filter(c -> "member".equals(c.kind)).count();
+        if (confirmation == null || !confirmation.trim().equals(String.valueOf(created))) {
+            throw new BusinessException(Messages.msg("m.imr-undo-confirmation-mismatch", created));
         }
 
         List<ImportUndoResultDto.Kept> kept = new ArrayList<>();
@@ -99,6 +109,15 @@ public class ImportUndoService {
             suppliers.deleteById(c.id);
             undone++;
         }
+
+        // L'import porte désormais sa marque : sans elle, le journal
+        // montrait encore quatre mille créations pour un import défait,
+        // et rien ne disait qu'il l'avait été.
+        run.status = "UNDONE";
+        run.undoneAt = java.time.Instant.now();
+        run.undoneBy = tenantContext.userId() == null ? null : tenantContext.userId().toString();
+        run.rowsUndone = undone;
+        runs.replace(run);
 
         audit.event(AuditEventType.CATALOG_UPDATED)
                 .target("import_run", runId.toString(), run.fileName)

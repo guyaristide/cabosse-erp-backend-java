@@ -111,6 +111,9 @@ public class MemberImportService {
 
         List<MemberEntity> existing = members.listAll();
         Map<Integer, String> keysSeen = new HashMap<>();
+        // Un numéro vu plus haut dans le même fichier : le second qui
+        // le porte est refusé comme s'il était déjà en base.
+        Map<String, String> refKeysSeen = new HashMap<>();
         List<String> knownSections = sections.listAll().stream().map(s -> s.name).toList();
         // Les parcelles déjà connues, pour reconnaître un code au réimport :
         // sans cela, chaque passage doublerait la superficie du tenant.
@@ -221,6 +224,14 @@ public class MemberImportService {
             String key = dedupKey(normalized);
             MemberEntity match = findExisting(existing, normalized);
 
+            // Les numéros de pièce qui désignent un producteur : celui de
+            // la carte, celui de la pièce d'identité, l'identifiant
+            // national. Le contrôle porte sur les trois ensemble, comme à
+            // l'écriture, car un numéro pris comme carte par l'un et comme
+            // identité par l'autre entre en collision de la même façon.
+            List<FieldIssue> refKeyIssues = refKeyIssues(
+                    normalized, match, existing, refKeysSeen, raw.rowNumber());
+
             Status status;
             UUID matchedId = match != null ? match.id : null;
             String matchedOn = match != null ? matchLabel(match, normalized) : null;
@@ -247,6 +258,15 @@ public class MemberImportService {
                 issues.addAll(householdIssues);
                 status = Status.WARNING;
                 warning++;
+            } else if (!refKeyIssues.isEmpty()) {
+                // Le numéro d'une pièce désigne un producteur et un seul.
+                // L'aperçu ne le vérifiait pas : le fichier passait pour
+                // entièrement prêt et trente-quatre lignes tombaient à
+                // l'écriture, une fois le contrôle jugé passé (relevé le
+                // 30/09/2026).
+                issues.addAll(refKeyIssues);
+                status = Status.INVALID;
+                invalid++;
             } else if (match != null) {
                 status = Status.UPDATE;
                 update++;
@@ -919,6 +939,41 @@ public class MemberImportService {
     }
 
     // ─── Contrôles et conversions ───────────────────────────────────
+
+    /**
+     * Les numéros de pièce déjà portés par un autre producteur.
+     *
+     * <p>Contrôle la base et le fichier lui-même : deux lignes qui
+     * déclarent le même numéro ne peuvent pas passer toutes les deux, et
+     * ne pas le dire à l'aperçu revient à annoncer prêt ce qui sera
+     * refusé.</p>
+     */
+    private List<FieldIssue> refKeyIssues(
+            MemberImportPreviewDto.Normalized n, MemberEntity match,
+            List<MemberEntity> existing, Map<String, String> seen, int rowNumber) {
+        List<FieldIssue> out = new ArrayList<>();
+        for (String raw : new String[] { n.externalCode(), n.idDocNumber(), n.nationalIdNumber() }) {
+            String key = com.ntech.cabosse.members.entity.MemberIdentityDocument.normalize(raw);
+            if (key == null) continue;
+            String earlier = seen.get(key);
+            if (earlier != null) {
+                out.add(new FieldIssue("idDocNumber",
+                        Messages.msg("m.mbr-ref-number-taken", key, earlier)));
+                continue;
+            }
+            for (MemberEntity other : existing) {
+                if (other.producerRefKeys == null || !other.producerRefKeys.contains(key)) continue;
+                // Le producteur que cette ligne met à jour porte
+                // légitimement son propre numéro.
+                if (match != null && match.id.equals(other.id)) continue;
+                out.add(new FieldIssue("idDocNumber",
+                        Messages.msg("m.mbr-ref-number-taken", key, other.name)));
+                break;
+            }
+            seen.put(key, n.name());
+        }
+        return out;
+    }
 
     private static List<FieldIssue> householdIssues(Integer children, Integer girls, Integer boys,
                                                     Integer c0to4, Integer c5to17, Integer cOver17,

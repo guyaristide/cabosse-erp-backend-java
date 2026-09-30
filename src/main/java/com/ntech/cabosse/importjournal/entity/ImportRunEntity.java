@@ -127,5 +127,12 @@ public class ImportRunEntity {
     /** Le message de l'échec, quand le traitement s'est arrêté net. */
     public String failure;
 
+    /** Quand l'import a été défait, et par qui. */
+    public Instant undoneAt;
+    public String undoneBy;
+
+    /** Combien de fiches l'annulation a réellement supprimées. */
+    public int rowsUndone;
+
     public Instant createdAt;
 }
