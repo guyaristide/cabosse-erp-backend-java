@@ -38,6 +38,17 @@ public record DelegateStatementDto(
             String delegateCode,
             String delegateName,
             String sectionName,
+            /**
+             * Ce que le délégué traînait à l'ouverture de la période :
+             * reports des campagnes antérieures et reprise déclarée.
+             *
+             * <p>Les soldes de départ se saisissent, mais l'état n'en
+             * montrait rien : un délégué qui démarrait débiteur d'un
+             * million y paraissait à jour (demandé le 01/10/2026). Nul
+             * quand la période porte sur plusieurs campagnes, aucun
+             * départ unique ne pouvant les représenter.</p>
+             */
+            BigDecimal openingBalance,
             /** Somme des avances décaissées au délégué sur la période. */
             BigDecimal advancedAmount,
             /** Retenue convenue sur la fiche du délégué, en FCFA/kg. */
@@ -86,6 +97,7 @@ public record DelegateStatementDto(
 
     /** Totaux de la période. Les taux ne s'additionnent pas : ils sont absents. */
     public record Totals(
+            BigDecimal openingBalance,
             BigDecimal advancedAmount,
             BigDecimal retentionAmount,
             BigDecimal marginAmount,

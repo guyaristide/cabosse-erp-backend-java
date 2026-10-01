@@ -277,6 +277,13 @@ public class DelegateAccountService {
         BigDecimal totalWeight = BigDecimal.ZERO;
         BigDecimal totalDelivered = BigDecimal.ZERO;
         BigDecimal totalOwed = BigDecimal.ZERO;
+        BigDecimal totalOpening = BigDecimal.ZERO;
+
+        // Le départ ne vaut que pour une campagne : sur un ensemble, les
+        // reports des unes sont les livraisons des autres, et un départ
+        // unique n'aurait pas de sens. L'état reste alors muet là-dessus
+        // plutôt que d'additionner des grandeurs qui se recouvrent.
+        UUID openingScope = scope.size() == 1 ? scope.get(0) : null;
 
         // L'autre sens du compte : les reliquats de livraisons que la
         // coopérative doit encore, groupés une fois pour tous les délégués.
@@ -317,11 +324,20 @@ public class DelegateAccountService {
             // unique qui puisse les représenter.
             var resolved = marginResolver.resolve(prefs, delegate,
                     scope.size() == 1 ? scope.get(0) : null);
+            BigDecimal opening = openingScope == null
+                    ? null : previousBalance(delegate.id, openingScope);
             // La formule de l'expert (09/09/2026) : ce que le délégué a
             // reçu, moins ce que ses livraisons et sa mise en compte ont
             // couvert. Positif, il doit encore ; négatif, il a livré
             // au-delà de ses avances.
-            BigDecimal balance = advanced.subtract(delivered.add(retention));
+            //
+            // Le départ y entre depuis le 01/10/2026. Sans lui, un délégué
+            // qui ouvrait la campagne débiteur d'un million paraissait à
+            // jour ici, tandis que son compte individuel, qui l'a toujours
+            // compté, en montrait un autre : deux écrans donnaient deux
+            // positions pour le même délégué. Sur plusieurs campagnes il
+            // n'y a pas de départ, et la formule reste celle d'avant.
+            BigDecimal balance = nz(opening).add(advanced).subtract(delivered.add(retention));
             BigDecimal owed = owedByDelegate.getOrDefault(delegate.id, BigDecimal.ZERO);
             // Position courante, lue en une fois avant la boucle : une
             // requête par ligne ferait autant d'allers-retours que la
@@ -331,6 +347,7 @@ public class DelegateAccountService {
                     delegate.id, delegate.code, delegate.name,
                     delegate.sectionId != null
                             ? sections.findById(delegate.sectionId).map(sec -> sec.name).orElse(null) : null,
+                    opening,
                     advanced,
                     delegate.collectorRetentionPerKg, retention,
                     resolved.isPerKg() ? resolved.rate() : null, margin,
@@ -347,6 +364,7 @@ public class DelegateAccountService {
             totalWeight = totalWeight.add(weight);
             totalDelivered = totalDelivered.add(delivered);
             totalOwed = totalOwed.add(owed);
+            if (opening != null) totalOpening = totalOpening.add(opening);
         }
 
         rows.sort(java.util.Comparator.comparing(
@@ -356,9 +374,11 @@ public class DelegateAccountService {
         return new com.ntech.cabosse.collector.dto.DelegateStatementDto(
                 scope, rows,
                 new com.ntech.cabosse.collector.dto.DelegateStatementDto.Totals(
+                        openingScope == null ? null : totalOpening,
                         totalAdvanced, totalRetention, totalMargin, totalWeight,
                         totalDelivered,
-                        totalAdvanced.subtract(totalDelivered.add(totalRetention)),
+                        totalOpening.add(totalAdvanced)
+                                .subtract(totalDelivered.add(totalRetention)),
                         totalOwed,
                         rows.size()));
     }

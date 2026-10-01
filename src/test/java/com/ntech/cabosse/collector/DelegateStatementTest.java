@@ -358,4 +358,83 @@ class DelegateStatementTest extends AbstractIntegrationTest {
                 .body("data.rows", hasSize(0))
                 .body("data.totals.delegateCount", equalTo(0));
     }
+
+    /** Déclare ce que le délégué traînait avant que l'outil ne suive. */
+    private void declareOpeningBalance(UserEntity admin, String delegateId, String campaignId,
+                                       int amount) {
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "campaignId": "%s", "amount": %d }
+                        """.formatted(campaignId, amount))
+                .when().put("/api/v1/delegate-opening-balances/" + delegateId)
+                .then().statusCode(200);
+    }
+
+    @Test
+    void l_etat_montre_ce_que_le_delegue_trainait_au_depart() {
+        UserEntity admin = tenantAdmin();
+        LocalDate today = LocalDate.now();
+        String campaign = createCampaign(admin, "Principale", today.minusMonths(2), today.plusMonths(3));
+        String sectionId = createSection(admin);
+        String delegate = createDelegate(admin, "del-op", "SORO Adama", sectionId, 0);
+
+        declareOpeningBalance(admin, delegate, campaign, 918_245);
+
+        // Les soldes de départ se saisissaient sans jamais apparaître :
+        // un délégué qui démarre débiteur de neuf cent mille paraissait à
+        // jour sur l'état.
+        var statement = givenAs(admin)
+                .when().get("/api/v1/collector-advances/delegates/statement?campaignId=" + campaign)
+                .then().statusCode(200).extract().jsonPath();
+        assertAmount(statement, "data.rows[0].openingBalance", "918245");
+        assertAmount(statement, "data.totals.openingBalance", "918245");
+    }
+
+    @Test
+    void le_solde_de_l_etat_compte_le_depart() {
+        UserEntity admin = tenantAdmin();
+        LocalDate today = LocalDate.now();
+        String campaign = createCampaign(admin, "Principale", today.minusMonths(2), today.plusMonths(3));
+        String siteId = createSite(admin);
+        String sectionId = createSection(admin);
+        String delegate = createDelegate(admin, "del-op3", "BAMBA Sekou", sectionId, 0);
+
+        declareOpeningBalance(admin, delegate, campaign, 300_000);
+        openAdvance(admin, delegate, siteId, campaign, 200_000, today.minusMonths(1));
+
+        // Le départ entre dans la position : sans lui, l'état montrait
+        // 200 000 là où le compte individuel du délégué, qui l'a toujours
+        // compté, en montrait 500 000. Deux écrans, deux positions pour le
+        // même délégué (tranché le 01/10/2026).
+        var statement = givenAs(admin)
+                .when().get("/api/v1/collector-advances/delegates/statement?campaignId=" + campaign)
+                .then().statusCode(200).extract().jsonPath();
+        assertAmount(statement, "data.rows[0].advanceBalance", "500000");
+        assertAmount(statement, "data.totals.advanceBalance", "500000");
+    }
+
+    @Test
+    void sur_plusieurs_campagnes_l_etat_ne_fabrique_pas_un_depart() {
+        UserEntity admin = tenantAdmin();
+        LocalDate today = LocalDate.now();
+        String principale = createCampaign(admin, "Principale", today.minusMonths(9), today.minusMonths(4));
+        String intermediaire = createCampaign(
+                admin, "Intermédiaire", today.minusMonths(3), today.plusMonths(2), "INTERMEDIATE");
+        String sectionId = createSection(admin);
+        String delegate = createDelegate(admin, "del-op2", "TRAORE Madou", sectionId, 0);
+        declareOpeningBalance(admin, delegate, principale, 500_000);
+
+        var statement = givenAs(admin)
+                .when().get("/api/v1/collector-advances/delegates/statement"
+                        + "?campaignId=" + principale + "&campaignId=" + intermediaire)
+                .then().statusCode(200).extract().jsonPath();
+
+        // Les reports des unes sont les livraisons des autres : un départ
+        // unique n'aurait pas de sens, et l'état se tait plutôt que
+        // d'additionner des grandeurs qui se recouvrent.
+        org.assertj.core.api.Assertions.assertThat(
+                        (Object) statement.get("data.rows[0].openingBalance"))
+                .as("pas de départ fabriqué sur un ensemble de campagnes")
+                .isNull();
+    }
 }
