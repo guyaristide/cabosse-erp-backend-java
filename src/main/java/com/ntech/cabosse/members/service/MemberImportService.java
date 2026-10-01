@@ -118,8 +118,18 @@ public class MemberImportService {
         // Les parcelles déjà connues, pour reconnaître un code au réimport :
         // sans cela, chaque passage doublerait la superficie du tenant.
         Map<String, UUID> knownParcels = new HashMap<>();
+        // Second index, par nom : la plupart des registres n'ont pas de
+        // code plantation, et le rapprochement par code ne rattrapait
+        // rien. Chaque réimport recréait alors les parcelles, un
+        // producteur passant de une à deux puis à trois (relevé le
+        // 30/09/2026). Le nom, lui, est dérivé du producteur et du rang
+        // de sa parcelle : il est le même d'un import à l'autre.
+        Map<String, UUID> parcelsByName = new HashMap<>();
         for (var p : parcels.listAll()) {
             if (p.code != null && !p.code.isBlank()) knownParcels.put(p.code.trim().toUpperCase(Locale.ROOT), p.id);
+            if (p.name != null && !p.name.isBlank()) {
+                parcelsByName.putIfAbsent(p.name.trim().toUpperCase(Locale.ROOT), p.id);
+            }
         }
         List<String> knownDocTypes = idDocumentTypes.listAll().stream().map(t -> t.name).toList();
         // Le référentiel des villages, chargé une fois : le rapprochement se
@@ -205,7 +215,8 @@ public class MemberImportService {
                     parseBoolean(raw.censusRegistered()), parseBoolean(raw.producerCardIssued()),
                     collectedAt != null ? collectedAt.format(ISO) : null,
                     trim(raw.notes()),
-                    parseParcel(raw, knownParcels, nextParcelRank(raw, parcelRanks), issues),
+                    parseParcel(raw, knownParcels, parcelsByName,
+                            nextParcelRank(raw, parcelRanks), issues),
                     trim(raw.delegateCode()));
 
             // Le village face au référentiel. Une ressemblance n'est jamais
@@ -312,6 +323,7 @@ public class MemberImportService {
      */
     private MemberImportPreviewDto.Parcel parseParcel(MemberImportRowDto raw,
                                                       Map<String, UUID> knownParcels,
+                                                      Map<String, UUID> parcelsByName,
                                                       int parcelRank,
                                                       List<FieldIssue> issues) {
         String name = trim(raw.parcelName());
@@ -345,6 +357,13 @@ public class MemberImportService {
         // toute façon, et reste modifiable ensuite.
         if (name == null && matched == null) {
             name = derivedParcelName(raw, parcelRank);
+        }
+        // À défaut de code, le nom fait foi. Dérivé du producteur et du
+        // rang, il désigne la même parcelle à chaque passage : sans ce
+        // rattrapage, réimporter le même fichier doublait les parcelles
+        // au lieu de les mettre à jour.
+        if (matched == null && name != null) {
+            matched = parcelsByName.get(name.trim().toUpperCase(Locale.ROOT));
         }
 
         List<String> certifications = trim(raw.parcelCertifications()) == null
