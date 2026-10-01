@@ -731,8 +731,18 @@ public class AccountingService {
         entries.add(JournalEntry.credit(payable.account(), payable.label(), amount));
         if (marginCharge != null && marginCharge.amount() != null
                 && marginCharge.amount().signum() > 0) {
+            // La rémunération du délégué suit la collecte qu'elle
+            // accompagne. En mandat, elle n'est pas davantage une charge de
+            // la structure que le prix bord champ : c'est un frais sur
+            // achat, avancé pour le compte du donneur d'ordre et remboursé
+            // avec le reste (expert-comptable, 01/10/2026). La laisser en
+            // classe 6 gardait une charge de collecte au résultat, que le
+            // mandat est censé vider, et privait le compte d'avances des
+            // frais qu'il doit récupérer à la vente.
+            String marginAccount = onBehalf
+                    ? prefs.collectionAdvanceAccount() : marginCharge.account();
             entries.add(JournalEntry.debit(
-                    marginCharge.account(), marginCharge.label(), marginCharge.amount()));
+                    marginAccount, marginCharge.label(), marginCharge.amount()));
             entries.add(JournalEntry.credit(
                     payable.account(), marginCharge.label(), marginCharge.amount()));
         }

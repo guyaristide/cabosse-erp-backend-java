@@ -34,6 +34,12 @@ import static org.hamcrest.Matchers.startsWith;
  * compte de résultat un achat qui n'en est pas un, avec les
  * conséquences fiscales qui suivent.</p>
  *
+ * <p>La rémunération du délégué suit la même règle depuis le 01/10/2026 :
+ * c'est un frais sur achat, pas une charge de la structure. La laisser en
+ * classe 6 gardait au résultat une charge de collecte que le mandat est
+ * censé vider, et privait le compte d'avances des frais qu'il doit
+ * récupérer à la vente.</p>
+ *
  * <p>Couper purement et simplement l'écriture était impossible : la
  * pièce n'a que deux lignes, et retirer le débit la déséquilibre, ce que
  * le serveur refuse en annulant le reçu avec elle. La contrepartie est
@@ -117,6 +123,45 @@ class CollectionOnBehalfTest extends AbstractIntegrationTest {
         return "data.items.find { it.sourceType == 'PRODUCER_PURCHASE' }.entries.syscohadaAccount";
     }
 
+    /** Un délégué collecteur rattaché à sa section, avec une avance ouverte. */
+    private String delegateWithAdvance(UserEntity admin, String siteId) {
+        String sectionId = givenAs(admin).contentType("application/json")
+                .body("{\"code\":\"MEAGUI\",\"name\":\"Section Méagui\"}")
+                .when().post("/api/v1/sections").then().statusCode(201).extract().path("data.id");
+        String delegateId = givenAs(admin).contentType("application/json")
+                .body("""
+                        { "code": "del-mandat", "name": "KONE Adama", "collector": true,
+                          "sectionId": "%s" }
+                        """.formatted(sectionId))
+                .when().post("/api/v1/suppliers").then().statusCode(201).extract().path("data.id");
+        String advanceId = givenAs(admin).contentType("application/json")
+                .body("""
+                        { "delegateSupplierId": "%s", "advanceDate": "%s",
+                          "advanceAmount": 1000000, "paymentMethod": "CASH" }
+                        """.formatted(delegateId, LocalDate.now()))
+                .when().post("/api/v1/collector-advances?siteId=" + siteId)
+                .then().statusCode(201).extract().path("data.id");
+        givenAs(admin).when().post("/api/v1/collector-advances/" + advanceId + "/approve")
+                .then().statusCode(200);
+        givenAs(admin).when().post("/api/v1/collector-advances/" + advanceId + "/disburse")
+                .then().statusCode(200);
+        return delegateId;
+    }
+
+    /** Un reçu livré par le délégué, pour que sa rémunération existe. */
+    private String receiptThrough(UserEntity who, Refs refs, String delegateId) {
+        return givenAs(who).contentType("application/json")
+                .body("""
+                        { "date": "%s", "memberId": "%s", "articleId": "%s", "siteId": "%s",
+                          "weightKg": 200, "guaranteedPricePerKg": 1000,
+                          "paymentMethod": "CASH", "delegateSupplierId": "%s" }
+                        """.formatted(LocalDate.now(), refs.memberId(), refs.articleId(),
+                                refs.siteId(), delegateId))
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                .when().post("/api/v1/producer-purchases").then().statusCode(201)
+                .extract().path("data.ref");
+    }
+
     @Test
     void sans_le_mode_la_collecte_reste_une_charge_d_achat() {
         UserEntity a = admin();
@@ -178,5 +223,59 @@ class CollectionOnBehalfTest extends AbstractIntegrationTest {
         piece(a, ref).body(
                 "data.items.find { it.sourceType == 'PRODUCER_PURCHASE' }.totalDebit",
                 equalTo(200000));
+    }
+
+    @Test
+    void hors_mandat_la_remuneration_du_delegue_reste_une_charge() {
+        UserEntity a = admin();
+        Refs refs = referentials(a);
+        setPrefs(a, "{ \"delegateMarginMode\": \"PER_KG\", \"delegateMarginRate\": 25 }");
+        String delegateId = delegateWithAdvance(a, refs.siteId());
+
+        // Une structure qui achète pour revendre supporte bien le coût de
+        // sa collecte : le compte de rémunération garde son sens.
+        String ref = receiptThrough(a, refs, delegateId);
+        piece(a, ref).body(accounts(ref), hasItem("632100"));
+    }
+
+    @Test
+    void en_mandat_la_remuneration_du_delegue_quitte_aussi_la_classe_6() {
+        UserEntity a = admin();
+        Refs refs = referentials(a);
+        setPrefs(a, "{ \"collectionOnBehalf\": true, \"delegateMarginMode\": \"PER_KG\","
+                + " \"delegateMarginRate\": 25 }");
+        String delegateId = delegateWithAdvance(a, refs.siteId());
+
+        String ref = receiptThrough(a, refs, delegateId);
+
+        // La structure n'achète pas, donc elle ne supporte pas les frais
+        // d'achat : elle les avance et se les fait rembourser avec le
+        // reste. Une charge de collecte au résultat était précisément ce
+        // que le mandat devait faire disparaître.
+        piece(a, ref)
+                .body(accounts(ref), not(hasItem(startsWith("6"))))
+                .body(accounts(ref), hasItem("471100"));
+    }
+
+    @Test
+    void en_mandat_le_compte_d_avances_porte_le_prix_et_les_frais() {
+        UserEntity a = admin();
+        Refs refs = referentials(a);
+        setPrefs(a, "{ \"collectionOnBehalf\": true, \"delegateMarginMode\": \"PER_KG\","
+                + " \"delegateMarginRate\": 25 }");
+        String delegateId = delegateWithAdvance(a, refs.siteId());
+
+        String ref = receiptThrough(a, refs, delegateId);
+
+        // 200 kg à 1000 F, plus 25 F par kilo au délégué : le compte
+        // d'avances doit porter les 205 000 que la structure a réellement
+        // engagés pour le compte des producteurs, sinon la vente ne lui en
+        // rembourse qu'une partie et l'écart reste perdu.
+        // La somme Groovy revient en flottant : c'est le montant qui est
+        // vérifié, pas son type.
+        piece(a, ref).body(
+                "data.items.find { it.sourceType == 'PRODUCER_PURCHASE' }"
+                        + ".entries.findAll { it.syscohadaAccount == '471100' }.debit.sum()",
+                equalTo(205000.0d));
     }
 }
