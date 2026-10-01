@@ -103,11 +103,26 @@ class DelegateStatementTest extends AbstractIntegrationTest {
     }
 
     private String createCampaign(UserEntity admin, String label, LocalDate start, LocalDate end) {
+        return createCampaign(admin, label, start, end, "MAIN");
+    }
+
+    /**
+     * Une saison se joue en une campagne principale et ses compléments.
+     *
+     * <p>Le genre était laissé au défaut, donc principal, et une seule
+     * principale est admise par année. Les dates du test étant relatives
+     * au jour où il tourne, les deux campagnes sont tombées sur la même
+     * année le 1er octobre et la seconde a été refusée : le test disait
+     * « les deux campagnes de la saison » tout en en demandant deux
+     * principales.</p>
+     */
+    private String createCampaign(UserEntity admin, String label, LocalDate start, LocalDate end,
+                                  String kind) {
         return givenAs(admin).contentType("application/json")
                 .body("""
                         { "label": "%s", "startDate": "%s", "endDate": "%s",
-                          "basePricePerKg": 1000 }
-                        """.formatted(label, start, end))
+                          "basePricePerKg": 1000, "kind": "%s" }
+                        """.formatted(label, start, end, kind))
                 .when().post("/api/v1/campaigns").then().statusCode(201).extract().path("data.id");
     }
 
@@ -232,7 +247,8 @@ class DelegateStatementTest extends AbstractIntegrationTest {
         UserEntity admin = tenantAdmin();
         LocalDate today = LocalDate.now();
         String principale = createCampaign(admin, "Principale", today.minusMonths(9), today.minusMonths(4));
-        String intermediaire = createCampaign(admin, "Intermédiaire", today.minusMonths(3), today.plusMonths(2));
+        String intermediaire = createCampaign(
+                admin, "Intermédiaire", today.minusMonths(3), today.plusMonths(2), "INTERMEDIATE");
         String siteId = createSite(admin);
         String articleId = createArticle(admin);
         String sectionId = createSection(admin);

@@ -104,11 +104,25 @@ class DelegateRetentionTest extends AbstractIntegrationTest {
     }
 
     private String createCampaign(UserEntity admin, String label, LocalDate start, LocalDate end) {
+        return createCampaign(admin, label, start, end, "MAIN");
+    }
+
+    /**
+     * Une saison se joue en une campagne principale et ses compléments.
+     *
+     * <p>Le genre était laissé au défaut, donc principal, et une seule
+     * principale est admise par année. Les dates de ces tests étant
+     * relatives au jour où ils tournent, deux campagnes finissent par
+     * tomber sur la même année et la seconde est refusée : une panne
+     * calendaire qui ne dit pas son nom.</p>
+     */
+    private String createCampaign(UserEntity admin, String label, LocalDate start, LocalDate end,
+                                  String kind) {
         return givenAs(admin).contentType("application/json")
                 .body("""
-                        { "label": "%s", "startDate": "%s", "endDate": "%s",
+                        { "label": "%s", "startDate": "%s", "endDate": "%s", "kind": "%s",
                           "basePricePerKg": 1000 }
-                        """.formatted(label, start, end))
+                        """.formatted(label, start, end, kind))
                 .when().post("/api/v1/campaigns").then().statusCode(201).extract().path("data.id");
     }
 
@@ -197,7 +211,7 @@ class DelegateRetentionTest extends AbstractIntegrationTest {
         String past = createCampaign(admin, "Principale passée",
                 today.minusMonths(10), today.minusMonths(5));
         String current = createCampaign(admin, "Intermédiaire",
-                today.minusMonths(2), today.plusMonths(3));
+                today.minusMonths(2), today.plusMonths(3), "INTERMEDIATE");
         String siteId = createSite(admin);
         String sectionId = createSection(admin);
         // Aucune mise en compte convenue sur sa fiche.

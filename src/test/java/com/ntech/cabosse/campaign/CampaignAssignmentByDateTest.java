@@ -72,11 +72,25 @@ class CampaignAssignmentByDateTest extends AbstractIntegrationTest {
     }
 
     private String createCampaign(UserEntity admin, String label, LocalDate start, LocalDate end) {
+        return createCampaign(admin, label, start, end, "MAIN");
+    }
+
+    /**
+     * Une saison se joue en une campagne principale et ses compléments.
+     *
+     * <p>Le genre était laissé au défaut, donc principal, et une seule
+     * principale est admise par année. Les dates de ces tests étant
+     * relatives au jour où ils tournent, deux campagnes finissent par
+     * tomber sur la même année et la seconde est refusée : une panne
+     * calendaire qui ne dit pas son nom.</p>
+     */
+    private String createCampaign(UserEntity admin, String label, LocalDate start, LocalDate end,
+                                  String kind) {
         return givenAs(admin).contentType("application/json")
                 .body("""
-                        { "label": "%s", "startDate": "%s", "endDate": "%s",
+                        { "label": "%s", "startDate": "%s", "endDate": "%s", "kind": "%s",
                           "basePricePerKg": 1500 }
-                        """.formatted(label, start, end))
+                        """.formatted(label, start, end, kind))
                 .when().post("/api/v1/campaigns")
                 .then().statusCode(201)
                 .extract().path("data.id");
@@ -126,7 +140,7 @@ class CampaignAssignmentByDateTest extends AbstractIntegrationTest {
         String passee = createCampaign(admin, "Principale",
                 today.minusMonths(10), today.minusMonths(4));
         String courante = createCampaign(admin, "Intermédiaire",
-                today.minusMonths(3), today.plusMonths(2));
+                today.minusMonths(3), today.plusMonths(2), "INTERMEDIATE");
 
         String parcelId = createParcel(admin);
 
@@ -147,7 +161,7 @@ class CampaignAssignmentByDateTest extends AbstractIntegrationTest {
         LocalDate today = LocalDate.now();
         String passee = createCampaign(admin, "Principale",
                 today.minusMonths(10), today.minusMonths(4));
-        createCampaign(admin, "Intermédiaire", today.minusMonths(3), today.plusMonths(2));
+        createCampaign(admin, "Intermédiaire", today.minusMonths(3), today.plusMonths(2), "INTERMEDIATE");
         String parcelId = createParcel(admin);
 
         // Une récolte d'aujourd'hui rattachée à la main à la campagne passée :
@@ -168,7 +182,7 @@ class CampaignAssignmentByDateTest extends AbstractIntegrationTest {
         LocalDate today = LocalDate.now();
         createCampaign(admin, "Principale", today.minusMonths(10), today.minusMonths(4));
         String courante = createCampaign(admin, "Intermédiaire",
-                today.minusMonths(3), today.plusMonths(2));
+                today.minusMonths(3), today.plusMonths(2), "INTERMEDIATE");
         String parcelId = createParcel(admin);
 
         setAssignmentMode(admin, "MANUAL");
@@ -188,7 +202,7 @@ class CampaignAssignmentByDateTest extends AbstractIntegrationTest {
         UserEntity admin = tenantAdmin();
         LocalDate today = LocalDate.now();
         String courante = createCampaign(admin, "Intermédiaire",
-                today.minusMonths(3), today.plusMonths(2));
+                today.minusMonths(3), today.plusMonths(2), "INTERMEDIATE");
         String parcelId = createParcel(admin);
 
         // Une date antérieure à toute campagne connue : la saisie ne doit
