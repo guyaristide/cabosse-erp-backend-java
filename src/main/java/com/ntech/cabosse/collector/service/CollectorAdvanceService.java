@@ -213,6 +213,82 @@ public class CollectorAdvanceService {
     }
 
     /**
+     * Corrige une demande d'avance que personne n'a encore approuvée.
+     *
+     * <p>Une erreur de saisie n'avait aucune issue : il fallait rejeter la
+     * demande, qui restait au journal sous un refus qu'elle n'avait pas
+     * mérité, puis en ressaisir une (demandé le 01/10/2026). Tant que rien
+     * n'est approuvé, rien n'est sorti ni écrit : la demande se corrige
+     * comme un brouillon.</p>
+     *
+     * <p>Tout ce que la création dérive est redérivé : le délégué, sa
+     * section, la campagne de la nouvelle date, le seuil de gouvernance du
+     * nouveau montant et la contrepartie attendue. Ne reprendre que le
+     * montant laisserait une demande cohérente en apparence et fausse en
+     * dessous. La référence et l'auteur d'origine ne bougent pas : c'est la
+     * même demande, corrigée, pas une autre.</p>
+     */
+    public CollectorAdvanceResponseDto update(UUID id, CreateAdvanceDto p, UUID siteId) {
+        CollectorAdvanceEntity e = repo.findById(id).orElseThrow(
+                () -> new NotFoundException(Messages.msg("m.col-advance-not-found", id)));
+        if (e.status != CollectorAdvanceStatus.PENDING_APPROVAL) {
+            throw new BusinessException(
+                    Messages.msg("m.col-only-pending-editable", e.status.name()));
+        }
+        SupplierEntity delegate = suppliers.findById(p.delegateSupplierId()).orElseThrow(
+                () -> new NotFoundException(
+                        Messages.msg("m.col-delegate-not-found", p.delegateSupplierId())));
+        if (!delegate.collector) {
+            throw new BusinessException(
+                    Messages.msg("m.col-not-a-delegate-check-card", delegate.name));
+        }
+
+        BigDecimal before = e.advanceAmount;
+        e.delegateSupplierId = delegate.id;
+        e.delegateName = delegate.name;
+        e.sectionId = delegate.sectionId;
+        e.sectionName = null;
+        if (delegate.sectionId != null) {
+            sections.findById(delegate.sectionId).ifPresent(sec -> e.sectionName = sec.name);
+        }
+        CampaignEntity campaign =
+                campaignResolver.resolveOptionalForDate(p.advanceDate(), p.campaignId());
+        e.campaignId = campaign != null ? campaign.id : null;
+        e.campaignYear = campaign != null ? campaign.campaignYear : null;
+        if (siteId != null) {
+            e.siteId = siteId;
+        }
+        e.advanceDate = p.advanceDate();
+        e.advanceAmount = p.advanceAmount();
+        e.paymentMethod = p.paymentMethod();
+        // Rien n'a encore été consommé à ce stade : le reste disponible
+        // suit le nouveau montant.
+        e.remaining = p.advanceAmount();
+
+        BigDecimal threshold = preferencesLookup.current() != null
+                ? preferencesLookup.current().collectorAdvanceApprovalThreshold
+                : null;
+        e.governanceApprovalRequired = threshold != null
+                && p.advanceAmount().compareTo(threshold) >= 0;
+
+        DelegateTermsDto terms = delegateAccount.terms(
+                delegate.id, e.campaignId, null, p.advanceAmount());
+        e.counterpartUnitPrice = terms.scalePricePerKg();
+        e.expectedQuantity = p.expectedQuantity() != null
+                ? p.expectedQuantity() : terms.suggestedVolumeKg();
+        e.expectedQuantityUnit = e.expectedQuantity != null ? COUNTERPART_UNIT : null;
+
+        e.notes = (p.notes() == null || p.notes().isBlank()) ? null : p.notes().trim();
+        e.updatedAt = Instant.now();
+
+        repo.replace(e);
+        audit(e, AuditEventType.COLLECTOR_ADVANCE_UPDATED,
+                "Demande d'avance corrigée : " + before + " devient " + e.advanceAmount
+                        + " pour le délégué " + e.delegateName);
+        return CollectorAdvanceResponseDto.from(e);
+    }
+
+    /**
      * Approuve une demande d'avance.
      *
      * <p>La contrepartie exigée sur une dette antérieure est

@@ -29,6 +29,7 @@ import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
@@ -94,6 +95,23 @@ public class CollectorAdvanceResource {
     public Response create(@Valid CreateAdvanceDto payload, @QueryParam("siteId") UUID siteId) {
         return Response.status(Response.Status.CREATED)
                 .entity(ApiResponse.created(service.create(payload, siteId))).build();
+    }
+
+    /**
+     * Corrige une demande d'avance que personne n'a encore approuvée.
+     *
+     * <p>Même droit que la demande : corriger sa propre saisie avant
+     * qu'elle ne soit examinée relève du même geste. Au-delà de
+     * l'approbation, la correction est refusée, de l'argent étant engagé
+     * (demandé le 01/10/2026).</p>
+     */
+    @PUT
+    @Path("/{id}")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    @RequiresPermission(Permission.COLLECTION_ADVANCE_REQUEST)
+    public Response update(@PathParam("id") UUID id, @Valid CreateAdvanceDto payload,
+                           @QueryParam("siteId") UUID siteId) {
+        return Response.ok(ApiResponse.ok(service.update(id, payload, siteId))).build();
     }
 
     /**
