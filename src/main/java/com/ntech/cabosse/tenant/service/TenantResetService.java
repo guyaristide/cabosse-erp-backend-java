@@ -20,8 +20,11 @@ import org.jboss.logging.Logger;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -34,9 +37,17 @@ import java.util.UUID;
  * l'appelant recopie le nom de la structure.</p>
  *
  * <h3>Ce qui disparaît</h3>
- * <p>Toutes les données d'exploitation : membres, parcelles, récoltes,
- * achats, ventes, stocks, écritures, règlements, campagnes, ainsi que les
- * référentiels que la structure a saisis elle-même.</p>
+ * <p>Les données d'exploitation : achats et reçus, livraisons, ventes,
+ * stocks, production, écritures, règlements, avances. Elles partent
+ * toujours, c'est la raison même de l'opération.</p>
+ *
+ * <p>Le paramétrage, les nomenclatures et le registre des tiers partent
+ * aussi <strong>sauf demande contraire</strong>. Après une saison d'essai,
+ * ce qu'on veut jeter, ce sont les écritures et les livraisons, pas le
+ * registre de quatre mille producteurs ni le plan comptable qu'on a mis un
+ * mois à ajuster (demandé le 30/09/2026). Les trois familles se conservent
+ * séparément : aucune combinaison n'est interdite, l'appelant sachant ce
+ * qu'il fait mieux que nous.</p>
  *
  * <h3>Ce qui survit</h3>
  * <ul>
@@ -50,8 +61,9 @@ import java.util.UUID;
  *   <li>L'<strong>identité et l'abonnement</strong> de la structure : nom,
  *       modèle d'organisation, activités, plan. Ils vivent eux aussi dans
  *       le plan de contrôle, donc les capacités restent les mêmes.</li>
- *   <li>Un <strong>site par défaut</strong>, recréé comme au provisioning :
- *       sans site, la structure ne pourrait plus rien saisir.</li>
+ *   <li>Un <strong>site par défaut</strong>, recréé comme au provisioning
+ *       quand les sites ont été effacés : sans site, la structure ne
+ *       pourrait plus rien saisir.</li>
  * </ul>
  *
  * <p>Le reste est reconstruit par les migrations, exactement comme à
@@ -59,8 +71,6 @@ import java.util.UUID;
  */
 @ApplicationScoped
 public class TenantResetService {
-
-    private static final String ROLES_COLLECTION = "tenant_roles";
 
     @Inject MongoClient mongoClient;
     @Inject TenantRepository tenants;
@@ -73,10 +83,11 @@ public class TenantResetService {
     /**
      * Remet la structure à son état d'ouverture.
      *
-     * @param tenantId    structure visée
+     * @param tenantId     structure visée
      * @param confirmation nom de la structure, recopié par l'appelant
+     * @param keep         familles de données à conserver ; vide efface tout
      */
-    public void resetToInitialState(UUID tenantId, String confirmation) {
+    public void resetToInitialState(UUID tenantId, String confirmation, Set<TenantDataCategory> keep) {
         TenantEntity tenant = tenants.findById(tenantId);
         if (tenant == null) {
             throw new NotFoundException(Messages.msg("m.tnt-not-found", tenantId));
@@ -92,13 +103,17 @@ public class TenantResetService {
 
         String databaseName = tenant.databaseName;
         var database = mongoClient.getDatabase(databaseName);
+        Set<String> kept = TenantCollections.toKeep(keep == null ? Set.of() : keep);
 
-        // 1. Les profils de droits sont sauvegardés tels quels. Leurs
+        // 1. Ce qui doit survivre est relu en entier avant la destruction.
+        //    Les profils de droits en font toujours partie : leurs
         //    identifiants sont référencés par les comptes utilisateurs du
-        //    plan de contrôle : les régénérer priverait silencieusement
+        //    plan de contrôle, et les régénérer priverait silencieusement
         //    chaque collaborateur de ses accès.
-        List<Document> roles = database.getCollection(ROLES_COLLECTION)
-                .find().into(new ArrayList<>());
+        Map<String, List<Document>> saved = new LinkedHashMap<>();
+        for (String collection : kept) {
+            saved.put(collection, database.getCollection(collection).find().into(new ArrayList<>()));
+        }
 
         // 2. La base part en entier, journal des migrations compris : c'est
         //    ce qui garantit que la reconstruction est celle d'une base
@@ -108,31 +123,43 @@ public class TenantResetService {
         // 3. Reconstruction par les migrations, comme au provisioning.
         migrationRunner.runMigrationsFor(databaseName);
 
-        // 4. Restauration des profils, à l'identique.
+        // 4. Restauration, à l'identique.
         //
-        //    Les migrations viennent d'en semer un jeu neuf : il porte les
-        //    mêmes codes mais de nouveaux identifiants, et entrerait en
-        //    collision avec ceux qu'on restaure. Ce sont les profils
-        //    sauvegardés qui font foi, puisque ce sont eux que les comptes
-        //    utilisateurs référencent — le semis est écarté.
-        if (!roles.isEmpty()) {
-            var collection = mongoClient.getDatabase(databaseName).getCollection(ROLES_COLLECTION);
+        //    Les migrations viennent de semer un jeu neuf de plusieurs de
+        //    ces collections : il porte les mêmes codes mais de nouveaux
+        //    identifiants, et entrerait en collision avec ce qu'on
+        //    restaure. Ce sont les données sauvegardées qui font foi,
+        //    puisque ce sont elles que le reste référence — le semis est
+        //    écarté.
+        var restored = mongoClient.getDatabase(databaseName);
+        int restoredDocuments = 0;
+        for (var entry : saved.entrySet()) {
+            if (entry.getValue().isEmpty()) {
+                continue;
+            }
+            var collection = restored.getCollection(entry.getKey());
             collection.deleteMany(new Document());
-            collection.insertMany(roles);
+            collection.insertMany(entry.getValue());
+            restoredDocuments += entry.getValue().size();
         }
 
-        // 5. Un site, sans quoi plus aucune saisie n'est possible.
-        seedDefaultSite(databaseName);
+        // 5. Un site, sans quoi plus aucune saisie n'est possible. Inutile
+        //    quand les sites ont été conservés.
+        if (restored.getCollection("sites").countDocuments() == 0) {
+            seedDefaultSite(databaseName);
+        }
 
         long remainingUsers = users.find("tenantId", tenantId).count();
-        log.warnf("Tenant %s reset to initial state by %s (%d profils restaurés, %d comptes conservés)",
-                tenant.slug, actor(), roles.size(), remainingUsers);
+        String keptLabel = keep == null || keep.isEmpty() ? "aucune famille" : keep.toString();
+        log.warnf("Tenant %s reset to initial state by %s (%s conservée(s), %d documents restaurés, %d comptes conservés)",
+                tenant.slug, actor(), keptLabel, restoredDocuments, remainingUsers);
 
         audit.event(AuditEventType.TENANT_DATA_RESET)
                 .actorEmail(actor())
                 .target("tenant", tenant.id.toString(), tenant.name)
                 .tenant(tenant.id, tenant.name)
-                .description("Données remises à plat : " + roles.size() + " profil(s) et "
+                .description("Données remises à plat, " + keptLabel + " conservée(s) : "
+                        + restoredDocuments + " document(s) restauré(s) et "
                         + remainingUsers + " compte(s) conservés")
                 .record();
     }

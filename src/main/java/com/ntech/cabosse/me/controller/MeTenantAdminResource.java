@@ -90,13 +90,16 @@ public class MeTenantAdminResource {
     @Consumes(MediaType.APPLICATION_JSON)
     @Operation(summary = "Remettre les données de la structure à plat",
             description = "Efface les données d'exploitation et rejoue les migrations. "
-                    + "Les comptes utilisateurs et les profils de droits sont conservés. "
+                    + "Le paramétrage, les nomenclatures et le registre des tiers peuvent être "
+                    + "conservés, séparément ou ensemble. Les comptes utilisateurs et les profils "
+                    + "de droits le sont toujours. "
                     + "Irréversible : le nom de la structure doit être recopié.")
     @APIResponse(responseCode = "204", description = "Données remises à plat")
     @APIResponse(responseCode = "422", description = "Nom recopié incorrect")
     public Response resetData(
             @Valid com.ntech.cabosse.tenant.dto.TenantResetPayloadDto payload) {
-        resetService.resetToInitialState(tenantContext.tenantId(), payload.confirmation());
+        resetService.resetToInitialState(
+                tenantContext.tenantId(), payload.confirmation(), payload.keptCategories());
         return Response.noContent().build();
     }
 
