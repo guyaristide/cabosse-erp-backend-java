@@ -42,6 +42,7 @@ public class TenantSubscriptionService {
     @Inject TenantRepository tenants;
     @Inject PlanRepository plans;
     @Inject AuditService audit;
+    @Inject LicenseMailService licenseMail;
     @Inject TenantContext tenantContext;
     @Inject JsonWebToken jwt;
 
@@ -95,6 +96,14 @@ public class TenantSubscriptionService {
         subscription.endDate = endDate;
         subscription.activatedAt = now;
         subscription.activatedByEmail = actor();
+        // Le plan propose, le contrat dispose : chaque licence se
+        // négocie, et le montant retenu est figé ici. Le relire du plan
+        // des mois plus tard raconterait autre chose que ce qui a été
+        // facturé.
+        subscription.amount = payload.amount() != null
+                ? payload.amount() : planPrice(plan, payload.cycle(), periods);
+        subscription.label = payload.label() != null && !payload.label().isBlank()
+                ? payload.label().trim() : plan.name;
 
         tenant.subscription = subscription;
         tenant.planCode = plan.code;
@@ -124,7 +133,25 @@ public class TenantSubscriptionService {
                         + " · du " + startDate + " au " + endDate)
                 .record();
 
+        // Le courrier part après l'enregistrement, et ne peut plus le
+        // remettre en cause : une licence accordée dont l'avis n'est pas
+        // parti reste une licence accordée.
+        licenseMail.sendActivation(tenant, payload.notifyEmails());
+
         return tenant;
+    }
+
+    /**
+     * Ce que le plan facture pour la période demandée.
+     *
+     * <p>Sert de proposition : le prix du cycle multiplié par le nombre
+     * de cycles. Un plan sans prix laisse le montant vide plutôt que de
+     * poser un zéro, qui se lirait comme une licence gratuite.</p>
+     */
+    private static java.math.BigDecimal planPrice(PlanEntity plan, BillingCycle cycle, int periods) {
+        java.math.BigDecimal unit = cycle == BillingCycle.YEARLY
+                ? plan.yearlyPrice : plan.monthlyPrice;
+        return unit == null ? null : unit.multiply(java.math.BigDecimal.valueOf(periods));
     }
 
     private static String cycleLabel(BillingCycle cycle) {

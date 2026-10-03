@@ -130,7 +130,11 @@ public final class TenantMapper {
                 entity.subscription.startDate,
                 entity.subscription.endDate,
                 entity.subscription.activatedAt,
-                entity.subscription.activatedByEmail
+                entity.subscription.activatedByEmail,
+                entity.subscription.amount,
+                entity.subscription.label,
+                entity.subscription.expiryNoticeSentAt,
+                entity.subscription.suspendedAt
         );
     }
 

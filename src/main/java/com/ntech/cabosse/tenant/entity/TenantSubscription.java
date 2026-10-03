@@ -13,9 +13,13 @@ import java.time.LocalDate;
  * (ex. {@code MONTHLY × 2} = 2 mois, {@code YEARLY × 4} = 4 ans).</p>
  *
  * <p>Le {@link TenantEntity#planCode} reflète le {@link #planCode} de
- * l'abonnement courant (dénormalisé pour les filtres/affichage rapides).
- * La bascule automatique à l'échéance ({@code endDate} dépassée) n'est pas
- * gérée au MVP — l'activation est manuelle.</p>
+ * l'abonnement courant (dénormalisé pour les filtres/affichage rapides).</p>
+
+ * <p>À l'échéance, la structure est avertie puis suspendue passé un délai
+ * de grâce (demandé le 03/10/2026). Le montant et le libellé sont figés
+ * ici : le plan les propose, chaque contrat se négocie, et un prix relu
+ * du plan des mois plus tard raconterait autre chose que ce qui a été
+ * facturé.</p>
  */
 public class TenantSubscription {
 
@@ -39,6 +43,21 @@ public class TenantSubscription {
 
     /** Email du super-admin ayant activé l'abonnement. */
     public String activatedByEmail;
+
+    /**
+     * Ce qui a été facturé pour la période, dans la devise de la
+     * structure. Proposé par le plan, corrigé à l'activation.
+     */
+    public java.math.BigDecimal amount;
+
+    /** Le libellé porté par le mail et la facture. */
+    public String label;
+
+    /** Quand la structure a été avertie de l'échéance. Null tant qu'elle ne l'a pas été. */
+    public Instant expiryNoticeSentAt;
+
+    /** Quand la suspension pour licence échue a eu lieu. */
+    public Instant suspendedAt;
 
     public TenantSubscription() {}
 }

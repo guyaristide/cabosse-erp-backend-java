@@ -1,0 +1,107 @@
+{#include mail/layout/base.html}
+{#title}{t.title}{/title}
+
+<p style="margin:0 0 4px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.12em;color:#948877;">
+  {tenantName}
+</p>
+
+<h1 style="margin:0 0 6px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;font-size:22px;font-weight:600;letter-spacing:-0.02em;color:#1c1712;">
+  {t.heading}
+</h1>
+
+<p style="margin:0 0 24px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;font-size:13px;color:#6b6157;">
+  {t.periodLabel} <strong style="color:#1c1712;">{periodLong}</strong>
+</p>
+
+<p style="margin:0 0 16px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;font-size:14px;line-height:1.55;color:#3a322a;">
+  {t.greeting}
+</p>
+
+<p style="margin:0 0 24px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;font-size:14px;line-height:1.55;color:#3a322a;">
+  {t.intro}
+</p>
+
+<!-- Informations de licence -->
+<p style="margin:0 0 10px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#948877;">
+  {t.licenseInfo}
+</p>
+
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:0 0 28px 0;border:1px solid #e2d8ca;border-radius:8px;">
+  <tr>
+    <td style="padding:12px 16px;border-bottom:1px solid #f0e9df;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;font-size:13px;color:#6b6157;">{t.fieldOrganization}</td>
+    <td align="right" style="padding:12px 16px;border-bottom:1px solid #f0e9df;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;font-size:13px;font-weight:600;color:#1c1712;">{tenantName}</td>
+  </tr>
+  <tr>
+    <td style="padding:12px 16px;border-bottom:1px solid #f0e9df;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;font-size:13px;color:#6b6157;">{t.fieldSolution}</td>
+    <td align="right" style="padding:12px 16px;border-bottom:1px solid #f0e9df;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;font-size:13px;font-weight:600;color:#1c1712;">Cabosse ERP</td>
+  </tr>
+  <tr>
+    <td style="padding:12px 16px;border-bottom:1px solid #f0e9df;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;font-size:13px;color:#6b6157;">{t.fieldPeriod}</td>
+    <td align="right" style="padding:12px 16px;border-bottom:1px solid #f0e9df;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;font-size:13px;font-weight:600;color:#1c1712;">{periodShort}</td>
+  </tr>
+  <tr>
+    <td style="padding:12px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;font-size:13px;color:#6b6157;">{t.fieldState}</td>
+    <td align="right" style="padding:12px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;font-size:13px;font-weight:600;color:#1c1712;">{t.stateActive}</td>
+  </tr>
+</table>
+
+<!-- Dispositions techniques. Elles décrivent l'offre et ne varient pas
+     d'une structure à l'autre : les sortir en paramètres laisserait
+     croire qu'elles se négocient. -->
+<p style="margin:0 0 10px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#948877;">
+  {t.instanceTitle}
+</p>
+
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:0 0 28px 0;">
+  <tr>
+    <td style="padding:0 0 14px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;font-size:13px;line-height:1.5;color:#3a322a;">
+      <strong style="color:#1c1712;">{t.hostingTitle}</strong><br/>{t.hostingBody}
+    </td>
+  </tr>
+  <tr>
+    <td style="padding:0 0 14px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;font-size:13px;line-height:1.5;color:#3a322a;">
+      <strong style="color:#1c1712;">{t.dataTitle}</strong><br/>{t.dataBody}
+    </td>
+  </tr>
+  <tr>
+    <td style="padding:0 0 14px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;font-size:13px;line-height:1.5;color:#3a322a;">
+      <strong style="color:#1c1712;">{t.backupTitle}</strong><br/>{t.backupBody}
+    </td>
+  </tr>
+  <tr>
+    <td style="padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;font-size:13px;line-height:1.5;color:#3a322a;">
+      <strong style="color:#1c1712;">{t.maintenanceTitle}</strong><br/>{t.maintenanceBody}
+    </td>
+  </tr>
+</table>
+
+<!-- Licence et facturation. Le montant est absent quand il n'a pas été
+     arrêté : un zéro se lirait comme une licence gratuite. -->
+{#if amount}
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:0 0 24px 0;background-color:#faf7f2;border:1px solid #e2d8ca;border-radius:8px;">
+  <tr>
+    <td style="padding:16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;font-size:13px;color:#3a322a;">
+      <strong style="color:#1c1712;">{licenseLabel}</strong><br/>
+      <span style="color:#6b6157;">{durationLabel} &middot; {periodShort}</span>
+    </td>
+    <td align="right" style="padding:16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;font-size:17px;font-weight:600;color:#1c1712;white-space:nowrap;">
+      {amount}
+    </td>
+  </tr>
+</table>
+
+<p style="margin:0 0 24px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;font-size:13px;line-height:1.55;color:#6b6157;">
+  {t.invoiceNote}
+</p>
+{/if}
+
+<p style="margin:0 0 20px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;font-size:14px;line-height:1.55;color:#3a322a;">
+  {t.closing}
+</p>
+
+<p style="margin:0;padding-top:16px;border-top:1px solid #e2d8ca;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;font-size:13px;line-height:1.5;color:#3a322a;">
+  {t.signOff}<br/>
+  <strong style="color:#1c1712;">{senderName}</strong><br/>
+  <span style="color:#6b6157;">{senderRole}</span>
+</p>
+{/include}

@@ -47,6 +47,7 @@ class TenantSubscriptionServiceTest {
     private TenantRepository tenants;
     private PlanRepository plans;
     private AuditService audit;
+    private LicenseMailService licenseMail;
     private TenantContext tenantContext;
     private JsonWebToken jwt;
 
@@ -56,12 +57,14 @@ class TenantSubscriptionServiceTest {
         tenants = mock(TenantRepository.class);
         plans = mock(PlanRepository.class);
         audit = mock(AuditService.class);
+        licenseMail = mock(LicenseMailService.class);
         tenantContext = mock(TenantContext.class);
         jwt = mock(JsonWebToken.class);
 
         service.tenants = tenants;
         service.plans = plans;
         service.audit = audit;
+        service.licenseMail = licenseMail;
         service.tenantContext = tenantContext;
         service.jwt = jwt;
 
@@ -86,7 +89,7 @@ class TenantSubscriptionServiceTest {
         when(tenants.findById(TENANT_ID)).thenReturn(tenant);
 
         TenantEntity result = service.activate(TENANT_ID,
-                new ActivateSubscriptionPayloadDto("pro", BillingCycle.MONTHLY, 2, START));
+                new ActivateSubscriptionPayloadDto("pro", BillingCycle.MONTHLY, 2, START, null, null, null));
 
         assertThat(result.commercialStatus).isEqualTo(CommercialStatus.PRODUCTION);
         assertThat(result.planCode).isEqualTo("pro");
@@ -108,7 +111,7 @@ class TenantSubscriptionServiceTest {
         when(tenants.findById(TENANT_ID)).thenReturn(tenant);
 
         TenantEntity result = service.activate(TENANT_ID,
-                new ActivateSubscriptionPayloadDto("pro", BillingCycle.YEARLY, 4, START));
+                new ActivateSubscriptionPayloadDto("pro", BillingCycle.YEARLY, 4, START, null, null, null));
 
         assertThat(result.subscription.endDate).isEqualTo(LocalDate.of(2030, 7, 1)); // +4 ans
     }
@@ -119,7 +122,7 @@ class TenantSubscriptionServiceTest {
         when(tenants.findById(TENANT_ID)).thenReturn(tenant);
 
         TenantEntity result = service.activate(TENANT_ID,
-                new ActivateSubscriptionPayloadDto("pro", BillingCycle.MONTHLY, 1, null));
+                new ActivateSubscriptionPayloadDto("pro", BillingCycle.MONTHLY, 1, null, null, null, null));
 
         LocalDate today = LocalDate.now();
         assertThat(result.subscription.startDate).isEqualTo(today);
@@ -133,7 +136,7 @@ class TenantSubscriptionServiceTest {
         when(tenants.findById(TENANT_ID)).thenReturn(tenant);
 
         TenantEntity result = service.activate(TENANT_ID,
-                new ActivateSubscriptionPayloadDto("pro", BillingCycle.MONTHLY, 1, START));
+                new ActivateSubscriptionPayloadDto("pro", BillingCycle.MONTHLY, 1, START, null, null, null));
 
         assertThat(result.status).isEqualTo(TenantStatus.ACTIVE);
         assertThat(result.suspendedAt).isNull();
@@ -147,7 +150,7 @@ class TenantSubscriptionServiceTest {
         when(tenants.findById(TENANT_ID)).thenReturn(null);
 
         assertThatThrownBy(() -> service.activate(TENANT_ID,
-                new ActivateSubscriptionPayloadDto("pro", BillingCycle.MONTHLY, 1, START)))
+                new ActivateSubscriptionPayloadDto("pro", BillingCycle.MONTHLY, 1, START, null, null, null)))
                 .isInstanceOf(NotFoundException.class);
 
         verify(tenants, never()).update(any(TenantEntity.class));
@@ -160,7 +163,7 @@ class TenantSubscriptionServiceTest {
         when(plans.findByCode("ghost")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.activate(TENANT_ID,
-                new ActivateSubscriptionPayloadDto("ghost", BillingCycle.MONTHLY, 1, START)))
+                new ActivateSubscriptionPayloadDto("ghost", BillingCycle.MONTHLY, 1, START, null, null, null)))
                 .isInstanceOf(BusinessException.class);
 
         verify(tenants, never()).update(any(TenantEntity.class));
@@ -173,7 +176,7 @@ class TenantSubscriptionServiceTest {
         when(plans.findByCode("legacy")).thenReturn(Optional.of(plan("legacy", false)));
 
         assertThatThrownBy(() -> service.activate(TENANT_ID,
-                new ActivateSubscriptionPayloadDto("legacy", BillingCycle.MONTHLY, 1, START)))
+                new ActivateSubscriptionPayloadDto("legacy", BillingCycle.MONTHLY, 1, START, null, null, null)))
                 .isInstanceOf(BusinessException.class);
 
         verify(tenants, never()).update(any(TenantEntity.class));
@@ -187,7 +190,7 @@ class TenantSubscriptionServiceTest {
             when(tenants.findById(TENANT_ID)).thenReturn(tenant);
 
             assertThatThrownBy(() -> service.activate(TENANT_ID,
-                    new ActivateSubscriptionPayloadDto("pro", BillingCycle.MONTHLY, 1, START)))
+                    new ActivateSubscriptionPayloadDto("pro", BillingCycle.MONTHLY, 1, START, null, null, null)))
                     .as("statut %s doit être refusé", bad)
                     .isInstanceOf(BusinessException.class);
         }

@@ -31,6 +31,16 @@ public record ActivateSubscriptionPayloadDto(
         int periods,
 
         @Schema(description = "Début de l'abonnement au format ISO (ex. 2026-07-01). Si omis, aujourd'hui.")
-        LocalDate startDate
+        LocalDate startDate,
+
+        @Schema(description = "Montant facturé pour la période. Si omis, celui du plan.")
+        java.math.BigDecimal amount,
+
+        @Schema(description = "Libellé porté par le mail et la facture. Si omis, le nom du plan.")
+        String label,
+
+        @Schema(description = "Adresses, parmi les utilisateurs du tenant, à qui envoyer la "
+                + "confirmation d'activation. Vide : aucun mail n'est envoyé.")
+        java.util.List<String> notifyEmails
 
 ) {}

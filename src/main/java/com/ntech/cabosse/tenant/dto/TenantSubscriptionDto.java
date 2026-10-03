@@ -18,6 +18,10 @@ public record TenantSubscriptionDto(
         LocalDate startDate,
         LocalDate endDate,
         Instant activatedAt,
-        String activatedByEmail
+        String activatedByEmail,
+        java.math.BigDecimal amount,
+        String label,
+        Instant expiryNoticeSentAt,
+        Instant suspendedAt
 
 ) {}
