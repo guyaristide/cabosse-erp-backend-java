@@ -214,6 +214,16 @@ public record TenantPreferencesDto(
 
         @Schema(description = "Objectif indicatif de taux de marge nette de campagne, en pourcent.",
                 example = "2", defaultValue = "2")
-        int netMarginTargetPct
+        int netMarginTargetPct,
+
+        @Schema(description = "Thème appliqué à toute la structure : LIGHT (défaut), DARK ou "
+                + "SYSTEM (celui de l'appareil).",
+                example = "LIGHT", defaultValue = "LIGHT")
+        String themeMode,
+
+        @Schema(description = "Espacement des tableaux et formulaires : COMFORTABLE (défaut) "
+                + "ou COMPACT.",
+                example = "COMFORTABLE", defaultValue = "COMFORTABLE")
+        String uiDensity
 
 ) {}

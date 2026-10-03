@@ -98,7 +98,9 @@ public class TenantPreferencesService {
                 p.producerPurchaseSiteRequired(),
                 p.receiptAccountingMode(),
                 p.grossMarginTargetPct(),
-                p.netMarginTargetPct()
+                p.netMarginTargetPct(),
+                p.themeMode(),
+                p.uiDensity()
         );
     }
 
@@ -563,6 +565,23 @@ public class TenantPreferencesService {
             t.preferences.captureFreshBeansWeight = payload.captureFreshBeansWeight();
         }
 
+        // Thème et affichage : un réglage de structure, pas de compte.
+        if (payload.themeMode() != null
+                && !payload.themeMode().isBlank()
+                && !payload.themeMode().equals(t.preferences.themeMode())) {
+            diffs.put("themeMode", Map.of(
+                    "from", t.preferences.themeMode(),
+                    "to", payload.themeMode()));
+            t.preferences.themeMode = payload.themeMode().trim();
+        }
+        if (payload.uiDensity() != null
+                && !payload.uiDensity().isBlank()
+                && !payload.uiDensity().equals(t.preferences.uiDensity())) {
+            diffs.put("uiDensity", Map.of(
+                    "from", t.preferences.uiDensity(),
+                    "to", payload.uiDensity()));
+            t.preferences.uiDensity = payload.uiDensity().trim();
+        }
         if (payload.campaignAssignmentMode() != null
                 && !payload.campaignAssignmentMode().isBlank()
                 && !payload.campaignAssignmentMode().equals(t.preferences.campaignAssignmentMode())) {

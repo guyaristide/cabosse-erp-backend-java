@@ -194,7 +194,9 @@ public final class TenantMapper {
                 entity.preferences.producerPurchaseSiteRequired(),
                 entity.preferences.receiptAccountingMode(),
                 entity.preferences.grossMarginTargetPct(),
-                entity.preferences.netMarginTargetPct()
+                entity.preferences.netMarginTargetPct(),
+                entity.preferences.themeMode(),
+                entity.preferences.uiDensity()
         );
     }
 

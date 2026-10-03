@@ -814,5 +814,50 @@ public class TenantPreferences {
                 ? "DATE" : campaignAssignmentMode;
     }
 
+    // ─── Thème et affichage ───
+
+    public static final String THEME_LIGHT = "LIGHT";
+    public static final String THEME_DARK = "DARK";
+    public static final String THEME_SYSTEM = "SYSTEM";
+
+    /**
+     * Le thème du produit, décidé par la structure pour tous ses comptes.
+     *
+     * <p>{@code LIGHT} (défaut) : l'apparence d'origine. {@code DARK} :
+     * fond sombre, pour les postes installés sous un éclairage faible ou
+     * les longues sessions de saisie. {@code SYSTEM} : celui de l'appareil,
+     * ce qui laisse chaque poste suivre son propre réglage sans que
+     * personne n'ait à choisir deux fois.</p>
+     *
+     * <p>Le réglage appartient à la structure et non au compte : c'est ce
+     * qui a été demandé, et une apparence par personne rendrait toute
+     * capture d'écran incomparable d'un poste à l'autre.</p>
+     */
+    public String themeMode;
+
+    public String themeMode() {
+        if (themeMode == null || themeMode.isBlank()) return THEME_LIGHT;
+        return switch (themeMode) {
+            case THEME_DARK, THEME_SYSTEM -> themeMode;
+            default -> THEME_LIGHT;
+        };
+    }
+
+    public static final String DENSITY_COMFORTABLE = "COMFORTABLE";
+    public static final String DENSITY_COMPACT = "COMPACT";
+
+    /**
+     * L'espacement des tableaux et des formulaires.
+     *
+     * <p>{@code COMPACT} resserre les lignes : un magasin qui dépouille
+     * deux cents reçus voit plus de lignes d'un coup, là qu'un écran de
+     * direction gagne à rester aéré.</p>
+     */
+    public String uiDensity;
+
+    public String uiDensity() {
+        return DENSITY_COMPACT.equals(uiDensity) ? DENSITY_COMPACT : DENSITY_COMFORTABLE;
+    }
+
     public TenantPreferences() {}
 }

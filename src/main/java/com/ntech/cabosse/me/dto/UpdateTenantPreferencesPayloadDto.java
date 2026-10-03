@@ -252,6 +252,16 @@ public record UpdateTenantPreferencesPayloadDto(
         @jakarta.validation.constraints.Pattern(regexp = "^$|^(AUTO|MANUAL)$",
                 message = "{v.compta-reception-auto-ou-manuel}")
         @Schema(description = "Écriture du reçu producteur : AUTO ou MANUAL.")
-        String receiptAccountingMode
+        String receiptAccountingMode,
+
+        @jakarta.validation.constraints.Pattern(regexp = "^$|^(LIGHT|DARK|SYSTEM)$",
+                message = "{v.theme-clair-sombre-ou-systeme}")
+        @Schema(description = "Thème de la structure : LIGHT, DARK ou SYSTEM.")
+        String themeMode,
+
+        @jakarta.validation.constraints.Pattern(regexp = "^$|^(COMFORTABLE|COMPACT)$",
+                message = "{v.densite-confortable-ou-compacte}")
+        @Schema(description = "Espacement des tableaux et formulaires : COMFORTABLE ou COMPACT.")
+        String uiDensity
 
 ) {}
