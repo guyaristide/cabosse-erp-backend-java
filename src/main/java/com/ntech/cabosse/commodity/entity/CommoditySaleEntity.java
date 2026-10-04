@@ -65,6 +65,16 @@ public class CommoditySaleEntity {
     public Refactions refactions = new Refactions();
     public Quality quality = new Quality();
 
+    /**
+     * Le décompte reçu de l'exportateur : ce qui s'ajoute au facturé, ce
+     * qui s'en retranche, et le net porté en banque.
+     *
+     * <p>Recopié tel qu'il figure au document plutôt que recalculé : le
+     * décompte est une pièce reçue, et ses propres arrondis font foi
+     * dans la discussion avec le client (demandé le 03/10/2026).</p>
+     */
+    public Settlement settlement = new Settlement();
+
     // ─── Prix & primes ───
     /** Prix de vente unitaire (prix bord champ campagne + marge), FCFA/kg. */
     public BigDecimal pricePerKg = BigDecimal.ZERO;
@@ -125,6 +135,39 @@ public class CommoditySaleEntity {
         /** Sections d'origine du cacao (texte). */
         public String originSections;
         public Logistics() {}
+    }
+
+    /**
+     * Le décompte de l'exportateur.
+     *
+     * <p>Deux majorations sur le prix de base, puis les retenues que
+     * l'acheteur opère avant virement. Les trois totaux sont ceux du
+     * document : les recalculer donnerait un chiffre juste et différent
+     * de celui que le client a écrit, et c'est le sien qui sera payé.</p>
+     */
+    public static class Settlement {
+        /** Péréquation transport, au bénéfice de la structure. */
+        public BigDecimal transportEqualization;
+        /** Différentiel de ramassage. */
+        public BigDecimal gatheringDifferential;
+        /** Facturé majoré des deux lignes ci-dessus, tel qu'au décompte. */
+        public BigDecimal totalValue;
+        /** Impôt sur les bénéfices retenu à la source. */
+        public BigDecimal bic;
+        public BigDecimal fiscalStamp;
+        /** Commission du commercial, retenue par l'acheteur. */
+        public BigDecimal salesCommission;
+        /** Remboursement des avances consenties au titre du mandat. */
+        public BigDecimal mandateRepayment;
+        /** Remboursement du crédit de campagne renouvelable. */
+        public BigDecimal revolvingRepayment;
+        /** Mise en compte retenue sur l'expédition. */
+        public BigDecimal collectorRetention;
+        /** Somme des retenues, telle qu'au décompte. */
+        public BigDecimal totalDeductions;
+        /** Ce qui arrive réellement en banque. */
+        public BigDecimal netAmount;
+        public Settlement() {}
     }
 
     /** Chaîne de poids et sacs. */

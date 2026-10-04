@@ -193,7 +193,19 @@ public class CommoditySaleImportService {
                                 parseDecimal(raw.foreignMatterPct()), parseDecimal(raw.ffaPct()),
                                 parseDecimal(raw.brokenPct()), parseDecimal(raw.humidityPct()),
                                 blankToNull(raw.taste()), blankToNull(raw.grade()), blankToNull(raw.analysisResult())),
-                        price, null, null, null, null));
+                        price, null, null, null, null,
+                        new CommoditySaleUpsertDto.SettlementDto(
+                                parseDecimal(raw.transportEqualization()),
+                                parseDecimal(raw.gatheringDifferential()),
+                                parseDecimal(raw.totalValue()),
+                                parseDecimal(raw.bic()),
+                                parseDecimal(raw.fiscalStamp()),
+                                parseDecimal(raw.salesCommission()),
+                                parseDecimal(raw.mandateRepayment()),
+                                parseDecimal(raw.revolvingRepayment()),
+                                parseDecimal(raw.collectorRetention()),
+                                parseDecimal(raw.totalDeductions()),
+                                parseDecimal(raw.netAmount()))));
                 createdRefs.add(created.ref());
             } catch (RuntimeException e) {
                 skipped.add(new Row(row.rowNumber(), Status.INVALID, nrm,

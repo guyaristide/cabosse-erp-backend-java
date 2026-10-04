@@ -53,5 +53,16 @@ public record CommoditySaleImportRowDto(
         String taste,
         String grade,
         String analysisResult,
-        String montantFacture
+        String montantFacture,
+        String transportEqualization,
+        String gatheringDifferential,
+        String totalValue,
+        String bic,
+        String fiscalStamp,
+        String salesCommission,
+        String mandateRepayment,
+        String revolvingRepayment,
+        String collectorRetention,
+        String totalDeductions,
+        String netAmount
 ) {}

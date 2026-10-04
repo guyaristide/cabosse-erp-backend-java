@@ -29,6 +29,8 @@ public record CommoditySaleResponseDto(
         CommoditySaleEntity.Weights weights,
         CommoditySaleEntity.Refactions refactions,
         CommoditySaleEntity.Quality quality,
+        /** Le décompte reçu de l'exportateur, vide tant qu'il ne l'est pas. */
+        CommoditySaleEntity.Settlement settlement,
         BigDecimal pricePerKg,
         BigDecimal commercial,
         BigDecimal coopPrime,
@@ -57,7 +59,7 @@ public record CommoditySaleResponseDto(
                 e.customerId, e.customerName, e.contractId,
                 e.dispatchNoteId, e.dispatchNoteRef,
                 e.articleId, e.articleCode, e.articleName, e.articleUnit,
-                e.siteId, e.logistics, e.weights, e.refactions, e.quality,
+                e.siteId, e.logistics, e.weights, e.refactions, e.quality, e.settlement,
                 e.pricePerKg, e.commercial, e.coopPrime, e.producerPrime,
                 e.socialPrime, e.totalPrime, e.amountInvoicedHt, e.vatRatePct,
                 e.vat, e.amountInvoicedTtc, e.cmupAtSale, e.cogs, e.margin,

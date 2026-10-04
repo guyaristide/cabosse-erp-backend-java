@@ -352,6 +352,7 @@ public class CommoditySaleService {
         }
         mapRefactions(e, p);
         mapQuality(e, p);
+        mapSettlement(e, p);
         e.pricePerKg = price;
         e.commercial = commercial;
         e.coopPrime = coopPrime;
@@ -457,6 +458,30 @@ public class CommoditySaleService {
         e.refactions.brokenKg = r.brokenKg();
         e.refactions.wasteKg = r.wasteKg();
         e.refactions.otherKg = r.otherKg();
+    }
+
+    /**
+     * Le décompte reçu de l'exportateur, recopié tel quel.
+     *
+     * <p>Aucun total n'est recalculé : le document est une pièce reçue,
+     * et ses propres arrondis font foi dans la discussion avec le
+     * client. Un chiffre juste et différent du sien ne servirait à
+     * personne (demandé le 03/10/2026).</p>
+     */
+    private void mapSettlement(CommoditySaleEntity e, CommoditySaleUpsertDto p) {
+        if (p.settlement() == null) return;
+        var d = p.settlement();
+        e.settlement.transportEqualization = d.transportEqualization();
+        e.settlement.gatheringDifferential = d.gatheringDifferential();
+        e.settlement.totalValue = d.totalValue();
+        e.settlement.bic = d.bic();
+        e.settlement.fiscalStamp = d.fiscalStamp();
+        e.settlement.salesCommission = d.salesCommission();
+        e.settlement.mandateRepayment = d.mandateRepayment();
+        e.settlement.revolvingRepayment = d.revolvingRepayment();
+        e.settlement.collectorRetention = d.collectorRetention();
+        e.settlement.totalDeductions = d.totalDeductions();
+        e.settlement.netAmount = d.netAmount();
     }
 
     private void mapQuality(CommoditySaleEntity e, CommoditySaleUpsertDto p) {

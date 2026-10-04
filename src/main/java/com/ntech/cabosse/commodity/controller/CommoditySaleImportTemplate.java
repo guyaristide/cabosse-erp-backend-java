@@ -27,7 +27,18 @@ final class CommoditySaleImportTemplate {
             String grainage, String moldyPct, String slatePct, String purplePct,
             String mitedPct, String flatPct, String germinatedPct, String defectivePct,
             String foreignMatterPct, String ffaPct, String brokenPct, String humidityPct,
-            String taste, String grade, String analysisResult, String montantFacture
+            String taste, String grade, String analysisResult, String montantFacture,
+            String transportEqualization,
+            String gatheringDifferential,
+            String totalValue,
+            String bic,
+            String fiscalStamp,
+            String salesCommission,
+            String mandateRepayment,
+            String revolvingRepayment,
+            String collectorRetention,
+            String totalDeductions,
+            String netAmount
     ) {}
 
     static ExportDataset<TemplateRow> dataset() {
@@ -72,7 +83,18 @@ final class CommoditySaleImportTemplate {
                 ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-taste"),                   TemplateRow::taste),
                 ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-grade"),                   TemplateRow::grade),
                 ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-analysis-result"),         TemplateRow::analysisResult),
-                ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-invoiced-amount"),         TemplateRow::montantFacture)
+                ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-invoiced-amount"),         TemplateRow::montantFacture),
+                ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-transport-equalization"), TemplateRow::transportEqualization),
+                ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-gathering-differential"), TemplateRow::gatheringDifferential),
+                ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-total-value"), TemplateRow::totalValue),
+                ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-bic"), TemplateRow::bic),
+                ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-fiscal-stamp"), TemplateRow::fiscalStamp),
+                ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-sales-commission"), TemplateRow::salesCommission),
+                ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-mandate-repayment"), TemplateRow::mandateRepayment),
+                ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-revolving-repayment"), TemplateRow::revolvingRepayment),
+                ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-collector-retention"), TemplateRow::collectorRetention),
+                ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-total-deductions"), TemplateRow::totalDeductions),
+                ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-net-amount"), TemplateRow::netAmount)
         );
         List<TemplateRow> samples = List.of(
                 new TemplateRow(
@@ -87,7 +109,8 @@ final class CommoditySaleImportTemplate {
                         "95", "1.5", "2", "1",
                         "0.5", "1", "0.2", "5",
                         "0.8", "1.1", "1.2", "7.8",
-                        "Standard", "G1", "Accepté", "44640000"
+                        "Standard", "G1", "Accepté", "44640000",
+                        "", "", "", "", "", "", "", "", "", "", ""
                 )
         );
         return new ExportDataset<>(Messages.msg("m.exp-t-modele-d-import-ventes-commodite"), cols, samples);

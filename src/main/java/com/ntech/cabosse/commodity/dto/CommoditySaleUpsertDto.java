@@ -48,8 +48,32 @@ public record CommoditySaleUpsertDto(
         @DecimalMin(value = "0", message = "{v.valeur-negative-interdite}") BigDecimal socialPrime,
         /** Surcharge du taux de TVA (sinon préférence tenant). */
         @DecimalMin(value = "0", message = "{v.pourcentage-negatif-interdit}")
-        @DecimalMax(value = "100", message = "{v.pourcentage-superieur-a-100}") BigDecimal vatRatePct
+        @DecimalMax(value = "100", message = "{v.pourcentage-superieur-a-100}") BigDecimal vatRatePct,
+
+        /** Le décompte reçu de l'exportateur, absent tant qu'il ne l'est pas. */
+        @Valid SettlementDto settlement
 ) {
+
+    /**
+     * Ce que l'acheteur ajoute au facturé, puis ce qu'il en retient.
+     *
+     * <p>Recopié tel qu'il figure au décompte : c'est une pièce reçue,
+     * et ses propres arrondis font foi dans la discussion avec le
+     * client.</p>
+     */
+    public record SettlementDto(
+            BigDecimal transportEqualization,
+            BigDecimal gatheringDifferential,
+            BigDecimal totalValue,
+            BigDecimal bic,
+            BigDecimal fiscalStamp,
+            BigDecimal salesCommission,
+            BigDecimal mandateRepayment,
+            BigDecimal revolvingRepayment,
+            BigDecimal collectorRetention,
+            BigDecimal totalDeductions,
+            BigDecimal netAmount
+    ) {}
     public record LogisticsDto(
             @Size(max = 40) String dispatchNoteNumber,
             @Size(max = 40) String loadingNumber,
