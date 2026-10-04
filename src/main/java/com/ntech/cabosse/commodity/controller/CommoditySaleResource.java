@@ -61,6 +61,7 @@ public class CommoditySaleResource {
         }
     }
     @Inject CommoditySaleImportService importService;
+    @Inject com.ntech.cabosse.commodity.service.DeliveryShareService shareService;
 
     @GET
     public Response list(@QueryParam("q") String q,
@@ -78,6 +79,20 @@ public class CommoditySaleResource {
     public Response lossReport(@QueryParam("campaignId") UUID campaignId) {
         ensureCapability();
         return Response.ok(ApiResponse.ok(service.lossReport(campaignId))).build();
+    }
+
+    /**
+     * Qui a pris quoi, et dans quelle proportion.
+     *
+     * <p>Plusieurs campagnes se cochent ensemble : une saison se joue en
+     * une principale et ses intermédiaires, et le conseil les regarde
+     * aussi cumulées (demandé le 03/10/2026).</p>
+     */
+    @GET
+    @Path("/shares")
+    public Response shares(@QueryParam("campaignId") java.util.List<UUID> campaignIds,
+                           @QueryParam("articleId") UUID articleId) {
+        return Response.ok(ApiResponse.ok(shareService.shares(campaignIds, articleId))).build();
     }
 
     @GET
