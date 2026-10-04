@@ -224,6 +224,12 @@ public record TenantPreferencesDto(
         @Schema(description = "Espacement des tableaux et formulaires : COMFORTABLE (défaut) "
                 + "ou COMPACT.",
                 example = "COMFORTABLE", defaultValue = "COMFORTABLE")
-        String uiDensity
+        String uiDensity,
+
+        @Schema(description = "Dépenses passant par une décision avant paiement.",
+                example = "NONE", defaultValue = "NONE")
+        String expenseApprovalScope,
+        java.math.BigDecimal expenseApprovalThreshold,
+        java.math.BigDecimal expenseGovernanceThreshold
 
 ) {}

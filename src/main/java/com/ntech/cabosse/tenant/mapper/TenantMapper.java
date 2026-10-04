@@ -200,7 +200,10 @@ public final class TenantMapper {
                 entity.preferences.grossMarginTargetPct(),
                 entity.preferences.netMarginTargetPct(),
                 entity.preferences.themeMode(),
-                entity.preferences.uiDensity()
+                entity.preferences.uiDensity(),
+                entity.preferences.expenseApprovalScope(),
+                entity.preferences.expenseApprovalThreshold(),
+                entity.preferences.expenseGovernanceThreshold
         );
     }
 

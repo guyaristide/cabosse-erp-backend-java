@@ -262,6 +262,19 @@ public record UpdateTenantPreferencesPayloadDto(
         @jakarta.validation.constraints.Pattern(regexp = "^$|^(COMFORTABLE|COMPACT)$",
                 message = "{v.densite-confortable-ou-compacte}")
         @Schema(description = "Espacement des tableaux et formulaires : COMFORTABLE ou COMPACT.")
-        String uiDensity
+        String uiDensity,
+
+        @jakarta.validation.constraints.Pattern(
+                regexp = "^$|^(NONE|ALL|SUBSCRIPTIONS|PETTY_CASH)$",
+                message = "{v.perimetre-approbation-depense}")
+        @Schema(description = "Dépenses passant par une décision avant paiement : NONE, ALL, "
+                + "SUBSCRIPTIONS ou PETTY_CASH.")
+        String expenseApprovalScope,
+
+        @Schema(description = "Montant à partir duquel l'approbation d'une dépense est requise.")
+        java.math.BigDecimal expenseApprovalThreshold,
+
+        @Schema(description = "Montant à partir duquel un second échelon se prononce.")
+        java.math.BigDecimal expenseGovernanceThreshold
 
 ) {}

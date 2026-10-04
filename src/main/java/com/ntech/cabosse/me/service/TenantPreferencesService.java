@@ -100,7 +100,10 @@ public class TenantPreferencesService {
                 p.grossMarginTargetPct(),
                 p.netMarginTargetPct(),
                 p.themeMode(),
-                p.uiDensity()
+                p.uiDensity(),
+                p.expenseApprovalScope(),
+                p.expenseApprovalThreshold(),
+                p.expenseGovernanceThreshold
         );
     }
 
@@ -563,6 +566,22 @@ public class TenantPreferencesService {
                     "from", t.preferences.captureFreshBeansWeight(),
                     "to", payload.captureFreshBeansWeight()));
             t.preferences.captureFreshBeansWeight = payload.captureFreshBeansWeight();
+        }
+
+        // Le circuit d'approbation des dépenses, propre à celles-ci.
+        if (payload.expenseApprovalScope() != null
+                && !payload.expenseApprovalScope().isBlank()
+                && !payload.expenseApprovalScope().equals(t.preferences.expenseApprovalScope())) {
+            diffs.put("expenseApprovalScope", Map.of(
+                    "from", t.preferences.expenseApprovalScope(),
+                    "to", payload.expenseApprovalScope()));
+            t.preferences.expenseApprovalScope = payload.expenseApprovalScope().trim();
+        }
+        if (payload.expenseApprovalThreshold() != null) {
+            t.preferences.expenseApprovalThreshold = payload.expenseApprovalThreshold();
+        }
+        if (payload.expenseGovernanceThreshold() != null) {
+            t.preferences.expenseGovernanceThreshold = payload.expenseGovernanceThreshold();
         }
 
         // Thème et affichage : un réglage de structure, pas de compte.

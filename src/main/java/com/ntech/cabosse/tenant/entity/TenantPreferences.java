@@ -859,5 +859,53 @@ public class TenantPreferences {
         return DENSITY_COMPACT.equals(uiDensity) ? DENSITY_COMPACT : DENSITY_COMFORTABLE;
     }
 
+    // ─── Approbation avant paiement d'une dépense ───
+
+    public static final String EXPENSE_APPROVAL_NONE = "NONE";
+    public static final String EXPENSE_APPROVAL_ALL = "ALL";
+    public static final String EXPENSE_APPROVAL_SUBSCRIPTIONS = "SUBSCRIPTIONS";
+    public static final String EXPENSE_APPROVAL_PETTY_CASH = "PETTY_CASH";
+
+    /**
+     * Quelles dépenses passent par une décision avant d'être réglées.
+     *
+     * <p>Son propre circuit, distinct de celui des règlements aux
+     * producteurs et délégués (tranché le 03/10/2026) : une facture
+     * d'électricité et un solde de campagne ne se décident ni par les
+     * mêmes personnes ni sur les mêmes montants, et un seul réglage pour
+     * les deux aurait obligé à choisir le plus contraignant.</p>
+     *
+     * <p>{@code NONE} par défaut : le règlement reste un geste direct
+     * tant que la structure n'a pas posé sa règle.</p>
+     */
+    public String expenseApprovalScope;
+
+    public String expenseApprovalScope() {
+        return expenseApprovalScope == null || expenseApprovalScope.isBlank()
+                ? EXPENSE_APPROVAL_NONE : expenseApprovalScope;
+    }
+
+    /**
+     * Montant à partir duquel l'approbation est exigée.
+     *
+     * <p>Zéro est une décision, pas une absence : elle veut dire que
+     * tout passe par la direction. Confondre les deux retournerait
+     * l'intention de la structure qui l'écrit.</p>
+     */
+    public java.math.BigDecimal expenseApprovalThreshold;
+
+    public java.math.BigDecimal expenseApprovalThreshold() {
+        return expenseApprovalThreshold != null
+                ? expenseApprovalThreshold : java.math.BigDecimal.ZERO;
+    }
+
+    /**
+     * Montant à partir duquel un second échelon se prononce.
+     *
+     * <p>Absent, il n'y a qu'un échelon. C'est le conseil qui tranche
+     * au-delà, le directeur en deçà.</p>
+     */
+    public java.math.BigDecimal expenseGovernanceThreshold;
+
     public TenantPreferences() {}
 }

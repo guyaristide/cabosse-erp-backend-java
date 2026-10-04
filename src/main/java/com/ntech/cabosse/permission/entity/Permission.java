@@ -95,6 +95,12 @@ public enum Permission {
     PURCHASE_WRITE(Domain.PURCHASE, "m.per-purchase-write"),
     PURCHASE_APPROVE(Domain.PURCHASE, "m.per-purchase-approve"),
     EXPENSE_WRITE(Domain.PURCHASE, "m.per-expense-write"),
+    // Approuver le paiement d'une dépense : son propre circuit, distinct
+    // de celui des règlements aux producteurs et délégués (tranché le
+    // 03/10/2026). Une facture d'électricité et un solde de campagne ne
+    // se décident ni par les mêmes personnes ni sur les mêmes montants.
+    EXPENSE_APPROVE(Domain.PURCHASE, "m.per-expense-approve"),
+    EXPENSE_APPROVE_GOVERNANCE(Domain.PURCHASE, "m.per-expense-approve-governance"),
 
     // ─── Collecte de matière première ───────────────────────────────
     COLLECTION_READ(Domain.COLLECTION, "m.per-collection-read",
