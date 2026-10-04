@@ -29,6 +29,19 @@ public record DirectExpenseResponseDto(
         BigDecimal amountTtc,
         String paymentMethod,
         String treasuryAccount,
+        /** Le compte de tiers crédité au constat. Absent avant la bascule. */
+        String payableAccount,
+        java.math.BigDecimal amountPaid,
+        /** Ce qu'il reste à payer : zéro sur une dépense réglée à la saisie. */
+        java.math.BigDecimal remaining,
+        java.time.Instant settledAt,
+        /** La décision attendue avant paiement. Absente : règlement direct. */
+        String approvalStatus,
+        boolean governanceApprovalRequired,
+        java.time.Instant approvedAt,
+        String approvedByEmail,
+        java.time.Instant governanceApprovedAt,
+        String rejectionReason,
         String pieceRef,
         String notes,
         Instant createdAt
@@ -40,6 +53,10 @@ public record DirectExpenseResponseDto(
                 e.chargeAccount, e.label, e.periodLabel,
                 e.allocationKeyCode, e.allocationKeyName,
                 e.amountHt, e.vatRatePct, e.vatAmount, e.amountTtc,
-                e.paymentMethod, e.treasuryAccount, e.pieceRef, e.notes, e.createdAt);
+                e.paymentMethod, e.treasuryAccount, e.payableAccount,
+                e.amountPaid, e.remaining(), e.settledAt,
+                e.approvalStatus, e.governanceApprovalRequired, e.approvedAt,
+                e.approvedByEmail, e.governanceApprovedAt, e.rejectionReason,
+                e.pieceRef, e.notes, e.createdAt);
     }
 }

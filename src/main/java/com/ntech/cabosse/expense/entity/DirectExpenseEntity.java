@@ -70,6 +70,70 @@ public class DirectExpenseEntity {
     /** Référence de la pièce au journal. */
     public String pieceRef;
 
+    /**
+     * Le compte de tiers crédité au constat.
+     *
+     * <p>La dépense ne se règle plus à la saisie : elle se constate, et
+     * le paiement part de la trésorerie comme pour les avances et les
+     * livraisons (demandé le 03/10/2026). Le compte est celui du
+     * prestataire quand il en porte un, le collectif fournisseurs sinon
+     * : une petite dépense n'a pas toujours de fiche en face.</p>
+     *
+     * <p>Absent sur les dépenses d'avant la bascule, qui ont été réglées
+     * à la saisie et n'ont jamais eu de dette à porter.</p>
+     */
+    public String payableAccount;
+
+    /**
+     * La décision attendue avant paiement, quand la structure en exige
+     * une.
+     *
+     * <p>Absente, la dépense se règle directement : c'est le cas tant
+     * que personne n'a posé de règle. Valider une commande auprès d'un
+     * fournisseur ne vaut pas ordre de payer, et la caisse arbitre ses
+     * priorités (demandé le 03/10/2026).</p>
+     */
+    public String approvalStatus;
+
+    /** Le second échelon est-il requis, figé à la saisie. */
+    public boolean governanceApprovalRequired;
+
+    public java.time.Instant approvedAt;
+    public String approvedByEmail;
+    public java.time.Instant governanceApprovedAt;
+    public String governanceApprovedByEmail;
+    public String rejectionReason;
+
+    /** Ce qui a déjà été payé sur cette dépense. */
+    public BigDecimal amountPaid = BigDecimal.ZERO;
+
+    /** Quand elle a été soldée. Null tant qu'il reste à payer. */
+    public java.time.Instant settledAt;
+
+    /**
+     * Reste à payer, ou zéro pour une dépense d'avant la bascule.
+     *
+     * <p>Celles-là sont sorties de la caisse à la saisie : les faire
+     * réapparaître dans la file à payer ferait décaisser deux fois.</p>
+     */
+    /**
+     * La dépense peut-elle être réglée ?
+     *
+     * <p>Sans circuit, oui. Avec, il faut la décision, et celle du
+     * second échelon quand il est requis.</p>
+     */
+    public boolean payable() {
+        if (approvalStatus == null) return true;
+        if (!"APPROVED".equals(approvalStatus)) return false;
+        return !governanceApprovalRequired || governanceApprovedAt != null;
+    }
+
+    public BigDecimal remaining() {
+        if (payableAccount == null) return BigDecimal.ZERO;
+        BigDecimal paid = amountPaid == null ? BigDecimal.ZERO : amountPaid;
+        return (amountTtc == null ? BigDecimal.ZERO : amountTtc).subtract(paid).max(BigDecimal.ZERO);
+    }
+
     public String notes;
 
     /**

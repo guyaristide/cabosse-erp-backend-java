@@ -50,6 +50,7 @@ public class PayableService {
     @Inject CollectorAdvanceRepository advances;
     @Inject MemberCreditRepository credits;
     @Inject DirectReceiptRepository receipts;
+    @Inject com.ntech.cabosse.expense.repository.DirectExpenseRepository directExpenses;
     @Inject ProducerPaymentService producerPayments;
     @Inject com.ntech.cabosse.settlement.service.SettlementRequestService settlements;
 
@@ -99,6 +100,11 @@ public class PayableService {
         if (wants(kind, PayableKind.COLLECTOR_ADVANCE)) collectAdvances(out);
         if (wants(kind, PayableKind.MEMBER_CREDIT)) collectCredits(out);
         if (wants(kind, PayableKind.SUPPLIER_RECEIPT)) collectReceipts(out);
+        // Les deux natures de dépense sortent du même calcul : le
+        // filtre se fait à l'intérieur, pas avant l'appel.
+        if (wants(kind, PayableKind.SUBSCRIPTION) || wants(kind, PayableKind.PETTY_CASH)) {
+            collectDirectExpenses(out, kind);
+        }
         // Producteurs et délégués sortent du même calcul mais sous deux
         // natures : le filtre se fait à l'intérieur, pas avant l'appel.
         if (wants(kind, PayableKind.PRODUCER_PURCHASE)
@@ -143,6 +149,32 @@ public class PayableService {
      * portée par la ligne, pas par la session. Une session à trois
      * fournisseurs dont un seul est payé laisse deux lignes dans la file.
      */
+    /**
+     * Les dépenses constatées qu'il reste à payer.
+     *
+     * <p>Celles d'avant la bascule du 03/10/2026 sont sorties de la
+     * caisse à la saisie : elles ne portent pas de compte de tiers, et
+     * les faire figurer ici ferait décaisser deux fois.</p>
+     */
+    private void collectDirectExpenses(List<PayableDto> out, String kind) {
+        directExpenses.listUnpaid().forEach(e -> {
+            java.math.BigDecimal due = e.remaining();
+            if (due.signum() <= 0) return;
+            // La nature de la dépense devient celle de la ligne à payer :
+            // un abonnement et une petite dépense ne se tranchent pas de
+            // la même façon quand la caisse est courte.
+            PayableKind payableKind = e.kind == com.ntech.cabosse.expense.entity.DirectExpenseKind.PETTY_CASH
+                    ? PayableKind.PETTY_CASH : PayableKind.SUBSCRIPTION;
+            if (!wants(kind, payableKind)) return;
+            out.add(new PayableDto(
+                    payableKind.name(), e.id, null, e.ref,
+                    BeneficiaryKind.SUPPLIER.name(), e.supplierId,
+                    e.supplierName != null ? e.supplierName : e.label,
+                    due, e.expenseDate, ageOf(e.expenseDate),
+                    null, null, null, null, null));
+        });
+    }
+
     private void collectReceipts(List<PayableDto> out) {
         List<DirectReceiptStatus> awaiting =
                 List.of(DirectReceiptStatus.UNPAID, DirectReceiptStatus.PARTIAL);

@@ -83,6 +83,8 @@ public enum PostingSourceType {
     /** Dépense directe sans bon de livraison : contrat/abonnement ou petite caisse (backlog ACH-03). */
     DIRECT_EXPENSE,
     /** Contre-passation d'une dépense directe. */
+    /** Règlement d une dépense constatée, depuis la trésorerie. */
+    DIRECT_EXPENSE_PAYMENT,
     DIRECT_EXPENSE_REVERSAL,
     /** Achat de matière première au producteur membre (reçu, backlog NEG-01). */
     PRODUCER_PURCHASE,

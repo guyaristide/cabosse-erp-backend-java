@@ -107,7 +107,10 @@ class AllocationKeyTest extends AbstractIntegrationTest {
                 .when().post("/api/v1/direct-expenses").then().statusCode(201)
                 .body("data.allocationKeyName", equalTo("Frais de structure"));
 
-        // La pièce porte 3 lignes de charge imputées, + le crédit caisse.
+        // La pièce porte 3 lignes de charge imputées, et la contrepartie
+        // au compte de tiers : la dépense se constate, elle se règle
+        // depuis la trésorerie (03/10/2026). La répartition analytique,
+        // elle, est inchangée.
         givenAs(admin).when().get("/api/v1/accounting/journal")
                 .then().statusCode(200)
                 // L'amorçage de la caisse compte pour une pièce.
@@ -115,7 +118,7 @@ class AllocationKeyTest extends AbstractIntegrationTest {
                 .body("data.items[0].entries.find { it.costCenter == 'COL' }.debit", equalTo(50000))
                 .body("data.items[0].entries.find { it.costCenter == 'AGRO' }.debit", equalTo(30000))
                 .body("data.items[0].entries.find { it.costCenter == 'ADM' }.debit", equalTo(20000))
-                .body("data.items[0].entries.find { it.syscohadaAccount == '571000' }.credit",
+                .body("data.items[0].entries.find { it.syscohadaAccount == '401000' }.credit",
                         equalTo(100000));
     }
 }

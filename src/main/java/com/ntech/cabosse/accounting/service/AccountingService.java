@@ -646,7 +646,7 @@ public class AccountingService {
     }
 
     /** Le compte du fournisseur, son collectif, ou celui de la structure. */
-    private String supplierAccount(UUID supplierId) {
+    public String supplierAccount(UUID supplierId) {
         if (supplierId == null) return SyscohadaAccounts.FOURNISSEURS;
         return suppliersRepo.findById(supplierId)
                 .map(x -> partyAccount(x.subsidiaryAccount, x.collectiveAccount,
@@ -880,6 +880,27 @@ public class AccountingService {
      * n'est pas récupérable, elle est intégrée au débit de la charge.
      * Idempotent sur {@code (DIRECT_EXPENSE, expenseId)}.
      */
+    /**
+     * Le règlement d'une dépense constatée, depuis la trésorerie.
+     *
+     * <p>Symétrique du constat : ce que le compte du tiers portait en
+     * dette s'éteint, et la caisse ou la banque se vide d'autant.</p>
+     */
+    public Optional<JournalPieceEntity> postFromDirectExpensePayment(
+            UUID expenseId, String ref, LocalDate date, String payableAccount,
+            String beneficiary, BigDecimal amount, PaymentMethod method, UUID bankAccountId) {
+        if (amount == null || amount.signum() <= 0) return Optional.empty();
+        List<JournalEntry> entries = new ArrayList<>();
+        entries.add(JournalEntry.debit(payableAccount,
+                "Règlement " + ref + (beneficiary == null ? "" : " " + beneficiary), amount));
+        entries.add(JournalEntry.credit(treasuryAccountFor(method, bankAccountId),
+                "Règlement " + ref, amount));
+        return postPiece(new PostingRequest(
+                date != null ? date : LocalDate.now(),
+                PostingSourceType.DIRECT_EXPENSE_PAYMENT, expenseId, ref,
+                "Règlement dépense " + ref, entries));
+    }
+
     public Optional<JournalPieceEntity> postFromDirectExpense(
             UUID expenseId, String ref, LocalDate date, String chargeAccount,
             String label, BigDecimal amountHt, BigDecimal vatAmount,
@@ -897,7 +918,11 @@ public class AccountingService {
             entries.add(JournalEntry.debit(preferencesLookup.current().vatDeductibleAccount(),
                     "TVA déductible", vat));
         }
-        entries.add(JournalEntry.credit(treasuryAccount, "Règlement " + ref, amountTtc));
+        // La contrepartie est le compte du tiers, non la trésorerie : la
+        // dépense se constate, et le paiement part de la trésorerie
+        // comme pour les avances et les livraisons (demandé le
+        // 03/10/2026). L'appelant passe le compte retenu.
+        entries.add(JournalEntry.credit(treasuryAccount, "Dépense " + ref, amountTtc));
         return postPiece(new PostingRequest(
                 date != null ? date : LocalDate.now(),
                 PostingSourceType.DIRECT_EXPENSE, expenseId, ref, piece, entries));

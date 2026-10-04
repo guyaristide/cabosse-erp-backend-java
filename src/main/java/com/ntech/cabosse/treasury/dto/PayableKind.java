@@ -26,5 +26,24 @@ public enum PayableKind {
      * producteurs, 401200 délégués). Le caissier paie une personne : il
      * doit lire laquelle.</p>
      */
-    DELEGATE_PURCHASE
+    DELEGATE_PURCHASE,
+    /**
+     * Abonnement ou facture périodique constatée et non réglée.
+     *
+     * <p>Elle se payait à la saisie, dans le module des achats. Elle s'y
+     * constate désormais, et le paiement part d'ici comme pour les
+     * avances et les livraisons : valider une dépense n'est pas la
+     * payer, et la caisse a ses priorités (demandé le 03/10/2026).</p>
+     */
+    SUBSCRIPTION,
+
+    /**
+     * Petite dépense constatée et non réglée.
+     *
+     * <p>Séparée de l'abonnement dans la file, comme les livraisons
+     * producteur le sont des livraisons délégué : le caissier arbitre
+     * entre une facture d'électricité et un achat de fournitures, et
+     * doit lire laquelle il paie.</p>
+     */
+    PETTY_CASH
 }

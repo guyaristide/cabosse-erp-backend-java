@@ -5,6 +5,7 @@ import com.ntech.cabosse.campaign.entity.CampaignEntity;
 import com.ntech.cabosse.accounting.service.AccountingService;
 import com.ntech.cabosse.expense.dto.CreateDirectExpenseDto;
 import com.ntech.cabosse.expense.dto.DirectExpenseResponseDto;
+import com.ntech.cabosse.expense.dto.PayDirectExpenseDto;
 import com.ntech.cabosse.expense.entity.DirectExpenseEntity;
 import com.ntech.cabosse.expense.entity.DirectExpenseKind;
 import com.ntech.cabosse.expense.repository.DirectExpenseRepository;
@@ -45,7 +46,125 @@ public class DirectExpenseService {
     @Inject AccountingService accounting;
     @Inject TenantContext tenantContext;
     @Inject AuditService audit;
+    @Inject ExpenseApprovalRule approvals;
     @Inject JsonWebToken jwt;
+
+    /**
+     * Accorde une dépense qui attendait une décision.
+     *
+     * <p>Le second échelon se prononce ensuite quand le montant
+     * l'appelle : les deux accords sont distincts, et l'un ne vaut pas
+     * l'autre.</p>
+     */
+    public DirectExpenseResponseDto approve(UUID id, boolean governance) {
+        DirectExpenseEntity e = repo.findById(id).orElseThrow(
+                () -> new NotFoundException(Messages.msg("m.dep-not-found", id)));
+        if (e.approvalStatus == null) {
+            throw new BusinessException(Messages.msg("m.dep-no-approval-expected", e.ref));
+        }
+        if ("REJECTED".equals(e.approvalStatus)) {
+            throw new BusinessException(Messages.msg("m.dep-already-rejected", e.ref));
+        }
+        if (governance) {
+            if (!e.governanceApprovalRequired) {
+                throw new BusinessException(Messages.msg("m.dep-no-governance-expected", e.ref));
+            }
+            e.governanceApprovedAt = java.time.Instant.now();
+            e.governanceApprovedByEmail = actor();
+        } else {
+            e.approvalStatus = "APPROVED";
+            e.approvedAt = java.time.Instant.now();
+            e.approvedByEmail = actor();
+        }
+        repo.replace(e);
+        audit.event(AuditEventType.DIRECT_EXPENSE_RECORDED)
+                .actorEmail(actor())
+                .target("direct_expense", e.id.toString(), e.ref)
+                .tenant(tenantContext.tenantId(), null)
+                .description((governance ? "Accord gouvernance" : "Accord") + " sur " + e.ref)
+                .record();
+        return DirectExpenseResponseDto.from(e);
+    }
+
+    /** Refuse une dépense : elle ne se règlera pas. */
+    public DirectExpenseResponseDto reject(UUID id, String reason) {
+        DirectExpenseEntity e = repo.findById(id).orElseThrow(
+                () -> new NotFoundException(Messages.msg("m.dep-not-found", id)));
+        if (e.approvalStatus == null) {
+            throw new BusinessException(Messages.msg("m.dep-no-approval-expected", e.ref));
+        }
+        e.approvalStatus = "REJECTED";
+        e.rejectionReason = reason == null || reason.isBlank() ? null : reason.trim();
+        repo.replace(e);
+        audit.event(AuditEventType.DIRECT_EXPENSE_RECORDED)
+                .actorEmail(actor())
+                .target("direct_expense", e.id.toString(), e.ref)
+                .tenant(tenantContext.tenantId(), null)
+                .description("Refus de la dépense " + e.ref)
+                .record();
+        return DirectExpenseResponseDto.from(e);
+    }
+
+    /**
+     * Règle une dépense constatée, depuis la trésorerie.
+     *
+     * <p>La dépense se payait à la saisie, dans les achats. Elle s'y
+     * constate désormais, et l'argent sort d'ici : valider une dépense
+     * n'est pas la payer, et la caisse arbitre ses priorités (demandé le
+     * 03/10/2026).</p>
+     *
+     * <p>Le règlement peut être partiel : ce qui reste dû garde sa place
+     * dans la file. L'imputation est conditionnée sur le montant déjà
+     * payé, pour que deux caissiers ne règlent pas la même dépense deux
+     * fois.</p>
+     */
+    public DirectExpenseResponseDto pay(UUID id, PayDirectExpenseDto p) {
+        DirectExpenseEntity e = repo.findById(id).orElseThrow(
+                () -> new NotFoundException(Messages.msg("m.dep-not-found", id)));
+        if (e.payableAccount == null) {
+            throw new BusinessException(Messages.msg("m.dep-already-settled-at-entry", e.ref));
+        }
+        if (!e.payable()) {
+            throw new BusinessException(Messages.msg("m.dep-awaiting-approval", e.ref));
+        }
+        BigDecimal due = e.remaining();
+        if (due.signum() <= 0) {
+            throw new BusinessException(Messages.msg("m.dep-nothing-left-to-pay", e.ref));
+        }
+        BigDecimal amount = p.amount() != null ? p.amount() : due;
+        if (amount.signum() <= 0 || amount.compareTo(due) > 0) {
+            throw new BusinessException(Messages.msg("m.dep-amount-over-due", due));
+        }
+        PaymentMethod method = PaymentMethod.valueOf(p.paymentMethod());
+        BigDecimal alreadyPaid = e.amountPaid == null ? BigDecimal.ZERO : e.amountPaid;
+        java.time.Instant settledAt =
+                amount.compareTo(due) == 0 ? java.time.Instant.now() : null;
+
+        if (!repo.tryPay(e.id, alreadyPaid, amount, settledAt)) {
+            throw new com.ntech.cabosse.shared.exception.ConflictException(
+                    Messages.msg("m.dep-paid-meanwhile", e.ref));
+        }
+        try {
+            accounting.postFromDirectExpensePayment(
+                    e.id, e.ref, p.paidOn() != null ? p.paidOn() : LocalDate.now(),
+                    e.payableAccount, e.supplierName, amount, method, p.bankAccountId());
+        } catch (RuntimeException ex) {
+            // L'écriture refusée, le règlement n'a pas eu lieu : la
+            // dépense redevient due, sans quoi elle disparaîtrait de la
+            // file sans que l'argent soit sorti.
+            repo.tryPay(e.id, alreadyPaid.add(amount), amount.negate(), null);
+            throw ex;
+        }
+
+        audit.event(AuditEventType.DIRECT_EXPENSE_RECORDED)
+                .actorEmail(actor())
+                .target("direct_expense", e.id.toString(), e.ref)
+                .tenant(tenantContext.tenantId(), null)
+                .description("Règlement " + amount + " sur la dépense " + e.ref)
+                .record();
+
+        return DirectExpenseResponseDto.from(repo.findById(id).orElseThrow());
+    }
 
     private static BigDecimal nz(BigDecimal v) { return v == null ? BigDecimal.ZERO : v; }
 
@@ -118,8 +237,22 @@ public class DirectExpenseService {
                 .divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP);
         e.amountTtc = e.amountHt.add(e.vatAmount);
 
+        // La dépense se constate : son mode de règlement se choisira à
+        // la trésorerie, quand elle sera payée. Le champ reste rempli
+        // pour les états qui le lisent, mais il n'engage plus la caisse.
         e.paymentMethod = method.name();
         e.treasuryAccount = accounting.treasuryAccountFor(method, p.bankAccountId());
+        // Le compte du prestataire quand il en porte un, le collectif
+        // fournisseurs sinon : une petite dépense n'a pas toujours de
+        // fiche en face, et la refuser pour autant arrêterait la caisse.
+        e.payableAccount = accounting.supplierAccount(e.supplierId);
+        e.amountPaid = BigDecimal.ZERO;
+        // Le circuit est figé ici : relever le seuil ensuite ne doit pas
+        // dispenser d'approbation une dépense déjà constatée.
+        if (approvals.required(kind, e.amountTtc)) {
+            e.approvalStatus = "PENDING";
+            e.governanceApprovalRequired = approvals.governanceRequired(e.amountTtc);
+        }
 
         e.createdAt = Instant.now();
         e.createdBy = safeUserId();
@@ -127,7 +260,7 @@ public class DirectExpenseService {
 
         accounting.postFromDirectExpense(
                 e.id, e.ref, e.expenseDate, e.chargeAccount, e.label,
-                e.amountHt, e.vatAmount, e.amountTtc, e.treasuryAccount,
+                e.amountHt, e.vatAmount, e.amountTtc, e.payableAccount,
                 e.allocationKeyCode)
                 .ifPresent(piece -> e.pieceRef = piece.ref);
 
