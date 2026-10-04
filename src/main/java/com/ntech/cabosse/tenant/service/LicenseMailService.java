@@ -45,6 +45,7 @@ public class LicenseMailService {
 
     @Inject PlatformMailerService mailer;
     @Inject UserRepository users;
+    @Inject com.ntech.cabosse.tenant.repository.TenantRepository tenants;
     @Inject Logger log;
 
     @Inject
@@ -87,6 +88,28 @@ public class LicenseMailService {
             if (sendTo(tenant, sub, user.get())) sent++;
         }
         return sent;
+    }
+
+    /**
+     * Renvoie la confirmation d'une licence déjà activée.
+     *
+     * <p>Un courrier se perd, une adresse change, un interlocuteur
+     * arrive après coup : le renvoyer ne doit pas obliger à réactiver la
+     * licence (demandé le 04/10/2026).</p>
+     *
+     * @return le nombre de courriers réellement partis
+     */
+    public int resend(java.util.UUID tenantId, List<String> recipients) {
+        TenantEntity tenant = tenants.findById(tenantId);
+        if (tenant == null) {
+            throw new com.ntech.cabosse.shared.exception.NotFoundException(
+                    Messages.msg("m.tnt-not-found-2", tenantId));
+        }
+        if (tenant.subscription == null) {
+            throw new com.ntech.cabosse.shared.exception.BusinessException(
+                    Messages.msg("m.tnt-no-license-to-resend", tenant.name));
+        }
+        return sendActivation(tenant, recipients);
     }
 
     private boolean sendTo(TenantEntity tenant, TenantSubscription sub, UserEntity user) {

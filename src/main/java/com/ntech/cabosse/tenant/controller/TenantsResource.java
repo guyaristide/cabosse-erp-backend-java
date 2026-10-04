@@ -76,6 +76,9 @@ import java.util.UUID;
 public class TenantsResource {
 
     @Inject TenantRegistryService registry;
+    @Inject com.ntech.cabosse.tenant.service.TenantLicenseQueryService licenseQuery;
+    @Inject com.ntech.cabosse.tenant.service.TenantSuspensionService suspension;
+    @Inject com.ntech.cabosse.tenant.service.LicenseMailService licenseMail;
     @Inject TenantProvisioningService provisioning;
     @Inject TenantUpdateService updateService;
     @Inject TenantLogoService logoService;
@@ -108,6 +111,51 @@ public class TenantsResource {
     ) {
         Pagination<TenantSummaryResponseDto> page$ = registry.list(page, perPage, status, plan);
         return Response.ok(ApiResponse.ok(page$)).build();
+    }
+
+    /**
+     * Les licences de toutes les structures, l'urgence d'abord.
+     *
+     * <p>Savoir lesquelles arrivent à échéance demandait d'ouvrir les
+     * structures une à une (demandé le 04/10/2026).</p>
+     */
+    @GET
+    @Path("/licenses")
+    public Response licenses() {
+        return Response.ok(ApiResponse.ok(
+                licenseQuery.list(java.time.LocalDate.now()))).build();
+    }
+
+    /** Coupe l'accès d'une structure. Le motif est consigné au journal. */
+    @POST
+    @Path("/{tenantId}/suspend")
+    public Response suspend(@PathParam("tenantId") UUID tenantId,
+                            @Valid com.ntech.cabosse.tenant.dto.SuspendTenantPayloadDto payload) {
+        suspension.suspend(tenantId, payload == null ? null : payload.reason());
+        return Response.ok(ApiResponse.ok(registry.getById(tenantId))).build();
+    }
+
+    @POST
+    @Path("/{tenantId}/reactivate")
+    public Response reactivate(@PathParam("tenantId") UUID tenantId) {
+        suspension.reactivate(tenantId);
+        return Response.ok(ApiResponse.ok(registry.getById(tenantId))).build();
+    }
+
+    /**
+     * Renvoie la confirmation de licence.
+     *
+     * <p>Un courrier se perd, une adresse change : le renvoyer ne doit
+     * pas obliger à réactiver la licence.</p>
+     */
+    @POST
+    @Path("/{tenantId}/license-mail")
+    public Response resendLicenseMail(
+            @PathParam("tenantId") UUID tenantId,
+            com.ntech.cabosse.tenant.dto.ResendLicenseMailPayloadDto payload) {
+        return Response.ok(ApiResponse.ok(java.util.Map.of(
+                "sent", licenseMail.resend(tenantId,
+                        payload == null ? java.util.List.of() : payload.notifyEmails())))).build();
     }
 
     @GET
