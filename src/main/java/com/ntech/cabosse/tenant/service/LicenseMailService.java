@@ -56,7 +56,14 @@ public class LicenseMailService {
     @ConfigProperty(name = "cabosse.license.sender-name", defaultValue = "NEIBA Technologies")
     String senderName;
 
-    @ConfigProperty(name = "cabosse.license.sender-role", defaultValue = "NEIBA Technologies")
+    /**
+     * Seconde ligne de la signature.
+     *
+     * <p>Elle portait le même nom que la première, et la signature
+     * répétait l'éditeur deux fois (signalé le 05/10/2026). C'est le
+     * produit qui la porte désormais.</p>
+     */
+    @ConfigProperty(name = "cabosse.license.sender-role", defaultValue = "Cabosse ERP")
     String senderRole;
 
     /**
