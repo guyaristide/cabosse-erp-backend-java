@@ -215,6 +215,64 @@ class IntakeNoteTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void les_lignes_d_un_meme_numero_font_un_seul_bordereau() {
+        UserEntity admin = admin();
+        LocalDate today = LocalDate.now();
+        String frDate = today.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+        String siteId = givenAs(admin).contentType("application/json")
+                .body("{\"name\":\"Magasin pesees\",\"type\":\"TRANSFORMATION\",\"code\":\"MAG-"
+                        + TestFixtures.randomSlugSuffix() + "\"}")
+                .when().post("/api/v1/sites").then().statusCode(201).extract().path("data.id");
+
+        // Un camion se pèse en plusieurs fois : le carnet porte alors une
+        // ligne par pesée sous le même numéro. Les garder séparées en
+        // ignorait toutes sauf la première, sans que le poids manquant se
+        // voie (demandé le 04/10/2026).
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        [ { "rowNumber": 2, "ref": "BR0301", "date": "%s",
+                            "grossWeightKg": "1000", "bagCount": "15", "netWeightKg": "970" },
+                          { "rowNumber": 3, "ref": "BR0301", "date": "%s",
+                            "grossWeightKg": "500", "bagCount": "8", "netWeightKg": "485" },
+                          { "rowNumber": 4, "ref": "BR0302", "date": "%s",
+                            "netWeightKg": "600" } ]
+                        """.formatted(frDate, frDate, frDate))
+                .when().post("/api/v1/intake-notes/import/commit?siteId=" + siteId)
+                .then().statusCode(200)
+                .body("data.createdCount", equalTo(2));
+
+        givenAs(admin).when().get("/api/v1/intake-notes?status=TO_ACCOUNT")
+                .then().statusCode(200)
+                .body("data.find { it.ref == 'BR0301' }.netWeightKg", equalTo(1455))
+                .body("data.find { it.ref == 'BR0301' }.grossWeightKg", equalTo(1500))
+                .body("data.find { it.ref == 'BR0301' }.bagCount", equalTo(23))
+                .body("data.find { it.ref == 'BR0302' }.netWeightKg", equalTo(600));
+    }
+
+    @Test
+    void un_meme_numero_a_deux_dates_est_refuse() {
+        UserEntity admin = admin();
+        LocalDate today = LocalDate.now();
+        String siteId = givenAs(admin).contentType("application/json")
+                .body("{\"name\":\"Magasin dates\",\"type\":\"TRANSFORMATION\",\"code\":\"MAG-"
+                        + TestFixtures.randomSlugSuffix() + "\"}")
+                .when().post("/api/v1/sites").then().statusCode(201).extract().path("data.id");
+
+        // Sommer reviendrait à choisir une date au hasard : c'est une
+        // erreur du fichier, elle se corrige.
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        [ { "rowNumber": 2, "ref": "BR0310", "date": "%s", "netWeightKg": "100" },
+                          { "rowNumber": 3, "ref": "BR0310", "date": "%s", "netWeightKg": "200" } ]
+                        """.formatted(today, today.minusDays(1)))
+                .when().post("/api/v1/intake-notes/import/commit?siteId=" + siteId)
+                .then().statusCode(200)
+                .body("data.createdCount", equalTo(0))
+                .body("data.rejectedRows", hasSize(1))
+                .body("data.rejectedRows[0].rowNumber", equalTo(3));
+    }
+
+    @Test
     void a_commit_where_every_row_fails_reopens_the_note_and_says_why() {
         UserEntity admin = admin();
         LocalDate today = LocalDate.now();

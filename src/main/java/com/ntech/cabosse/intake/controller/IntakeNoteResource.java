@@ -2,6 +2,7 @@ package com.ntech.cabosse.intake.controller;
 
 import com.ntech.cabosse.intake.dto.IntakeNoteImportRowDto;
 import com.ntech.cabosse.intake.dto.SntAccountingRequestDto;
+import com.ntech.cabosse.intake.dto.SntDispatchRequestDto;
 import com.ntech.cabosse.intake.service.IntakeNoteService;
 import com.ntech.cabosse.intake.service.SntAccountingService;
 import com.ntech.cabosse.permission.entity.Permission;
@@ -51,6 +52,7 @@ public class IntakeNoteResource {
 
     @Inject IntakeNoteService service;
     @Inject SntAccountingService accounting;
+    @Inject com.ntech.cabosse.intake.service.SntDispatchService dispatch;
     @Inject IntakeNoteImportTemplate template;
     @Inject SntAccountingTemplate accountingTemplate;
     @Inject TenantCapabilityService capabilities;
@@ -174,6 +176,33 @@ public class IntakeNoteResource {
                                      @Valid SntAccountingRequestDto request) {
         ensureCapability();
         return Response.ok(ApiResponse.ok(accounting.commit(id, request))).build();
+    }
+
+    /**
+     * Comment un même fichier se répartit entre plusieurs bordereaux.
+     *
+     * <p>Un mois de retard fait des dizaines de bordereaux, et le fichier
+     * national qui les couvre est unique : le charger bordereau par
+     * bordereau obligeait à le découper autant de fois (demandé le
+     * 04/10/2026).</p>
+     */
+    @POST
+    @Path("/accounting/dispatch/preview")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    @RequiresPermission({ Permission.COLLECTION_RECEIPT_WRITE, Permission.ACCOUNTING_WRITE })
+    public Response dispatchPreview(@Valid SntDispatchRequestDto request) {
+        ensureCapability();
+        return Response.ok(ApiResponse.ok(dispatch.preview(request))).build();
+    }
+
+    /** Applique la répartition, bordereau par bordereau. */
+    @POST
+    @Path("/accounting/dispatch/commit")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    @RequiresPermission({ Permission.COLLECTION_RECEIPT_WRITE, Permission.ACCOUNTING_WRITE })
+    public Response dispatchCommit(@Valid SntDispatchRequestDto request) {
+        ensureCapability();
+        return Response.ok(ApiResponse.ok(dispatch.commit(request))).build();
     }
 
     /**

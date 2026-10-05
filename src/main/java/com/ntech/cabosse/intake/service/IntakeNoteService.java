@@ -72,6 +72,13 @@ public class IntakeNoteService {
         List<IntakeImportResultDto.RejectedRow> rejected = new ArrayList<>();
         List<IntakeImportResultDto.WarnedRow> warned = new ArrayList<>();
         List<IntakeImportResultDto.SkippedRow> skippedRows = new ArrayList<>();
+
+        // Les lignes d'un même numéro font un seul bordereau : un camion
+        // se pèse en plusieurs fois, et le carnet porte alors une ligne
+        // par pesée. Les garder séparées en ignorait toutes sauf la
+        // première, sans que le poids manquant se voie (demandé le
+        // 04/10/2026).
+        java.util.Map<String, Group> groups = new java.util.LinkedHashMap<>();
         for (IntakeNoteImportRowDto raw : rows == null ? List.<IntakeNoteImportRowDto>of() : rows) {
             String ref = clean(raw.ref());
             if (ref == null) {
@@ -95,6 +102,28 @@ public class IntakeNoteService {
                 trace.rejected(raw.rowNumber(), Messages.msg("m.itk-net-weight-required"), ref);
                 continue;
             }
+            Group group = groups.get(ref);
+            if (group == null) {
+                groups.put(ref, new Group(raw, date, net));
+                continue;
+            }
+            // Un même numéro à deux dates n'est pas un bordereau pesé en
+            // plusieurs fois : c'est une erreur du fichier, et sommer
+            // reviendrait à choisir une date au hasard.
+            if (!group.date.equals(date)) {
+                String reason = Messages.msg("m.itk-ref-date-conflict", ref, group.date, date);
+                rejected.add(new IntakeImportResultDto.RejectedRow(raw.rowNumber(), reason));
+                trace.rejected(raw.rowNumber(), reason, ref);
+                group.broken = true;
+                continue;
+            }
+            group.add(raw, net);
+        }
+
+        for (java.util.Map.Entry<String, Group> entry : groups.entrySet()) {
+            String ref = entry.getKey();
+            Group group = entry.getValue();
+            if (group.broken) continue;
             var existing = repo.findByRef(ref);
             if (existing.isPresent()) {
                 skipped++;
@@ -105,14 +134,15 @@ public class IntakeNoteService {
                 trace.decided("ALREADY_KNOWN", "numéro de bordereau", ref,
                         existing.get().status);
                 skippedRows.add(new IntakeImportResultDto.SkippedRow(
-                        raw.rowNumber(), ref, existing.get().status));
+                        group.first.rowNumber(), ref, existing.get().status));
                 continue;
             }
 
+            IntakeNoteImportRowDto raw = group.first;
             IntakeNoteEntity e = new IntakeNoteEntity();
             e.id = idGenerator.newId();
             e.ref = ref;
-            e.date = date;
+            e.date = group.date;
             e.movement = clean(raw.movement());
             e.campaignLabel = clean(raw.campaignLabel());
             e.campaignId = matchCampaign(e.campaignLabel, allCampaigns);
@@ -139,18 +169,61 @@ public class IntakeNoteService {
                 trace.decided("LEFT_NULL", "campagne", e.campaignLabel, "aucune campagne reconnue");
             }
             e.lineNumber = parseInt(raw.lineNumber());
-            e.grossWeightKg = parseDecimal(raw.grossWeightKg());
-            e.bagCount = parseInt(raw.bagCount());
-            e.netWeightKg = net;
+            e.grossWeightKg = group.gross;
+            e.bagCount = group.bags;
+            e.netWeightKg = group.net;
             e.siteId = siteId;
             e.createdAt = Instant.now();
             e.createdByEmail = actor();
             e.updatedAt = e.createdAt;
             repo.insert(e);
             created++;
+            if (group.lines > 1) {
+                // Dit ce qui a été réuni : un bordereau de trois pesées
+                // ne doit pas apparaître comme une ligne de fichier.
+                trace.decided("MERGED", "numéro de bordereau", ref,
+                        group.lines + " ligne(s) réunies");
+                warned.add(new IntakeImportResultDto.WarnedRow(raw.rowNumber(), ref,
+                        Messages.msg("m.itk-w-lines-merged", group.lines, group.net)));
+            }
         }
         trace.counts(created, skipped).close();
         return new IntakeImportResultDto(created, skipped, rejected, warned, skippedRows);
+    }
+
+    /**
+     * Les lignes d'un même numéro de bordereau, en cours de réunion.
+     *
+     * <p>Les poids et les sacs s'additionnent, le reste vient de la
+     * première ligne : camion, délégué, campagne et produit valent pour
+     * le bordereau entier, et les relire ligne par ligne laisserait la
+     * dernière écraser la première.</p>
+     */
+    private static final class Group {
+        private final IntakeNoteImportRowDto first;
+        private final LocalDate date;
+        private BigDecimal net;
+        private BigDecimal gross;
+        private Integer bags;
+        private int lines = 1;
+        private boolean broken;
+
+        private Group(IntakeNoteImportRowDto raw, LocalDate date, BigDecimal net) {
+            this.first = raw;
+            this.date = date;
+            this.net = net;
+            this.gross = parseDecimal(raw.grossWeightKg());
+            this.bags = parseInt(raw.bagCount());
+        }
+
+        private void add(IntakeNoteImportRowDto raw, BigDecimal lineNet) {
+            net = net.add(lineNet);
+            BigDecimal lineGross = parseDecimal(raw.grossWeightKg());
+            if (lineGross != null) gross = gross == null ? lineGross : gross.add(lineGross);
+            Integer lineBags = parseInt(raw.bagCount());
+            if (lineBags != null) bags = bags == null ? lineBags : bags + lineBags;
+            lines++;
+        }
     }
 
     /**
