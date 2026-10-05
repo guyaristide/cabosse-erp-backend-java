@@ -197,7 +197,10 @@ public class StockResource {
     }
 
     @POST
-    @RequiresPermission(Permission.STOCK_MOVE)
+    // Conduire un inventaire est le droit d'inventaire, pas celui de
+    // bouger du stock : un opérateur qui enregistre des entrées et des
+    // sorties n'a pas à régulariser l'existant (relevé le 05/10/2026).
+    @RequiresPermission(Permission.STOCK_INVENTORY)
     @Path("/inventory")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response inventory(@Valid InventoryBatchDto payload) {

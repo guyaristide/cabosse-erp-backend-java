@@ -209,6 +209,11 @@ public class MeTenantAdminResource {
     @GET
     @Path("/audit")
     @RequiresPermission(Permission.AUDIT_READ)
+    // Le droit décide, pas le rôle : le journal est fait pour s'ouvrir à
+    // un contrôleur ou à un expert-comptable sans en faire un
+    // administrateur, et le rôle de classe le leur refusait quand même
+    // (relevé le 05/10/2026).
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     @Operation(summary = "Journal d'audit du tenant courant",
             description = "Événements d'audit où tenantId = tenant courant. Pagination par défaut "
                     + "50 entrées (max 200). Tri par date décroissante.")

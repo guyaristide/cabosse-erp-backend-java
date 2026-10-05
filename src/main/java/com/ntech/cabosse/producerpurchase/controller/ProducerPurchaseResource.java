@@ -64,7 +64,18 @@ public class ProducerPurchaseResource {
         }
     }
 
+    /**
+     * Les lectures de la collecte.
+     *
+     * <p>Elles n'étaient gardées par aucun droit : l'écran était fermé,
+     * l'adresse ne l'était pas, et qui la connaissait lisait tous les
+     * reçus de la structure, montants compris (relevé le 05/10/2026).</p>
+     *
+     * <p>Le droit d'expédier les ouvre aussi : composer un bon
+     * d'acheminement suppose de voir les reçus qu'on y met.</p>
+     */
     @GET
+    @RequiresPermission({ Permission.COLLECTION_READ, Permission.STOCK_MOVE })
     public Response list(@QueryParam("q") String q,
                          @QueryParam("campaignId") UUID campaignId,
                          @QueryParam("memberId") UUID memberId,
@@ -78,6 +89,7 @@ public class ProducerPurchaseResource {
     /** Export de la liste, mêmes filtres qu'à l'écran. */
     @GET
     @Path("/export")
+    @RequiresPermission(Permission.COLLECTION_READ)
     @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/pdf" })
     public Response export(@QueryParam("q") String q,
                            @QueryParam("campaignId") UUID campaignId,
@@ -94,6 +106,7 @@ public class ProducerPurchaseResource {
 
     @GET
     @Path("/{id}")
+    @RequiresPermission({ Permission.COLLECTION_READ, Permission.STOCK_MOVE })
     public Response getById(@PathParam("id") UUID id) {
         ensureCapability();
         return Response.ok(ApiResponse.ok(service.getById(id))).build();
@@ -122,6 +135,7 @@ public class ProducerPurchaseResource {
     /** Fiche de stock des entrées du jour (CE-185), la vue journal du magasinier. */
     @GET
     @Path("/day-sheet")
+    @RequiresPermission(Permission.COLLECTION_READ)
     public Response daySheet(@QueryParam("date") String dateRaw,
                              @QueryParam("siteId") UUID siteId,
                              @QueryParam("articleId") UUID articleId) {
@@ -138,6 +152,7 @@ public class ProducerPurchaseResource {
      */
     @GET
     @Path("/day-sheet/export")
+    @RequiresPermission(Permission.COLLECTION_READ)
     @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/pdf" })
     public Response daySheetExport(@QueryParam("date") String dateRaw,
                                    @QueryParam("siteId") UUID siteId,
@@ -174,6 +189,7 @@ public class ProducerPurchaseResource {
      */
     @GET
     @Path("/{id}/reception-note")
+    @RequiresPermission(Permission.COLLECTION_READ)
     @jakarta.ws.rs.Produces("application/pdf")
     public Response receptionNote(@PathParam("id") UUID id) {
         ensureCapability();
@@ -227,6 +243,7 @@ public class ProducerPurchaseResource {
 
     @GET
     @Path("/import/template")
+    @RequiresPermission(Permission.COLLECTION_RECEIPT_WRITE)
     @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })
     public Response importTemplate(@QueryParam("format") String formatRaw) {
         ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
@@ -237,6 +254,9 @@ public class ProducerPurchaseResource {
 
     @POST
     @Path("/import/preview")
+    // Vérifier un fichier, c'est en lire le contenu : même droit que
+    // l'appliquer, sans quoi l'aperçu devient la porte dérobée.
+    @RequiresPermission(Permission.COLLECTION_RECEIPT_WRITE)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response importPreview(java.util.List<ProducerPurchaseImportRowDto> rows) {
         ensureCapability();
