@@ -125,6 +125,66 @@ public class SupplierService {
         return SupplierResponseDto.from(e);
     }
 
+    /**
+     * Ouvre une fiche au strict nécessaire, pour les imports qui nomment
+     * un tiers absent du référentiel.
+     *
+     * <p>Un fichier de cent soixante-dix dépenses nomme des prestataires
+     * qui n'ont jamais eu de fiche : refuser la ligne arrêterait la
+     * reprise, et renvoyer au référentiel ferait ouvrir cent soixante-dix
+     * fiches à la main avant de recommencer (demandé le 04/10/2026).</p>
+     *
+     * <p>Le compte auxiliaire vient du fichier quand il le porte : c'est
+     * lui qui décide ensuite où se loge la dette de ce tiers.</p>
+     */
+    public SupplierEntity createMinimal(String name, String subsidiaryAccount) {
+        SupplierEntity e = new SupplierEntity();
+        e.id = UuidCreator.getTimeOrderedEpoch();
+        e.name = name.trim();
+        e.code = uniqueCode(slugify(e.name));
+        e.subsidiaryAccount = blankToNull(subsidiaryAccount);
+        e.active = true;
+        e.createdAt = Instant.now();
+        e.updatedAt = e.createdAt;
+        e.createdBy = safeUserId();
+        repo.insert(e);
+        auditEvt(e, "Création à l'import");
+        return e;
+    }
+
+    /**
+     * Complète le compte auxiliaire d'une fiche qui n'en a pas.
+     *
+     * <p>Jamais d'écrasement : un compte déjà ouvert a été choisi par
+     * quelqu'un, et le remplacer depuis un fichier déplacerait
+     * silencieusement toute la dette d'un tiers.</p>
+     *
+     * @return vrai si la fiche a été complétée
+     */
+    public boolean completeSubsidiaryAccount(SupplierEntity e, String subsidiaryAccount) {
+        String account = blankToNull(subsidiaryAccount);
+        if (account == null || blankToNull(e.subsidiaryAccount) != null) return false;
+        e.subsidiaryAccount = account;
+        e.updatedAt = Instant.now();
+        repo.replace(e);
+        auditEvt(e, "Compte auxiliaire renseigné à l'import");
+        return true;
+    }
+
+    /** Un code libre, suffixé tant qu'il est pris. */
+    private String uniqueCode(String base) {
+        String code = base;
+        int suffix = 2;
+        while (repo.codeExists(code)) {
+            code = base + "-" + suffix++;
+        }
+        return code;
+    }
+
+    private static String blankToNull(String s) {
+        return s == null || s.isBlank() ? null : s.trim();
+    }
+
     public SupplierResponseDto update(UUID id, SupplierUpsertDto p) {
         SupplierEntity e = repo.findById(id).orElseThrow(
                 () -> new NotFoundException(com.ntech.cabosse.shared.i18n.Messages.msg("m.sup-not-found", id)));

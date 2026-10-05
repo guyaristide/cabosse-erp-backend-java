@@ -42,16 +42,24 @@ import java.util.UUID;
  * a toujours une colonne décalée quelque part.</p>
  *
  * <p>Le prestataire est facultatif, comme à la saisie : nommé et connu,
- * la dette va sur son compte ; inconnu, la ligne le signale sans la
- * refuser et la dette reste au collectif fournisseurs. Refuser une
- * petite dépense faute de fiche arrêterait la caisse sur un achat de
- * crédit téléphonique.</p>
+ * la dette va sur son compte. Nommé et absent, sa fiche s'ouvre à
+ * l'application plutôt que de refuser la ligne : un fichier de cent
+ * soixante-dix dépenses nomme des prestataires qui n'ont jamais eu de
+ * fiche, et les ouvrir une à une avant de recommencer l'import arrêterait
+ * la reprise (demandé le 04/10/2026). Sans nom du tout, la dette reste au
+ * collectif fournisseurs.</p>
+ *
+ * <p>Le compte du prestataire vient du fichier. Il complète une fiche qui
+ * n'en a pas, jamais il n'en remplace un : un compte déjà ouvert a été
+ * choisi par quelqu'un, et le changer depuis un fichier déplacerait
+ * silencieusement toute la dette d'un tiers.</p>
  */
 @ApplicationScoped
 public class DirectExpenseImportService {
 
     @Inject DirectExpenseService expenses;
     @Inject SupplierRepository suppliers;
+    @Inject com.ntech.cabosse.supplier.service.SupplierService supplierService;
     @Inject ExpenseTypeRepository expenseTypes;
 
     public DirectExpenseImportPreviewDto preview(List<DirectExpenseImportRowDto> input) {
@@ -61,6 +69,12 @@ public class DirectExpenseImportService {
         for (SupplierEntity s : suppliers.listAll()) {
             if (s.name != null) knownSuppliers.putIfAbsent(normalize(s.name), s);
             if (s.code != null) knownSuppliers.putIfAbsent(normalize(s.code), s);
+            // Le fichier du conseil désigne parfois le tiers par son seul
+            // compte : le retrouver par là évite d'ouvrir une seconde
+            // fiche au même prestataire.
+            if (s.subsidiaryAccount != null) {
+                knownSuppliers.putIfAbsent(normalize(s.subsidiaryAccount), s);
+            }
         }
         Map<String, ExpenseTypeEntity> knownTypes = new LinkedHashMap<>();
         for (ExpenseTypeEntity t : expenseTypes.listAll()) {
@@ -108,13 +122,30 @@ public class DirectExpenseImportService {
                         Messages.msg("m.imp-dep-charge-account-required")));
             }
 
+            String supplierAccount = blankToNull(raw.supplierAccount());
             SupplierEntity supplier = knownSuppliers.get(normalize(raw.supplierName()));
-            if (supplier == null && blankToNull(raw.supplierName()) != null) {
-                // Signalé, pas refusé : la dette reste au collectif, et
-                // la dépense se paie quand même.
-                notices.add(new FieldIssue("supplierName",
-                        Messages.msg("m.imp-dep-supplier-unknown", raw.supplierName())));
+            if (supplier == null && supplierAccount != null) {
+                supplier = knownSuppliers.get(normalize(supplierAccount));
             }
+            boolean supplierWillBeCreated = false;
+            if (supplier == null && blankToNull(raw.supplierName()) != null) {
+                // La fiche s'ouvrira à l'application : annoncé ici pour
+                // que personne ne découvre après coup des prestataires
+                // qu'il n'a pas créés.
+                supplierWillBeCreated = true;
+                notices.add(new FieldIssue("supplierName",
+                        Messages.msg("m.imp-dep-supplier-will-be-created", raw.supplierName())));
+            } else if (supplier != null && supplierAccount != null
+                    && blankToNull(supplier.subsidiaryAccount) != null
+                    && !supplierAccount.equals(supplier.subsidiaryAccount.trim())) {
+                // La fiche garde son compte : le fichier ne déplace pas la
+                // dette d'un tiers en silence.
+                notices.add(new FieldIssue("supplierAccount",
+                        Messages.msg("m.imp-dep-supplier-account-differs",
+                                supplier.name, supplier.subsidiaryAccount, supplierAccount)));
+            }
+            String resolvedAccount = supplier != null && supplier.subsidiaryAccount != null
+                    ? supplier.subsidiaryAccount : supplierAccount;
 
             BigDecimal amountHt = parseDecimal(raw.amountHt());
             if (amountHt == null || amountHt.signum() <= 0) {
@@ -144,6 +175,7 @@ public class DirectExpenseImportService {
                             date == null ? null : date.toString(),
                             supplier == null ? null : supplier.id,
                             supplier == null ? blankToNull(raw.supplierName()) : supplier.name,
+                            resolvedAccount, supplierWillBeCreated,
                             type == null ? null : type.id,
                             type == null ? null : type.name,
                             chargeAccount, label, amountHt, vatRate, ttc),
@@ -164,6 +196,7 @@ public class DirectExpenseImportService {
         DirectExpenseImportPreviewDto preview = preview(input);
         List<UUID> createdIds = new ArrayList<>();
         List<Row> skipped = new ArrayList<>();
+        int createdSuppliers = 0;
 
         for (Row row : preview.rows()) {
             if (row.status() != Status.READY) {
@@ -172,10 +205,23 @@ public class DirectExpenseImportService {
             }
             Normalized n = row.normalized();
             try {
+                // La fiche du prestataire s'ouvre ici et non à l'aperçu :
+                // vérifier ne doit rien écrire, c'est la promesse de
+                // l'aperçu.
+                UUID supplierId = n.supplierId();
+                if (supplierId == null && n.supplierWillBeCreated() && n.supplierName() != null) {
+                    supplierId = supplierService
+                            .createMinimal(n.supplierName(), n.supplierAccount()).id;
+                    createdSuppliers++;
+                } else if (supplierId != null && n.supplierAccount() != null) {
+                    final UUID known = supplierId;
+                    suppliers.findById(known).ifPresent(sup -> supplierService
+                            .completeSubsidiaryAccount(sup, n.supplierAccount()));
+                }
                 var created = expenses.create(new CreateDirectExpenseDto(
                         n.kind(),
                         n.expenseDate() == null ? null : LocalDate.parse(n.expenseDate()),
-                        n.supplierId(),
+                        supplierId,
                         n.expenseTypeId(),
                         n.chargeAccount(),
                         n.label(),
@@ -196,7 +242,8 @@ public class DirectExpenseImportService {
             }
         }
         return new DirectExpenseImportCommitResponseDto(
-                preview.totalRows(), createdIds.size(), skipped.size(), createdIds, skipped);
+                preview.totalRows(), createdIds.size(), skipped.size(), createdSuppliers,
+                createdIds, skipped);
     }
 
     /** Relit une colonne brute que l'aperçu ne normalise pas. */

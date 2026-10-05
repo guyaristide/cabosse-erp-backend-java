@@ -64,8 +64,8 @@ class DirectExpenseImportTest extends AbstractIntegrationTest {
         // Le modèle est le contrat avec celui qui prépare le fichier :
         // une colonne qui n'y figure pas ne sera jamais remplie.
         for (String header : java.util.List.of(
-                "Nature", "Date", "Prestataire", "Type de dépense", "Compte de charge",
-                "Libellé", "Montant HT", "Taux TVA")) {
+                "Nature", "Date", "Prestataire", "N° compte prestataire", "Type de dépense",
+                "Compte de charge", "Libellé", "Montant HT", "Taux TVA")) {
             org.assertj.core.api.Assertions.assertThat(csv)
                     .as("colonne « %s » absente du modèle", header).contains(header);
         }
@@ -112,21 +112,78 @@ class DirectExpenseImportTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void un_prestataire_inconnu_ne_fait_pas_echouer_la_ligne() {
+    void un_prestataire_absent_voit_sa_fiche_ouverte() {
         UserEntity a = admin();
 
         // Refuser une petite dépense faute de fiche arrêterait la caisse
-        // sur un achat de crédit téléphonique : la ligne passe, et la
-        // dette reste au collectif.
+        // sur un achat de crédit téléphonique. L'aperçu l'annonce, sans
+        // rien écrire.
         givenAs(a).contentType("application/json")
                 .body("""
                         [ { "rowNumber": 1, "kind": "Petite dépense", "supplierName": "Taxi du marché",
+                            "supplierAccount": "401450",
                             "chargeAccount": "628000", "label": "Transport", "amountHt": "3000" } ]
                         """)
                 .when().post("/api/v1/direct-expenses/import/preview")
                 .then().statusCode(200)
                 .body("data.readyRows", equalTo(1))
+                .body("data.rows[0].normalized.supplierWillBeCreated", equalTo(true))
+                .body("data.rows[0].normalized.supplierAccount", equalTo("401450"))
                 .body("data.rows[0].notices", hasSize(1));
+
+        // Rien n'a été écrit par l'aperçu.
+        givenAs(a).queryParam("q", "Taxi").when().get("/api/v1/suppliers")
+                .then().statusCode(200).body("data.items", hasSize(0));
+    }
+
+    @Test
+    void le_compte_du_fichier_ouvre_la_fiche_du_prestataire() {
+        UserEntity a = admin();
+
+        givenAs(a).contentType("application/json")
+                .body("""
+                        [ { "rowNumber": 1, "kind": "Abonnement", "supplierName": "Compagnie des eaux",
+                            "supplierAccount": "401310",
+                            "chargeAccount": "605000", "label": "Eau", "amountHt": "40000" } ]
+                        """)
+                .when().post("/api/v1/direct-expenses/import/commit")
+                .then().statusCode(200)
+                .body("data.createdCount", equalTo(1))
+                .body("data.createdSupplierCount", equalTo(1));
+
+        // Le compte du fichier décide où se loge la dette envers ce tiers.
+        givenAs(a).queryParam("q", "Compagnie des eaux").when().get("/api/v1/suppliers")
+                .then().statusCode(200)
+                .body("data.items", hasSize(1))
+                .body("data.items[0].subsidiaryAccount", equalTo("401310"));
+    }
+
+    @Test
+    void le_fichier_ne_remplace_pas_un_compte_deja_ouvert() {
+        UserEntity a = admin();
+        givenAs(a).contentType("application/json")
+                .body("""
+                        { "name": "Compagnie d'électricité", "subsidiaryAccount": "401200" }
+                        """)
+                .when().post("/api/v1/suppliers").then().statusCode(201);
+
+        givenAs(a).contentType("application/json")
+                .body("""
+                        [ { "rowNumber": 1, "kind": "Abonnement",
+                            "supplierName": "Compagnie d'électricité", "supplierAccount": "401999",
+                            "chargeAccount": "605000", "label": "Électricité", "amountHt": "10000" } ]
+                        """)
+                .when().post("/api/v1/direct-expenses/import/commit")
+                .then().statusCode(200)
+                .body("data.createdCount", equalTo(1))
+                .body("data.createdSupplierCount", equalTo(0));
+
+        // Changer le compte depuis un fichier déplacerait toute la dette
+        // de ce tiers sans que personne ne l'ait décidé.
+        givenAs(a).queryParam("q", "Compagnie d").when().get("/api/v1/suppliers")
+                .then().statusCode(200)
+                .body("data.items", hasSize(1))
+                .body("data.items[0].subsidiaryAccount", equalTo("401200"));
     }
 
     @Test

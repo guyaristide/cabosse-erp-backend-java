@@ -51,6 +51,7 @@ public class ApprovalQueueService {
     @Inject JsonWebToken jwt;
     @Inject com.ntech.cabosse.settlement.service.SettlementRequestService settlements;
     @Inject com.ntech.cabosse.cashsupply.service.CashSupplyRequestService cashSupplies;
+    @Inject com.ntech.cabosse.expense.repository.DirectExpenseRepository directExpenses;
 
     /**
      * @param kind   restreint à une nature, {@code null} pour les deux
@@ -93,6 +94,7 @@ public class ApprovalQueueService {
         if (wants(kind, ApprovalKind.SETTLEMENT_REQUEST)) collectSettlements(out);
         if (wants(kind, ApprovalKind.PURCHASE_REQUEST)) collectPurchaseRequests(out);
         if (wants(kind, ApprovalKind.CASH_SUPPLY)) collectCashSupplies(out);
+        if (wants(kind, ApprovalKind.DIRECT_EXPENSE)) collectDirectExpenses(out);
         if (siteId == null) return out;
         // Une demande sans site connu reste visible : la masquer sur un
         // filtre de site la ferait disparaître du total soumis au conseil.
@@ -256,6 +258,42 @@ public class ApprovalQueueService {
                     false,
                     canApprove && !mine,
                     null, null));
+        });
+    }
+
+    /**
+     * Les dépenses qui attendent leur décision avant paiement.
+     *
+     * <p>Une dépense se constate aux achats et se règle à la trésorerie ;
+     * entre les deux, quelqu'un dit si elle se paie. Deux échelons quand
+     * le montant le demande : la ligne reste ici après le premier, et dit
+     * lequel manque.</p>
+     */
+    private void collectDirectExpenses(List<PendingApprovalDto> out) {
+        boolean canApprove = permissions.currentIsTenantAdmin()
+                || permissions.can(Permission.EXPENSE_APPROVE);
+        boolean canApproveGovernance = permissions.currentIsTenantAdmin()
+                || permissions.can(Permission.EXPENSE_APPROVE_GOVERNANCE);
+
+        directExpenses.listAwaitingApproval().forEach(e -> {
+            // Vrai quand c'est le second échelon qui manque : le premier
+            // est passé, et la ligne attend la gouvernance.
+            boolean governanceStep = "APPROVED".equals(e.approvalStatus);
+            LocalDate since = e.expenseDate != null ? e.expenseDate : LocalDate.now();
+            out.add(new PendingApprovalDto(
+                    ApprovalKind.DIRECT_EXPENSE.name(), e.id, e.ref,
+                    e.supplierId, e.supplierName != null ? e.supplierName : e.label,
+                    e.amountTtc, since, ageOf(since),
+                    // Pas de compte courant pour un prestataire : la
+                    // notion n'existe pas de ce côté.
+                    null, null, null,
+                    null,
+                    e.label, e.actorEmail,
+                    governanceStep,
+                    governanceStep ? canApproveGovernance : canApprove,
+                    // La dépense n'est pas rattachée à un site : elle
+                    // engage la structure, pas un magasin.
+                    null, e.campaignId));
         });
     }
 

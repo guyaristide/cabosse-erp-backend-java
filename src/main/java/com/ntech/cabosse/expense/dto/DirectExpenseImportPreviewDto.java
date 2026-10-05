@@ -35,6 +35,10 @@ public record DirectExpenseImportPreviewDto(
             String expenseDate,
             UUID supplierId,
             String supplierName,
+            /** Compte du tiers, du fichier ou de sa fiche. */
+            String supplierAccount,
+            /** Vrai quand la fiche du prestataire sera ouverte à l'application. */
+            boolean supplierWillBeCreated,
             UUID expenseTypeId,
             String expenseTypeName,
             String chargeAccount,

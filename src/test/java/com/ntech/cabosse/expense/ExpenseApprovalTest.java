@@ -110,6 +110,75 @@ class ExpenseApprovalTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void la_file_a_payer_ignore_ce_qui_attend_une_decision() {
+        UserEntity a = admin();
+        setPrefs(a, "{ \"expenseApprovalScope\": \"ALL\", \"expenseApprovalThreshold\": 0 }");
+        String id = expense(a, "PETTY_CASH", 5000);
+
+        // Elle y figurait avec un bouton que le serveur refusait : le
+        // caissier arbitrait sur une somme qui n'était pas accordée
+        // (demandé le 04/10/2026).
+        givenAs(a).when().get("/api/v1/treasury/payables?kind=PETTY_CASH")
+                .then().statusCode(200).body("data.page.items", hasSize(0));
+
+        givenAs(a).contentType("application/json")
+                .when().post("/api/v1/direct-expenses/" + id + "/approve")
+                .then().statusCode(200);
+
+        givenAs(a).when().get("/api/v1/treasury/payables?kind=PETTY_CASH")
+                .then().statusCode(200)
+                .body("data.page.items", hasSize(1))
+                .body("data.page.items[0].sourceId", equalTo(id));
+    }
+
+    @Test
+    void la_depense_qui_attend_remonte_dans_la_file_d_approbation() {
+        UserEntity a = admin();
+        setPrefs(a, "{ \"expenseApprovalScope\": \"ALL\", \"expenseApprovalThreshold\": 0 }");
+        String id = expense(a, "PETTY_CASH", 7000);
+
+        // Le circuit existait sans qu'aucun écran ne le serve : une
+        // dépense déposée dormait sans que personne ne sache qu'elle
+        // attendait (04/10/2026).
+        givenAs(a).queryParam("kind", "DIRECT_EXPENSE")
+                .when().get("/api/v1/governance/approvals")
+                .then().statusCode(200)
+                .body("data.page.items", hasSize(1))
+                .body("data.page.items[0].sourceId", equalTo(id))
+                .body("data.page.items[0].amount", equalTo(7000))
+                .body("data.page.items[0].actionable", equalTo(true));
+
+        givenAs(a).contentType("application/json")
+                .when().post("/api/v1/direct-expenses/" + id + "/approve")
+                .then().statusCode(200);
+
+        givenAs(a).queryParam("kind", "DIRECT_EXPENSE")
+                .when().get("/api/v1/governance/approvals")
+                .then().statusCode(200).body("data.page.items", hasSize(0));
+    }
+
+    @Test
+    void le_second_echelon_reste_dans_la_file_apres_le_premier() {
+        UserEntity a = admin();
+        setPrefs(a, "{ \"expenseApprovalScope\": \"ALL\", \"expenseApprovalThreshold\": 0,"
+                + " \"expenseGovernanceThreshold\": 1000 }");
+        String id = expense(a, "PETTY_CASH", 50000);
+
+        givenAs(a).contentType("application/json")
+                .when().post("/api/v1/direct-expenses/" + id + "/approve")
+                .then().statusCode(200);
+
+        // Le premier échelon est passé, la ligne dit que c'est la
+        // gouvernance qui manque : sans quoi personne ne sait qui
+        // relancer.
+        givenAs(a).queryParam("kind", "DIRECT_EXPENSE")
+                .when().get("/api/v1/governance/approvals")
+                .then().statusCode(200)
+                .body("data.page.items", hasSize(1))
+                .body("data.page.items[0].governanceApprovalRequired", equalTo(true));
+    }
+
+    @Test
     void le_perimetre_borne_ce_qui_passe_par_une_decision() {
         UserEntity a = admin();
         setPrefs(a, "{ \"expenseApprovalScope\": \"SUBSCRIPTIONS\","

@@ -30,5 +30,11 @@ public enum ApprovalKind {
      * faire ouvrir un second écran lui ferait manquer ce qui attend
      * (demandé le 03/10/2026).
      */
-    CASH_SUPPLY
+    CASH_SUPPLY,
+    /**
+     * Dépense constatée en attente de décision avant paiement. Le circuit
+     * existait sans qu'aucun écran ne le serve : une dépense déposée
+     * dormait sans que personne ne sache qu'elle attendait (04/10/2026).
+     */
+    DIRECT_EXPENSE
 }

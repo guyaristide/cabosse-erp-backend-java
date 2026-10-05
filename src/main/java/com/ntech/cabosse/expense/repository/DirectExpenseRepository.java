@@ -60,6 +60,25 @@ public class DirectExpenseRepository {
     }
 
     /**
+     * Les dépenses qui attendent une décision, premier ou second échelon.
+     *
+     * <p>Elles ne se voyaient nulle part : le circuit existait, aucun
+     * écran ne le servait, et une dépense déposée dormait sans que
+     * personne ne sache qu'elle attendait (04/10/2026).</p>
+     */
+    public List<DirectExpenseEntity> listAwaitingApproval() {
+        return coll().find(com.mongodb.client.model.Filters.or(
+                        com.mongodb.client.model.Filters.eq("approvalStatus", "PENDING"),
+                        com.mongodb.client.model.Filters.and(
+                                com.mongodb.client.model.Filters.eq("approvalStatus", "APPROVED"),
+                                com.mongodb.client.model.Filters.eq(
+                                        "governanceApprovalRequired", true),
+                                com.mongodb.client.model.Filters.eq(
+                                        "governanceApprovedAt", null))))
+                .into(new java.util.ArrayList<>());
+    }
+
+    /**
      * Impute un règlement, sans dépasser ce qui reste dû.
      *
      * <p>Une mise à jour conditionnée sur le montant déjà payé : deux

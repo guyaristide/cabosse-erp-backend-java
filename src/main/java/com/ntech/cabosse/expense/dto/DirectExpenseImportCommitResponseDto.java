@@ -11,6 +11,8 @@ public record DirectExpenseImportCommitResponseDto(
         int totalRows,
         int createdCount,
         int skippedCount,
+        /** Fiches de prestataires ouvertes au passage. */
+        int createdSupplierCount,
         List<UUID> createdIds,
         List<DirectExpenseImportPreviewDto.Row> skippedRows
 ) {}

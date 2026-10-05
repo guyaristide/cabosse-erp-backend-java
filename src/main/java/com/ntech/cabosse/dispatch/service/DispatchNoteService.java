@@ -156,7 +156,10 @@ public class DispatchNoteService {
             }
             e.truckNumber = blankToNull(p.truckNumber());
             e.destination = blankToNull(p.destination());
-            CampaignEntity campaign = campaignResolver.resolveOptionalForInstant(now, null);
+            // La campagne vient de la date du bordereau, pas de l'heure de
+            // la saisie : une expédition de juillet enregistrée en octobre
+            // appartient à la campagne de juillet (04/10/2026).
+            CampaignEntity campaign = campaignResolver.resolveOptionalForDate(e.date, null);
             e.campaignId = campaign != null ? campaign.id : null;
             e.campaignYear = campaign != null ? campaign.campaignYear : null;
             e.notes = blankToNull(p.notes());

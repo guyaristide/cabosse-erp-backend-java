@@ -150,16 +150,27 @@ public class PayableService {
      * fournisseurs dont un seul est payé laisse deux lignes dans la file.
      */
     /**
-     * Les dépenses constatées qu'il reste à payer.
+     * Les dépenses constatées, approuvées, qu'il reste à payer.
      *
      * <p>Celles d'avant la bascule du 03/10/2026 sont sorties de la
      * caisse à la saisie : elles ne portent pas de compte de tiers, et
      * les faire figurer ici ferait décaisser deux fois.</p>
+     *
+     * <p>Celles qui attendent une décision n'y sont pas non plus : la
+     * file dit ce qu'on peut payer aujourd'hui, et ce qui n'est pas
+     * accordé ne se paie pas. L'écran des dépenses montre ce qui
+     * attend.</p>
      */
     private void collectDirectExpenses(List<PayableDto> out, String kind) {
         directExpenses.listUnpaid().forEach(e -> {
             java.math.BigDecimal due = e.remaining();
             if (due.signum() <= 0) return;
+            // Tant que la décision n'est pas prise, la dépense n'est pas à
+            // payer : elle figurait ici avec un bouton que le serveur
+            // refusait, et le caissier arbitrait sur une somme qui
+            // n'était peut-être pas accordée (demandé le 04/10/2026).
+            // Celles d'avant le circuit n'ont pas de décision à attendre.
+            if (!e.payable()) return;
             // La nature de la dépense devient celle de la ligne à payer :
             // un abonnement et une petite dépense ne se tranchent pas de
             // la même façon quand la caisse est courte.

@@ -63,7 +63,10 @@ public class ApprovalResource {
             // pouvoir ouvrir la file où elles l'attendent.
             Permission.PURCHASE_APPROVE,
             // Et depuis le 03/10/2026, les approvisionnements de caisse.
-            Permission.CASH_SUPPLY_APPROVE })
+            Permission.CASH_SUPPLY_APPROVE,
+            // Et les dépenses, dont le circuit n'avait aucun écran.
+            Permission.EXPENSE_APPROVE,
+            Permission.EXPENSE_APPROVE_GOVERNANCE })
     public Response pending(@QueryParam("kind") String kind,
                             @QueryParam("siteId") UUID siteId,
                             @QueryParam("page") @DefaultValue("0") int page,

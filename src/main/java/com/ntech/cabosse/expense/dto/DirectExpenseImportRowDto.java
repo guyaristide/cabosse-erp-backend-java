@@ -15,8 +15,15 @@ public record DirectExpenseImportRowDto(
         /** « Abonnement » ou « Petite dépense », ou les codes CONTRACT / PETTY_CASH. */
         String kind,
         String expenseDate,
-        /** Nom du prestataire. Inconnu, la dépense reste au collectif fournisseurs. */
+        /** Nom du prestataire. Absent du référentiel, sa fiche s'ouvre à l'application. */
         String supplierName,
+        /**
+         * Compte du plan comptable associé au prestataire.
+         *
+         * <p>Il décide où se loge la dette envers lui. Vide, la dette
+         * reste au collectif fournisseurs.</p>
+         */
+        String supplierAccount,
         String expenseTypeName,
         String chargeAccount,
         String label,
