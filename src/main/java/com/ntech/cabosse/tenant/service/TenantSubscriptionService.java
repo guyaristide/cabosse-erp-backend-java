@@ -64,6 +64,20 @@ public class TenantSubscriptionService {
     @RolesAllowed(Roles.PLATFORM_ADMIN)
     @Transactional
     public TenantEntity activate(UUID tenantId, ActivateSubscriptionPayloadDto payload) {
+        return activate(tenantId, payload, null);
+    }
+
+    /**
+     * Même activation, avec la facture jointe au courrier.
+     *
+     * <p>La facture part avec le courrier qui l'annonce : la laisser
+     * suivre dans un second message obligerait le destinataire à
+     * rapprocher deux envois (demandé le 05/10/2026).</p>
+     */
+    @RolesAllowed(Roles.PLATFORM_ADMIN)
+    @Transactional
+    public TenantEntity activate(UUID tenantId, ActivateSubscriptionPayloadDto payload,
+                                 com.ntech.cabosse.settings.mail.MailFile invoice) {
         TenantEntity tenant = tenants.findById(tenantId);
         if (tenant == null) {
             throw new NotFoundException(Messages.msg("m.tnt-not-found-2", tenantId));
@@ -136,7 +150,7 @@ public class TenantSubscriptionService {
         // Le courrier part après l'enregistrement, et ne peut plus le
         // remettre en cause : une licence accordée dont l'avis n'est pas
         // parti reste une licence accordée.
-        licenseMail.sendActivation(tenant, payload.notifyEmails());
+        licenseMail.sendActivation(tenant, payload.notifyEmails(), payload.extraEmails(), invoice);
 
         return tenant;
     }

@@ -155,7 +155,25 @@ public class TenantsResource {
             com.ntech.cabosse.tenant.dto.ResendLicenseMailPayloadDto payload) {
         return Response.ok(ApiResponse.ok(java.util.Map.of(
                 "sent", licenseMail.resend(tenantId,
-                        payload == null ? java.util.List.of() : payload.notifyEmails())))).build();
+                        payload == null ? java.util.List.of() : payload.notifyEmails(),
+                        payload == null ? java.util.List.of() : payload.extraEmails(),
+                        null)))).build();
+    }
+
+    /** Même renvoi, la facture jointe. */
+    @POST
+    @Path("/{tenantId}/license-mail")
+    @Consumes(MediaType.MULTIPART_FORM_DATA)
+    public Response resendLicenseMailWithInvoice(
+            @PathParam("tenantId") UUID tenantId,
+            @RestForm("payload") @PartType(MediaType.APPLICATION_JSON)
+            com.ntech.cabosse.tenant.dto.ResendLicenseMailPayloadDto payload,
+            @RestForm("invoice") FileUpload invoice) {
+        return Response.ok(ApiResponse.ok(java.util.Map.of(
+                "sent", licenseMail.resend(tenantId,
+                        payload == null ? java.util.List.of() : payload.notifyEmails(),
+                        payload == null ? java.util.List.of() : payload.extraEmails(),
+                        mailFile(invoice))))).build();
     }
 
     @GET
@@ -367,6 +385,27 @@ public class TenantsResource {
     }
 
     /**
+     * Active l'abonnement en joignant la facture au courrier.
+     *
+     * <p>Même geste que la variante JSON, le fichier en plus : la
+     * facture part avec le courrier qui l'annonce, plutôt que de suivre
+     * dans un second message que le destinataire devrait rapprocher
+     * (demandé le 05/10/2026).</p>
+     */
+    @POST
+    @Path("/{tenantId}/subscription")
+    @Consumes(MediaType.MULTIPART_FORM_DATA)
+    @Operation(summary = "Active l'abonnement avec la facture jointe")
+    public Response activateSubscriptionWithInvoice(
+            @PathParam("tenantId") UUID tenantId,
+            @RestForm("payload") @PartType(MediaType.APPLICATION_JSON)
+            @Valid ActivateSubscriptionPayloadDto payload,
+            @RestForm("invoice") FileUpload invoice) {
+        subscriptionService.activate(tenantId, payload, mailFile(invoice));
+        return Response.ok(ApiResponse.ok(registry.getById(tenantId))).build();
+    }
+
+    /**
      * Retire la licence d'une structure.
      *
      * <p>Distinct de la suspension, qui coupe l'accès d'une structure
@@ -410,6 +449,14 @@ public class TenantsResource {
                 .header("Content-Length", stream.sizeBytes())
                 .header("Cache-Control", "private, max-age=300")
                 .build();
+    }
+
+    /** Le fichier du formulaire, prêt à partir en pièce jointe. */
+    private static com.ntech.cabosse.settings.mail.MailFile mailFile(FileUpload upload) {
+        byte[] content = readBytes(upload);
+        if (content == null) return null;
+        return new com.ntech.cabosse.settings.mail.MailFile(
+                upload.fileName(), upload.contentType(), content);
     }
 
     private static byte[] readBytes(FileUpload upload) {

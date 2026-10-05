@@ -165,6 +165,35 @@ class TenantLicenseBoardTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void une_adresse_libre_recoit_le_courrier_avec_la_facture() {
+        TenantEntity tenant = withLicenceEndingOn(LocalDate.now().plusMonths(6));
+
+        // Un comptable externe n'a pas de compte dans le logiciel, et le
+        // courrier doit quand même l'atteindre (demandé le 05/10/2026).
+        givenAs(fixtures.createPlatformAdmin())
+                .multiPart("payload", "{\"notifyEmails\":[],"
+                        + "\"extraEmails\":[\"cabinet@expert-comptable.ci\"]}",
+                        "application/json")
+                .multiPart("invoice", "facture-normalisee.pdf",
+                        "%PDF-1.4 facture".getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                        "application/pdf")
+                .when().post("/api/v1/admin/tenants/" + tenant.id + "/license-mail")
+                .then().statusCode(200).body("data.sent", equalTo(1));
+    }
+
+    @Test
+    void une_adresse_libre_illisible_est_ecartee_sans_bloquer() {
+        TenantEntity tenant = withLicenceEndingOn(LocalDate.now().plusMonths(6));
+
+        // Une faute de frappe ne doit pas faire échouer l'envoi aux
+        // autres : la ligne est écartée, le reste part.
+        givenAs(fixtures.createPlatformAdmin()).contentType("application/json")
+                .body("{\"notifyEmails\":[],\"extraEmails\":[\"pas-une-adresse\"]}")
+                .when().post("/api/v1/admin/tenants/" + tenant.id + "/license-mail")
+                .then().statusCode(200).body("data.sent", equalTo(0));
+    }
+
+    @Test
     void on_ne_renvoie_rien_pour_une_structure_sans_licence() {
         TenantEntity tenant = fixtures.createActiveTenant(
                 "coop-sans-" + TestFixtures.randomSlugSuffix(), "Sans licence");

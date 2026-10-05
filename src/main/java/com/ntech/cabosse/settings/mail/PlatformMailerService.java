@@ -49,6 +49,17 @@ public class PlatformMailerService {
      * appelante peut continuer (création de user, etc.).
      */
     public void sendHtml(String to, String subject, String html) {
+        sendHtml(to, subject, html, java.util.List.of());
+    }
+
+    /**
+     * Même envoi, avec des fichiers joints.
+     *
+     * <p>La facture part avec le courrier qui l'annonce : la laisser
+     * suivre dans un second message obligerait le destinataire à
+     * rapprocher deux envois (demandé le 05/10/2026).</p>
+     */
+    public void sendHtml(String to, String subject, String html, java.util.List<MailFile> files) {
         Map<String, String> db = settings.readFromDb("email");
 
         boolean mock = parseBool(
@@ -62,7 +73,8 @@ public class PlatformMailerService {
         String startTls = effective(db.get("startTls"), "quarkus.mailer.start-tls", "REQUIRED");
 
         if (mock) {
-            log.infof("MAILER MOCK : to=%s subject=%s (envoi simulé, pas d'appel réseau)", to, subject);
+            log.infof("MAILER MOCK : to=%s subject=%s pièces=%d (envoi simulé, pas d'appel réseau)",
+                    to, subject, files == null ? 0 : files.size());
             return;
         }
 
@@ -86,6 +98,16 @@ public class PlatformMailerService {
                     .setTo(List.of(to))
                     .setSubject(subject)
                     .setHtml(html);
+            if (files != null && !files.isEmpty()) {
+                msg.setAttachment(files.stream()
+                        .filter(f -> f != null && !f.isEmpty())
+                        .map(f -> io.vertx.ext.mail.MailAttachment.create()
+                                .setName(f.filename())
+                                .setContentType(f.contentType() == null
+                                        ? "application/octet-stream" : f.contentType())
+                                .setData(io.vertx.core.buffer.Buffer.buffer(f.content())))
+                        .toList());
+            }
 
             CompletableFuture<Void> done = new CompletableFuture<>();
             client.sendMail(msg).onComplete(ar -> {

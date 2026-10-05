@@ -41,6 +41,15 @@ public record ActivateSubscriptionPayloadDto(
 
         @Schema(description = "Adresses, parmi les utilisateurs du tenant, à qui envoyer la "
                 + "confirmation d'activation. Vide : aucun mail n'est envoyé.")
-        java.util.List<String> notifyEmails
+        java.util.List<String> notifyEmails,
+
+        /**
+         * Adresses saisies à la main, hors comptes de la structure : un
+         * comptable externe ou un directeur financier n'en a pas
+         * toujours, et le courrier doit quand même l'atteindre
+         * (05/10/2026).
+         */
+        @Schema(description = "Adresses libres, hors comptes de la structure.")
+        java.util.List<String> extraEmails
 
 ) {}

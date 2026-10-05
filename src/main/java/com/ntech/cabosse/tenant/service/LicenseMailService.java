@@ -1,5 +1,6 @@
 package com.ntech.cabosse.tenant.service;
 
+import com.ntech.cabosse.settings.mail.MailFile;
 import com.ntech.cabosse.settings.mail.PlatformMailerService;
 import com.ntech.cabosse.shared.i18n.Locales;
 import com.ntech.cabosse.shared.i18n.MailTexts;
@@ -22,7 +23,10 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.FormatStyle;
 import java.util.List;
 import java.util.Locale;
+import java.util.LinkedHashSet;
 import java.util.Optional;
+import java.util.Set;
+import java.util.regex.Pattern;
 
 /**
  * La confirmation d'activation de licence, envoyée aux adresses choisies.
@@ -53,6 +57,9 @@ public class LicenseMailService {
     Template licenseTemplate;
 
     /** Signataire du courrier. Il engage l'éditeur, pas la plateforme. */
+    /** Contrôle de forme d'une adresse saisie à la main, rien de plus. */
+    private static final Pattern EMAIL = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]{2,}$");
+
     @ConfigProperty(name = "cabosse.license.sender-name", defaultValue = "NEIBA Technologies")
     String senderName;
 
@@ -69,21 +76,31 @@ public class LicenseMailService {
     /**
      * Envoie la confirmation aux adresses demandées.
      *
-     * @param tenant    la structure dont la licence vient d'être activée
-     * @param recipients adresses retenues ; une adresse étrangère à la
-     *                   structure est ignorée plutôt que servie
+     * @param tenant     la structure dont la licence vient d'être activée
+     * @param recipients adresses cochées parmi les comptes de la
+     *                   structure ; une adresse qui n'en est pas se
+     *                   serait glissée par erreur, elle est écartée
+     * @param extraEmails adresses saisies à la main par l'éditeur : un
+     *                   comptable externe ou un directeur financier n'a
+     *                   pas toujours de compte, et le courrier doit
+     *                   quand même pouvoir l'atteindre (05/10/2026)
+     * @param invoice    la facture, jointe au courrier qui l'annonce
      * @return le nombre de courriers réellement partis
      */
-    public int sendActivation(TenantEntity tenant, List<String> recipients) {
-        if (recipients == null || recipients.isEmpty()) return 0;
+    public int sendActivation(TenantEntity tenant, List<String> recipients,
+                              List<String> extraEmails, MailFile invoice) {
         TenantSubscription sub = tenant.subscription;
         if (sub == null) return 0;
+        List<MailFile> files = invoice == null || invoice.isEmpty()
+                ? List.of() : List.of(invoice);
 
-        // Les comptes de la structure font foi : une adresse saisie
-        // ailleurs n'a pas à recevoir sa facturation.
+        // Les comptes de la structure font foi pour les adresses
+        // cochées : l'écran les propose, une inconnue n'y vient que par
+        // accident.
         List<UserEntity> known = users.find("tenantId", tenant.id).list();
         int sent = 0;
-        for (String address : recipients) {
+        Set<String> served = new LinkedHashSet<>();
+        for (String address : recipients == null ? List.<String>of() : recipients) {
             Optional<UserEntity> user = known.stream()
                     .filter(u -> u.email != null && u.email.equalsIgnoreCase(address.trim()))
                     .findFirst();
@@ -92,7 +109,25 @@ public class LicenseMailService {
                         address, tenant.slug);
                 continue;
             }
-            if (sendTo(tenant, sub, user.get())) sent++;
+            if (served.add(user.get().email.toLowerCase(Locale.ROOT))
+                    && sendTo(tenant, sub, user.get().email, user.get().locale, files)) {
+                sent++;
+            }
+        }
+
+        // Les adresses libres partent telles quelles : c'est l'éditeur
+        // qui les saisit, sur son propre courrier commercial, et rien ne
+        // dit que le destinataire doit être un utilisateur du logiciel.
+        for (String address : extraEmails == null ? List.<String>of() : extraEmails) {
+            String clean = address == null ? null : address.trim();
+            if (clean == null || !EMAIL.matcher(clean).matches()) {
+                log.warnf("Adresse « %s » illisible : courrier non envoyé", address);
+                continue;
+            }
+            if (served.add(clean.toLowerCase(Locale.ROOT))
+                    && sendTo(tenant, sub, clean, null, files)) {
+                sent++;
+            }
         }
         return sent;
     }
@@ -106,7 +141,8 @@ public class LicenseMailService {
      *
      * @return le nombre de courriers réellement partis
      */
-    public int resend(java.util.UUID tenantId, List<String> recipients) {
+    public int resend(java.util.UUID tenantId, List<String> recipients,
+                      List<String> extraEmails, MailFile invoice) {
         TenantEntity tenant = tenants.findById(tenantId);
         if (tenant == null) {
             throw new com.ntech.cabosse.shared.exception.NotFoundException(
@@ -116,13 +152,14 @@ public class LicenseMailService {
             throw new com.ntech.cabosse.shared.exception.BusinessException(
                     Messages.msg("m.tnt-no-license-to-resend", tenant.name));
         }
-        return sendActivation(tenant, recipients);
+        return sendActivation(tenant, recipients, extraEmails, invoice);
     }
 
-    private boolean sendTo(TenantEntity tenant, TenantSubscription sub, UserEntity user) {
+    private boolean sendTo(TenantEntity tenant, TenantSubscription sub, String address,
+                           String preferredLocale, List<MailFile> files) {
         try {
             Locale locale = Locales.firstOf(
-                    user.locale,
+                    preferredLocale,
                     tenant.preferences != null ? tenant.preferences.language : null);
 
             MailTexts texts = MailTexts.in(locale)
@@ -162,12 +199,12 @@ public class LicenseMailService {
                     .data("t", texts.build())
                     .render();
 
-            mailer.sendHtml(user.email, Messages.msg(locale, "m.mail-license-title"), html);
+            mailer.sendHtml(address, Messages.msg(locale, "m.mail-license-title"), html, files);
             return true;
         } catch (Exception e) {
             // Hors requête et accessoire : l'activation est acquise, le
             // courrier se renvoie depuis la console.
-            log.errorf(e, "Échec envoi de la licence à %s (tenant %s)", user.email, tenant.slug);
+            log.errorf(e, "Échec envoi de la licence à %s (tenant %s)", address, tenant.slug);
             return false;
         }
     }
