@@ -50,6 +50,7 @@ public class ApprovalQueueService {
     @Inject PurchaseRequestRepository purchaseRequests;
     @Inject JsonWebToken jwt;
     @Inject com.ntech.cabosse.settlement.service.SettlementRequestService settlements;
+    @Inject com.ntech.cabosse.cashsupply.service.CashSupplyRequestService cashSupplies;
 
     /**
      * @param kind   restreint à une nature, {@code null} pour les deux
@@ -91,6 +92,7 @@ public class ApprovalQueueService {
         if (wants(kind, ApprovalKind.MEMBER_CREDIT)) collectCredits(out);
         if (wants(kind, ApprovalKind.SETTLEMENT_REQUEST)) collectSettlements(out);
         if (wants(kind, ApprovalKind.PURCHASE_REQUEST)) collectPurchaseRequests(out);
+        if (wants(kind, ApprovalKind.CASH_SUPPLY)) collectCashSupplies(out);
         if (siteId == null) return out;
         // Une demande sans site connu reste visible : la masquer sur un
         // filtre de site la ferait disparaître du total soumis au conseil.
@@ -222,6 +224,39 @@ public class ApprovalQueueService {
                             canApprove && (isAdmin || !mine),
                             r.siteId, r.campaignId));
                 });
+    }
+
+    /**
+     * Les approvisionnements de caisse qui attendent leur décision.
+     *
+     * <p>Le motif tient lieu de commentaire du demandeur : la demande se
+     * tranche sur une raison, et le conseil ne voit rien d'autre.</p>
+     *
+     * <p>{@code actionable} tient compte de la séparation des tâches :
+     * l'écran ne propose pas de trancher une demande qu'on a déposée
+     * soi-même, pour ne pas offrir un geste que le serveur refusera.</p>
+     */
+    private void collectCashSupplies(List<PendingApprovalDto> out) {
+        boolean canApprove = permissions.currentIsTenantAdmin()
+                || permissions.can(Permission.CASH_SUPPLY_APPROVE);
+        String me = currentActorEmail();
+
+        cashSupplies.pending().forEach(r -> {
+            boolean mine = me != null && me.equalsIgnoreCase(r.createdByEmail);
+            LocalDate since = r.requestedOn != null ? r.requestedOn : LocalDate.now();
+            out.add(new PendingApprovalDto(
+                    ApprovalKind.CASH_SUPPLY.name(), r.id, r.ref,
+                    r.cashAccountId, r.cashAccountLabel,
+                    r.requestedAmount, since, ageOf(since),
+                    // Pas de compte courant : la caisse n'en a pas, et
+                    // zéro se lirait comme un compte soldé.
+                    null, null, null,
+                    null,
+                    r.reason, r.createdByEmail,
+                    false,
+                    canApprove && !mine,
+                    null, null));
+        });
     }
 
     /** L'adresse de qui regarde, pour la séparation des tâches. */

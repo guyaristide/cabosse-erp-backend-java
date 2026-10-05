@@ -23,5 +23,12 @@ public enum ApprovalKind {
      * sur son propre écran seulement, alors que l'écran des approbations
      * existe pour que rien n'attende sans qu'on le voie (24/09/2026).
      */
-    PURCHASE_REQUEST
+    PURCHASE_REQUEST,
+    /**
+     * Approvisionnement de la caisse depuis la banque. Se décide depuis
+     * cet écran : c'est la même main qui tranche les avances, et lui
+     * faire ouvrir un second écran lui ferait manquer ce qui attend
+     * (demandé le 03/10/2026).
+     */
+    CASH_SUPPLY
 }

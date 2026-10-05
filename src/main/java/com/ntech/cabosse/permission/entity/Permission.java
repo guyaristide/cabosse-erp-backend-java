@@ -205,6 +205,12 @@ public enum Permission {
      * Prévu pour garder d'autres indicateurs agrégés à venir.
      */
     TREASURY_NET_BALANCE(Domain.ACCOUNTING, "m.per-treasury-net-balance"),
+    // Alimenter la caisse depuis la banque : la direction demande, la
+    // gouvernance accorde, la caisse exécute (demandé le 03/10/2026).
+    // Trois droits pour trois mains, l'exécution relevant du droit
+    // d'écriture de trésorerie qui porte déjà les transports de fonds.
+    CASH_SUPPLY_REQUEST(Domain.ACCOUNTING, "m.per-cash-supply-request"),
+    CASH_SUPPLY_APPROVE(Domain.ACCOUNTING, "m.per-cash-supply-approve"),
 
     // ─── Conformité ─────────────────────────────────────────────────
     EUDR_READ(Domain.COMPLIANCE, "m.per-eudr-read",

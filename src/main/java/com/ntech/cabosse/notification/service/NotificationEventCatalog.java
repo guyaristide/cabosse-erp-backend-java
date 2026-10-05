@@ -45,6 +45,16 @@ public class NotificationEventCatalog {
             new NotificationEventSpec("member-credit.execution-requested",
                     "m.ntf-evt-credit-execution",
                     Permission.MEMBER_CREDIT_DISBURSE, true),
+            // Alimenter la caisse : la direction demande, la gouvernance
+            // accorde, la caisse exécute. Une demande qui dort trois
+            // jours dans une file que personne n'ouvre arrête les achats
+            // (03/10/2026).
+            new NotificationEventSpec("cash-supply.pending-approval",
+                    "m.ntf-evt-cash-supply-pending",
+                    Permission.CASH_SUPPLY_APPROVE, true),
+            new NotificationEventSpec("cash-supply.approved",
+                    "m.ntf-evt-cash-supply-approved",
+                    Permission.TREASURY_WRITE, true),
             // Le report s'adresse à celle qui a demandé : audience figée.
             new NotificationEventSpec("advance-refund.reported",
                     "m.ntf-evt-refund-reported",

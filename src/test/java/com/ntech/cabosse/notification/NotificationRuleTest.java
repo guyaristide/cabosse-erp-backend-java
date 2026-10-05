@@ -122,7 +122,7 @@ class NotificationRuleTest extends AbstractIntegrationTest {
         // ─── Le catalogue et ses défauts ───
         givenAs(admin).when().get("/api/v1/notifications/rules")
                 .then().statusCode(200)
-                .body("data", hasSize(10))
+                .body("data", hasSize(12))
                 .body("data.find { it.eventCode == 'collector-advance.pending-approval' }.enabled",
                         equalTo(true))
                 .body("data.find { it.eventCode == 'collector-advance.pending-approval' }.channels",

@@ -61,7 +61,9 @@ public class ApprovalResource {
             // Même raison depuis le 24/09/2026 : les demandes d'achat y
             // remontent, et un profil taillé pour elles seules doit
             // pouvoir ouvrir la file où elles l'attendent.
-            Permission.PURCHASE_APPROVE })
+            Permission.PURCHASE_APPROVE,
+            // Et depuis le 03/10/2026, les approvisionnements de caisse.
+            Permission.CASH_SUPPLY_APPROVE })
     public Response pending(@QueryParam("kind") String kind,
                             @QueryParam("siteId") UUID siteId,
                             @QueryParam("page") @DefaultValue("0") int page,

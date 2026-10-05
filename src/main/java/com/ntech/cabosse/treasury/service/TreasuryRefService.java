@@ -12,7 +12,11 @@ import org.bson.Document;
 
 import java.time.Year;
 
-/** Références des transferts {@code TRF-YYYY-NNNN} et points de caisse {@code PDC-YYYY-NNNN}. */
+/**
+ * Références des transferts {@code TRF-YYYY-NNNN}, des points de caisse
+ * {@code PDC-YYYY-NNNN} et des demandes d'approvisionnement de la caisse
+ * {@code DAC-YYYY-NNNN}.
+ */
 @ApplicationScoped
 public class TreasuryRefService {
 
@@ -23,6 +27,9 @@ public class TreasuryRefService {
     public String nextTransfer() { return next("treasury_transfer:", "TRF"); }
 
     public String nextCashCount() { return next("cash_count:", "PDC"); }
+
+    /** Demande d'approvisionnement de la caisse. */
+    public String nextCashSupply() { return next("cash_supply:", "DAC"); }
 
     private String next(String keyPrefix, String prefix) {
         MongoCollection<Document> coll = tenantDb.database().getCollection(COLLECTION);
