@@ -366,6 +366,27 @@ public class TenantsResource {
         return Response.ok(ApiResponse.ok(registry.getById(tenantId))).build();
     }
 
+    /**
+     * Retire la licence d'une structure.
+     *
+     * <p>Distinct de la suspension, qui coupe l'accès d'une structure
+     * qui garde son contrat. Retirer efface un contrat saisi par erreur
+     * ou qui n'a jamais eu lieu, sans toucher à l'accès.</p>
+     */
+    @DELETE
+    @Path("/{tenantId}/subscription")
+    @Operation(summary = "Retire la licence d'une structure",
+            description = "Efface l'abonnement et ramène le statut commercial à l'essai. "
+                    + "Ne coupe pas l'accès : c'est la suspension qui le fait.")
+    @APIResponse(responseCode = "200", description = "Licence retirée, tenant à jour")
+    @APIResponse(responseCode = "404", description = "Tenant introuvable")
+    @APIResponse(responseCode = "422", description = "Aucune licence à retirer")
+    public Response removeSubscription(@PathParam("tenantId") UUID tenantId,
+                                       @QueryParam("reason") String reason) {
+        subscriptionService.removeSubscription(tenantId, reason);
+        return Response.ok(ApiResponse.ok(registry.getById(tenantId))).build();
+    }
+
     @GET
     @Path("/{tenantId}/logo")
     @jakarta.annotation.security.PermitAll

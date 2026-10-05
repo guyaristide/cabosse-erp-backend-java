@@ -142,6 +142,48 @@ public class TenantSubscriptionService {
     }
 
     /**
+     * Retire la licence d'une structure.
+     *
+     * <p>Suspendre et retirer ne sont pas le même geste : suspendre coupe
+     * l'accès d'une structure qui garde son contrat, retirer efface un
+     * contrat saisi par erreur ou qui n'a jamais eu lieu. L'accès n'est
+     * pas touché ici (demandé le 05/10/2026).</p>
+     *
+     * <p>La structure repart sans licence, comme avant son activation.
+     * Son statut commercial revient à l'essai : la laisser en production
+     * sans contrat ferait une facturation qui ne repose sur rien.</p>
+     */
+    @RolesAllowed(Roles.PLATFORM_ADMIN)
+    @Transactional
+    public TenantEntity removeSubscription(UUID tenantId, String reason) {
+        TenantEntity tenant = tenants.findById(tenantId);
+        if (tenant == null) {
+            throw new NotFoundException(Messages.msg("m.tnt-not-found-2", tenantId));
+        }
+        if (tenant.subscription == null) {
+            throw new BusinessException(Messages.msg("m.tnt-no-subscription", tenant.name));
+        }
+        TenantSubscription removed = tenant.subscription;
+
+        tenant.subscription = null;
+        tenant.commercialStatus = CommercialStatus.TRIAL;
+        tenant.updatedAt = Instant.now();
+        tenant.updatedBy = tenantContext.userId();
+        tenants.update(tenant);
+
+        audit.event(AuditEventType.TENANT_PLAN_CHANGED)
+                .actorEmail(actor())
+                .target("tenant", tenant.id.toString(), tenant.slug)
+                .tenant(tenant.id, tenant.name)
+                .description("Licence retirée : plan " + removed.planCode
+                        + (removed.startDate == null ? "" : " du " + removed.startDate)
+                        + (removed.endDate == null ? "" : " au " + removed.endDate)
+                        + (reason == null || reason.isBlank() ? "" : " · " + reason.trim()))
+                .record();
+        return tenant;
+    }
+
+    /**
      * Ce que le plan facture pour la période demandée.
      *
      * <p>Sert de proposition : le prix du cycle multiplié par le nombre

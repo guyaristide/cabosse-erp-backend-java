@@ -122,6 +122,36 @@ class TenantLicenseBoardTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void une_licence_se_retire_sans_couper_l_acces() {
+        TenantEntity tenant = withLicenceEndingOn(LocalDate.now().plusMonths(6));
+        var platform = fixtures.createPlatformAdmin();
+
+        // Suspendre et retirer ne sont pas le même geste : suspendre
+        // coupe l'accès d'une structure qui garde son contrat, retirer
+        // efface un contrat saisi par erreur (demandé le 05/10/2026).
+        givenAs(platform)
+                .queryParam("reason", "Contrat saisi par erreur")
+                .when().delete("/api/v1/admin/tenants/" + tenant.id + "/subscription")
+                .then().statusCode(200);
+
+        TenantEntity after = tenantRepo.findById(tenant.id);
+        assertThat(after.subscription).isNull();
+        assertThat(after.status).isEqualTo(TenantStatus.ACTIVE);
+
+        // La structure reparaît sans licence dans l'état, elle n'en
+        // disparaît pas.
+        var row = board().getMap("data.find { it.tenantId == '" + tenant.id + "' }");
+        assertThat(row.get("state")).isEqualTo("NONE");
+        assertThat(row.get("amount")).isNull();
+
+        // Deux fois de suite n'a pas de sens : il n'y a plus rien à
+        // retirer.
+        givenAs(platform)
+                .when().delete("/api/v1/admin/tenants/" + tenant.id + "/subscription")
+                .then().statusCode(422);
+    }
+
+    @Test
     void le_courrier_de_licence_se_renvoie_sans_reactiver() {
         TenantEntity tenant = withLicenceEndingOn(LocalDate.now().plusMonths(6));
 
