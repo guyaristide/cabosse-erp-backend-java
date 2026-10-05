@@ -101,6 +101,11 @@ public enum Permission {
     // se décident ni par les mêmes personnes ni sur les mêmes montants.
     EXPENSE_APPROVE(Domain.PURCHASE, "m.per-expense-approve"),
     EXPENSE_APPROVE_GOVERNANCE(Domain.PURCHASE, "m.per-expense-approve-governance"),
+    // Le prévisionnel de décaissement : le directeur dépose, le conseil
+    // tranche (demandé le 03/10/2026). Deux droits parce que ce sont
+    // deux personnes.
+    CASH_FORECAST_WRITE(Domain.PURCHASE, "m.per-cash-forecast-write"),
+    CASH_FORECAST_APPROVE(Domain.PURCHASE, "m.per-cash-forecast-approve"),
 
     // ─── Collecte de matière première ───────────────────────────────
     COLLECTION_READ(Domain.COLLECTION, "m.per-collection-read",

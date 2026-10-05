@@ -85,6 +85,7 @@ public final class TenantCollections {
             "bank_statements",
             "bean_quality_checks",
             "cash_counts",
+            "cash_forecasts",
             "cloud_files",
             "collector_advances",
             "commodity_sales",
