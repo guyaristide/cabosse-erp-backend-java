@@ -28,6 +28,7 @@ public final class MailTexts {
 
     private final Locale locale;
     private final Map<String, String> values = new LinkedHashMap<>();
+    private boolean footer = true;
 
     private MailTexts(Locale locale) {
         this.locale = locale;
@@ -48,6 +49,20 @@ public final class MailTexts {
     }
 
     /**
+     * Retire le pied de page commun.
+     *
+     * <p>Pour un courrier signé. Le pied porte la signature du produit,
+     * et sous une lettre qui se termine déjà par un signataire il
+     * répétait la marque deux lignes plus bas, alors qu'elle figure
+     * aussi en tête (signalé le 06/10/2026). Un courriel de service, qui
+     * n'est signé de personne, le garde.</p>
+     */
+    public MailTexts withoutFooter() {
+        this.footer = false;
+        return this;
+    }
+
+    /**
      * Textes prêts pour le gabarit.
      *
      * <p>{@code lang} et {@code footer} sont ajoutés d'office : tout
@@ -59,7 +74,10 @@ public final class MailTexts {
     public Map<String, String> build() {
         Map<String, String> out = new LinkedHashMap<>(values);
         out.putIfAbsent("lang", Locales.tag(locale));
-        out.putIfAbsent("footer", Messages.msg(locale, "m.mail-footer"));
+        // Vide plutôt qu'absent : la mise en page saute la ligne sur une
+        // valeur vide, là qu'une clé manquante la rendrait telle quelle.
+        if (footer) out.putIfAbsent("footer", Messages.msg(locale, "m.mail-footer"));
+        else out.put("footer", "");
         return Map.copyOf(out);
     }
 }

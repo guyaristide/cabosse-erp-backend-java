@@ -162,7 +162,10 @@ public class LicenseMailService {
                     preferredLocale,
                     tenant.preferences != null ? tenant.preferences.language : null);
 
+            // Lettre signée : pas de pied de page, il répétait la marque
+            // deux lignes sous le signataire (signalé le 06/10/2026).
             MailTexts texts = MailTexts.in(locale)
+                    .withoutFooter()
                     .put("title", "m.mail-license-title")
                     .put("heading", "m.mail-license-heading")
                     .put("periodLabel", "m.mail-license-period-label")

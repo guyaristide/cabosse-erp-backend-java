@@ -37,6 +37,10 @@ class MailTemplateLocaleTest {
     @Location("mail/password-reset.html")
     Template passwordReset;
 
+    @Inject
+    @Location("mail/license-activation.html")
+    Template licenseActivation;
+
     private String renderTenantInvitation(Locale locale) {
         MailTexts texts = MailTexts.in(locale)
                 .put("title", "m.mail-tenant-invitation-title")
@@ -122,5 +126,67 @@ class MailTemplateLocaleTest {
                 .render();
         assertThat(en).contains("Password reset", "Set a new password", "lang=\"en\"");
         assertThat(en).doesNotContain("Bonjour", "mot de passe");
+    }
+
+    private String renderLicense(Locale locale) {
+        return licenseActivation
+                .data("tenantName", "Coopérative Test")
+                .data("periodLong", "1er octobre 2026 au 30 septembre 2027")
+                .data("periodShort", "01/10/2026 - 30/09/2027")
+                .data("licenseLabel", "Licence annuelle")
+                .data("durationLabel", "12 mois")
+                .data("amount", "2 400 000 FCFA")
+                .data("senderName", "NEIBA Technologies")
+                .data("senderRole", "Cabosse ERP")
+                .data("t", MailTexts.in(locale)
+                        .withoutFooter()
+                        .put("title", "m.mail-license-title")
+                        .put("heading", "m.mail-license-heading")
+                        .put("periodLabel", "m.mail-license-period-label")
+                        .put("greeting", "m.mail-license-greeting")
+                        .put("intro", "m.mail-license-intro", "Coopérative Test")
+                        .put("licenseInfo", "m.mail-license-info")
+                        .put("fieldOrganization", "m.mail-license-field-organization")
+                        .put("fieldSolution", "m.mail-license-field-solution")
+                        .put("fieldPeriod", "m.mail-license-field-period")
+                        .put("fieldState", "m.mail-license-field-state")
+                        .put("stateActive", "m.mail-license-state-active")
+                        .put("instanceTitle", "m.mail-license-instance")
+                        .put("hostingTitle", "m.mail-license-hosting-title")
+                        .put("hostingBody", "m.mail-license-hosting-body")
+                        .put("dataTitle", "m.mail-license-data-title")
+                        .put("dataBody", "m.mail-license-data-body")
+                        .put("backupTitle", "m.mail-license-backup-title")
+                        .put("backupBody", "m.mail-license-backup-body")
+                        .put("maintenanceTitle", "m.mail-license-maintenance-title")
+                        .put("maintenanceBody", "m.mail-license-maintenance-body")
+                        .put("invoiceNote", "m.mail-license-invoice-note")
+                        .put("closing", "m.mail-license-closing")
+                        .put("signOff", "m.mail-license-signoff")
+                        .build())
+                .render();
+    }
+
+    /**
+     * La lettre de licence est signée, donc sans pied de page.
+     *
+     * <p>Le pied y répétait la marque deux lignes sous le signataire,
+     * alors qu'elle figure déjà en tête du courrier et sur la seconde
+     * ligne de la signature (signalé le 06/10/2026).</p>
+     */
+    @Test
+    void the_license_letter_carries_no_footer_under_its_signature() {
+        for (Locale locale : java.util.List.of(Locale.FRENCH, Locale.ENGLISH)) {
+            String html = renderLicense(locale);
+            assertThat(html).contains("NEIBA Technologies");
+            assertThat(html).doesNotContain(Messages.msg(locale, "m.mail-footer"));
+        }
+    }
+
+    /** Un courriel de service n'est signé de personne : il garde le pied. */
+    @Test
+    void a_service_mail_keeps_its_footer() {
+        assertThat(renderTenantInvitation(Locale.FRENCH))
+                .contains(Messages.msg(Locale.FRENCH, "m.mail-footer"));
     }
 }
