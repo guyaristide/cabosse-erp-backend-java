@@ -221,7 +221,12 @@ public class DelegateAccountService {
         BigDecimal deliveredBefore = BigDecimal.ZERO;
         for (ProducerPurchaseEntity r : purchases.listByDelegate(delegateSupplierId, null)) {
             if (!isBefore(r.campaignId, currentCampaignId, start)) continue;
-            deliveredBefore = deliveredBefore.add(nz(r.amount)).add(nz(r.delegateRetention));
+            // La rémunération du délégué compte comme sa marchandise :
+            // la coopérative la lui doit, elle vient donc en déduction de
+            // ce qu'il doit. La comptabilité la crédite déjà à son compte
+            // fournisseur ; le relevé l'oubliait (06/10/2026).
+            deliveredBefore = deliveredBefore.add(nz(r.amount))
+                    .add(nz(r.delegateRetention)).add(nz(r.delegateMargin));
         }
         BigDecimal paidBefore = payments.listForDelegate(delegateSupplierId).stream()
                 .filter(p -> isBefore(p.campaignId, currentCampaignId, start))
@@ -271,6 +276,7 @@ public class DelegateAccountService {
         for (var st : delegateStatuses.listAll()) warningByCode.put(st.code, st.warning);
 
         List<com.ntech.cabosse.collector.dto.DelegateStatementDto.Row> rows = new ArrayList<>();
+        BigDecimal totalBalance = BigDecimal.ZERO;
         BigDecimal totalAdvanced = BigDecimal.ZERO;
         BigDecimal totalRetention = BigDecimal.ZERO;
         BigDecimal totalMargin = BigDecimal.ZERO;
@@ -337,7 +343,23 @@ public class DelegateAccountService {
             // compté, en montrait un autre : deux écrans donnaient deux
             // positions pour le même délégué. Sur plusieurs campagnes il
             // n'y a pas de départ, et la formule reste celle d'avant.
-            BigDecimal balance = nz(opening).add(advanced).subtract(delivered.add(retention));
+            // Un compte courant : tout ce qui sort vers le délégué
+            // augmente ce qu'il doit, tout ce qu'il rend le diminue.
+            //
+            // Deux grandeurs y manquaient. Sa rémunération, que la
+            // comptabilité crédite pourtant à son compte fournisseur :
+            // le relevé la portait en colonne sans jamais la compter, et
+            // le délégué paraissait devoir sa propre marge. Et les
+            // règlements de la période, que le report des campagnes
+            // antérieures comptait déjà de son côté : un délégué payé
+            // restait créditeur de ce qu'on venait de lui verser.
+            BigDecimal paid = payments.listForDelegate(delegate.id).stream()
+                    .filter(pay -> scope.isEmpty()
+                            || (pay.campaignId != null && scope.contains(pay.campaignId)))
+                    .map(pay -> nz(pay.totalAmount))
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal balance = nz(opening).add(advanced).add(paid)
+                    .subtract(delivered.add(retention).add(margin));
             BigDecimal owed = owedByDelegate.getOrDefault(delegate.id, BigDecimal.ZERO);
             // Position courante, lue en une fois avant la boucle : une
             // requête par ligne ferait autant d'allers-retours que la
@@ -358,6 +380,7 @@ public class DelegateAccountService {
                     position == null ? null : position.effectiveDate,
                     position == null ? null : position.owedAmount));
 
+            totalBalance = totalBalance.add(balance);
             totalAdvanced = totalAdvanced.add(advanced);
             totalRetention = totalRetention.add(retention);
             totalMargin = totalMargin.add(margin);
@@ -377,8 +400,11 @@ public class DelegateAccountService {
                         openingScope == null ? null : totalOpening,
                         totalAdvanced, totalRetention, totalMargin, totalWeight,
                         totalDelivered,
-                        totalOpening.add(totalAdvanced)
-                                .subtract(totalDelivered.add(totalRetention)),
+                        // La somme des soldes, pas une seconde formule :
+                        // le total recalculait à sa façon et oubliait ce
+                        // que la ligne comptait, donc les deux
+                        // divergeaient dès qu'on touchait à l'une.
+                        totalBalance,
                         totalOwed,
                         rows.size()));
     }

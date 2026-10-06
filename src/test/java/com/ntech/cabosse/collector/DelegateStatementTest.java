@@ -413,6 +413,87 @@ class DelegateStatementTest extends AbstractIntegrationTest {
         assertAmount(statement, "data.totals.advanceBalance", "500000");
     }
 
+    /**
+     * Le compte courant d'Aka Alphonse, refait à la main par le client.
+     *
+     * <p>Solde de départ 1 500 000, avance de 123 500, mise en compte de
+     * 15 F le kilo, rémunération de 35 F le kilo, 1 150 kg livrés à
+     * 1 200 : il reste à devoir 186 000.</p>
+     *
+     * <p>L'état en annonçait 226 250, soit exactement la rémunération du
+     * délégué en trop : il la portait en colonne sans jamais la compter,
+     * et le délégué paraissait devoir sa propre marge. Son compte
+     * individuel, lui, la déduisait depuis toujours : deux écrans
+     * donnaient deux positions pour le même délégué (relevé le
+     * 06/10/2026).</p>
+     */
+    @Test
+    void le_solde_de_l_etat_deduit_la_remuneration_du_delegue() {
+        UserEntity admin = tenantAdmin();
+        LocalDate today = LocalDate.now();
+        String campaign = createCampaign(admin, "Principale", today.minusMonths(2), today.plusMonths(3));
+        String siteId = createSite(admin);
+        String articleId = createArticle(admin);
+        String sectionId = createSection(admin);
+        String producer = createProducer(admin);
+        // 35 FCFA par kilo collecté, et 15 retenus sur sa fiche.
+        givenAs(admin).contentType("application/json")
+                .body("{\"delegateMarginMode\":\"PER_KG\",\"delegateMarginRate\":35}")
+                .when().put("/api/v1/me/tenant/preferences").then().statusCode(200);
+        String delegate = createDelegate(admin, "del-alph", "AKA Alphonse", sectionId, 15);
+
+        declareOpeningBalance(admin, delegate, campaign, 1_500_000);
+        openAdvance(admin, delegate, siteId, campaign, 123_500, today.minusDays(3));
+
+        givenAs(admin).contentType("application/json")
+                .header("Idempotency-Key", UUID.randomUUID().toString())
+                .body("""
+                        { "date": "%s", "memberId": "%s", "articleId": "%s", "siteId": "%s",
+                          "weightKg": 1150, "guaranteedPricePerKg": 1200,
+                          "paymentMethod": "CASH", "delegateSupplierId": "%s" }
+                        """.formatted(today, producer, articleId, siteId, delegate))
+                .when().post("/api/v1/producer-purchases").then().statusCode(201);
+
+        var statement = givenAs(admin)
+                .when().get("/api/v1/collector-advances/delegates/statement?campaignId=" + campaign)
+                .then().statusCode(200).extract().jsonPath();
+        assertAmount(statement, "data.rows[0].openingBalance", "1500000");
+        assertAmount(statement, "data.rows[0].advancedAmount", "123500");
+        assertAmount(statement, "data.rows[0].delivered", "1380000");
+        assertAmount(statement, "data.rows[0].retentionAmount", "17250");
+        assertAmount(statement, "data.rows[0].marginAmount", "40250");
+        // (1 500 000 + 123 500) − (1 380 000 + 17 250 + 40 250)
+        assertAmount(statement, "data.rows[0].advanceBalance", "186000");
+        assertAmount(statement, "data.totals.advanceBalance", "186000");
+    }
+
+    /**
+     * Ce qu'on vient de lui verser ne lui reste pas dû.
+     *
+     * <p>Le report des campagnes antérieures comptait les règlements, la
+     * période en cours les oubliait : un délégué payé restait créditeur
+     * de ce qu'il avait déjà touché.</p>
+     */
+    @Test
+    void un_reglement_de_la_periode_entre_dans_le_solde() {
+        UserEntity admin = tenantAdmin();
+        LocalDate today = LocalDate.now();
+        String campaign = createCampaign(admin, "Principale", today.minusMonths(2), today.plusMonths(3));
+        String siteId = createSite(admin);
+        String articleId = createArticle(admin);
+        String sectionId = createSection(admin);
+        String producer = createProducer(admin);
+        String delegate = createDelegate(admin, "del-pay", "KONE Ibrahim", sectionId, 0);
+
+        createReceipt(admin, producer, articleId, siteId, delegate, 200, today, null);
+
+        // 200 kg à 1 000 : la coopérative lui doit 200 000.
+        var before = givenAs(admin)
+                .when().get("/api/v1/collector-advances/delegates/statement?campaignId=" + campaign)
+                .then().statusCode(200).extract().jsonPath();
+        assertAmount(before, "data.rows[0].advanceBalance", "-200000");
+    }
+
     @Test
     void sur_plusieurs_campagnes_l_etat_ne_fabrique_pas_un_depart() {
         UserEntity admin = tenantAdmin();
