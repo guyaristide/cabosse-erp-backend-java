@@ -253,7 +253,8 @@ class DayIntakeSheetTest extends AbstractIntegrationTest {
         givenAs(admin).contentType("application/json")
                 .body("""
                         { "siteId": "%s", "occurredAt": "2026-09-03T08:00:00Z",
-                          "lines": [ { "articleId": "%s", "quantity": 46572, "unitPrice": 1200 } ] }
+                          "lines": [ { "articleId": "%s", "quantity": 46572,
+                                       "unitPrice": 1200, "bags": 815 } ] }
                         """.formatted(siteId, articleId))
                 .when().post("/api/v1/stocks/opening").then().statusCode(201);
 
@@ -318,8 +319,28 @@ class DayIntakeSheetTest extends AbstractIntegrationTest {
                     .body("data.closingQuantity", equalTo(Float.parseFloat(day[1])));
         }
 
-        // Le 18, deux entrées puis une perte : les sacs du jour valent
-        // 3 entrés moins 20 retirés, et le poids retiré se lit à part.
+        // La colonne « Nbre de sacs total » du registre, elle aussi.
+        // L'amorçage ayant posé 815 sacs, le compte court dans la durée
+        // au lieu de repartir de zéro chaque matin.
+        String[][] expectedBags = {
+                {"2026-09-04", "821"}, {"2026-09-07", "831"},
+                {"2026-09-08", "830"}, {"2026-09-11", "870"},
+                {"2026-09-13", "873"}, {"2026-09-14", "873"},
+                {"2026-09-15", "1025"}, {"2026-09-16", "1026"},
+                {"2026-09-17", "1005"}, {"2026-09-18", "988"},
+        };
+        for (String[] day : expectedBags) {
+            givenAs(admin)
+                    .queryParam("date", day[0])
+                    .queryParam("siteId", siteId)
+                    .queryParam("articleId", articleId)
+                    .when().get("/api/v1/producer-purchases/day-sheet")
+                    .then().statusCode(200)
+                    .body("data.closingBags", equalTo(Integer.parseInt(day[1])));
+        }
+
+        // Le 18, deux entrées puis une perte : 1 008 sacs au report du
+        // registre, 3 entrés, 20 retirés, 988 à la clôture.
         givenAs(admin)
                 .queryParam("date", "2026-09-18")
                 .queryParam("siteId", siteId)
@@ -327,10 +348,61 @@ class DayIntakeSheetTest extends AbstractIntegrationTest {
                 .when().get("/api/v1/producer-purchases/day-sheet")
                 .then().statusCode(200)
                 .body("data.rows", hasSize(3))
+                .body("data.openingBags", equalTo(1005))
                 .body("data.totalBags", equalTo(3))
                 .body("data.totalCorrectedBags", equalTo(20))
                 .body("data.totalCorrectedWeightKg", equalTo(36))
-                .body("data.closingBags", equalTo(-17));
+                .body("data.closingBags", equalTo(988));
+    }
+
+    /**
+     * Sans amorçage en sacs, la fiche ne prétend pas savoir.
+     *
+     * <p>Sommer depuis l'origine donnerait un chiffre faux pour une
+     * structure qui démarre en cours de campagne, et un chiffre faux à
+     * côté d'un poids juste est pire que pas de chiffre.</p>
+     */
+    @Test
+    void sans_amorcage_en_sacs_la_fiche_s_en_tient_a_la_journee() {
+        UserEntity admin = tenantAdmin();
+        String siteCode = "s-" + java.util.UUID.randomUUID().toString().substring(0, 8);
+        String siteId = givenAs(admin).contentType("application/json")
+                .body("{\"name\":\"Magasin\",\"type\":\"CENTRAL_WAREHOUSE\",\"code\":\"" + siteCode + "\"}")
+                .when().post("/api/v1/sites").then().statusCode(201).extract().path("data.id");
+        String articleId = givenAs(admin).contentType("application/json")
+                .body("{\"type\":\"RAW_MATERIAL\",\"name\":\"Fèves séchées\",\"unit\":\"kg\"}")
+                .when().post("/api/v1/articles").then().statusCode(201).extract().path("data.id");
+        String memberId = givenAs(admin).contentType("application/json")
+                .body("{\"lastName\":\"KONE\",\"gender\":\"MALE\",\"status\":\"ACTIVE\"}")
+                .when().post("/api/v1/members").then().statusCode(201).extract().path("data.id");
+
+        // Un amorçage en poids seul : le magasin ne compte pas ses sacs.
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "siteId": "%s", "occurredAt": "%s",
+                          "lines": [ { "articleId": "%s", "quantity": 1000, "unitPrice": 1200 } ] }
+                        """.formatted(siteId,
+                        java.time.Instant.now().minus(java.time.Duration.ofDays(1)), articleId))
+                .when().post("/api/v1/stocks/opening").then().statusCode(201);
+
+        LocalDate today = LocalDate.now();
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "date": "%s", "memberId": "%s", "articleId": "%s", "siteId": "%s",
+                          "nbSacs": 5, "weightKg": 300,
+                          "guaranteedPricePerKg": 1200, "paymentMethod": "CASH" }
+                        """.formatted(today, memberId, articleId, siteId))
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                .when().post("/api/v1/producer-purchases").then().statusCode(201);
+
+        givenAs(admin)
+                .queryParam("date", today.toString())
+                .queryParam("siteId", siteId)
+                .queryParam("articleId", articleId)
+                .when().get("/api/v1/producer-purchases/day-sheet")
+                .then().statusCode(200)
+                .body("data.openingBags", org.hamcrest.Matchers.nullValue())
+                .body("data.closingBags", equalTo(5));
     }
 
     /**

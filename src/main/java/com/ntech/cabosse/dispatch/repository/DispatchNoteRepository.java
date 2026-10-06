@@ -29,6 +29,29 @@ public class DispatchNoteRepository {
         return tenantDb.collection(COLLECTION, DispatchNoteEntity.class);
     }
 
+    /**
+     * Les sacs partis avant une date, sur un couple (site, article).
+     *
+     * <p>Un bordereau annulé ne compte pas : sa matière est revenue, ses
+     * sacs aussi.</p>
+     */
+    public int sumBagsBefore(LocalDate date, UUID siteId, UUID articleId) {
+        List<Bson> filters = new ArrayList<>();
+        filters.add(Filters.lt("date", date));
+        filters.add(Filters.ne("status", DispatchNoteStatus.CANCELLED.name()));
+        if (siteId != null) filters.add(Filters.eq("siteId", siteId));
+        if (articleId != null) filters.add(Filters.eq("articleId", articleId));
+        // Agrégation par les builders du driver : convertir le filtre en
+        // document à la main perd le registre de codecs, et un UUID ne
+        // sait plus s'encoder.
+        Document sum = coll().withDocumentClass(Document.class).aggregate(List.of(
+                com.mongodb.client.model.Aggregates.match(Filters.and(filters)),
+                com.mongodb.client.model.Aggregates.group(null,
+                        com.mongodb.client.model.Accumulators.sum("bags", "$totalBags"))
+        ), Document.class).first();
+        return sum != null && sum.get("bags") != null ? ((Number) sum.get("bags")).intValue() : 0;
+    }
+
     public Optional<DispatchNoteEntity> findById(UUID id) {
         return Optional.ofNullable(coll().find(Filters.eq("_id", id)).first());
     }

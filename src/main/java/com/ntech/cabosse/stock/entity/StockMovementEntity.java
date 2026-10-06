@@ -47,6 +47,16 @@ public class StockMovementEntity {
     public MovementKind kind;
 
     /**
+     * Sacs portés par le mouvement, quand il en porte.
+     *
+     * <p>Nul sur la quasi-totalité du journal : les sacs vivent sur le
+     * document qui les compte. Renseigné sur l'amorçage, qui n'a pas
+     * d'autre document et donne au magasin son compte de sacs de
+     * départ.</p>
+     */
+    public Integer bags;
+
+    /**
      * Quantité signée : positive pour {@link MovementKind#IN},
      * {@link MovementKind#OPENING}, {@link MovementKind#TRANSFER_IN} ;
      * négative pour {@link MovementKind#OUT}, {@link MovementKind#TRANSFER_OUT} ;

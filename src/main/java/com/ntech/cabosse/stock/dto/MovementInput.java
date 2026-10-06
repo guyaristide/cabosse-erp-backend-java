@@ -57,7 +57,17 @@ public record MovementInput(
          * mode « par lot » (réf. v21 : coût repris de l'avance). {@code false}
          * = comportement standard (pondération). Ignoré pour les sorties.
          */
-        boolean replaceCmupWithUnitPrice
+        boolean replaceCmupWithUnitPrice,
+        /**
+         * Nombre de sacs porté par le mouvement, quand il en porte.
+         *
+         * <p>Le stock ne suit que la matière : les sacs vivent sur le
+         * document qui les compte, reçu ou bordereau. L'amorçage, lui,
+         * n'a pas d'autre document que le mouvement, et le magasin se
+         * tient en sacs : son compte de départ se pose donc ici, faute
+         * de quoi aucune fiche ne saurait d'où partir (06/10/2026).</p>
+         */
+        Integer bags
 ) {
     /**
      * Constructeur compat sans {@code force} ni {@code lotRef} — défauts
@@ -71,7 +81,7 @@ public record MovementInput(
                           String reason, String notes, Instant occurredAt) {
         this(articleId, siteId, kind, quantity, unitPrice,
                 sourceType, sourceRef, sourceEntityId, transferId,
-                reason, notes, occurredAt, false, null, false);
+                reason, notes, occurredAt, false, null, false, null);
     }
 
     /**
@@ -86,7 +96,7 @@ public record MovementInput(
                           boolean force) {
         this(articleId, siteId, kind, quantity, unitPrice,
                 sourceType, sourceRef, sourceEntityId, transferId,
-                reason, notes, occurredAt, force, null, false);
+                reason, notes, occurredAt, force, null, false, null);
     }
 
     /**
@@ -102,6 +112,23 @@ public record MovementInput(
                           boolean force, String lotRef) {
         this(articleId, siteId, kind, quantity, unitPrice,
                 sourceType, sourceRef, sourceEntityId, transferId,
-                reason, notes, occurredAt, force, lotRef, false);
+                reason, notes, occurredAt, force, lotRef, false, null);
+    }
+
+    /**
+     * Constructeur compat sans {@code bags} — pour les call-sites dont
+     * le document porte lui-même ses sacs.
+     */
+    public MovementInput(UUID articleId, UUID siteId, MovementKind kind,
+                          BigDecimal quantity, BigDecimal unitPrice,
+                          MovementSource sourceType, String sourceRef,
+                          UUID sourceEntityId, UUID transferId,
+                          String reason, String notes, Instant occurredAt,
+                          boolean force, String lotRef,
+                          boolean replaceCmupWithUnitPrice) {
+        this(articleId, siteId, kind, quantity, unitPrice,
+                sourceType, sourceRef, sourceEntityId, transferId,
+                reason, notes, occurredAt, force, lotRef,
+                replaceCmupWithUnitPrice, null);
     }
 }

@@ -20,6 +20,16 @@ public record DayIntakeSheetDto(
         String articleName,
         /** Stock du site à l'ouverture de la journée. Null sans article. */
         BigDecimal openingQuantity,
+        /**
+         * Sacs en magasin à l'ouverture de la journée.
+         *
+         * <p>Null tant que l'amorçage n'a pas posé de compte de sacs :
+         * le stock ne les suit pas, et sommer depuis l'origine donnerait
+         * un chiffre faux pour une structure qui démarre en cours de
+         * campagne. Un chiffre faux à côté d'un poids juste est pire que
+         * pas de chiffre.</p>
+         */
+        Integer openingBags,
         List<DayIntakeRowDto> rows,
         /** Poids entré dans la journée. Les corrections comptent à part. */
         BigDecimal totalWeightKg,
@@ -35,6 +45,6 @@ public record DayIntakeSheetDto(
         BigDecimal totalCorrectedWeightKg,
         /** Sacs retirés au brassage dans la journée. */
         Integer totalCorrectedBags,
-        /** Sacs en stock à la clôture : entrés moins retirés. */
+        /** Sacs en stock à la clôture : ouverture, plus entrés, moins retirés. */
         Integer closingBags
 ) {}

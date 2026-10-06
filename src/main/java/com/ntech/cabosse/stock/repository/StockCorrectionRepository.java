@@ -51,6 +51,23 @@ public class StockCorrectionRepository {
                 .into(new ArrayList<>());
     }
 
+    /** Les sacs retirés avant une date, sur un couple (site, article). */
+    public int sumBagsBefore(LocalDate date, UUID siteId, UUID articleId) {
+        List<Bson> filters = new ArrayList<>();
+        filters.add(Filters.lt("date", date));
+        if (siteId != null) filters.add(Filters.eq("siteId", siteId));
+        if (articleId != null) filters.add(Filters.eq("articleId", articleId));
+        // Agrégation par les builders du driver : convertir le filtre en
+        // document à la main perd le registre de codecs, et un UUID ne
+        // sait plus s'encoder.
+        Document sum = coll().withDocumentClass(Document.class).aggregate(List.of(
+                com.mongodb.client.model.Aggregates.match(Filters.and(filters)),
+                com.mongodb.client.model.Aggregates.group(null,
+                        com.mongodb.client.model.Accumulators.sum("bags", "$bags"))
+        ), Document.class).first();
+        return sum != null && sum.get("bags") != null ? ((Number) sum.get("bags")).intValue() : 0;
+    }
+
     public long countSearch(UUID siteId, UUID articleId) {
         return coll().countDocuments(searchFilter(siteId, articleId));
     }

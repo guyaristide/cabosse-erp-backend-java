@@ -232,6 +232,29 @@ public class ProducerPurchaseRepository {
     }
 
     /**
+     * Les sacs entrés avant une date, sur un couple (site, article).
+     *
+     * <p>Le magasin se tient en sacs, et le stock ne les suit pas : son
+     * compte se reconstitue en sommant ce que les documents portent.</p>
+     */
+    public int sumBagsBefore(java.time.LocalDate date, UUID siteId, UUID articleId) {
+        List<Bson> filters = new ArrayList<>();
+        filters.add(Filters.lt("date", date));
+        filters.add(notCancelled());
+        if (siteId != null) filters.add(Filters.eq("siteId", siteId));
+        if (articleId != null) filters.add(Filters.eq("articleId", articleId));
+        // Agrégation par les builders du driver : convertir le filtre en
+        // document à la main perd le registre de codecs, et un UUID ne
+        // sait plus s'encoder.
+        Document sum = coll().withDocumentClass(Document.class).aggregate(List.of(
+                com.mongodb.client.model.Aggregates.match(Filters.and(filters)),
+                com.mongodb.client.model.Aggregates.group(null,
+                        com.mongodb.client.model.Accumulators.sum("bags", "$nbSacs"))
+        ), Document.class).first();
+        return sum != null && sum.get("bags") != null ? ((Number) sum.get("bags")).intValue() : 0;
+    }
+
+    /**
      * Les reçus nommés, en une requête.
      *
      * <p>Pour une liste qui vient d'ailleurs et veut rattacher à chaque

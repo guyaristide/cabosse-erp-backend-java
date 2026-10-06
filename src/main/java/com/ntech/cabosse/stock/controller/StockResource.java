@@ -178,7 +178,7 @@ public class StockResource {
     public Response opening(@Valid OpeningBatchDto payload) {
         List<StockService.OpeningLine> lines = payload.lines().stream()
                 .map(l -> new StockService.OpeningLine(
-                        l.articleId(), l.quantity(), l.unitPrice(), l.notes()))
+                        l.articleId(), l.quantity(), l.unitPrice(), l.notes(), l.bags()))
                 .toList();
         StockService.OpeningResult r = service.recordOpeningBatch(
                 payload.siteId(), lines, payload.occurredAt()

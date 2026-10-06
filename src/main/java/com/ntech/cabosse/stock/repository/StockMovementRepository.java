@@ -31,6 +31,25 @@ public class StockMovementRepository {
         return tenantDb.collection(COLLECTION, StockMovementEntity.class);
     }
 
+    /**
+     * Les sacs posés à l'amorçage d'un couple (article, site).
+     *
+     * <p>Seul l'amorçage en porte : les autres mouvements laissent leurs
+     * sacs au document qui les compte. C'est le point de départ sans
+     * lequel aucun compte de sacs ne tient dans la durée.</p>
+     */
+    public Integer openingBags(UUID articleId, UUID siteId, Instant before) {
+        List<Bson> filters = new ArrayList<>();
+        filters.add(Filters.eq("articleId", articleId));
+        filters.add(Filters.eq("siteId", siteId));
+        filters.add(Filters.eq("kind", "OPENING"));
+        filters.add(Filters.ne("bags", null));
+        if (before != null) filters.add(Filters.lt("occurredAt", before));
+        StockMovementEntity m = coll().find(Filters.and(filters))
+                .sort(new Document("occurredAt", 1)).first();
+        return m != null ? m.bags : null;
+    }
+
     public Optional<StockMovementEntity> findById(UUID id) {
         return Optional.ofNullable(coll().find(Filters.eq("_id", id)).first());
     }

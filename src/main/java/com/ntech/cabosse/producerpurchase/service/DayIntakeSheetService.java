@@ -6,7 +6,10 @@ import com.ntech.cabosse.producerpurchase.entity.ProducerPurchaseEntity;
 import com.ntech.cabosse.producerpurchase.repository.ProducerPurchaseRepository;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.i18n.Messages;
+import com.ntech.cabosse.dispatch.repository.DispatchNoteRepository;
 import com.ntech.cabosse.stock.entity.StockCorrectionEntity;
+import com.ntech.cabosse.stock.repository.StockCorrectionRepository;
+import com.ntech.cabosse.stock.repository.StockMovementRepository;
 import com.ntech.cabosse.stock.service.StockCorrectionService;
 import com.ntech.cabosse.stock.service.StockService;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -39,6 +42,9 @@ public class DayIntakeSheetService {
     @Inject ProducerPurchaseRepository purchases;
     @Inject StockService stockService;
     @Inject StockCorrectionService corrections;
+    @Inject StockMovementRepository movements;
+    @Inject StockCorrectionRepository correctionRepo;
+    @Inject DispatchNoteRepository dispatchNotes;
 
     public DayIntakeSheetDto build(LocalDate date, UUID siteId, UUID articleId) {
         if (date == null) {
@@ -64,7 +70,21 @@ public class DayIntakeSheetService {
         }
 
         BigDecimal opening = null;
+        Integer openingBags = null;
         if (sheetArticleId != null && siteId != null) {
+            // Les sacs n'ont pas de photo : le stock ne les suit pas. Leur
+            // compte se reconstitue depuis celui posé à l'amorçage, plus
+            // ce qui est entré, moins ce qui est sorti. Sans amorçage en
+            // sacs, on ne prétend pas savoir : la fiche s'en tient alors
+            // au solde de la journée.
+            Integer anchor = movements.openingBags(sheetArticleId, siteId,
+                    date.atStartOfDay(ZoneOffset.UTC).toInstant());
+            if (anchor != null) {
+                openingBags = anchor
+                        + purchases.sumBagsBefore(date, siteId, sheetArticleId)
+                        - correctionRepo.sumBagsBefore(date, siteId, sheetArticleId)
+                        - dispatchNotes.sumBagsBefore(date, siteId, sheetArticleId);
+            }
             // Juste avant minuit, pas à minuit : les mouvements d'un reçu
             // sont horodatés au début exact de leur journée, et une photo
             // prise au même instant les compterait dans le report. La
@@ -75,7 +95,7 @@ public class DayIntakeSheetService {
 
         List<DayIntakeRowDto> rows = new ArrayList<>(receipts.size());
         BigDecimal runningQty = opening != null ? opening : BigDecimal.ZERO;
-        int runningBags = 0;
+        int runningBags = openingBags != null ? openingBags : 0;
         int enteredBags = 0;
         BigDecimal totalWeight = BigDecimal.ZERO;
         BigDecimal totalAmount = BigDecimal.ZERO;
@@ -115,7 +135,7 @@ public class DayIntakeSheetService {
         }
 
         return new DayIntakeSheetDto(date, siteId, sheetArticleId, articleName,
-                opening, rows, totalWeight, totalAmount, enteredBags, runningQty,
+                opening, openingBags, rows, totalWeight, totalAmount, enteredBags, runningQty,
                 correctedWeight, correctedBags, runningBags);
     }
 

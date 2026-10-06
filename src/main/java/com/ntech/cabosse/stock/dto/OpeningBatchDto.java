@@ -32,6 +32,14 @@ public record OpeningBatchDto(
             @DecimalMin(value = "0", message = "{v.prix-negatif-interdit}")
             BigDecimal unitPrice,
 
-            @Size(max = 500) String notes
+            @Size(max = 500) String notes,
+
+            /**
+             * Sacs en magasin au départ, quand le magasin se tient en
+             * sacs. Facultatif : une matière qui ne se compte pas en
+             * sacs n'a rien à y mettre.
+             */
+            @jakarta.validation.constraints.Min(value = 0, message = "{v.sacs-negatifs-interdits}")
+            Integer bags
     ) {}
 }

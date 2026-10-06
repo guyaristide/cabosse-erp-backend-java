@@ -229,6 +229,7 @@ public class StockService {
         mvt.articleUnit = article.unit;
         mvt.siteName = site.name;
         mvt.kind = input.kind();
+        mvt.bags = input.bags();
         mvt.quantitySigned = bounded(signedQty, QTY_SCALE);
         // Le PU mémorisé sur le mvt :
         //   - entrée : PU d'achat fourni
@@ -913,7 +914,8 @@ public class StockService {
                         line.quantity(), line.unitPrice(),
                         MovementSource.OPENING, null, null,
                         null, "Amorçage initial", line.notes(),
-                        occurredAt != null ? occurredAt : Instant.now()
+                        occurredAt != null ? occurredAt : Instant.now(),
+                        false, null, false, line.bags()
                 ));
                 created.add(r);
             } catch (BusinessException ex) {
@@ -924,7 +926,9 @@ public class StockService {
     }
 
     public record OpeningLine(UUID articleId, BigDecimal quantity,
-                                BigDecimal unitPrice, String notes) {}
+                                BigDecimal unitPrice, String notes,
+                                /** Sacs en magasin au départ. Le stock ne les suit pas ailleurs. */
+                                Integer bags) {}
     public record OpeningRejection(UUID articleId, String reason) {}
     public record OpeningResult(List<StockItemResponseDto> created,
                                   List<OpeningRejection> rejected) {}

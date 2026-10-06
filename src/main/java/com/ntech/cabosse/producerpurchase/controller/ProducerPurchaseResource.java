@@ -201,7 +201,7 @@ public class ProducerPurchaseResource {
         if (sheet.openingQuantity() != null) {
             rows.add(new com.ntech.cabosse.producerpurchase.dto.DayIntakeRowDto(
                     null, date, Messages.msg("m.pds-opening-label"), null, null, null,
-                    null, null, null, null, sheet.openingQuantity(), null));
+                    null, null, null, null, sheet.openingQuantity(), sheet.openingBags()));
         }
         rows.addAll(sheet.rows());
         rows.add(new com.ntech.cabosse.producerpurchase.dto.DayIntakeRowDto(
