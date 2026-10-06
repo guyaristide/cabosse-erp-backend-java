@@ -333,6 +333,49 @@ class DayIntakeSheetTest extends AbstractIntegrationTest {
                 .body("data.closingBags", equalTo(-17));
     }
 
+    /**
+     * Les écritures des réceptions portent ce que le reçu porte.
+     *
+     * <p>L'écran rendait une date, une pièce et un montant. 240 000 F ne
+     * se vérifie pas : il faut le producteur, les sacs et le poids net
+     * qui le fondent (demandé le 06/10/2026).</p>
+     */
+    @Test
+    void les_ecritures_des_receptions_portent_le_recu() {
+        UserEntity admin = tenantAdmin();
+        String siteCode = "s-" + java.util.UUID.randomUUID().toString().substring(0, 8);
+        String siteId = givenAs(admin).contentType("application/json")
+                .body("{\"name\":\"Magasin\",\"type\":\"CENTRAL_WAREHOUSE\",\"code\":\"" + siteCode + "\"}")
+                .when().post("/api/v1/sites").then().statusCode(201).extract().path("data.id");
+        String articleId = givenAs(admin).contentType("application/json")
+                .body("{\"type\":\"RAW_MATERIAL\",\"name\":\"Fèves de cacao\",\"unit\":\"kg\"}")
+                .when().post("/api/v1/articles").then().statusCode(201).extract().path("data.id");
+        String memberId = givenAs(admin).contentType("application/json")
+                .body("{\"firstName\":\"Cyprien\",\"lastName\":\"ASSI\",\"gender\":\"MALE\",\"status\":\"ACTIVE\"}")
+                .when().post("/api/v1/members").then().statusCode(201).extract().path("data.id");
+
+        LocalDate today = LocalDate.now();
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "date": "%s", "memberId": "%s", "articleId": "%s", "siteId": "%s",
+                          "nbSacs": 4, "weightKg": 200,
+                          "guaranteedPricePerKg": 1200, "paymentMethod": "CASH" }
+                        """.formatted(today, memberId, articleId, siteId))
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                .when().post("/api/v1/producer-purchases").then().statusCode(201);
+
+        givenAs(admin)
+                .when().get("/api/v1/producer-purchases/entries")
+                .then().statusCode(200)
+                .body("data.items", hasSize(1))
+                .body("data.items[0].producerName", org.hamcrest.Matchers.containsString("ASSI"))
+                .body("data.items[0].nbSacs", equalTo(4))
+                .body("data.items[0].weightKg", equalTo(200))
+                .body("data.items[0].amount", equalTo(240000))
+                // Le lien vers le reçu, pour y revenir depuis l'écriture.
+                .body("data.items[0].sourceId", org.hamcrest.Matchers.notNullValue());
+    }
+
     /** On ne retire pas plus que ce qui est là. */
     @Test
     void une_correction_au_dela_du_stock_est_refusee() {

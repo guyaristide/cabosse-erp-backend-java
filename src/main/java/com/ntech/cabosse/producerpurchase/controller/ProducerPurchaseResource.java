@@ -53,6 +53,7 @@ public class ProducerPurchaseResource {
     @Inject ProducerPurchaseService service;
     @Inject ReceptionNoteService receptionNotes;
     @Inject com.ntech.cabosse.producerpurchase.service.DayIntakeSheetService daySheets;
+    @Inject com.ntech.cabosse.producerpurchase.service.CollectionEntriesService collectionEntries;
     @Inject ProducerPurchaseImportService importService;
     @Inject ProducerPurchaseImportTemplate importTemplate;
     @Inject TenantCapabilityService capabilities;
@@ -130,6 +131,37 @@ public class ProducerPurchaseResource {
     public Response postAccounting(@PathParam("id") UUID id) {
         ensureCapability();
         return Response.ok(ApiResponse.ok(service.postAccounting(id))).build();
+    }
+
+    /**
+     * Les écritures nées des réceptions, avec ce que le reçu porte.
+     *
+     * <p>L'écran lisait le journal filtré sur les natures de réception.
+     * Le montant seul ne se vérifie pas : le producteur, les sacs et le
+     * poids net le fondent, et le reçu les porte (06/10/2026).</p>
+     */
+    @GET
+    @Path("/entries")
+    @RequiresPermission(Permission.ACCOUNTING_READ)
+    public Response entries(@QueryParam("from") String fromRaw,
+                            @QueryParam("to") String toRaw,
+                            @QueryParam("page") @DefaultValue("0") int page,
+                            @QueryParam("perPage") @DefaultValue("20") int perPage) {
+        ensureCapability();
+        java.time.LocalDate from = fromRaw != null && !fromRaw.isBlank()
+                ? java.time.LocalDate.parse(fromRaw) : null;
+        java.time.LocalDate to = toRaw != null && !toRaw.isBlank()
+                ? java.time.LocalDate.parse(toRaw) : null;
+        com.ntech.cabosse.shared.api.PageRequest pr =
+                com.ntech.cabosse.shared.api.PageRequest.of(page, perPage);
+        long total = collectionEntries.count(from, to);
+        java.util.List<com.ntech.cabosse.producerpurchase.dto.CollectionEntryDto> items =
+                collectionEntries.list(from, to, pr.page(), pr.perPage());
+        java.util.Map<String, String> filters = new java.util.HashMap<>();
+        if (fromRaw != null && !fromRaw.isBlank()) filters.put("from", fromRaw);
+        if (toRaw != null && !toRaw.isBlank()) filters.put("to", toRaw);
+        return Response.ok(ApiResponse.ok(com.ntech.cabosse.shared.api.Pagination.of(
+                total, pr, new String[]{"date"}, "desc", filters, items))).build();
     }
 
     /** Fiche de stock des entrées du jour (CE-185), la vue journal du magasinier. */

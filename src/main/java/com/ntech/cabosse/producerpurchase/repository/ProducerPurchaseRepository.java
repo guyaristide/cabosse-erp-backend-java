@@ -10,6 +10,7 @@ import org.bson.Document;
 import org.bson.conversions.Bson;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -228,6 +229,18 @@ public class ProducerPurchaseRepository {
 
     public Optional<ProducerPurchaseEntity> findById(UUID id) {
         return Optional.ofNullable(coll().find(Filters.eq("_id", id)).first());
+    }
+
+    /**
+     * Les reçus nommés, en une requête.
+     *
+     * <p>Pour une liste qui vient d'ailleurs et veut rattacher à chaque
+     * ligne ce que le reçu porte. Un appel par ligne ferait autant
+     * d'allers-retours que de lignes affichées.</p>
+     */
+    public List<ProducerPurchaseEntity> findByIds(Collection<UUID> ids) {
+        if (ids == null || ids.isEmpty()) return List.of();
+        return coll().find(Filters.in("_id", ids)).into(new ArrayList<>());
     }
 
     /** Livraison portant déjà ce numéro de reçu officiel, s'il y en a une. */
