@@ -245,7 +245,7 @@ public class CommoditySaleImportService {
      * alors le bordereau, et la colonne qui permet de l'appeler.</p>
      */
     private String explain(RuntimeException e, CommoditySaleImportRowDto raw, Normalized nrm) {
-        String message = e.getMessage();
+        String message = com.ntech.cabosse.shared.exception.UserFacingReason.of(e);
         boolean outOfStock = e instanceof com.ntech.cabosse.shared.exception.BusinessException be
                 && be.errorCode() == com.ntech.cabosse.shared.exception.ErrorCode.STOCK_INSUFFICIENT;
         if (!outOfStock) return message;

@@ -41,11 +41,15 @@ public class ThrowableExceptionMapper implements ExceptionMapper<Throwable> {
                     .entity(ApiResponse.error(status, message, ErrorCode.BUSINESS_RULE))
                     .build();
         }
-        LOG.error("Erreur interne non gérée", ex);
+        // La cause part au journal avec sa référence ; l'écran ne reçoit
+        // que la phrase et la référence, qu'on dictera au support.
+        String reference = UserFacingReason.newReference();
+        LOG.errorf(ex, "Incident %s non géré", reference);
         // Seule catégorie réellement rejouable : l'incident inattendu peut
         // avoir disparu à la tentative suivante.
         return Response.status(500)
-                .entity(ApiResponse.error(500, Messages.msg("m.internal-error"), ErrorCode.INTERNAL))
+                .entity(ApiResponse.error(500, Messages.msg("m.technical-failure", reference),
+                        ErrorCode.INTERNAL))
                 .build();
     }
 }

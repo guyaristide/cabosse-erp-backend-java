@@ -52,7 +52,7 @@ public class LocalFileStorage implements FileStorage {
             log.debugf("Local storage : écrit %s (%d octets)", target, sizeBytes);
             return relativePath;
         } catch (IOException e) {
-            throw new BusinessException(Messages.msg("m.shr-local-write-failed", e.getMessage()), e);
+            throw new BusinessException(Messages.msg("m.shr-local-write-failed"), e);
         }
     }
 

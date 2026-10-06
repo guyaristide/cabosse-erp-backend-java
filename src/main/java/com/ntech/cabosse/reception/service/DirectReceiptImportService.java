@@ -46,6 +46,7 @@ import java.util.UUID;
 import static com.ntech.cabosse.shared.imports.ImportParsers.parseDecimal;
 import static com.ntech.cabosse.shared.imports.ImportParsers.slugify;
 import static com.ntech.cabosse.shared.imports.ImportParsers.trimOrNull;
+import com.ntech.cabosse.shared.exception.UserFacingReason;
 
 /**
  * Orchestre l'import en masse de réceptions directes depuis un fichier
@@ -368,7 +369,7 @@ public class DirectReceiptImportService {
                 // Session refusée → toutes ses lignes deviennent skipped
                 for (RowResolved rr : rows) {
                     List<FieldIssue> issues = new ArrayList<>(rr.row.issues());
-                    issues.add(new FieldIssue("server", ex.getMessage()));
+                    issues.add(new FieldIssue("server", UserFacingReason.of(ex)));
                     skipped.add(new Row(rr.row.rowNumber(), Status.INVALID,
                             rr.row.normalized(), issues));
                 }

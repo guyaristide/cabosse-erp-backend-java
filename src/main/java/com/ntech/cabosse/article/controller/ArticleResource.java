@@ -216,7 +216,7 @@ public class ArticleResource {
         try {
             return Files.readAllBytes(upload.uploadedFile());
         } catch (IOException e) {
-            throw new BusinessException(Messages.msg("m.art-file-read-failed", e.getMessage()));
+            throw new BusinessException(Messages.msg("m.art-file-read-failed"), e);
         }
     }
 

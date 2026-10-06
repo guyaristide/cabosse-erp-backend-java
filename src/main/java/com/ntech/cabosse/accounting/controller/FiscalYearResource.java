@@ -113,7 +113,7 @@ public class FiscalYearResource {
         try {
             bytes = java.nio.file.Files.readAllBytes(file.uploadedFile());
         } catch (java.io.IOException e) {
-            throw new BusinessException(Messages.msg("m.acc-file-read-failed", e.getMessage()));
+            throw new BusinessException(Messages.msg("m.acc-file-read-failed"), e);
         }
         return Response.ok(ApiResponse.ok(FiscalYearDto.from(
                 documents.attach(id, label, bytes, file.contentType(), file.fileName())))).build();

@@ -260,7 +260,7 @@ public class MemberResource {
         try {
             bytes = java.nio.file.Files.readAllBytes(file.uploadedFile());
         } catch (java.io.IOException e) {
-            throw new BusinessException(Messages.msg("m.mbr-file-read-failed", e.getMessage()));
+            throw new BusinessException(Messages.msg("m.mbr-file-read-failed"), e);
         }
         documents.attach(id, label, bytes, file.contentType(), file.fileName());
         return Response.ok(ApiResponse.ok(service.getById(id))).build();

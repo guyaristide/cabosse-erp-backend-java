@@ -28,6 +28,7 @@ import java.util.UUID;
 import static com.ntech.cabosse.shared.imports.ImportParsers.listSink;
 import static com.ntech.cabosse.shared.imports.ImportParsers.slugify;
 import static com.ntech.cabosse.shared.imports.ImportParsers.trimOrNull;
+import com.ntech.cabosse.shared.exception.UserFacingReason;
 
 @ApplicationScoped
 public class SupplierImportService {
@@ -149,7 +150,7 @@ public class SupplierImportService {
                 createdIds.add(created.id());
             } catch (RuntimeException e) {
                 List<FieldIssue> issues = new ArrayList<>(row.issues());
-                issues.add(new FieldIssue("server", e.getMessage()));
+                issues.add(new FieldIssue("server", UserFacingReason.of(e)));
                 skipped.add(new Row(row.rowNumber(), Status.INVALID, row.normalized(), issues));
             }
         }

@@ -227,7 +227,7 @@ public class PurchaseOrderResource {
         try {
             return Files.readAllBytes(upload.uploadedFile());
         } catch (IOException e) {
-            throw new BusinessException(Messages.msg("m.ach-file-read-error", e.getMessage()), e);
+            throw new BusinessException(Messages.msg("m.ach-file-read-error"), e);
         }
     }
 }

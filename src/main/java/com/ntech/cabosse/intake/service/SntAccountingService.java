@@ -42,6 +42,7 @@ import static com.ntech.cabosse.intake.service.IntakeNoteService.normalize;
 import static com.ntech.cabosse.intake.service.IntakeNoteService.parseDate;
 import static com.ntech.cabosse.intake.service.IntakeNoteService.parseDecimal;
 import static com.ntech.cabosse.intake.service.IntakeNoteService.phoneKey;
+import com.ntech.cabosse.shared.exception.UserFacingReason;
 
 /**
  * Comptabilisation d'un bordereau de réception (épic CE-218) : le
@@ -248,10 +249,10 @@ public class SntAccountingService {
                 totalWeight = totalWeight.add(nz(row.weightKg()));
                 totalAmount = totalAmount.add(nz(row.amount()));
             } catch (RuntimeException e) {
-                log.warnf("SNT row %d skipped on %s: %s",
-                        row.rowNumber(), note.ref, e.getMessage());
+                String reason = UserFacingReason.of(e,
+                        "ligne " + row.rowNumber() + " du bordereau " + note.ref);
                 skipped.add(new SntPreviewDto.Row(row.rowNumber(), "INVALID",
-                        List.of(e.getMessage()), row.reference(), row.date(),
+                        List.of(reason), row.reference(), row.date(),
                         row.producerName(), row.producerPhone(), row.memberId(),
                         row.memberName(), row.memberToCreate(), row.weightKg(),
                         row.amount(), row.pricePerKg(), row.paymentMethod()));

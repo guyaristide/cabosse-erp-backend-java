@@ -26,6 +26,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import com.ntech.cabosse.shared.exception.UserFacingReason;
 
 /**
  * Orchestre l'import en masse d'articles depuis un fichier (CSV/Excel
@@ -216,7 +217,7 @@ public class ArticleImportService {
                 // Conflit de code dérivé qu'on n'avait pas détecté en preview
                 // (race condition très rare) — on l'ajoute aux skipped.
                 List<FieldIssue> issues = new ArrayList<>(row.issues());
-                issues.add(new FieldIssue("server", e.getMessage()));
+                issues.add(new FieldIssue("server", UserFacingReason.of(e)));
                 skipped.add(new Row(row.rowNumber(), Status.INVALID, row.normalized(), issues));
             }
         }

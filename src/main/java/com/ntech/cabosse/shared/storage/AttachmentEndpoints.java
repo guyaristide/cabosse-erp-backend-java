@@ -28,7 +28,7 @@ public final class AttachmentEndpoints {
         try {
             return Files.readAllBytes(upload.uploadedFile());
         } catch (IOException e) {
-            throw new BusinessException(Messages.msg("m.shr-file-read-failed", e.getMessage()), e);
+            throw new BusinessException(Messages.msg("m.shr-file-read-failed"), e);
         }
     }
 

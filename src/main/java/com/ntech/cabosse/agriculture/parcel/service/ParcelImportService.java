@@ -46,6 +46,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import com.ntech.cabosse.shared.exception.UserFacingReason;
 
 /**
  * Import de parcelles depuis un fichier.
@@ -287,7 +288,8 @@ public class ParcelImportService {
                 }
             } catch (RuntimeException e) {
                 List<FieldIssue> issues = new ArrayList<>(row.issues());
-                issues.add(new FieldIssue("server", e.getMessage()));
+                issues.add(new FieldIssue("server",
+                        UserFacingReason.of(e, "ligne " + row.rowNumber())));
                 skipped.add(new Row(row.rowNumber(), Status.INVALID, row.normalized(),
                         row.matchedParcelId(), row.matchedOn(), issues));
             }

@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import com.ntech.cabosse.shared.exception.UserFacingReason;
 
 /**
  * Charger les dépenses d'un mois depuis un tableur.
@@ -238,7 +239,9 @@ public class DirectExpenseImportService {
                 createdIds.add(created.id());
             } catch (RuntimeException e) {
                 skipped.add(new Row(row.rowNumber(), Status.INVALID, n,
-                        List.of(new FieldIssue("_", e.getMessage())), row.notices()));
+                        List.of(new FieldIssue("_",
+                                UserFacingReason.of(e, "ligne " + row.rowNumber()))),
+                        row.notices()));
             }
         }
         return new DirectExpenseImportCommitResponseDto(

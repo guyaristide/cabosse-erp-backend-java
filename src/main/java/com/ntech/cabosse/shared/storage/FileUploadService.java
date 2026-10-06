@@ -67,7 +67,7 @@ public class FileUploadService {
             storage.store(in, content.length, relativePath);
         } catch (java.io.IOException e) {
             throw new com.ntech.cabosse.shared.exception.BusinessException(
-                    Messages.msg("m.shr-file-write-failed", e.getMessage()), e);
+                    Messages.msg("m.shr-file-write-failed"), e);
         }
 
         CloudFileEntity file = new CloudFileEntity();

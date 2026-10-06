@@ -152,7 +152,7 @@ public class BankStatementImportService {
                 out.add(new ParsedLine(date, label, amount, direction));
             }
         } catch (Exception e) {
-            throw new BusinessException(Messages.msg("m.acc-csv-read-failed", e.getMessage()), e);
+            throw new BusinessException(Messages.msg("m.acc-csv-read-failed"), e);
         }
         return out;
     }

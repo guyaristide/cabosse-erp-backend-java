@@ -46,6 +46,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import com.ntech.cabosse.shared.exception.UserFacingReason;
 
 /**
  * Import de membres-producteurs depuis un fichier.
@@ -513,7 +514,7 @@ public class MemberImportService {
                 }
             } catch (RuntimeException e) {
                 List<FieldIssue> issues = new ArrayList<>(row.issues());
-                issues.add(new FieldIssue("server", e.getMessage()));
+                issues.add(new FieldIssue("server", UserFacingReason.of(e)));
                 skipped.add(new Row(row.rowNumber(), Status.INVALID, row.normalized(),
                         row.matchedMemberId(), row.matchedOn(), row.localityMatch(), issues));
                 // Le motif tombait avec la page : il se relit désormais.

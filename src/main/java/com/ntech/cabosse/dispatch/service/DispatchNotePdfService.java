@@ -127,7 +127,7 @@ public class DispatchNotePdfService {
         } catch (BusinessException | NotFoundException ex) {
             throw ex;
         } catch (Exception ex) {
-            throw new BusinessException(Messages.msg("m.ppu-note-generation-failed", ex.getMessage()));
+            throw new BusinessException(Messages.msg("m.ppu-note-generation-failed"), ex);
         }
     }
 

@@ -24,6 +24,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import com.ntech.cabosse.shared.exception.UserFacingReason;
 
 /**
  * Répartir un extrait de traçabilité entre plusieurs bordereaux.
@@ -97,7 +98,7 @@ public class SntDispatchService {
             } catch (RuntimeException e) {
                 outcomes.add(new SntDispatchResultDto.NoteOutcome(
                         bucket.note.id, bucket.note.ref, false, 0, BigDecimal.ZERO, null,
-                        e.getMessage()));
+                        UserFacingReason.of(e, "bordereau " + bucket.note.ref)));
             }
         }
 

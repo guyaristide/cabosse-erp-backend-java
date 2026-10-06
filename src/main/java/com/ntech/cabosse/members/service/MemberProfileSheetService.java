@@ -164,7 +164,7 @@ public class MemberProfileSheetService {
             doc.close();
             return out.toByteArray();
         } catch (Exception e) {
-            throw new BusinessException(Messages.msg("m.mbr-sheet-generation-failed", e.getMessage()));
+            throw new BusinessException(Messages.msg("m.mbr-sheet-generation-failed"), e);
         }
     }
 

@@ -87,7 +87,7 @@ public final class Exporters {
             new com.fasterxml.jackson.databind.ObjectMapper()
                     .writeValue(out, java.util.Map.of("columns", columns, "columnDefs", defs));
         } catch (IOException e) {
-            throw new BusinessException(Messages.msg("m.shr-export-meta-write-error", e.getMessage()), e);
+            throw new BusinessException(Messages.msg("m.shr-export-meta-write-error"), e);
         }
     }
 
@@ -121,7 +121,7 @@ public final class Exporters {
             }
             out.flush();
         } catch (IOException e) {
-            throw new BusinessException(Messages.msg("m.shr-export-csv-write-error", e.getMessage()), e);
+            throw new BusinessException(Messages.msg("m.shr-export-csv-write-error"), e);
         }
     }
 
@@ -257,7 +257,7 @@ public final class Exporters {
             wb.write(out);
             out.flush();
         } catch (IOException e) {
-            throw new BusinessException(Messages.msg("m.shr-export-xlsx-write-error", e.getMessage()), e);
+            throw new BusinessException(Messages.msg("m.shr-export-xlsx-write-error"), e);
         }
     }
 
@@ -621,7 +621,7 @@ public final class Exporters {
 
             doc.add(table);
         } catch (Exception e) {
-            throw new BusinessException(Messages.msg("m.shr-export-pdf-write-error", e.getMessage()), e);
+            throw new BusinessException(Messages.msg("m.shr-export-pdf-write-error"), e);
         } finally {
             if (doc.isOpen()) doc.close();
         }

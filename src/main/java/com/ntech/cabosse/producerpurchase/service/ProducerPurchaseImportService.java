@@ -36,6 +36,7 @@ import java.util.Locale;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
+import com.ntech.cabosse.shared.exception.UserFacingReason;
 
 /**
  * Import de masse des reçus d'achat producteur (backlog NEG-01). Rapproche
@@ -334,7 +335,7 @@ public class ProducerPurchaseImportService {
                 createdRefs.add(created.ref());
             } catch (RuntimeException e) {
                 skipped.add(new Row(row.rowNumber(), Status.INVALID, n,
-                        List.of(new FieldIssue("_", e.getMessage()))));
+                        List.of(new FieldIssue("_", UserFacingReason.of(e)))));
             }
         }
         return new ProducerPurchaseImportCommitResponseDto(

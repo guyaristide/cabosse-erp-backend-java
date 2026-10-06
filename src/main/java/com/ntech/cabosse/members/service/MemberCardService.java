@@ -106,7 +106,7 @@ public class MemberCardService {
             doc.close();
             return out.toByteArray();
         } catch (Exception e) {
-            throw new BusinessException(Messages.msg("m.mbr-card-generation-failed", e.getMessage()));
+            throw new BusinessException(Messages.msg("m.mbr-card-generation-failed"), e);
         }
     }
 

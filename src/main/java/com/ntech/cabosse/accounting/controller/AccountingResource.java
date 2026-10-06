@@ -307,7 +307,7 @@ public class AccountingResource {
                     .build();
         } catch (java.io.IOException e) {
             throw new com.ntech.cabosse.shared.exception.BusinessException(
-                    Messages.msg("m.acc-file-read-error", e.getMessage()), e);
+                    Messages.msg("m.acc-file-read-error"), e);
         }
     }
 
@@ -632,7 +632,7 @@ public class AccountingResource {
             bytes = java.nio.file.Files.readAllBytes(file.uploadedFile());
         } catch (java.io.IOException e) {
             throw new com.ntech.cabosse.shared.exception.BusinessException(
-                    Messages.msg("m.acc-file-read-failed", e.getMessage()));
+                    Messages.msg("m.acc-file-read-failed"), e);
         }
         return Response.ok(ApiResponse.ok(OdDraftDto.from(
                 odDocuments.attach(id, label, bytes, file.contentType(), file.fileName())))).build();

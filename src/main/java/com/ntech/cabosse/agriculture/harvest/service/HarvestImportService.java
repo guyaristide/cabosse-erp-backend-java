@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import com.ntech.cabosse.shared.exception.UserFacingReason;
 
 /**
  * Import de récoltes depuis un fichier.
@@ -207,7 +208,8 @@ public class HarvestImportService {
                 }
             } catch (RuntimeException e) {
                 List<FieldIssue> issues = new ArrayList<>(row.issues());
-                issues.add(new FieldIssue("server", e.getMessage()));
+                issues.add(new FieldIssue("server",
+                        UserFacingReason.of(e, "ligne " + row.rowNumber())));
                 skipped.add(new Row(row.rowNumber(), Status.INVALID, row.normalized(),
                         row.matchedHarvestId(), row.matchedOn(), issues));
             }

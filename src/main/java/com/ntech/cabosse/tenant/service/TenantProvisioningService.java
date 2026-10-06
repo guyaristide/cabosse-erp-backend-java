@@ -185,7 +185,7 @@ public class TenantProvisioningService {
                     .description("Échec du provisioning : " + e.getMessage())
                     .payload(java.util.Map.of("error", String.valueOf(e.getMessage())))
                     .record();
-            throw new BusinessException(Messages.msg("m.tnt-provisioning-failed", e.getMessage()), e);
+            throw new BusinessException(Messages.msg("m.tnt-provisioning-failed"), e);
         }
     }
 

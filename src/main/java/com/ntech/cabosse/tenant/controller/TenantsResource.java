@@ -464,7 +464,7 @@ public class TenantsResource {
         try {
             return Files.readAllBytes(upload.uploadedFile());
         } catch (IOException e) {
-            throw new BusinessException(Messages.msg("m.tnt-logo-read-failed", e.getMessage()), e);
+            throw new BusinessException(Messages.msg("m.tnt-logo-read-failed"), e);
         }
     }
 }
