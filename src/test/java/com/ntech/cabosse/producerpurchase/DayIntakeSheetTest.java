@@ -131,5 +131,123 @@ class DayIntakeSheetTest extends AbstractIntegrationTest {
                 .queryParam("format", "csv")
                 .when().get("/api/v1/producer-purchases/day-sheet/export")
                 .then().statusCode(200);
+
+        // ── Le brassage de l'après-midi ─────────────────────────────
+        // Le magasinier reprend un lot douteux, en retire les impuretés
+        // et sort 3 sacs pour 484 kg. Le carnet le note en négatif, sans
+        // prix ni montant, et la clôture en tient compte.
+        String correctionRef = givenAs(admin).contentType("application/json")
+                .body("""
+                        { "articleId": "%s", "siteId": "%s", "date": "%s",
+                          "reason": "Perte de poids pour brassage",
+                          "bags": 3, "weightKg": 484 }
+                        """.formatted(articleId, siteId, today))
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                .when().post("/api/v1/stock-corrections")
+                .then().statusCode(201)
+                .body("data.value", equalTo(580800.00F))
+                .extract().path("data.ref");
+
+        givenAs(admin)
+                .queryParam("date", today.toString())
+                .queryParam("siteId", siteId)
+                .when().get("/api/v1/producer-purchases/day-sheet")
+                .then().statusCode(200)
+                .body("data.rows", hasSize(3))
+                // La correction vient après les entrées : on brasse ce
+                // qu'on vient de recevoir.
+                .body("data.rows[2].rowKind", equalTo("CORRECTION"))
+                .body("data.rows[2].supplierName", equalTo("Perte de poids pour brassage"))
+                .body("data.rows[2].ref", equalTo(correctionRef))
+                .body("data.rows[2].nbSacs", equalTo(-3))
+                .body("data.rows[2].weightKg", equalTo(-484))
+                // Ni prix ni montant : rien n'a été acheté.
+                .body("data.rows[2].unitPrice", org.hamcrest.Matchers.nullValue())
+                .body("data.rows[2].amount", org.hamcrest.Matchers.nullValue())
+                .body("data.rows[2].cumulativeQuantity", equalTo(4364.0F))
+                .body("data.rows[2].cumulativeBags", equalTo(23))
+                // Les entrées du jour ne bougent pas : la perte compte à part.
+                .body("data.totalWeightKg", equalTo(1648))
+                .body("data.totalBags", equalTo(26))
+                .body("data.totalCorrectedWeightKg", equalTo(484))
+                .body("data.totalCorrectedBags", equalTo(3))
+                .body("data.closingQuantity", equalTo(4364.0F))
+                .body("data.closingBags", equalTo(23));
+    }
+
+    /**
+     * Ce qu'une correction fait au stock et au grand livre.
+     *
+     * <p>La matière sort pour de bon, au coût moyen du jour, et la
+     * variation de stock passe en charge : c'est la même écriture qu'un
+     * manquant d'inventaire, constatée plus tôt.</p>
+     */
+    @Test
+    void la_correction_sort_la_matiere_et_passe_en_charge() {
+        UserEntity admin = tenantAdmin();
+        String siteCode = "s-" + java.util.UUID.randomUUID().toString().substring(0, 8);
+        String siteId = givenAs(admin).contentType("application/json")
+                .body("{\"name\":\"Magasin\",\"type\":\"CENTRAL_WAREHOUSE\",\"code\":\"" + siteCode + "\"}")
+                .when().post("/api/v1/sites").then().statusCode(201).extract().path("data.id");
+        String articleId = givenAs(admin).contentType("application/json")
+                .body("{\"type\":\"RAW_MATERIAL\",\"name\":\"Fèves séchées\",\"unit\":\"kg\"}")
+                .when().post("/api/v1/articles").then().statusCode(201).extract().path("data.id");
+
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "siteId": "%s", "occurredAt": "%s",
+                          "lines": [ { "articleId": "%s", "quantity": 1000, "unitPrice": 1200 } ] }
+                        """.formatted(siteId,
+                        java.time.Instant.now().minus(java.time.Duration.ofDays(1)), articleId))
+                .when().post("/api/v1/stocks/opening").then().statusCode(201);
+
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "articleId": "%s", "siteId": "%s", "date": "%s",
+                          "reason": "Perte de poids pour brassage", "bags": 1, "weightKg": 50 }
+                        """.formatted(articleId, siteId, LocalDate.now()))
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                .when().post("/api/v1/stock-corrections")
+                .then().statusCode(201)
+                .body("data.unitPrice", equalTo(1200.0F))
+                .body("data.value", equalTo(60000.00F))
+                .body("data.pieceRef", org.hamcrest.Matchers.notNullValue());
+
+        givenAs(admin)
+                .when().get("/api/v1/stocks/" + articleId + "/sites/" + siteId)
+                .then().statusCode(200)
+                .body("data.quantity", equalTo(950))
+                // Une sortie ne révise pas le coût moyen des unités restantes.
+                .body("data.cmup", equalTo(1200.0F));
+    }
+
+    /** On ne retire pas plus que ce qui est là. */
+    @Test
+    void une_correction_au_dela_du_stock_est_refusee() {
+        UserEntity admin = tenantAdmin();
+        String siteCode = "s-" + java.util.UUID.randomUUID().toString().substring(0, 8);
+        String siteId = givenAs(admin).contentType("application/json")
+                .body("{\"name\":\"Magasin\",\"type\":\"CENTRAL_WAREHOUSE\",\"code\":\"" + siteCode + "\"}")
+                .when().post("/api/v1/sites").then().statusCode(201).extract().path("data.id");
+        String articleId = givenAs(admin).contentType("application/json")
+                .body("{\"type\":\"RAW_MATERIAL\",\"name\":\"Fèves séchées\",\"unit\":\"kg\"}")
+                .when().post("/api/v1/articles").then().statusCode(201).extract().path("data.id");
+
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "articleId": "%s", "siteId": "%s", "date": "%s",
+                          "reason": "Perte de poids pour brassage", "bags": 1, "weightKg": 50 }
+                        """.formatted(articleId, siteId, LocalDate.now()))
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                .when().post("/api/v1/stock-corrections")
+                .then().statusCode(422);
+
+        // Rien ne reste derrière : ni correction enregistrée, ni ligne
+        // dans la fiche du jour.
+        givenAs(admin)
+                .queryParam("siteId", siteId)
+                .when().get("/api/v1/stock-corrections")
+                .then().statusCode(200)
+                .body("data.items", hasSize(0));
     }
 }

@@ -27,6 +27,13 @@ public enum PostingSourceType {
     DIRECT_RECEIPT_PAYMENT,
     DIRECT_RECEIPT_PAYMENT_REVERSAL,
     /** Régularisation d'écart d'inventaire physique (session validée). */
+    /**
+     * Correction de stock du magasin : la matière retirée au brassage.
+     * Même traitement qu'un manquant d'inventaire, à ceci près qu'elle
+     * se constate pièce par pièce et non au comptage.
+     */
+    STOCK_CORRECTION,
+
     INVENTORY_ADJUSTMENT,
     /** Régularisation d'écart de rapprochement bancaire (frais, décalage). */
     BANK_REGULARIZATION,

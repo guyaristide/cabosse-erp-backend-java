@@ -55,5 +55,11 @@ public enum MovementSource {
     /** Vente de matière première en gros ou à l'export. */
     COMMODITY_SALE,
     /** Bordereau de sortie : chargement vers le client (épic magasin, CE-195). */
-    DISPATCH_NOTE
+    DISPATCH_NOTE,
+    /**
+     * Correction de stock du magasin : la matière retirée au brassage,
+     * impuretés sorties d'un lot douteux. Sortie sans acheteur, valorisée
+     * au coût moyen, comme un manquant d'inventaire.
+     */
+    STOCK_CORRECTION
 }

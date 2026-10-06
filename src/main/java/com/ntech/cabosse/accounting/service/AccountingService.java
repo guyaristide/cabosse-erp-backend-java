@@ -1294,6 +1294,41 @@ public class AccountingService {
     }
 
     /**
+     * Perte de matière constatée au magasin (correction de stock).
+     *
+     * <p>Même écriture qu'un manquant d'inventaire : le stock diminue, et
+     * sa variation passe en charge. Le brassage ne crée pas une catégorie
+     * comptable à part, il constate la même chose plus tôt, lot par lot,
+     * au lieu d'attendre le comptage qui l'aurait trouvée.</p>
+     *
+     * <p>Idempotent sur {@code (STOCK_CORRECTION, correctionId)}.</p>
+     */
+    public Optional<JournalPieceEntity> postFromStockCorrection(UUID correctionId,
+                                                                String correctionRef,
+                                                                LocalDate date,
+                                                                ArticleType articleType,
+                                                                BigDecimal value) {
+        BigDecimal amount = nz(value).setScale(MONEY_SCALE, RoundingMode.HALF_UP);
+        if (amount.signum() <= 0) return Optional.empty();
+        String stockAccount = SyscohadaAccounts.stockAccountFor(articleType);
+        String variationAccount = SyscohadaAccounts.stockVariationAccountFor(articleType);
+        if (stockAccount == null || variationAccount == null) return Optional.empty();
+
+        String label = "Correction de stock " + correctionRef;
+        List<JournalEntry> entries = List.of(
+                JournalEntry.debit(variationAccount, label, amount),
+                JournalEntry.credit(stockAccount, label, amount));
+        return postPiece(new PostingRequest(
+                date != null ? date : LocalDate.now(),
+                PostingSourceType.STOCK_CORRECTION,
+                correctionId,
+                correctionRef,
+                label,
+                entries
+        ));
+    }
+
+    /**
      * Part sociale versée par un membre à la validation de son adhésion
      * (backlog MEM-02) : débit trésorerie, crédit compte capital du
      * tenant. Idempotent sur {@code (MEMBER_CAPITAL, memberId)}.

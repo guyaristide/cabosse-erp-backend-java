@@ -118,6 +118,7 @@ public final class TenantCollections {
             "sales",
             "sales_contracts",
             "settlement_requests",
+            "stock_corrections",
             "stock_items",
             "stock_movements",
             "treasury_transfers",

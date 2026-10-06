@@ -151,7 +151,8 @@ public class TenantTechnicalService {
             new MigrationDescriptor("index_inbox_by_target", "087", "neiba"),
             new MigrationDescriptor("fix_delegate_position_dates", "088", "neiba"),
             new MigrationDescriptor("create_cash_forecasts_collection", "089", "neiba"),
-            new MigrationDescriptor("create_cash_supply_requests_collection", "090", "neiba")
+            new MigrationDescriptor("create_cash_supply_requests_collection", "090", "neiba"),
+            new MigrationDescriptor("create_stock_corrections_collection", "091", "neiba")
     );
 
     /** Fréquence de backup par plan tarifaire (cf. plans.json catalogue). */

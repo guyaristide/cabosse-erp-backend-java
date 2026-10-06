@@ -6,6 +6,8 @@ import com.ntech.cabosse.producerpurchase.entity.ProducerPurchaseEntity;
 import com.ntech.cabosse.producerpurchase.repository.ProducerPurchaseRepository;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.i18n.Messages;
+import com.ntech.cabosse.stock.entity.StockCorrectionEntity;
+import com.ntech.cabosse.stock.service.StockCorrectionService;
 import com.ntech.cabosse.stock.service.StockService;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -18,7 +20,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Fiche de stock des entrées du jour (épic magasin, CE-185).
+ * Fiche de stock du jour (épic magasin, CE-185).
  *
  * <p>La vue journal du magasinier : la photo du stock à l'ouverture, puis
  * chaque bordereau dans l'ordre de saisie avec ses cumuls, en quantité et
@@ -26,16 +28,17 @@ import java.util.UUID;
  * relit les reçus du jour et la photo à date que le stock sait déjà
  * produire.</p>
  *
- * <p>Le cumul de sacs ne compte que la journée : le stock ne connaît pas
- * les sacs, seule la matière est suivie. Le menu « Sortie » du carnet
- * attend la réponse de l'expert (DEC-35) ; la clôture rendue ici est
- * ouverture plus entrées, sans les sorties du jour.</p>
+ * <p>Les corrections de magasin viennent après les entrées, comme sur le
+ * carnet : le brassage se fait sur ce qui est reçu. Elles retirent des
+ * sacs et du poids, et la clôture en tient compte. Les bordereaux de
+ * sortie restent hors de la fiche, ils ont leur propre pièce.</p>
  */
 @ApplicationScoped
 public class DayIntakeSheetService {
 
     @Inject ProducerPurchaseRepository purchases;
     @Inject StockService stockService;
+    @Inject StockCorrectionService corrections;
 
     public DayIntakeSheetDto build(LocalDate date, UUID siteId, UUID articleId) {
         if (date == null) {
@@ -73,12 +76,14 @@ public class DayIntakeSheetService {
         List<DayIntakeRowDto> rows = new ArrayList<>(receipts.size());
         BigDecimal runningQty = opening != null ? opening : BigDecimal.ZERO;
         int runningBags = 0;
+        int enteredBags = 0;
         BigDecimal totalWeight = BigDecimal.ZERO;
         BigDecimal totalAmount = BigDecimal.ZERO;
         for (ProducerPurchaseEntity r : receipts) {
             BigDecimal weight = nz(r.weightKg);
             runningQty = runningQty.add(weight);
             runningBags += r.nbSacs != null ? r.nbSacs : 0;
+            enteredBags += r.nbSacs != null ? r.nbSacs : 0;
             totalWeight = totalWeight.add(weight);
             totalAmount = totalAmount.add(nz(r.amount));
             rows.add(new DayIntakeRowDto(
@@ -90,8 +95,28 @@ public class DayIntakeSheetService {
                     runningQty, runningBags));
         }
 
+        // Le brassage porte sur ce qui vient d'entrer : les corrections
+        // suivent les entrées sur le carnet, et le serveur les date à midi
+        // pour que le stock les rejoue dans le même ordre.
+        BigDecimal correctedWeight = BigDecimal.ZERO;
+        int correctedBags = 0;
+        for (StockCorrectionEntity c : corrections.listForDay(date, siteId, sheetArticleId)) {
+            BigDecimal removed = nz(c.weightKg);
+            int bags = c.bags != null ? c.bags : 0;
+            runningQty = runningQty.subtract(removed);
+            runningBags -= bags;
+            correctedWeight = correctedWeight.add(removed);
+            correctedBags += bags;
+            rows.add(new DayIntakeRowDto(
+                    null, c.date, c.reason, c.ref, null, null,
+                    bags == 0 ? null : -bags, removed.negate(), null, null,
+                    runningQty, runningBags,
+                    "CORRECTION", c.id));
+        }
+
         return new DayIntakeSheetDto(date, siteId, sheetArticleId, articleName,
-                opening, rows, totalWeight, totalAmount, runningBags, runningQty);
+                opening, rows, totalWeight, totalAmount, enteredBags, runningQty,
+                correctedWeight, correctedBags, runningBags);
     }
 
     private static BigDecimal nz(BigDecimal v) {

@@ -175,7 +175,7 @@ public class ProducerPurchaseResource {
         rows.add(new com.ntech.cabosse.producerpurchase.dto.DayIntakeRowDto(
                 null, date, Messages.msg("m.pds-total-label"), null, null, null,
                 sheet.totalBags(), sheet.totalWeightKg(), null, sheet.totalAmount(),
-                sheet.closingQuantity(), sheet.totalBags()));
+                sheet.closingQuantity(), sheet.closingBags()));
         ExportDataset<com.ntech.cabosse.producerpurchase.dto.DayIntakeRowDto> dataset =
                 new ExportDataset<>(Messages.msg("m.pds-export-title", String.valueOf(date)),
                         DayIntakeSheetExportColumns.all(), rows);
