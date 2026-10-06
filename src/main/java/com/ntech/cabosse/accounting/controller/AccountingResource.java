@@ -78,6 +78,7 @@ public class AccountingResource {
     @Inject com.ntech.cabosse.accounting.service.SubsidiaryLedgerService subsidiary;
 
     @Inject AccountingQueryService query;
+    @Inject com.ntech.cabosse.accounting.service.AccountingService accounting;
     @Inject com.ntech.cabosse.campaign.service.CampaignResolver campaignResolver;
     @Inject com.ntech.cabosse.accounting.service.QuarantineService quarantine;
     @Inject AccountingPeriodService periodService;
@@ -218,6 +219,26 @@ public class AccountingResource {
         return Response.ok(ApiResponse.ok(Pagination.of(
                 total, pr, new String[]{"date"}, "desc", filters, pieces))).build();
     }
+
+    /**
+     * Extourne une pièce du journal.
+     *
+     * <p>Réservée à l'administrateur, comme la validation d'une OD : on
+     * défait ici une écriture déjà versée au journal.</p>
+     */
+    @POST
+    @Path("/journal/{id}/reverse")
+    @RequiresPermission(Permission.ACCOUNTING_WRITE)
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN })
+    public Response reversePiece(@PathParam("id") UUID id, ReversalPayload payload) {
+        return Response.status(Response.Status.CREATED)
+                .entity(ApiResponse.created(JournalPieceResponseDto.from(
+                        accounting.reversePiece(id, payload == null ? null : payload.reason()))))
+                .build();
+    }
+
+    /** La raison de l'extourne, qui reste au journal avec la pièce. */
+    public record ReversalPayload(String reason) {}
 
     // ─── Comptes bancaires CRUD ─────────────────────────────────────
 

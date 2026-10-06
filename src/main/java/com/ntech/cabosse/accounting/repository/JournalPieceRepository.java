@@ -254,6 +254,18 @@ public class JournalPieceRepository {
         return BigDecimal.ZERO;
     }
 
+    /**
+     * Pose le lien d'une extourne vers la pièce qu'elle annule.
+     *
+     * <p>Un seul champ touché après l'insertion, par une mise à jour
+     * ciblée : le reste de la pièce est immuable, et remplacer le
+     * document entier rouvrirait ce qu'on tient fermé.</p>
+     */
+    public void linkReversal(UUID reversalId, UUID originalId) {
+        coll().updateOne(Filters.eq("_id", reversalId),
+                com.mongodb.client.model.Updates.set("reversedFromPieceId", originalId));
+    }
+
     public void insert(JournalPieceEntity e) {
         coll().insertOne(e);
     }

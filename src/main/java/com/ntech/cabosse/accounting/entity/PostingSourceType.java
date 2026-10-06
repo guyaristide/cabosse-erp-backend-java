@@ -32,6 +32,17 @@ public enum PostingSourceType {
      * Même traitement qu'un manquant d'inventaire, à ceci près qu'elle
      * se constate pièce par pièce et non au comptage.
      */
+    /**
+     * Extourne d'une pièce, demandée à la main depuis le journal.
+     *
+     * <p>Distincte des contre-passations automatiques, qui suivent
+     * l'annulation d'une opération métier : celle-ci ne défait aucune
+     * opération, elle corrige une écriture. Son {@code sourceId} est
+     * l'identifiant de la pièce extournée, ce qui interdit de
+     * l'extourner deux fois.</p>
+     */
+    MANUAL_REVERSAL,
+
     STOCK_CORRECTION,
 
     INVENTORY_ADJUSTMENT,

@@ -21,6 +21,7 @@ import com.ntech.cabosse.accounting.entity.QuarantinedPostingEntity;
 import com.ntech.cabosse.tenant.entity.TenantPreferences;
 import com.ntech.cabosse.campaign.entity.CampaignEntity;
 import com.ntech.cabosse.shared.exception.BusinessException;
+import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.tenant.TenantContext;
@@ -355,6 +356,66 @@ public class AccountingService {
         return created;
     }
 
+
+    /**
+     * Extourne une pièce du journal, à la main.
+     *
+     * <p>Une pièce versée au journal ne se modifie pas : elle s'annule
+     * par une autre écriture, et la paire reste lisible. Le moteur
+     * savait déjà contre-passer, mais seulement quand une opération
+     * métier était annulée ; une OD validée à tort n'avait aucune issue
+     * (demandé le 06/10/2026).</p>
+     *
+     * <p><strong>En montants négatifs</strong>, et non par inversion
+     * débit/crédit : chaque ligne garde son compte et son sens, le
+     * montant change de signe. Le grand-livre du compte porte alors la
+     * correction sur la même colonne que l'écriture d'origine et ses
+     * cumuls restent lisibles, là où l'inversion gonfle les deux
+     * colonnes de la même somme. C'est la pratique demandée par le
+     * cabinet.</p>
+     *
+     * <p>L'extourne d'une extourne est refusée : la paire se lit à
+     * deux, une chaîne ne se lit plus.</p>
+     */
+    public JournalPieceEntity reversePiece(UUID pieceId, String reason) {
+        JournalPieceEntity src = pieces.findById(pieceId).orElseThrow(
+                () -> new NotFoundException(Messages.msg("m.acc-piece-not-found", pieceId)));
+        if (src.sourceType == PostingSourceType.MANUAL_REVERSAL) {
+            throw new BusinessException(Messages.msg("m.acc-reversal-not-reversible", src.ref));
+        }
+        if (pieces.findBySource(PostingSourceType.MANUAL_REVERSAL, src.id).isPresent()) {
+            throw new BusinessException(Messages.msg("m.acc-piece-already-reversed", src.ref));
+        }
+        if (reason == null || reason.isBlank()) {
+            throw new BusinessException(Messages.msg("m.acc-reversal-reason-required"));
+        }
+
+        List<JournalEntry> negated = new ArrayList<>(src.entries.size());
+        for (JournalEntry e : src.entries) {
+            JournalEntry line = e.debit != null
+                    ? JournalEntry.debit(e.syscohadaAccount, e.libelle, e.debit.negate())
+                    : JournalEntry.credit(e.syscohadaAccount, e.libelle, e.credit.negate());
+            // L'imputation analytique suit l'écriture qu'elle annule,
+            // sans quoi le centre de coût garderait une charge que le
+            // journal n'a plus.
+            line.costCenter = e.costCenter;
+            line.program = e.program;
+            negated.add(line);
+        }
+
+        // Le libellé porte la pièce annulée et la raison : la pièce est
+        // sa propre trace, horodatée et signée, et elle vaut mieux qu'une
+        // ligne de journal d'audit qu'on pourrait purger.
+        String libelle = "Extourne " + src.ref + " : " + reason.trim();
+        JournalPieceEntity created = postPiece(new PostingRequest(
+                LocalDate.now(), PostingSourceType.MANUAL_REVERSAL, src.id, src.ref,
+                libelle, negated))
+                .orElseThrow(() -> new BusinessException(
+                        Messages.msg("m.acc-reversal-refused", src.ref)));
+        created.reversedFromPieceId = src.id;
+        pieces.linkReversal(created.id, src.id);
+        return created;
+    }
 
     /**
      * Compte de charge d'une ligne d'achat (backlog CPT-11) : le compte
