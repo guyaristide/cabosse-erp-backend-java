@@ -221,6 +221,118 @@ class DayIntakeSheetTest extends AbstractIntegrationTest {
                 .body("data.cmup", equalTo(1200.0F));
     }
 
+    /**
+     * Le registre de septembre du magasinier central, rejoué.
+     *
+     * <p>Quatre pertes de brassage y figurent, surlignées à la main sur
+     * le classeur reçu : 484 kg et 3 sacs le 8, 8 kg et 1 sac le 14,
+     * 59 kg et 22 sacs le 17, 36 kg et 20 sacs le 18. La colonne
+     * « Stock » du registre est reproduite ici valeur par valeur ; c'est
+     * elle qui dit si le produit tient le carnet.</p>
+     *
+     * <p>Les sacs retirés ne sont pas ceux qui portaient le poids retiré :
+     * 3 sacs pour 484 kg, puis 22 sacs pour 59 kg. Les deux grandeurs
+     * sont indépendantes, et le produit ne doit jamais en déduire l'une
+     * de l'autre.</p>
+     */
+    @Test
+    void le_registre_de_septembre_se_rejoue_a_l_identique() {
+        UserEntity admin = tenantAdmin();
+        String siteCode = "s-" + java.util.UUID.randomUUID().toString().substring(0, 8);
+        String siteId = givenAs(admin).contentType("application/json")
+                .body("{\"name\":\"Magasin central\",\"type\":\"CENTRAL_WAREHOUSE\",\"code\":\"" + siteCode + "\"}")
+                .when().post("/api/v1/sites").then().statusCode(201).extract().path("data.id");
+        String articleId = givenAs(admin).contentType("application/json")
+                .body("{\"type\":\"RAW_MATERIAL\",\"name\":\"Fèves de cacao\",\"unit\":\"kg\"}")
+                .when().post("/api/v1/articles").then().statusCode(201).extract().path("data.id");
+        String memberId = givenAs(admin).contentType("application/json")
+                .body("{\"lastName\":\"OUEDRAOGO\",\"gender\":\"MALE\",\"status\":\"ACTIVE\"}")
+                .when().post("/api/v1/members").then().statusCode(201).extract().path("data.id");
+
+        // Le stock magasin du 4 septembre, ancré la veille : 46 572 kg.
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "siteId": "%s", "occurredAt": "2026-09-03T08:00:00Z",
+                          "lines": [ { "articleId": "%s", "quantity": 46572, "unitPrice": 1200 } ] }
+                        """.formatted(siteId, articleId))
+                .when().post("/api/v1/stocks/opening").then().statusCode(201);
+
+        // Les entrées du registre, jour par jour, poids et sacs.
+        String[][] receipts = {
+                {"2026-09-04", "4", "225"}, {"2026-09-04", "2", "113"},
+                {"2026-09-07", "10", "575"},
+                {"2026-09-08", "2", "124"},
+                {"2026-09-11", "2", "87"}, {"2026-09-11", "14", "852"},
+                {"2026-09-11", "24", "1456"},
+                {"2026-09-13", "3", "230"},
+                {"2026-09-14", "1", "52"},
+                {"2026-09-15", "152", "9125"},
+                {"2026-09-16", "1", "10"},
+                {"2026-09-17", "1", "40"},
+                {"2026-09-18", "2", "111"}, {"2026-09-18", "1", "58"},
+        };
+        for (String[] r : receipts) {
+            givenAs(admin).contentType("application/json")
+                    .body("""
+                            { "date": "%s", "memberId": "%s", "articleId": "%s", "siteId": "%s",
+                              "nbSacs": %s, "weightKg": %s,
+                              "guaranteedPricePerKg": 1200, "paymentMethod": "CASH" }
+                            """.formatted(r[0], memberId, articleId, siteId, r[1], r[2]))
+                    .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                    .when().post("/api/v1/producer-purchases").then().statusCode(201);
+        }
+
+        // Les quatre lignes surlignées du registre.
+        String[][] losses = {
+                {"2026-09-08", "3", "484"},
+                {"2026-09-14", "1", "8"},
+                {"2026-09-17", "22", "59"},
+                {"2026-09-18", "20", "36"},
+        };
+        for (String[] l : losses) {
+            givenAs(admin).contentType("application/json")
+                    .body("""
+                            { "articleId": "%s", "siteId": "%s", "date": "%s",
+                              "reason": "Perte de poids pour brassage",
+                              "bags": %s, "weightKg": %s }
+                            """.formatted(articleId, siteId, l[0], l[1], l[2]))
+                    .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                    .when().post("/api/v1/stock-corrections").then().statusCode(201);
+        }
+
+        // La colonne « Stock » du registre, au soir de chaque journée.
+        String[][] expected = {
+                {"2026-09-04", "46910"}, {"2026-09-07", "47485"},
+                {"2026-09-08", "47125"}, {"2026-09-11", "49520"},
+                {"2026-09-13", "49750"}, {"2026-09-14", "49794"},
+                {"2026-09-15", "58919"}, {"2026-09-16", "58929"},
+                {"2026-09-17", "58910"}, {"2026-09-18", "59043"},
+        };
+        for (String[] day : expected) {
+            givenAs(admin)
+                    .queryParam("date", day[0])
+                    .queryParam("siteId", siteId)
+                    .queryParam("articleId", articleId)
+                    .when().get("/api/v1/producer-purchases/day-sheet")
+                    .then().statusCode(200)
+                    .body("data.closingQuantity", equalTo(Float.parseFloat(day[1])));
+        }
+
+        // Le 18, deux entrées puis une perte : les sacs du jour valent
+        // 3 entrés moins 20 retirés, et le poids retiré se lit à part.
+        givenAs(admin)
+                .queryParam("date", "2026-09-18")
+                .queryParam("siteId", siteId)
+                .queryParam("articleId", articleId)
+                .when().get("/api/v1/producer-purchases/day-sheet")
+                .then().statusCode(200)
+                .body("data.rows", hasSize(3))
+                .body("data.totalBags", equalTo(3))
+                .body("data.totalCorrectedBags", equalTo(20))
+                .body("data.totalCorrectedWeightKg", equalTo(36))
+                .body("data.closingBags", equalTo(-17));
+    }
+
     /** On ne retire pas plus que ce qui est là. */
     @Test
     void une_correction_au_dela_du_stock_est_refusee() {
