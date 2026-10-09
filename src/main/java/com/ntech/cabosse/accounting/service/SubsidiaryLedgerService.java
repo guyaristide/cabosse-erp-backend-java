@@ -44,6 +44,24 @@ public class SubsidiaryLedgerService {
     /** Un tiers tel qu'il compte ici : un compte, un nom, une nature. */
     private record Party(String account, String collective, String name, String type) {}
 
+    /**
+     * Le nom d'une ligne auxiliaire quand plusieurs fiches la partagent.
+     *
+     * <p>Une seule fiche : son nom. Plusieurs portant le même, ce qui est
+     * le cas d'un compte « divers » : ce nom. Plusieurs qui diffèrent :
+     * le libellé du compte au plan, parce qu'aucune des fiches ne peut
+     * prétendre nommer le solde à elle seule.</p>
+     */
+    private static String holderName(List<Party> holders, String accountLabel) {
+        java.util.Set<String> names = holders.stream()
+                .map(Party::name)
+                .filter(n -> n != null && !n.isBlank())
+                .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
+        if (names.size() == 1) return names.iterator().next();
+        if (accountLabel != null && !accountLabel.isBlank()) return accountLabel;
+        return names.isEmpty() ? "" : String.join(", ", names);
+    }
+
     public SubsidiaryBalanceDto balance(LocalDate from, LocalDate to) {
         var prefs = preferences.current();
         List<Party> parties = declaredParties();
@@ -77,12 +95,26 @@ public class SubsidiaryLedgerService {
             String collective = e.getKey();
             List<SubsidiaryBalanceDto.Row> rows = new ArrayList<>();
             BigDecimal partiesBalance = BigDecimal.ZERO;
+            // Une ligne par compte, pas une par fiche. Plusieurs tiers
+            // peuvent partager le même auxiliaire : un compte « divers »
+            // en porte autant qu'on veut. Chaque fiche lisait alors le
+            // solde du compte et l'affichait pour elle seule, si bien que
+            // trois fiches sur 401040 montraient trois fois 11 000 et que
+            // le total du collectif les additionnait (relevé le
+            // 09/10/2026).
+            Map<String, List<Party>> byAccount = new LinkedHashMap<>();
             for (Party p : e.getValue()) {
-                claimed.add(p.account());
-                BigDecimal[] cell = movements.getOrDefault(p.account(), zero());
+                byAccount.computeIfAbsent(p.account(), k -> new ArrayList<>()).add(p);
+            }
+            for (var entry : byAccount.entrySet()) {
+                String account = entry.getKey();
+                List<Party> holders = entry.getValue();
+                claimed.add(account);
+                BigDecimal[] cell = movements.getOrDefault(account, zero());
                 BigDecimal bal = cell[0].subtract(cell[1]);
                 rows.add(new SubsidiaryBalanceDto.Row(
-                        p.account(), p.name(), p.type(), cell[0], cell[1], bal));
+                        account, holderName(holders, labels.get(account)),
+                        holders.get(0).type(), cell[0], cell[1], bal));
                 partiesBalance = partiesBalance.add(bal);
             }
             rows.sort(Comparator.comparing(SubsidiaryBalanceDto.Row::account));

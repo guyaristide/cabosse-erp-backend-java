@@ -21,6 +21,7 @@ import java.util.HashSet;
 
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
 
@@ -141,6 +142,57 @@ class SubsidiaryLedgerTest extends AbstractIntegrationTest {
                 .body(group + ".partiesBalance", equalTo(800000))
                 .body(group + ".unallocated", equalTo(0))
                 .body(group + ".total", equalTo(800000));
+    }
+
+    /**
+     * Un compte partagé par plusieurs fiches ne fait qu'une ligne.
+     *
+     * <p>Chaque fiche lisait le solde de son compte et l'affichait pour
+     * elle seule : trois fiches sur un même compte « divers » montraient
+     * trois fois le même solde, et le total du collectif les
+     * additionnait (relevé le 09/10/2026).</p>
+     */
+    @Test
+    void un_compte_partage_par_plusieurs_fiches_ne_fait_qu_une_ligne() {
+        UserEntity a = admin();
+        for (String name : new String[]{"Divers A", "Divers B", "Divers C"}) {
+            customerWithAccount(a, name, "411040");
+        }
+        entry(a, "411040", "521000", 11000, "Facture divers");
+
+        String group = "data.groups.find { it.collectiveAccount == '411000' }";
+        givenAs(a).when().get("/api/v1/accounting/subsidiary-balance")
+                .then().statusCode(200)
+                .body(group + ".parties.findAll { it.account == '411040' }", hasSize(1))
+                // 11 000 une fois, pas trois.
+                .body(group + ".partiesBalance", equalTo(11000))
+                .body(group + ".total", equalTo(11000));
+    }
+
+    /** Des noms qui diffèrent sur un même compte : le plan les nomme. */
+    @Test
+    void des_fiches_de_noms_differents_prennent_le_libelle_du_compte() {
+        UserEntity a = admin();
+        // Ouvrir un compte au plan allume le contrôle d'existence sur
+        // toute l'écriture : la contrepartie doit y figurer aussi.
+        for (String[] account : new String[][]{
+                {"411050", "Clients divers"}, {"521000", "Banque"}}) {
+            givenAs(a).contentType("application/json")
+                    .body("{\"number\":\"%s\",\"label\":\"%s\"}"
+                            .formatted(account[0], account[1]))
+                    .when().post("/api/v1/accounting/chart").then().statusCode(201);
+        }
+        customerWithAccount(a, "Kouadio", "411050");
+        customerWithAccount(a, "Yao", "411050");
+        entry(a, "411050", "521000", 7000, "Facture divers");
+
+        // Aucune des deux fiches ne peut prétendre nommer le solde à elle
+        // seule : c'est le compte qui le nomme.
+        String group = "data.groups.find { it.collectiveAccount == '411000' }";
+        givenAs(a).when().get("/api/v1/accounting/subsidiary-balance")
+                .then().statusCode(200)
+                .body(group + ".parties.find { it.account == '411050' }.partyName",
+                        equalTo("Clients divers"));
     }
 
     @Test
