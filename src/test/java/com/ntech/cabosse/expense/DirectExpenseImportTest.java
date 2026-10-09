@@ -227,6 +227,46 @@ class DirectExpenseImportTest extends AbstractIntegrationTest {
                 .then().statusCode(200).body("data.page.items", hasSize(1));
     }
 
+    /**
+     * Le fichier réel du client, rejoué tel quel.
+     *
+     * <p>Signalé le 09/10/2026 : les dépenses importées se voyaient à
+     * l'écran des dépenses mais n'arrivaient ni dans la file
+     * d'approbation ni dans celle de la caisse. Le fichier porte un
+     * prestataire et son compte, ce que l'exemple du modèle n'avait
+     * pas.</p>
+     */
+    @Test
+    void le_fichier_du_terrain_arrive_bien_dans_la_file_a_payer() {
+        UserEntity a = admin();
+        String payload = """
+                [ { "rowNumber": 1, "kind": "Petite dépense", "expenseDate": "06/10/2026",
+                    "supplierName": "Caisse KKO", "supplierAccount": "571200",
+                    "expenseTypeName": "Transfert de fonds", "chargeAccount": "571100",
+                    "label": "Virement caisse fonctionnement vers caisse achat KKO",
+                    "amountHt": "470000", "vatRatePct": "0" },
+                  { "rowNumber": 2, "kind": "Petite dépense", "expenseDate": "06/10/2026",
+                    "supplierName": "Fournisseur Divers", "supplierAccount": "401040",
+                    "expenseTypeName": "Transport administratif", "chargeAccount": "618100",
+                    "label": "Corridor Guingolo", "amountHt": "500", "vatRatePct": "0" },
+                  { "rowNumber": 3, "kind": "Petite dépense", "expenseDate": "06/10/2026",
+                    "supplierName": "JEBACO SARL DUEKOUE", "supplierAccount": "401030",
+                    "expenseTypeName": "Matériaux", "chargeAccount": "604000",
+                    "label": "Achat de 20 planches", "amountHt": "212100", "vatRatePct": "0" } ]
+                """;
+
+        givenAs(a).contentType("application/json").body(payload)
+                .when().post("/api/v1/direct-expenses/import/commit")
+                .then().statusCode(200)
+                .body("data.createdCount", equalTo(3));
+
+        // Aucun circuit d'approbation réglé : elles sont payables tout
+        // de suite, et la caisse doit les voir.
+        givenAs(a).when().get("/api/v1/treasury/payables?kind=PETTY_CASH")
+                .then().statusCode(200)
+                .body("data.page.items", hasSize(3));
+    }
+
     @Test
     void une_ligne_refusee_n_empeche_pas_les_autres() {
         UserEntity a = admin();
