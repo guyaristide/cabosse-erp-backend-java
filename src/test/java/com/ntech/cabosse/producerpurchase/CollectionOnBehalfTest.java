@@ -125,14 +125,21 @@ class CollectionOnBehalfTest extends AbstractIntegrationTest {
 
     /** Un délégué collecteur rattaché à sa section, avec une avance ouverte. */
     private String delegateWithAdvance(UserEntity admin, String siteId) {
+        return delegateWithAdvance(admin, siteId, null);
+    }
+
+    /** @param retentionPerKg mise en compte de sa fiche, nulle si absente. */
+    private String delegateWithAdvance(UserEntity admin, String siteId, Integer retentionPerKg) {
         String sectionId = givenAs(admin).contentType("application/json")
                 .body("{\"code\":\"MEAGUI\",\"name\":\"Section Méagui\"}")
                 .when().post("/api/v1/sections").then().statusCode(201).extract().path("data.id");
         String delegateId = givenAs(admin).contentType("application/json")
                 .body("""
                         { "code": "del-mandat", "name": "KONE Adama", "collector": true,
-                          "sectionId": "%s" }
-                        """.formatted(sectionId))
+                          "sectionId": "%s"%s }
+                        """.formatted(sectionId,
+                        retentionPerKg == null ? ""
+                                : ", \"collectorRetentionPerKg\": " + retentionPerKg))
                 .when().post("/api/v1/suppliers").then().statusCode(201).extract().path("data.id");
         String advanceId = givenAs(admin).contentType("application/json")
                 .body("""
@@ -238,8 +245,17 @@ class CollectionOnBehalfTest extends AbstractIntegrationTest {
         piece(a, ref).body(accounts(ref), hasItem("632100"));
     }
 
+    /**
+     * La rémunération du délégué reste une charge, mandat ou pas.
+     *
+     * <p>Elle était passée au compte de débours le 01/10/2026, au motif
+     * qu'elle serait refacturée au client avec le prix bord champ. Elle
+     * ne l'est pas : la vente vaut le prix bord champ plus la seule marge
+     * de la coopérative, et la commission du collecteur se déduit de
+     * cette marge (note du 09/10/2026).</p>
+     */
     @Test
-    void en_mandat_la_remuneration_du_delegue_quitte_aussi_la_classe_6() {
+    void en_mandat_la_remuneration_du_delegue_reste_une_charge() {
         UserEntity a = admin();
         Refs refs = referentials(a);
         setPrefs(a, "{ \"collectionOnBehalf\": true, \"delegateMarginMode\": \"PER_KG\","
@@ -248,17 +264,46 @@ class CollectionOnBehalfTest extends AbstractIntegrationTest {
 
         String ref = receiptThrough(a, refs, delegateId);
 
-        // La structure n'achète pas, donc elle ne supporte pas les frais
-        // d'achat : elle les avance et se les fait rembourser avec le
-        // reste. Une charge de collecte au résultat était précisément ce
-        // que le mandat devait faire disparaître.
         piece(a, ref)
-                .body(accounts(ref), not(hasItem(startsWith("6"))))
+                .body(accounts(ref), hasItem("632100"))
                 .body(accounts(ref), hasItem("471100"));
     }
 
+    /**
+     * La mise en compte crédite le compte d'avance du délégué.
+     *
+     * <p>Elle ne produisait aucune écriture : son traitement comptable
+     * avait été laissé ouvert faute de contrepartie évidente, et le
+     * relevé des délégués la comptait pendant que le grand-livre
+     * l'ignorait. La note du 09/10/2026 la donne : la retenue vient en
+     * diminution de l'avance, sans compte de garantie distinct.</p>
+     */
     @Test
-    void en_mandat_le_compte_d_avances_porte_le_prix_et_les_frais() {
+    void la_mise_en_compte_credite_le_compte_d_avance_du_delegue() {
+        UserEntity a = admin();
+        Refs refs = referentials(a);
+        setPrefs(a, "{ \"collectionOnBehalf\": true, \"delegateMarginMode\": \"PER_KG\","
+                + " \"delegateMarginRate\": 35 }");
+        String delegateId = delegateWithAdvance(a, refs.siteId(), 15);
+
+        String ref = receiptThrough(a, refs, delegateId);
+
+        // 200 kg : 35 F le kilo payés, 15 F retenus. La charge porte les
+        // deux, 10 000 F, parce que le délégué gagne les 50 ; seule la
+        // contrepartie diffère.
+        piece(a, ref).body(
+                "data.items.find { it.sourceType == 'PRODUCER_PURCHASE' }"
+                        + ".entries.findAll { it.syscohadaAccount == '632100' }.debit.sum()",
+                equalTo(10000.0d));
+        // Les 3 000 retenus reviennent au compte d'avance du délégué.
+        piece(a, ref).body(
+                "data.items.find { it.sourceType == 'PRODUCER_PURCHASE' }"
+                        + ".entries.findAll { it.syscohadaAccount == '409100' }.credit.sum()",
+                equalTo(3000.0F));
+    }
+
+    @Test
+    void en_mandat_le_compte_d_avances_ne_porte_que_le_prix_bord_champ() {
         UserEntity a = admin();
         Refs refs = referentials(a);
         setPrefs(a, "{ \"collectionOnBehalf\": true, \"delegateMarginMode\": \"PER_KG\","
@@ -267,15 +312,16 @@ class CollectionOnBehalfTest extends AbstractIntegrationTest {
 
         String ref = receiptThrough(a, refs, delegateId);
 
-        // 200 kg à 1000 F, plus 25 F par kilo au délégué : le compte
-        // d'avances doit porter les 205 000 que la structure a réellement
-        // engagés pour le compte des producteurs, sinon la vente ne lui en
-        // rembourse qu'une partie et l'écart reste perdu.
-        // La somme Groovy revient en flottant : c'est le montant qui est
-        // vérifié, pas son type.
+        // 200 kg à 1 000 F : le compte de débours porte les 200 000 que la
+        // vente lui remboursera, et rien d'autre. Il portait aussi les
+        // 5 000 de commission, que la vente ne lui rendait jamais : il
+        // restait débiteur de ce montant à la clôture, sans que rien ne
+        // dise pourquoi.
+        // Une seule ligne désormais : la somme revient entière, là où
+        // deux lignes la rendaient en flottant.
         piece(a, ref).body(
                 "data.items.find { it.sourceType == 'PRODUCER_PURCHASE' }"
                         + ".entries.findAll { it.syscohadaAccount == '471100' }.debit.sum()",
-                equalTo(205000.0d));
+                equalTo(200000));
     }
 }

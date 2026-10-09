@@ -500,9 +500,20 @@ public class ProducerPurchaseService {
             marginCharge = new AccountingService.PurchaseLeg(
                     prefs.delegateMarginAccount(), "Rémunération délégué " + delegate.name, margin);
         }
+        // La mise en compte est l'autre moitié de ce que le délégué gagne :
+        // la coopérative la retient au lieu de la lui verser, et elle vient
+        // en diminution de l'avance qu'il doit encore justifier. Même
+        // charge que la part payée, contrepartie différente (note de
+        // l'expert du 09/10/2026, qui lève la question laissée ouverte).
+        AccountingService.PurchaseLeg retentionCharge = null;
+        BigDecimal retention = nz(e.delegateRetention);
+        if (retention.signum() > 0 && delegate != null) {
+            retentionCharge = new AccountingService.PurchaseLeg(
+                    delegateAdvanceAccount, "Mise en compte " + delegate.name, retention);
+        }
         accounting.postFromProducerPurchase(e.id, e.ref, article.id, parseType(article.type),
-                        article.name, amount, e.date, payable, marginCharge, settlements,
-                        beneficiary)
+                        article.name, amount, e.date, payable, marginCharge, retentionCharge,
+                        settlements, beneficiary)
                 .ifPresent(piece -> e.pieceRef = piece.ref);
     }
 

@@ -750,7 +750,7 @@ public class AccountingService {
     public Optional<JournalPieceEntity> postFromProducerPurchase(
             UUID purchaseId, String ref, UUID articleId, ArticleType articleType,
             String articleName, BigDecimal amount, LocalDate date,
-            PurchaseLeg payable, PurchaseLeg marginCharge,
+            PurchaseLeg payable, PurchaseLeg marginCharge, PurchaseLeg retentionCharge,
             List<SettlementLine> settlements, String beneficiary) {
         if (amount == null || amount.signum() <= 0) return Optional.empty();
         LocalDate pieceDate = date != null ? date : LocalDate.now();
@@ -792,20 +792,41 @@ public class AccountingService {
         entries.add(JournalEntry.credit(payable.account(), payable.label(), amount));
         if (marginCharge != null && marginCharge.amount() != null
                 && marginCharge.amount().signum() > 0) {
-            // La rémunération du délégué suit la collecte qu'elle
-            // accompagne. En mandat, elle n'est pas davantage une charge de
-            // la structure que le prix bord champ : c'est un frais sur
-            // achat, avancé pour le compte du donneur d'ordre et remboursé
-            // avec le reste (expert-comptable, 01/10/2026). La laisser en
-            // classe 6 gardait une charge de collecte au résultat, que le
-            // mandat est censé vider, et privait le compte d'avances des
-            // frais qu'il doit récupérer à la vente.
-            String marginAccount = onBehalf
-                    ? prefs.collectionAdvanceAccount() : marginCharge.account();
+            // La rémunération du délégué est une charge de la structure,
+            // en mandat comme ailleurs : elle rémunère un service rendu à
+            // la coopérative, pas au producteur, et elle se déduit de la
+            // marge que la coopérative retient sur la vente.
+            //
+            // Elle était passée au compte de débours le 01/10/2026, au
+            // motif qu'elle serait refacturée au client avec le prix bord
+            // champ. Elle ne l'est pas : la vente vaut le prix bord champ
+            // plus la seule marge de la coopérative (note du 09/10/2026).
+            // Le compte de débours portait donc un montant que la vente ne
+            // lui remboursait jamais, et il restait débiteur de la
+            // commission à la clôture, sans que rien ne dise pourquoi.
             entries.add(JournalEntry.debit(
-                    marginAccount, marginCharge.label(), marginCharge.amount()));
+                    marginCharge.account(), marginCharge.label(), marginCharge.amount()));
             entries.add(JournalEntry.credit(
                     payable.account(), marginCharge.label(), marginCharge.amount()));
+        }
+        // La mise en compte : même charge que la part payée, mais la
+        // coopérative la retient. Elle crédite donc le compte d'avance du
+        // délégué, en diminution de ce qu'il doit encore justifier, et non
+        // son compte fournisseur : il n'y a pas de compte de garantie
+        // distinct (note de l'expert du 09/10/2026).
+        //
+        // Elle ne produisait aucune écriture, son traitement comptable
+        // ayant été laissé ouvert faute de contrepartie évidente : le
+        // relevé des délégués la comptait et le grand-livre l'ignorait,
+        // et les deux divergeaient d'autant.
+        if (retentionCharge != null && retentionCharge.amount() != null
+                && retentionCharge.amount().signum() > 0) {
+            entries.add(JournalEntry.debit(
+                    prefs.delegateMarginAccount(),
+                    retentionCharge.label(), retentionCharge.amount()));
+            entries.add(JournalEntry.credit(
+                    retentionCharge.account(), retentionCharge.label(),
+                    retentionCharge.amount()));
         }
         // Le titre nomme la livraison et celui à qui elle est due. Il
         // disait « Achat producteur » suivi de la seule référence : sur
