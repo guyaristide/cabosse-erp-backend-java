@@ -193,6 +193,45 @@ class CollectorAdvanceTest extends AbstractIntegrationTest {
                 .then().statusCode(200).body("data.status", equalTo("CLOSED"));
     }
 
+    /**
+     * Combien d'avances derrière chaque onglet.
+     *
+     * <p>Les onglets annonçaient leur libellé sans leur nombre : il
+     * fallait cliquer pour découvrir qu'une file était vide, et revenir
+     * pour comparer (demandé le 09/10/2026).</p>
+     */
+    @Test
+    void le_decompte_par_statut_sert_les_onglets() {
+        UserEntity admin = tenantAdmin();
+        String sectionId = createSection(admin, "MEAGUI", "Section Méagui");
+        String delegateId = createDelegate(admin, "Délégué Koné", sectionId);
+        String siteId = createSite(admin);
+
+        String[] ids = new String[3];
+        for (int i = 0; i < 3; i++) {
+            ids[i] = givenAs(admin).contentType("application/json")
+                    .body("""
+                            { "delegateSupplierId": "%s", "advanceDate": "%s",
+                              "advanceAmount": 100000, "paymentMethod": "CASH" }
+                            """.formatted(delegateId, LocalDate.now()))
+                    .when().post("/api/v1/collector-advances?siteId=" + siteId)
+                    .then().statusCode(201).extract().path("data.id");
+        }
+        givenAs(admin).when().post("/api/v1/collector-advances/" + ids[0] + "/approve")
+                .then().statusCode(200);
+        givenAs(admin).contentType("application/json").body("{\"reason\":\"Hors budget\"}")
+                .when().post("/api/v1/collector-advances/" + ids[1] + "/reject")
+                .then().statusCode(200);
+
+        // Le décompte porte sur toutes les avances : c'est une lecture,
+        // pas une page de liste.
+        givenAs(admin).when().get("/api/v1/collector-advances/counts")
+                .then().statusCode(200)
+                .body("data.PENDING_APPROVAL", equalTo(1))
+                .body("data.APPROVED", equalTo(1))
+                .body("data.REJECTED", equalTo(1));
+    }
+
     @Test
     void advance_requires_a_collector_supplier() {
         UserEntity admin = tenantAdmin();

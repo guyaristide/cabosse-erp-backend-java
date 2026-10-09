@@ -90,6 +90,9 @@ public class CollectorAdvanceService {
 
     public long countSearch(String status) { return repo.countSearch(status); }
 
+    /** Combien d'avances dans chaque file, pour les onglets. */
+    public java.util.Map<String, Long> countByStatus() { return repo.countByStatus(); }
+
     /**
      * Le libellé de campagne par année, tel que saisi à sa création :
      * l'export doit montrer « Campagne 2026-2027 », pas « 2026 ».

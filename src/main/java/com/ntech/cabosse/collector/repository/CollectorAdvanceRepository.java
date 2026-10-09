@@ -74,6 +74,25 @@ public class CollectorAdvanceRepository {
         return coll().countDocuments(searchFilter(status));
     }
 
+    /**
+     * Combien d'avances par statut, en une requête.
+     *
+     * <p>Les onglets annonçaient leur libellé sans leur nombre : il
+     * fallait cliquer pour savoir si une file était vide, et revenir
+     * pour comparer. Une requête par onglet en aurait fait six.</p>
+     */
+    public java.util.Map<String, Long> countByStatus() {
+        java.util.Map<String, Long> out = new java.util.HashMap<>();
+        coll().withDocumentClass(org.bson.Document.class).aggregate(List.of(
+                com.mongodb.client.model.Aggregates.group("$status",
+                        com.mongodb.client.model.Accumulators.sum("count", 1))
+        ), org.bson.Document.class).forEach(d -> {
+            Object id = d.get("_id");
+            if (id != null) out.put(String.valueOf(id), ((Number) d.get("count")).longValue());
+        });
+        return out;
+    }
+
     public List<CollectorAdvanceEntity> search(String status, int skip, int limit) {
         return coll().find(searchFilter(status))
                 .sort(new org.bson.Document("createdAt", -1))

@@ -68,6 +68,20 @@ public class CollectorAdvanceResource {
                 total, pr, new String[]{"createdAt"}, "desc", filters, items))).build();
     }
 
+    /**
+     * Combien d'avances par statut.
+     *
+     * <p>Les onglets annonçaient leur libellé sans leur nombre : on
+     * cliquait pour découvrir qu'une file était vide, et on revenait
+     * pour comparer. Le décompte porte sur toutes les avances, sans
+     * pagination : c'est une lecture, pas une liste.</p>
+     */
+    @GET
+    @Path("/counts")
+    public Response counts() {
+        return Response.ok(ApiResponse.ok(service.countByStatus())).build();
+    }
+
     /** Export de la liste, mêmes filtres qu'à l'écran. */
     @GET
     @Path("/export")
