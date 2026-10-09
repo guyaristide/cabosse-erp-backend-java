@@ -445,6 +445,20 @@ public class TenantPreferences {
         return DELEGATE_MARGIN_NONE;
     }
 
+    /**
+     * La structure a-t-elle choisi un mode, ou n'y a-t-elle jamais touché ?
+     *
+     * <p>« Aucune » et « jamais réglé » rendaient la même valeur, et un
+     * taux saisi sur la fiche d'un délégué restait lettre morte sans que
+     * rien ne le dise : trente-huit délégués portaient leur taux et la
+     * colonne de l'état restait vide (constaté en production le
+     * 08/10/2026). Un refus explicite se respecte ; une case jamais
+     * ouverte ne doit pas valoir refus.</p>
+     */
+    public boolean delegateMarginModeChosen() {
+        return delegateMarginMode != null && !delegateMarginMode.isBlank();
+    }
+
     /** Taux de marge par défaut, surchargeable délégué par délégué. */
     public java.math.BigDecimal delegateMarginRate;
 

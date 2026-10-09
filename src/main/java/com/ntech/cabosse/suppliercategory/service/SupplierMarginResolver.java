@@ -87,7 +87,16 @@ public class SupplierMarginResolver {
             return new Margin(TenantPreferences.DELEGATE_MARGIN_PER_KG, forCampaign, "campaign");
         }
         if (supplier != null && supplier.collectorMarginRate != null) {
-            String mode = categoryMode != null ? categoryMode : prefs.delegateMarginMode();
+            // Un taux saisi sur la fiche d'un délégué est un montant par
+            // kilo tant que la structure n'a pas dit le contraire. Le mode
+            // non réglé valait « aucune », et le taux ne produisait rien,
+            // en silence : trente-huit délégués portaient le leur et la
+            // colonne de l'état restait vide (08/10/2026). Un « aucune »
+            // choisi à l'écran reste respecté, lui.
+            String mode = categoryMode != null ? categoryMode
+                    : prefs.delegateMarginModeChosen()
+                            ? prefs.delegateMarginMode()
+                            : TenantPreferences.DELEGATE_MARGIN_PER_KG;
             return new Margin(mode, supplier.collectorMarginRate, "supplier");
         }
         if (categoryMode != null) {

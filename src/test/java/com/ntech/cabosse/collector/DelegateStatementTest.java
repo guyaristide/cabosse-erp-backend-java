@@ -468,6 +468,50 @@ class DelegateStatementTest extends AbstractIntegrationTest {
     }
 
     /**
+     * Un taux saisi sur la fiche d'un délégué ne reste pas lettre morte.
+     *
+     * <p>Le mode de rémunération jamais réglé valait « aucune », et le
+     * taux ne produisait rien, sans que rien ne le dise : trente-huit
+     * délégués portaient le leur et la colonne de l'état restait vide
+     * (constaté en production le 08/10/2026). Un montant au kilo saisi
+     * sur une fiche est un montant au kilo.</p>
+     */
+    @Test
+    void un_taux_sur_la_fiche_vaut_sans_reglage_prealable() {
+        UserEntity admin = tenantAdmin();
+        LocalDate today = LocalDate.now();
+        String campaign = createCampaign(admin, "Principale", today.minusMonths(2), today.plusMonths(3));
+        String siteId = createSite(admin);
+        String articleId = createArticle(admin);
+        String sectionId = createSection(admin);
+        String producer = createProducer(admin);
+        // Aucun mode de rémunération n'est réglé : on ne touche pas aux
+        // préférences du tenant.
+        String delegate = givenAs(admin).contentType("application/json")
+                .body("""
+                        { "code": "del-taux", "name": "YEO Mathieu", "collector": true,
+                          "sectionId": "%s", "collectorMarginRate": 35 }
+                        """.formatted(sectionId))
+                .when().post("/api/v1/suppliers").then().statusCode(201).extract().path("data.id");
+
+        givenAs(admin).contentType("application/json")
+                .header("Idempotency-Key", UUID.randomUUID().toString())
+                .body("""
+                        { "date": "%s", "memberId": "%s", "articleId": "%s", "siteId": "%s",
+                          "weightKg": 100, "guaranteedPricePerKg": 1200,
+                          "paymentMethod": "CASH", "delegateSupplierId": "%s" }
+                        """.formatted(today, producer, articleId, siteId, delegate))
+                .when().post("/api/v1/producer-purchases").then().statusCode(201);
+
+        var statement = givenAs(admin)
+                .when().get("/api/v1/collector-advances/delegates/statement?campaignId=" + campaign)
+                .then().statusCode(200).extract().jsonPath();
+        // Le taux s'affiche, et il a payé : 100 kg à 35.
+        assertAmount(statement, "data.rows[0].marginPerKg", "35");
+        assertAmount(statement, "data.rows[0].marginAmount", "3500");
+    }
+
+    /**
      * Ce qu'on vient de lui verser ne lui reste pas dû.
      *
      * <p>Le report des campagnes antérieures comptait les règlements, la
