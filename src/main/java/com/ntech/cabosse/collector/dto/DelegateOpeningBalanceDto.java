@@ -12,6 +12,8 @@ import java.util.UUID;
 public record DelegateOpeningBalanceDto(
         UUID delegateSupplierId,
         String delegateName,
+        /** Le code de la fiche : c'est par lui qu'un fichier le désigne. */
+        String delegateCode,
         UUID campaignId,
         /** Positif : le délégué doit. Négatif : la coopérative lui doit. */
         BigDecimal amount,
@@ -20,8 +22,12 @@ public record DelegateOpeningBalanceDto(
         String updatedByEmail
 ) {
     public static DelegateOpeningBalanceDto from(DelegateOpeningBalanceEntity e) {
+        return from(e, null);
+    }
+
+    public static DelegateOpeningBalanceDto from(DelegateOpeningBalanceEntity e, String code) {
         return new DelegateOpeningBalanceDto(
-                e.delegateSupplierId, e.delegateName, e.campaignId,
+                e.delegateSupplierId, e.delegateName, code, e.campaignId,
                 e.amount, e.notes, e.updatedAt, e.updatedByEmail);
     }
 }

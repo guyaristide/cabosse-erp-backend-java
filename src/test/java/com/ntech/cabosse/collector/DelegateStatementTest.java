@@ -538,6 +538,86 @@ class DelegateStatementTest extends AbstractIntegrationTest {
         assertAmount(before, "data.rows[0].advanceBalance", "-200000");
     }
 
+    /**
+     * Reprendre les soldes de départ depuis un fichier.
+     *
+     * <p>Une coopérative qui démarre arrive avec des dizaines de délégués
+     * débiteurs, tenus sur un classeur. Les saisir un à un occupe une
+     * matinée et la moindre coquille passe inaperçue (08/10/2026).</p>
+     */
+    @Test
+    void les_soldes_de_depart_se_reprennent_depuis_un_fichier() {
+        UserEntity admin = tenantAdmin();
+        LocalDate today = LocalDate.now();
+        String campaign = createCampaign(admin, "Principale", today.minusMonths(2), today.plusMonths(3));
+        String sectionId = createSection(admin);
+        createDelegate(admin, "cra-a-001", "TIEMOKO SYLVAIN", sectionId, 0);
+        createDelegate(admin, "ble-laurent", "BLE LAURENT", sectionId, 0);
+
+        String payload = """
+                [ { "rowNumber": 1, "delegateCode": "cra-a-001", "amount": "2 637 960",
+                    "notes": "Solde campagne 2025-2026" },
+                  { "rowNumber": 2, "delegateName": "BLE LAURENT", "amount": "918245" },
+                  { "rowNumber": 3, "delegateCode": "inconnu", "amount": "100" },
+                  { "rowNumber": 4, "delegateCode": "cra-a-001", "amount": "50" } ]
+                """;
+
+        // Le nom sert quand le classeur d'origine ne porte pas les codes,
+        // ce qui est le cas courant d'une reprise.
+        givenAs(admin).contentType("application/json").body(payload)
+                .queryParam("campaignId", campaign)
+                .when().post("/api/v1/delegate-opening-balances/import/preview")
+                .then().statusCode(200)
+                .body("data.readyRows", equalTo(2))
+                .body("data.invalidRows", equalTo(1))
+                .body("data.duplicateRows", equalTo(1))
+                .body("data.rows[0].normalized.amount", equalTo(2637960));
+
+        givenAs(admin).contentType("application/json").body(payload)
+                .queryParam("campaignId", campaign)
+                .when().post("/api/v1/delegate-opening-balances/import/commit")
+                .then().statusCode(200)
+                .body("data.appliedCount", equalTo(2))
+                .body("data.skippedCount", equalTo(2));
+
+        var statement = givenAs(admin)
+                .when().get("/api/v1/collector-advances/delegates/statement?campaignId=" + campaign)
+                .then().statusCode(200).extract().jsonPath();
+        assertAmount(statement, "data.totals.openingBalance", "3556205");
+
+        // L'export reprend les colonnes du modèle, pour que le fichier
+        // corrigé se recharge tel quel.
+        givenAs(admin)
+                .queryParam("campaignId", campaign).queryParam("format", "csv")
+                .when().get("/api/v1/delegate-opening-balances/export")
+                .then().statusCode(200);
+    }
+
+    /** Une reprise corrige, elle ne s'empile pas. */
+    @Test
+    void un_second_fichier_corrige_le_solde_au_lieu_de_s_y_ajouter() {
+        UserEntity admin = tenantAdmin();
+        LocalDate today = LocalDate.now();
+        String campaign = createCampaign(admin, "Principale", today.minusMonths(2), today.plusMonths(3));
+        String sectionId = createSection(admin);
+        createDelegate(admin, "soro-adama", "SORO ADAMA", sectionId, 0);
+
+        for (String amount : new String[]{"500000", "420000"}) {
+            givenAs(admin).contentType("application/json")
+                    .body("""
+                            [ { "rowNumber": 1, "delegateCode": "soro-adama", "amount": "%s" } ]
+                            """.formatted(amount))
+                    .queryParam("campaignId", campaign)
+                    .when().post("/api/v1/delegate-opening-balances/import/commit")
+                    .then().statusCode(200).body("data.appliedCount", equalTo(1));
+        }
+
+        var statement = givenAs(admin)
+                .when().get("/api/v1/collector-advances/delegates/statement?campaignId=" + campaign)
+                .then().statusCode(200).extract().jsonPath();
+        assertAmount(statement, "data.totals.openingBalance", "420000");
+    }
+
     @Test
     void sur_plusieurs_campagnes_l_etat_ne_fabrique_pas_un_depart() {
         UserEntity admin = tenantAdmin();

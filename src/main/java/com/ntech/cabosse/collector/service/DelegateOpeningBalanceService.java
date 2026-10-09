@@ -47,8 +47,15 @@ public class DelegateOpeningBalanceService {
     @Inject JsonWebToken jwt;
 
     public List<DelegateOpeningBalanceDto> list(UUID campaignId) {
+        // Le code vient de la fiche : c'est par lui qu'un fichier désigne
+        // un délégué, et l'export doit pouvoir se recharger tel quel.
+        java.util.Map<UUID, String> codeById = new java.util.HashMap<>();
+        for (SupplierEntity s : suppliers.listAll()) {
+            if (s.code != null) codeById.put(s.id, s.code);
+        }
         return repo.listByCampaign(campaignId).stream()
-                .map(DelegateOpeningBalanceDto::from).toList();
+                .map(e -> DelegateOpeningBalanceDto.from(e, codeById.get(e.delegateSupplierId)))
+                .toList();
     }
 
     /** Le montant déclaré, ou zéro : l'absence de saisie n'est pas une erreur. */
