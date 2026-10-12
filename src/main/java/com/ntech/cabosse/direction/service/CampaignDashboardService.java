@@ -151,9 +151,20 @@ public class CampaignDashboardService {
             }
         }
 
-        // ─── Stock courant des articles de la campagne, tous sites ───
+        // ─── Stock courant de la matière négociée, tous sites ───
+        // Les articles vus en achat ou en vente ne suffisent pas : une
+        // structure qui démarre avec son stock amorcé et n'a encore rien
+        // acheté lisait « stock actuel : 0 » à côté de son magasin plein
+        // (12/10/2026). Le stock est celui de la matière, pas celui des
+        // seules lignes de la campagne.
         BigDecimal stockWeight = BigDecimal.ZERO;
+        java.util.Set<UUID> counted = new LinkedHashSet<>();
+        for (StockItemEntity item : stockItems.listTradedMatter()) {
+            stockWeight = stockWeight.add(nz(item.quantity));
+            if (item.articleId != null) counted.add(item.articleId);
+        }
         for (UUID articleId : articleIds) {
+            if (counted.contains(articleId)) continue;
             for (StockItemEntity item : stockItems.listByArticle(articleId)) {
                 stockWeight = stockWeight.add(nz(item.quantity));
             }

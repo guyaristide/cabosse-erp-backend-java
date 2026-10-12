@@ -93,6 +93,33 @@ public class CommoditySaleRepository {
                 .into(new ArrayList<>());
     }
 
+    /**
+     * Les sacs sortis par des ventes en gros sur une plage de dates.
+     *
+     * <p>Seules celles qui n'ont pas de bordereau de sortie : quand il y
+     * en a un, c'est lui qui compte les sacs, et les compter deux fois
+     * ferait fondre le stock de sacs du magasin.</p>
+     *
+     * <p>Le compte de sacs de la fiche du jour ne retranchait que les
+     * reçus, les corrections et les bordereaux : une vente en gros sans
+     * bordereau le laissait trop haut, définitivement (12/10/2026).</p>
+     */
+    public int sumBagsWithoutDispatch(LocalDate from, LocalDate toExclusive,
+                                      UUID siteId, UUID articleId) {
+        List<Bson> filters = new ArrayList<>();
+        if (from != null) filters.add(Filters.gte("date", from));
+        if (toExclusive != null) filters.add(Filters.lt("date", toExclusive));
+        filters.add(Filters.eq("dispatchNoteId", null));
+        if (siteId != null) filters.add(Filters.eq("siteId", siteId));
+        if (articleId != null) filters.add(Filters.eq("articleId", articleId));
+        Document sum = coll().withDocumentClass(Document.class).aggregate(List.of(
+                com.mongodb.client.model.Aggregates.match(Filters.and(filters)),
+                com.mongodb.client.model.Aggregates.group(null,
+                        com.mongodb.client.model.Accumulators.sum("bags", "$weights.sacsAccepted"))
+        ), Document.class).first();
+        return sum != null && sum.get("bags") != null ? ((Number) sum.get("bags")).intValue() : 0;
+    }
+
     public Optional<CommoditySaleEntity> findById(UUID id) {
         return Optional.ofNullable(coll().find(Filters.eq("_id", id)).first());
     }

@@ -71,6 +71,32 @@ public class StockMovementRepository {
                 .into(new ArrayList<>());
     }
 
+    /**
+     * Ce qui est sorti du magasin un jour donné, hors corrections.
+     *
+     * <p>La fiche du jour ne retranchait rien de ce qui sort : sa
+     * clôture était celle d'un magasin qui n'aurait rien expédié, et le
+     * report du lendemain ne tombait pas sur elle (12/10/2026). Les
+     * corrections en sont exclues : elles ont déjà leur ligne.</p>
+     */
+    public java.math.BigDecimal sumOutflowsOn(Instant dayStart, Instant dayEnd,
+                                              UUID siteId, UUID articleId) {
+        List<Bson> filters = new ArrayList<>();
+        filters.add(Filters.in("kind", "OUT", "TRANSFER_OUT"));
+        filters.add(Filters.ne("sourceType", "STOCK_CORRECTION"));
+        filters.add(Filters.gte("occurredAt", dayStart));
+        filters.add(Filters.lt("occurredAt", dayEnd));
+        filters.add(stillCounts());
+        if (siteId != null) filters.add(Filters.eq("siteId", siteId));
+        if (articleId != null) filters.add(Filters.eq("articleId", articleId));
+        java.math.BigDecimal total = java.math.BigDecimal.ZERO;
+        for (StockMovementEntity m : coll().find(Filters.and(filters))) {
+            total = total.add(m.quantitySigned == null
+                    ? java.math.BigDecimal.ZERO : m.quantitySigned.abs());
+        }
+        return total;
+    }
+
     public Optional<StockMovementEntity> findById(UUID id) {
         return Optional.ofNullable(coll().find(Filters.eq("_id", id)).first());
     }
@@ -274,11 +300,28 @@ public class StockMovementRepository {
     }
 
     /**
+     * Un mouvement neutralisé ne compte pas : le journal est append-only,
+     * une contre-passation ne supprime rien, elle sort la paire de la
+     * valorisation.
+     */
+    private static Bson stillCounts() {
+        return Filters.ne("excludedFromValuation", Boolean.TRUE);
+    }
+
+    /**
      * Y a-t-il au moins un mouvement déjà enregistré pour ce couple ?
-     * Sert au refus d'un OPENING (amorçage) sur un site déjà initialisé.
+     *
+     * <p>Sert au refus d'un amorçage sur un couple déjà initialisé. Les
+     * mouvements neutralisés en sont exclus : un reçu saisi par erreur le
+     * premier jour, puis annulé, interdisait l'amorçage pour toujours et
+     * ne laissait que l'inventaire comme recours (constaté le
+     * 12/10/2026).</p>
      */
     public boolean hasAnyMovement(UUID articleId, UUID siteId) {
-        return countByArticleAndSite(articleId, siteId) > 0;
+        return coll().countDocuments(Filters.and(
+                Filters.eq("articleId", articleId),
+                Filters.eq("siteId", siteId),
+                stillCounts())) > 0;
     }
 
     /**
@@ -292,7 +335,8 @@ public class StockMovementRepository {
      */
     public List<UUID> articleIdsWithMovement(UUID siteId) {
         List<UUID> out = new ArrayList<>();
-        coll().distinct("articleId", Filters.eq("siteId", siteId), UUID.class)
+        coll().distinct("articleId",
+                        Filters.and(Filters.eq("siteId", siteId), stillCounts()), UUID.class)
                 .forEach(out::add);
         return out;
     }

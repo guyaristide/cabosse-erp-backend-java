@@ -114,6 +114,12 @@ public final class SyscohadaAccounts {
      * d'inventaire selon la nature de l'article. {@code TRANSPORT} n'est
      * jamais stocké : retour {@code null}, la ligne est ignorée.
      */
+    /** Les comptes de stock, tous confondus : sert au rapprochement. */
+    public static java.util.List<String> stockAccounts() {
+        return java.util.List.of(STOCKS_MARCHANDISES, STOCKS_MATIERES,
+                STOCKS_AUTRES_APPRO, STOCKS_PRODUITS_FINIS);
+    }
+
     public static String stockAccountFor(ArticleType type) {
         if (type == null) return STOCKS_MARCHANDISES;
         return switch (type) {

@@ -15,7 +15,8 @@ final class DayIntakeSheetExportColumns {
     static List<ExportColumn<DayIntakeRowDto>> all() {
         return List.of(
                 ExportColumn.of(Messages.msg("m.imp-h-date"), DayIntakeRowDto::date),
-                ExportColumn.of(Messages.msg("m.pds-h-supplier"), DayIntakeRowDto::supplierName),
+                ExportColumn.of(Messages.msg("m.pds-h-supplier"),
+                        DayIntakeSheetExportColumns::supplierLabel),
                 ExportColumn.of(Messages.msg("m.imp-h-recu"), DayIntakeRowDto::ref),
                 ExportColumn.of(Messages.msg("m.imp-h-bordereau"), DayIntakeRowDto::deliveryRef),
                 ExportColumn.of(Messages.msg("m.imp-h-nb-sacs"), DayIntakeRowDto::nbSacs),
@@ -30,8 +31,20 @@ final class DayIntakeSheetExportColumns {
                 ExportColumn.of(Messages.msg("m.pds-h-cumulative-bags"), DayIntakeRowDto::cumulativeBags));
     }
 
+    /**
+     * L'apporteur du carnet. Un amorçage n'en a pas, et l'écran le nomme
+     * lui-même : l'export, lui, sortait une ligne sans apporteur ni
+     * statut (12/10/2026).
+     */
+    private static String supplierLabel(DayIntakeRowDto row) {
+        if (row.supplierName() != null && !row.supplierName().isBlank()) return row.supplierName();
+        return "OPENING".equals(row.rowKind()) ? Messages.msg("m.pds-kind-opening") : null;
+    }
+
     /** Le statut du carnet, dans la langue de l'export. */
     private static String kindLabel(DayIntakeRowDto row) {
+        if ("OPENING".equals(row.rowKind())) return Messages.msg("m.pds-kind-opening");
+        if ("CORRECTION".equals(row.rowKind())) return Messages.msg("m.pds-kind-correction");
         if (row.supplierKind() == null) return null;
         if ("DELEGATE".equals(row.supplierKind())) return Messages.msg("m.pds-kind-delegate");
         return Messages.msg("m.pds-kind-producer");

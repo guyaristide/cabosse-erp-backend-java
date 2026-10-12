@@ -76,6 +76,7 @@ import java.util.UUID;
 public class AccountingResource {
 
     @Inject com.ntech.cabosse.accounting.service.SubsidiaryLedgerService subsidiary;
+    @Inject com.ntech.cabosse.accounting.service.StockReconciliationService stockReconciliation;
 
     @Inject AccountingQueryService query;
     @Inject com.ntech.cabosse.accounting.service.AccountingService accounting;
@@ -93,6 +94,21 @@ public class AccountingResource {
     @Inject BankReconciliationService reconciliation;
     @Inject com.ntech.cabosse.accounting.repository.BankStatementRepository statements;
     @Inject com.ntech.cabosse.accounting.repository.BankStatementLineRepository statementLines;
+
+    /**
+     * Le magasin et le journal, côte à côte.
+     *
+     * <p>Le stock de départ est un constat de quantité et ne passe
+     * aucune écriture : c'est le comptable qui porte les à-nouveaux. Rien
+     * ne rapprochait les deux, et un compte de stock pouvait devenir
+     * créditeur sans que personne ne sache d'où cela venait
+     * (12/10/2026).</p>
+     */
+    @GET
+    @Path("/stock-reconciliation")
+    public Response stockReconciliation() {
+        return Response.ok(ApiResponse.ok(stockReconciliation.rows())).build();
+    }
 
     // ─── Dashboard ──────────────────────────────────────────────────
 

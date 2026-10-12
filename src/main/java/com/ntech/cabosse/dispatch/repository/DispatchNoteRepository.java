@@ -36,8 +36,14 @@ public class DispatchNoteRepository {
      * sacs aussi.</p>
      */
     public int sumBagsBefore(LocalDate date, UUID siteId, UUID articleId) {
+        return sumBagsBetween(null, date, siteId, articleId);
+    }
+
+    /** Les sacs partis un jour donné, bornes [from, toExclusive[. */
+    public int sumBagsBetween(LocalDate from, LocalDate toExclusive, UUID siteId, UUID articleId) {
         List<Bson> filters = new ArrayList<>();
-        filters.add(Filters.lt("date", date));
+        if (from != null) filters.add(Filters.gte("date", from));
+        if (toExclusive != null) filters.add(Filters.lt("date", toExclusive));
         filters.add(Filters.ne("status", DispatchNoteStatus.CANCELLED.name()));
         if (siteId != null) filters.add(Filters.eq("siteId", siteId));
         if (articleId != null) filters.add(Filters.eq("articleId", articleId));

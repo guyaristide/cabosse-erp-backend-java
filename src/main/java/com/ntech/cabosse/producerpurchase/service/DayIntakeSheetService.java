@@ -45,6 +45,7 @@ public class DayIntakeSheetService {
     @Inject StockMovementRepository movements;
     @Inject StockCorrectionRepository correctionRepo;
     @Inject DispatchNoteRepository dispatchNotes;
+    @Inject com.ntech.cabosse.commodity.repository.CommoditySaleRepository commoditySales;
 
     public DayIntakeSheetDto build(LocalDate date, UUID siteId, UUID articleId) {
         if (date == null) {
@@ -99,7 +100,12 @@ public class DayIntakeSheetService {
                 openingBags = anchor
                         + purchases.sumBagsBefore(date, siteId, sheetArticleId)
                         - correctionRepo.sumBagsBefore(date, siteId, sheetArticleId)
-                        - dispatchNotes.sumBagsBefore(date, siteId, sheetArticleId);
+                        - dispatchNotes.sumBagsBefore(date, siteId, sheetArticleId)
+                        // Une vente en gros sans bordereau sort pourtant
+                        // des sacs : sans elle le compte restait trop
+                        // haut, définitivement (12/10/2026).
+                        - commoditySales.sumBagsWithoutDispatch(
+                                null, date, siteId, sheetArticleId);
             }
             // Juste avant minuit, pas à minuit : les mouvements d'un reçu
             // sont horodatés au début exact de leur journée, et une photo
@@ -168,9 +174,24 @@ public class DayIntakeSheetService {
                     "CORRECTION", c.id));
         }
 
+        // Ce qui est sorti du magasin dans la journée. Sans ligne sur la
+        // fiche, les sorties ayant leur propre pièce, mais retranché de
+        // la clôture : sinon le report du lendemain ne tombe pas sur
+        // elle (12/10/2026).
+        BigDecimal outflowWeight = sheetArticleId == null || siteId == null
+                ? BigDecimal.ZERO
+                : movements.sumOutflowsOn(dayStart, dayEnd, siteId, sheetArticleId);
+        int outflowBags = sheetArticleId == null || siteId == null ? 0
+                : dispatchNotes.sumBagsBetween(date, date.plusDays(1), siteId, sheetArticleId)
+                        + commoditySales.sumBagsWithoutDispatch(
+                                date, date.plusDays(1), siteId, sheetArticleId);
+        runningQty = runningQty.subtract(outflowWeight);
+        runningBags -= outflowBags;
+
         return new DayIntakeSheetDto(date, siteId, sheetArticleId, articleName,
                 opening, openingBags, rows, totalWeight, totalAmount, enteredBags, runningQty,
-                correctedWeight, correctedBags, runningBags);
+                correctedWeight, correctedBags, runningBags,
+                outflowWeight, outflowBags);
     }
 
     private static BigDecimal nz(BigDecimal v) {

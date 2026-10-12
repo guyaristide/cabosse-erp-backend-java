@@ -21,6 +21,12 @@ public record StockMovementResponseDto(
         String articleUnit,
         String siteName,
         MovementKind kind,
+        /**
+         * Sacs posés par ce mouvement. Seul l'amorçage en porte : c'est
+         * le point de départ du compte de sacs du magasin, et il n'était
+         * relisible nulle part une fois saisi (12/10/2026).
+         */
+        Integer bags,
         BigDecimal quantitySigned,
         BigDecimal unitPrice,
         BigDecimal total,
@@ -52,7 +58,7 @@ public record StockMovementResponseDto(
                 e.id, e.ref,
                 e.articleId, e.siteId,
                 e.articleCode, e.articleName, e.articleUnit, e.siteName,
-                e.kind, e.quantitySigned, e.unitPrice, e.total,
+                e.kind, e.bags, e.quantitySigned, e.unitPrice, e.total,
                 e.quantityAfter, e.cmupAfter,
                 e.sourceType, e.sourceRef, documentRef, e.sourceEntityId, e.transferId,
                 e.reason, e.lotRef, e.notes, e.actorEmail,

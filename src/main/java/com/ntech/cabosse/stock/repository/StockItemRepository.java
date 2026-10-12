@@ -164,6 +164,25 @@ public class StockItemRepository {
                 .into(new ArrayList<>());
     }
 
+    /**
+     * Le stock de la matière que la structure négocie, tous sites.
+     *
+     * <p>Le pilotage de campagne ne sommait que les articles vus en
+     * achat ou en vente : une structure qui démarre avec son stock
+     * amorcé et n'a encore rien acheté lisait « stock actuel : 0 »
+     * (12/10/2026).</p>
+     */
+    public List<StockItemEntity> listTradedMatter() {
+        return coll().find(Filters.in("articleType",
+                        ArticleType.RAW_MATERIAL.name(), ArticleType.MERCHANDISE.name()))
+                .into(new ArrayList<>());
+    }
+
+    /** Toutes les positions de stock, tous sites et toutes natures. */
+    public List<StockItemEntity> listAll() {
+        return coll().find().into(new ArrayList<>());
+    }
+
     public void insert(StockItemEntity e) {
         coll().insertOne(e);
     }

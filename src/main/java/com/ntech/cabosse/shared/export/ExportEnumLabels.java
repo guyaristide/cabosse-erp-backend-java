@@ -39,6 +39,49 @@ public final class ExportEnumLabels {
         };
     }
 
+    /** Nature d'un mouvement de stock. */
+    public static String movementKind(String code) {
+        if (code == null || code.isBlank()) return code;
+        return switch (code) {
+            case "IN" -> Messages.msg("m.mvk-in");
+            case "OUT" -> Messages.msg("m.mvk-out");
+            case "ADJUSTMENT" -> Messages.msg("m.mvk-adjustment");
+            case "OPENING" -> Messages.msg("m.mvk-opening");
+            case "TRANSFER_OUT" -> Messages.msg("m.mvk-transfer-out");
+            case "TRANSFER_IN" -> Messages.msg("m.mvk-transfer-in");
+            default -> code;
+        };
+    }
+
+    /**
+     * D'où vient un mouvement de stock.
+     *
+     * <p>L'export du journal rendait le code brut : un lecteur y voyait
+     * {@code PRODUCER_PURCHASE} au lieu d'un achat au producteur
+     * (12/10/2026).</p>
+     */
+    public static String movementSource(String code) {
+        if (code == null || code.isBlank()) return code;
+        return switch (code) {
+            case "OPENING" -> Messages.msg("m.mvs-opening");
+            case "PURCHASE_ORDER" -> Messages.msg("m.mvs-purchase-order");
+            case "DIRECT_RECEIPT" -> Messages.msg("m.mvs-direct-receipt");
+            case "PRODUCTION" -> Messages.msg("m.mvs-production");
+            case "SALE" -> Messages.msg("m.mvs-sale");
+            case "TRANSFER" -> Messages.msg("m.mvs-transfer");
+            case "INVENTORY" -> Messages.msg("m.mvs-inventory");
+            case "MANUAL" -> Messages.msg("m.mvs-manual");
+            case "RECLASSIFICATION" -> Messages.msg("m.mvs-reclassification");
+            case "AGRICULTURAL_QC" -> Messages.msg("m.mvs-agricultural-qc");
+            case "COLLECTOR_DELIVERY" -> Messages.msg("m.mvs-collector-delivery");
+            case "PRODUCER_PURCHASE" -> Messages.msg("m.mvs-producer-purchase");
+            case "COMMODITY_SALE" -> Messages.msg("m.mvs-commodity-sale");
+            case "DISPATCH_NOTE" -> Messages.msg("m.mvs-dispatch-note");
+            case "STOCK_CORRECTION" -> Messages.msg("m.mvs-stock-correction");
+            default -> code;
+        };
+    }
+
     /** Nature d'un engagement producteur : crédit ou avance. */
     public static String creditKind(String code) {
         if (code == null || code.isBlank()) return code;

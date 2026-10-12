@@ -46,5 +46,16 @@ public record DayIntakeSheetDto(
         /** Sacs retirés au brassage dans la journée. */
         Integer totalCorrectedBags,
         /** Sacs en stock à la clôture : ouverture, plus entrés, moins retirés. */
-        Integer closingBags
+        Integer closingBags,
+        /**
+         * Ce qui est sorti du magasin dans la journée : chargements,
+         * ventes, transferts.
+         *
+         * <p>Les sorties n'ont pas de ligne sur la fiche, elles ont leur
+         * propre pièce, mais elles pèsent sur la clôture. Sans elles, le
+         * report du lendemain ne tombait pas sur la clôture de la
+         * veille (12/10/2026).</p>
+         */
+        BigDecimal totalOutflowWeightKg,
+        Integer totalOutflowBags
 ) {}

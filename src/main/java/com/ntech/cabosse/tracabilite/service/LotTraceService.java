@@ -214,7 +214,12 @@ public class LotTraceService {
      */
     private static String formatSourceLabel(StockMovementEntity m) {
         if (m.sourceRef != null && !m.sourceRef.isBlank()) return m.sourceRef;
-        return m.sourceType != null ? m.sourceType.name() : "—";
+        // Un amorçage n'a pas de pièce d'origine : la fiche de
+        // traçabilité annonçait alors « Fournisseur : OPENING », y
+        // compris devant un auditeur (12/10/2026).
+        return m.sourceType != null
+                ? com.ntech.cabosse.shared.export.ExportEnumLabels.movementSource(m.sourceType.name())
+                : "—";
     }
 
     // ════════════════════════════════════════════════════════════════

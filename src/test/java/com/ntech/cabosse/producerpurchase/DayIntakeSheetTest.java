@@ -227,6 +227,93 @@ class DayIntakeSheetTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void la_cloture_du_jour_retranche_ce_qui_est_sorti() {
+        UserEntity admin = tenantAdmin();
+        String siteCode = "s-" + java.util.UUID.randomUUID().toString().substring(0, 8);
+        String siteId = givenAs(admin).contentType("application/json")
+                .body("{\"name\":\"Magasin\",\"type\":\"CENTRAL_WAREHOUSE\",\"code\":\"" + siteCode + "\"}")
+                .when().post("/api/v1/sites").then().statusCode(201).extract().path("data.id");
+        String articleId = givenAs(admin).contentType("application/json")
+                .body("{\"type\":\"RAW_MATERIAL\",\"name\":\"Fèves\",\"unit\":\"kg\"}")
+                .when().post("/api/v1/articles").then().statusCode(201).extract().path("data.id");
+
+        LocalDate today = LocalDate.now();
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "siteId": "%s", "occurredAt": "%s",
+                          "lines": [ { "articleId": "%s", "quantity": 1000,
+                                       "unitPrice": 1000, "bags": 20 } ] }
+                        """.formatted(siteId, java.time.Instant.now(), articleId))
+                .when().post("/api/v1/stocks/opening").then().statusCode(201);
+
+        // Une sortie manuelle de 300 kg le même jour.
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "articleId": "%s", "siteId": "%s", "kind": "OUT",
+                          "quantity": 300, "reason": "Sortie atelier" }
+                        """.formatted(articleId, siteId))
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                .when().post("/api/v1/stocks/movements").then().statusCode(201);
+
+        // La fiche ne retranchait rien de ce qui sort : sa clôture était
+        // celle d'un magasin qui n'aurait rien expédié, et le report du
+        // lendemain ne tombait pas sur elle (12/10/2026).
+        givenAs(admin)
+                .queryParam("date", today.toString())
+                .queryParam("siteId", siteId)
+                .when().get("/api/v1/producer-purchases/day-sheet")
+                .then().statusCode(200)
+                .body("data.totalOutflowWeightKg", equalTo(300.0F))
+                .body("data.closingQuantity", equalTo(700.0F));
+    }
+
+    @Test
+    void un_recu_annule_ne_verrouille_plus_l_amorcage() {
+        UserEntity admin = tenantAdmin();
+        String siteCode = "s-" + java.util.UUID.randomUUID().toString().substring(0, 8);
+        String siteId = givenAs(admin).contentType("application/json")
+                .body("{\"name\":\"Magasin\",\"type\":\"CENTRAL_WAREHOUSE\",\"code\":\"" + siteCode + "\"}")
+                .when().post("/api/v1/sites").then().statusCode(201).extract().path("data.id");
+        String articleId = givenAs(admin).contentType("application/json")
+                .body("{\"type\":\"RAW_MATERIAL\",\"name\":\"Fèves\",\"unit\":\"kg\"}")
+                .when().post("/api/v1/articles").then().statusCode(201).extract().path("data.id");
+        String memberId = givenAs(admin).contentType("application/json")
+                .body("{\"lastName\":\"Kone\",\"gender\":\"MALE\",\"status\":\"ACTIVE\"}")
+                .when().post("/api/v1/members").then().statusCode(201).extract().path("data.id");
+
+        // Le faux pas du premier jour : un reçu saisi avant l'amorçage.
+        String purchaseId = givenAs(admin).contentType("application/json")
+                .body("""
+                        { "date": "%s", "memberId": "%s", "articleId": "%s", "siteId": "%s",
+                          "weightKg": 100, "guaranteedPricePerKg": 1000, "paymentMethod": "CASH" }
+                        """.formatted(LocalDate.now(), memberId, articleId, siteId))
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                .when().post("/api/v1/producer-purchases").then().statusCode(201)
+                .extract().path("data.id");
+        givenAs(admin).contentType("application/json")
+                .body("{\"reason\":\"Saisi avant l'amorçage\"}")
+                .when().post("/api/v1/producer-purchases/" + purchaseId + "/cancel")
+                .then().statusCode(200);
+
+        // Le mouvement annulé ne compte plus : l'article n'était plus
+        // amorçable, pour toujours, et il ne restait que l'inventaire
+        // (constaté le 12/10/2026).
+        givenAs(admin).when()
+                .get("/api/v1/stocks/opening/locked?siteId=" + siteId)
+                .then().statusCode(200)
+                .body("data", org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasItem(articleId)));
+
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "siteId": "%s", "occurredAt": "%s",
+                          "lines": [ { "articleId": "%s", "quantity": 500, "unitPrice": 1000 } ] }
+                        """.formatted(siteId, java.time.Instant.now(), articleId))
+                .when().post("/api/v1/stocks/opening").then().statusCode(201)
+                .body("data.rejectedCount", equalTo(0))
+                .body("data.createdCount", equalTo(1));
+    }
+
+    @Test
     void la_correction_sort_la_matiere_et_passe_en_charge() {
         UserEntity admin = tenantAdmin();
         String siteCode = "s-" + java.util.UUID.randomUUID().toString().substring(0, 8);
