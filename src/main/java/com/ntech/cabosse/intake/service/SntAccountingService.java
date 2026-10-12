@@ -17,6 +17,7 @@ import com.ntech.cabosse.members.entity.MemberStatus;
 import com.ntech.cabosse.members.repository.MemberRepository;
 import com.ntech.cabosse.members.service.MemberService;
 import com.ntech.cabosse.producerpurchase.dto.ProducerPurchaseUpsertDto;
+import com.ntech.cabosse.producerpurchase.entity.ProducerPurchaseEntity;
 import com.ntech.cabosse.producerpurchase.service.DeliveryNoteRefService;
 import com.ntech.cabosse.producerpurchase.service.ProducerPurchaseService;
 import com.ntech.cabosse.reception.entity.PaymentMethod;
@@ -153,12 +154,30 @@ public class SntAccountingService {
         // producteur, pas par sa position dans le tableur : l'ordre des
         // lignes change d'un export à l'autre, le numéro non. Ce qui
         // porte déjà un reçu est laissé en place.
+        // Une ligne numérotée se reconnaît à son numéro de carnet. Une
+        // ligne qui n'en porte pas - le cas ordinaire des extraits du
+        // terrain - se reconnaît à ce qu'elle dit : sa date, son poids,
+        // son montant. Sans cette seconde reconnaissance, compléter un
+        // bordereau recréerait toutes ses lignes déjà comptabilisées.
+        Map<String, Integer> alreadyThere = new HashMap<>();
+        for (ProducerPurchaseEntity done : purchases.findByRefs(
+                note.receiptRefs == null ? List.of() : note.receiptRefs)) {
+            alreadyThere.merge(signature(done.date, done.weightKg, done.amount), 1, Integer::sum);
+        }
         List<SntPreviewDto.Row> pending = new ArrayList<>();
         for (SntPreviewDto.Row row : preview.rows()) {
             String officialRef = clean(row.reference());
             if (officialRef != null
                     && purchases.findByOfficialReceipt(officialRef).isPresent()) {
                 continue;
+            }
+            if (officialRef == null) {
+                String key = signature(row.date(), row.weightKg(), row.amount());
+                Integer left = alreadyThere.get(key);
+                if (left != null && left > 0) {
+                    alreadyThere.put(key, left - 1);
+                    continue;
+                }
             }
             pending.add(row);
         }
@@ -178,6 +197,16 @@ public class SntAccountingService {
         BigDecimal gap = note.netWeightKg != null ? note.netWeightKg.subtract(weight) : null;
         return new SntCommitResultDto(created.refs().size(), created.createdMembers(),
                 created.skipped().size(), weight, amount, gap, refs, created.skipped());
+    }
+
+    /**
+     * Ce qui identifie une ligne sans numéro de carnet : le jour, le
+     * poids et le montant. Deux lignes identiques le même jour sont deux
+     * livraisons distinctes, et le décompte en tient deux.
+     */
+    private static String signature(LocalDate date, BigDecimal weight, BigDecimal amount) {
+        return date + "|" + (weight == null ? "" : weight.stripTrailingZeros().toPlainString())
+                + "|" + (amount == null ? "" : amount.stripTrailingZeros().toPlainString());
     }
 
     /** Ce qu'une passe de création a produit, et ce qu'elle a laissé de côté. */
@@ -207,11 +236,16 @@ public class SntAccountingService {
                 continue;
             }
             try {
+                // Une fiche ne s'ouvre que pour un producteur nommé.
+                // Sans nom, le reçu repose sur le fournisseur : fabriquer
+                // une fiche vide peuplerait le registre de sociétaires
+                // qui ne sont personne.
                 UUID memberId = row.memberId();
-                if (memberId == null) {
+                if (memberId == null && row.producerName() != null) {
                     memberId = createMember(row, note);
                     createdMembers++;
                 }
+                UUID apporteur = memberId == null ? preview.supplierId() : null;
                 UUID saleDelegate = preview.delegateSupplierId();
                 String deliveryRef = saleDelegate == null ? null
                         : deliveryRefs.computeIfAbsent(
@@ -222,6 +256,7 @@ public class SntAccountingService {
                         row.reference(),
                         null,
                         memberId,
+                        apporteur,
                         articleId,
                         // Le site vient du bordereau : c'est le magasin qui
                         // sait où la matière est entrée, pas la comptabilité
@@ -324,11 +359,21 @@ public class SntAccountingService {
                 }
             }
         }
-        boolean delegateUnmatched = delegateId == null && namedDelegate != null;
+        // Le fournisseur du bordereau porte les reçus que le document ne
+        // nomme pas. C'est le délégué quand il en est un, sinon le
+        // fournisseur ordinaire reconnu à l'import du bordereau.
+        final UUID counterpartySupplierId =
+                delegateId != null ? delegateId : note.supplierId;
+        boolean delegateUnmatched = counterpartySupplierId == null && namedDelegate != null;
         final UUID resolvedDelegateId = delegateId;
         String delegateName = resolvedDelegateId == null ? null
                 : collectors.stream().filter(su -> su.id.equals(resolvedDelegateId))
                         .map(su -> su.name).findFirst().orElse(null);
+        final String supplierDisplayName = delegateName != null ? delegateName
+                : counterpartySupplierId != null
+                ? suppliers.findById(counterpartySupplierId)
+                        .map(su -> su.name).orElse(clean(note.supplierName))
+                : clean(note.supplierName);
 
         // Index des membres : téléphone d'abord (8 derniers chiffres),
         // nom normalisé ensuite. Un téléphone partagé par deux fiches ne
@@ -343,16 +388,21 @@ public class SntAccountingService {
         }
 
         List<SntPreviewDto.Row> rows = new ArrayList<>();
-        int ready = 0, warning = 0, invalid = 0, toCreate = 0;
+        int ready = 0, warning = 0, invalid = 0, toCreate = 0, onSupplier = 0;
         BigDecimal totalWeight = BigDecimal.ZERO;
         BigDecimal totalAmount = BigDecimal.ZERO;
         for (SntLineDto raw : request.lines() == null ? List.<SntLineDto>of() : request.lines()) {
             List<String> issues = new ArrayList<>();
             boolean blocking = false;
 
+            // Le producteur n'est plus exigé : les extraits du terrain
+            // laissent souvent la colonne vide, et refuser la ligne
+            // gardait tout un magasin hors du système. Le reçu repose
+            // alors sur le fournisseur du bordereau (12/10/2026). Sans
+            // l'un ni l'autre, il n'y a personne à qui devoir l'argent.
             String producerName = clean(raw.producerName());
-            if (producerName == null) {
-                issues.add(Messages.msg("m.itk-producer-name-required"));
+            if (producerName == null && counterpartySupplierId == null) {
+                issues.add(Messages.msg("m.itk-counterparty-required"));
                 blocking = true;
             }
             LocalDate date = parseDate(raw.date());
@@ -409,14 +459,20 @@ public class SntAccountingService {
             String method = card != null && card.signum() > 0
                     ? PaymentMethod.PRODUCER_CARD.name() : PaymentMethod.CASH.name();
 
-            String status = blocking ? "INVALID" : (issues.isEmpty() ? "READY" : "WARNING");
             if (blocking) invalid++;
-            else if (issues.isEmpty()) ready++;
-            else warning++;
             if (!blocking && memberToCreate) toCreate++;
+            if (!blocking && producerName == null) {
+                onSupplier++;
+                issues.add(Messages.msg("m.itk-on-supplier", supplierDisplayName));
+            }
             if (!blocking) {
                 totalWeight = totalWeight.add(nz(weight));
                 totalAmount = totalAmount.add(nz(amount));
+            }
+            String status = blocking ? "INVALID" : (issues.isEmpty() ? "READY" : "WARNING");
+            if (!blocking) {
+                if (issues.isEmpty()) ready++;
+                else warning++;
             }
             rows.add(new SntPreviewDto.Row(
                     raw.rowNumber(), status, issues,
@@ -431,7 +487,8 @@ public class SntAccountingService {
                 ? note.netWeightKg.subtract(totalWeight) : null;
         return new SntPreviewDto(rows.size(), ready, warning, invalid, toCreate,
                 totalWeight, totalAmount, note.netWeightKg, gap,
-                resolvedDelegateId, delegateName, delegateUnmatched, rows);
+                resolvedDelegateId, delegateName, delegateUnmatched,
+                counterpartySupplierId, supplierDisplayName, onSupplier, rows);
     }
 
     /** Ouvre la fiche du producteur inconnu, rattachée à la section du bordereau. */

@@ -14,6 +14,7 @@ public record SettlementRequestUpsertDto(
         /** L'un des deux, jamais les deux : on règle une personne. */
         UUID memberId,
         UUID delegateSupplierId,
+        UUID supplierId,
         @Size(max = 200) String beneficiaryName,
         @NotNull @Positive BigDecimal amount,
         /**

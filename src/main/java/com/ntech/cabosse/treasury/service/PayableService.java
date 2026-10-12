@@ -108,7 +108,8 @@ public class PayableService {
         // Producteurs et délégués sortent du même calcul mais sous deux
         // natures : le filtre se fait à l'intérieur, pas avant l'appel.
         if (wants(kind, PayableKind.PRODUCER_PURCHASE)
-                || wants(kind, PayableKind.DELEGATE_PURCHASE)) {
+                || wants(kind, PayableKind.DELEGATE_PURCHASE)
+                || wants(kind, PayableKind.SUPPLIER_PURCHASE)) {
             collectProducerPurchases(out, kind);
         }
         if (siteId == null) return out;
@@ -218,22 +219,27 @@ public class PayableService {
                     .min(LocalDate::compareTo).orElse(null);
             LocalDate since = oldest == null ? LocalDate.now(ZoneOffset.UTC) : oldest;
             boolean delegate = b.delegateSupplierId() != null;
-            PayableKind nature = delegate
-                    ? PayableKind.DELEGATE_PURCHASE : PayableKind.PRODUCER_PURCHASE;
+            boolean supplier = !delegate && b.supplierId() != null;
+            PayableKind nature = delegate ? PayableKind.DELEGATE_PURCHASE
+                    : supplier ? PayableKind.SUPPLIER_PURCHASE
+                    : PayableKind.PRODUCER_PURCHASE;
             if (!wants(kind, nature)) return;
             // La ligne porte l'état de sa demande plutôt que de laisser
             // l'écran l'aller chercher : cette lecture demandait un droit
             // que la caisse ne porte pas toujours, et son échec silencieux
             // faisait réapparaître « demander l'approbation » sur une
             // demande déjà approuvée (13/09/2026).
-            var open = settlements.openFor(
-                    delegate ? null : b.memberId(),
-                    delegate ? b.delegateSupplierId() : null);
+            var open = settlements.openFor(b.memberId(), b.delegateSupplierId(),
+                    b.supplierId());
+            java.util.UUID party = delegate ? b.delegateSupplierId()
+                    : supplier ? b.supplierId() : b.memberId();
+            BeneficiaryKind who = delegate ? BeneficiaryKind.DELEGATE
+                    : supplier ? BeneficiaryKind.SUPPLIER : BeneficiaryKind.MEMBER;
             out.add(new PayableDto(
                     nature.name(),
-                    delegate ? b.delegateSupplierId() : b.memberId(), null, null,
-                    (delegate ? BeneficiaryKind.DELEGATE : BeneficiaryKind.MEMBER).name(),
-                    delegate ? b.delegateSupplierId() : b.memberId(), b.name(),
+                    party, null, null,
+                    who.name(),
+                    party, b.name(),
                     nz(b.remaining()), since, ageOf(since), null, null, null,
                     open.map(r -> r.status.name()).orElse(null),
                     open.map(r -> r.id).orElse(null)));

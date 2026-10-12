@@ -64,7 +64,8 @@ public class IntakeNoteService {
                 .site(siteId)
                 .received(rows == null ? 0 : rows.size());
         List<CampaignEntity> allCampaigns = campaigns.listAll();
-        List<SupplierEntity> collectors = suppliers.listAll().stream()
+        List<SupplierEntity> allSuppliers = suppliers.listAll();
+        List<SupplierEntity> collectors = allSuppliers.stream()
                 .filter(s -> s.collector).toList();
 
         int created = 0;
@@ -150,17 +151,22 @@ public class IntakeNoteService {
             e.truckNumber = clean(raw.truckNumber());
             e.supplierCode = clean(raw.supplierCode());
             e.supplierName = clean(raw.supplierName());
+            // Le fournisseur d'abord, délégué ou non : c'est lui qui
+            // portera le reçu quand le document ne nommera pas le
+            // producteur. La qualité de délégué se lit ensuite sur sa
+            // fiche, et elle seule déclenche le compte courant.
+            e.supplierId = matchSupplier(e.supplierCode, e.supplierName, allSuppliers);
             e.delegateSupplierId = matchDelegate(e.supplierCode, e.supplierName, collectors);
             // Les deux rattachements qui décident de la suite. Sans
-            // délégué, la comptabilisation refusera le bordereau ; sans
-            // campagne, il sortira des états. Ni l'un ni l'autre ne
-            // produit d'erreur : c'est pourquoi on les consigne.
-            if (e.delegateSupplierId == null) {
+            // fournisseur reconnu, la comptabilisation refusera le
+            // bordereau ; sans campagne, il sortira des états. Ni l'un ni
+            // l'autre ne produit d'erreur : c'est pourquoi on les consigne.
+            if (e.supplierId == null) {
                 trace.decided("LEFT_NULL", "fournisseur",
                         e.supplierName == null ? "(vide)" : e.supplierName,
-                        "aucun délégué reconnu");
+                        "aucun fournisseur reconnu");
                 // Dit tout de suite, pas à la comptabilisation : sans
-                // délégué, ce bordereau bloquera le lot entier, et
+                // fournisseur, ce bordereau bloquera le lot entier, et
                 // l'apprendre des jours plus tard coûte la journée.
                 warned.add(new IntakeImportResultDto.WarnedRow(
                         raw.rowNumber(), ref, Messages.msg("m.itk-w-delegate-unmatched")));
@@ -265,13 +271,18 @@ public class IntakeNoteService {
             SupplierEntity delegate = suppliers.findById(p.delegateSupplierId()).orElseThrow(
                     () -> new com.ntech.cabosse.shared.exception.NotFoundException(
                             Messages.msg("m.itk-delegate-not-found")));
-            e.delegateSupplierId = delegate.id;
+            e.supplierId = delegate.id;
+            // La qualité de délégué vit sur la fiche : désigner un
+            // fournisseur ordinaire ne lui ouvre pas de compte courant.
+            e.delegateSupplierId = delegate.collector ? delegate.id : null;
             e.supplierName = delegate.name;
             e.supplierCode = delegate.code;
         } else {
             e.supplierName = clean(p.supplierName());
+            List<SupplierEntity> all = suppliers.listAll();
+            e.supplierId = matchSupplier(null, e.supplierName, all);
             e.delegateSupplierId = matchDelegate(null, e.supplierName,
-                    suppliers.listAll().stream().filter(s -> s.collector).toList());
+                    all.stream().filter(s -> s.collector).toList());
         }
         // La campagne se déduit de la date, comme partout ailleurs : la
         // redemander au magasinier serait lui faire saisir ce que le
@@ -308,10 +319,13 @@ public class IntakeNoteService {
             SupplierEntity delegate = suppliers.findById(p.delegateSupplierId()).orElseThrow(
                     () -> new com.ntech.cabosse.shared.exception.NotFoundException(
                             Messages.msg("m.itk-delegate-not-found")));
-            values.delegateSupplierId = delegate.id;
+            values.supplierId = delegate.id;
+            values.delegateSupplierId = delegate.collector ? delegate.id : null;
             values.supplierName = delegate.name;
         } else {
             values.supplierName = clean(p.supplierName());
+            values.supplierId = matchSupplier(e.supplierCode, values.supplierName,
+                    suppliers.listAll());
             values.delegateSupplierId =
                     matchDelegate(e.supplierCode, values.supplierName, collectors);
         }
@@ -352,6 +366,11 @@ public class IntakeNoteService {
                 .filter(c -> c.label != null && normalize(c.label).equals(wanted))
                 .map(c -> c.id)
                 .findFirst().orElse(null);
+    }
+
+    /** Le fournisseur nommé par le bordereau, par son code puis par son nom. */
+    private UUID matchSupplier(String code, String name, List<SupplierEntity> candidates) {
+        return matchDelegate(code, name, candidates);
     }
 
     private UUID matchDelegate(String code, String name, List<SupplierEntity> collectors) {

@@ -33,6 +33,14 @@ public record SntPreviewDto(
          * rattachement n'apure jamais son compte d'avances.
          */
         boolean delegateUnmatched,
+        /**
+         * Fournisseur du bordereau, délégué ou non : il porte les reçus
+         * dont le document ne nomme pas le producteur.
+         */
+        UUID supplierId,
+        String supplierName,
+        /** Lignes qui reposeront sur le fournisseur faute de producteur nommé. */
+        int rowsOnSupplier,
         List<Row> rows
 ) {
     public record Row(

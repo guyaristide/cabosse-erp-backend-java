@@ -115,13 +115,18 @@ public class SettlementRequestService {
 
     public SettlementRequestDto request(SettlementRequestUpsertDto payload) {
         ProducerPaymentBeneficiary kind = payload.delegateSupplierId() != null
-                ? ProducerPaymentBeneficiary.DELEGATE : ProducerPaymentBeneficiary.MEMBER;
-        if (payload.delegateSupplierId() == null && payload.memberId() == null) {
+                ? ProducerPaymentBeneficiary.DELEGATE
+                : payload.supplierId() != null
+                ? ProducerPaymentBeneficiary.SUPPLIER
+                : ProducerPaymentBeneficiary.MEMBER;
+        if (payload.delegateSupplierId() == null && payload.memberId() == null
+                && payload.supplierId() == null) {
             throw new BusinessException(Messages.msg("m.set-beneficiary-required"));
         }
         // Une seule demande ouverte par bénéficiaire : deux feraient
         // sortir deux fois le même dû.
-        repo.findOpenFor(payload.memberId(), payload.delegateSupplierId())
+        repo.findOpenFor(payload.memberId(), payload.delegateSupplierId(),
+                        payload.supplierId())
                 .ifPresent(open -> {
                     throw new BusinessException(Messages.msg("m.set-already-open", open.ref));
                 });
@@ -132,6 +137,7 @@ public class SettlementRequestService {
         e.beneficiaryKind = kind;
         e.memberId = payload.memberId();
         e.delegateSupplierId = payload.delegateSupplierId();
+        e.supplierId = payload.supplierId();
         e.beneficiaryName = payload.beneficiaryName();
         e.requestedAmount = payload.amount();
         e.paymentMethod = payload.paymentMethod();
@@ -252,8 +258,9 @@ public class SettlementRequestService {
     }
 
     /** L'approbation en cours d'un bénéficiaire, pour le règlement. */
-    public Optional<SettlementRequestEntity> openFor(UUID memberId, UUID delegateSupplierId) {
-        return repo.findOpenFor(memberId, delegateSupplierId);
+    public Optional<SettlementRequestEntity> openFor(UUID memberId, UUID delegateSupplierId,
+                                                     UUID supplierId) {
+        return repo.findOpenFor(memberId, delegateSupplierId, supplierId);
     }
 
     public List<SettlementRequestEntity> pending() {

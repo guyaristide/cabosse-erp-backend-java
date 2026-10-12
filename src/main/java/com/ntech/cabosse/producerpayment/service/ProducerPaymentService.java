@@ -99,9 +99,15 @@ public class ProducerPaymentService {
      * que le comptable ouvre pour préparer les règlements.
      */
     public ProducerPaymentDtos.OutstandingDto outstanding(UUID memberId, UUID delegateId) {
-        List<ProducerPurchaseEntity> unpaid = (memberId == null && delegateId == null)
-                ? purchases.listAllUnpaid()
-                : purchases.listUnpaid(memberId, delegateId);
+        return outstanding(memberId, delegateId, null);
+    }
+
+    public ProducerPaymentDtos.OutstandingDto outstanding(UUID memberId, UUID delegateId,
+                                                           UUID supplierId) {
+        List<ProducerPurchaseEntity> unpaid =
+                (memberId == null && delegateId == null && supplierId == null)
+                        ? purchases.listAllUnpaid()
+                        : purchases.listUnpaid(memberId, delegateId, supplierId);
 
         Map<String, List<ProducerPurchaseEntity>> byBeneficiary = new LinkedHashMap<>();
         for (ProducerPurchaseEntity r : unpaid) {
@@ -121,13 +127,18 @@ public class ProducerPaymentService {
                         r.id, r.ref, r.date, nz(r.amount), nz(r.creditImputed),
                         nz(r.amountPaid), remaining));
             }
+            // Le genre vient du reçu : délégué, producteur nommé, ou
+            // fournisseur apporteur quand le document ne nomme personne.
             boolean viaDelegate = head.delegateSupplierId != null;
+            boolean viaSupplier = !viaDelegate && head.memberId == null;
             beneficiaries.add(new ProducerPaymentDtos.OutstandingDto.Beneficiary(
                     viaDelegate ? ProducerPaymentBeneficiary.DELEGATE.name()
+                            : viaSupplier ? ProducerPaymentBeneficiary.SUPPLIER.name()
                             : ProducerPaymentBeneficiary.MEMBER.name(),
-                    viaDelegate ? null : head.memberId,
+                    viaDelegate || viaSupplier ? null : head.memberId,
                     viaDelegate ? head.delegateSupplierId : null,
-                    viaDelegate ? head.delegateName : head.producerName,
+                    viaSupplier ? head.supplierId : null,
+                    head.payeeName(),
                     subtotal, lines));
             grandTotal = grandTotal.add(subtotal);
         }
@@ -143,15 +154,27 @@ public class ProducerPaymentService {
         TenantPreferences prefs = preferences.current();
         LocalDate date = p.date() != null ? p.date() : LocalDate.now();
 
+        // Un règlement a un bénéficiaire et un seul : le producteur, le
+        // délégué, ou le fournisseur apporteur quand le reçu repose sur
+        // lui (12/10/2026).
         boolean toDelegate = p.delegateSupplierId() != null;
-        if (toDelegate == (p.memberId() != null)) {
+        boolean toSupplier = p.supplierId() != null;
+        int named = (p.memberId() != null ? 1 : 0) + (toDelegate ? 1 : 0) + (toSupplier ? 1 : 0);
+        if (named != 1) {
             throw new BusinessException(
                     Messages.msg("m.ppy-beneficiary-exclusive"));
         }
+        ProducerPaymentBeneficiary kind = toDelegate ? ProducerPaymentBeneficiary.DELEGATE
+                : toSupplier ? ProducerPaymentBeneficiary.SUPPLIER
+                : ProducerPaymentBeneficiary.MEMBER;
         String beneficiaryName = toDelegate
                 ? suppliers.findById(p.delegateSupplierId())
                         .orElseThrow(() -> new NotFoundException(
                                 Messages.msg("m.ppu-delegate-not-found", p.delegateSupplierId()))).name
+                : toSupplier
+                ? suppliers.findById(p.supplierId())
+                        .orElseThrow(() -> new NotFoundException(
+                                Messages.msg("m.ppu-supplier-not-found", p.supplierId()))).name
                 : members.findById(p.memberId())
                         .orElseThrow(() -> new NotFoundException(
                                 Messages.msg("m.ppu-producer-not-found", p.memberId()))).name;
@@ -170,13 +193,11 @@ public class ProducerPaymentService {
         // Le circuit d'approbation, quand la structure l'a activé
         // (expert, 12/09/2026). Vérifié avant la moindre imputation :
         // refuser après aurait laissé des livraisons soldées derrière.
-        ProducerPaymentBeneficiary kind = toDelegate
-                ? ProducerPaymentBeneficiary.DELEGATE : ProducerPaymentBeneficiary.MEMBER;
         BigDecimal requested = p.allocations().stream()
                 .map(ProducerPaymentDtos.AllocationDto::amount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         SettlementRequestEntity approval =
-                requireApproval(kind, p.memberId(), p.delegateSupplierId(),
+                requireApproval(kind, p.memberId(), p.delegateSupplierId(), p.supplierId(),
                         requested, p.paymentMethod());
 
         Instant now = Instant.now();
@@ -185,10 +206,10 @@ public class ProducerPaymentService {
         e.ref = refService.next();
         e.date = date;
         stampCampaign(e);
-        e.beneficiaryKind = toDelegate
-                ? ProducerPaymentBeneficiary.DELEGATE : ProducerPaymentBeneficiary.MEMBER;
-        e.memberId = toDelegate ? null : p.memberId();
+        e.beneficiaryKind = kind;
+        e.memberId = kind == ProducerPaymentBeneficiary.MEMBER ? p.memberId() : null;
         e.delegateSupplierId = toDelegate ? p.delegateSupplierId() : null;
+        e.supplierId = toSupplier ? p.supplierId() : null;
         e.beneficiaryName = beneficiaryName;
         e.paymentMethod = p.paymentMethod();
         e.paymentRef = blankToNull(p.paymentRef());
@@ -233,8 +254,11 @@ public class ProducerPaymentService {
             //    la trésorerie. Elle échoue tôt (période close) et la
             //    compensation ci-dessous ramène les livraisons à leur état.
             e.totalAmount = total;
-            String debtAccount = toDelegate
-                    ? prefs.delegatePayableAccount() : prefs.producerPayableAccount();
+            // Le même compte que le reçu a crédité, sans quoi la balance
+            // individuelle du fournisseur ne se solderait jamais.
+            String debtAccount = toDelegate ? prefs.delegatePayableAccount()
+                    : toSupplier ? accounting.supplierAccount(p.supplierId())
+                    : prefs.producerPayableAccount();
             e.bankFees = (p.bankFees() != null && p.bankFees().signum() > 0)
                     ? p.bankFees() : null;
             accounting.postFromProducerPayment(e.id, e.ref, beneficiaryName,
@@ -279,21 +303,32 @@ public class ProducerPaymentService {
                 throw new BusinessException(
                         Messages.msg("m.ppy-purchase-not-from-delegate", r.ref));
             }
-        } else {
-            if (r.delegateSupplierId != null) {
+            return;
+        }
+        if (r.delegateSupplierId != null) {
+            throw new BusinessException(
+                    Messages.msg("m.ppy-purchase-from-delegate", r.ref, r.delegateName));
+        }
+        if (e.beneficiaryKind == ProducerPaymentBeneficiary.SUPPLIER) {
+            if (!e.supplierId.equals(r.supplierId)) {
                 throw new BusinessException(
-                        Messages.msg("m.ppy-purchase-from-delegate", r.ref, r.delegateName));
+                        Messages.msg("m.ppy-purchase-not-from-supplier", r.ref));
             }
-            if (!e.memberId.equals(r.memberId)) {
-                throw new BusinessException(
-                        Messages.msg("m.ppy-purchase-not-from-producer", r.ref));
-            }
+            return;
+        }
+        if (!e.memberId.equals(r.memberId)) {
+            throw new BusinessException(
+                    Messages.msg("m.ppy-purchase-not-from-producer", r.ref));
         }
     }
 
     private static String beneficiaryKey(ProducerPurchaseEntity r) {
-        return r.delegateSupplierId != null
-                ? "D:" + r.delegateSupplierId : "M:" + r.memberId;
+        if (r.delegateSupplierId != null) return "D:" + r.delegateSupplierId;
+        if (r.memberId != null) return "M:" + r.memberId;
+        // Sans l'identifiant du fournisseur, tous les reçus sans
+        // producteur nommé fusionneraient en un bénéficiaire fantôme, que
+        // rien ne pourrait payer.
+        return "S:" + r.supplierId;
     }
 
     /** Ce que la coopérative doit sur la livraison, retenues déduites. */
@@ -308,11 +343,12 @@ public class ProducerPaymentService {
      */
     private SettlementRequestEntity requireApproval(ProducerPaymentBeneficiary kind,
                                                     UUID memberId, UUID delegateSupplierId,
+                                                    UUID supplierId,
                                                     BigDecimal requested,
                                                     PaymentMethod method) {
         if (!settlementRequests.approvalRequired(kind, requested)) return null;
         SettlementRequestEntity approval = settlementRequests
-                .openFor(memberId, delegateSupplierId)
+                .openFor(memberId, delegateSupplierId, supplierId)
                 .filter(r -> r.status == SettlementRequestStatus.APPROVED)
                 .orElseThrow(() -> new BusinessException(
                         Messages.msg("m.ppy-approval-required")));

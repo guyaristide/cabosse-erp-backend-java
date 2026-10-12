@@ -40,6 +40,8 @@ public class ProducerPaymentEntity {
     public UUID memberId;
     /** Délégué bénéficiaire, quand la livraison passe par lui. */
     public UUID delegateSupplierId;
+    /** Fournisseur apporteur bénéficiaire, quand le reçu repose sur lui. */
+    public UUID supplierId;
     /** Nom du bénéficiaire, figé au règlement. */
     public String beneficiaryName;
 

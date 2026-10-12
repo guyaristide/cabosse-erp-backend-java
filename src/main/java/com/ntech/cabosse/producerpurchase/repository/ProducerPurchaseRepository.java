@@ -150,13 +150,16 @@ public class ProducerPurchaseRepository {
      *
      * @param memberId   producteur bénéficiaire, ou {@code null}
      * @param delegateId délégué bénéficiaire, ou {@code null}
+     * @param supplierId fournisseur apporteur bénéficiaire, ou {@code null}
      */
-    public List<ProducerPurchaseEntity> listUnpaid(UUID memberId, UUID delegateId) {
+    public List<ProducerPurchaseEntity> listUnpaid(UUID memberId, UUID delegateId,
+                                                   UUID supplierId) {
         List<Bson> filters = new ArrayList<>();
         filters.add(unpaidExpr());
         filters.add(notCancelled());
         if (memberId != null) filters.add(Filters.eq("memberId", memberId));
         if (delegateId != null) filters.add(Filters.eq("delegateSupplierId", delegateId));
+        if (supplierId != null) filters.add(Filters.eq("supplierId", supplierId));
         // Un reçu porté par un délégué se règle au délégué, pas au
         // producteur : sans ce filtre, la même somme apparaîtrait due deux
         // fois.
@@ -270,6 +273,12 @@ public class ProducerPurchaseRepository {
     public Optional<ProducerPurchaseEntity> findByOfficialReceipt(String officialReceiptRef) {
         return Optional.ofNullable(
                 coll().find(Filters.eq("officialReceiptRef", officialReceiptRef)).first());
+    }
+
+    /** Les livraisons portant ces références internes. */
+    public List<ProducerPurchaseEntity> findByRefs(Collection<String> refs) {
+        if (refs == null || refs.isEmpty()) return List.of();
+        return coll().find(Filters.in("ref", refs)).into(new ArrayList<>());
     }
 
     public boolean refExists(String ref) {

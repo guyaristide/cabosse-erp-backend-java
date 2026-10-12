@@ -28,6 +28,16 @@ public enum PayableKind {
      */
     DELEGATE_PURCHASE,
     /**
+     * Reste dû à un fournisseur apporteur sur ses livraisons de matière.
+     *
+     * <p>Séparé des deux autres le 12/10/2026 : quand le document de
+     * traçabilité ne nomme pas le producteur, le reçu repose sur celui
+     * qui a apporté, qui n'est ni un producteur du registre ni forcément
+     * un délégué. Le caissier paie une personne : il doit lire
+     * laquelle.</p>
+     */
+    SUPPLIER_PURCHASE,
+    /**
      * Abonnement ou facture périodique constatée et non réglée.
      *
      * <p>Elle se payait à la saisie, dans le module des achats. Elle s'y

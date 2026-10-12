@@ -13,5 +13,15 @@ public enum ProducerPaymentBeneficiary {
     MEMBER,
 
     /** Délégué collecteur, pour les livraisons qu'il a apportées. */
-    DELEGATE
+    DELEGATE,
+
+    /**
+     * Fournisseur apporteur qui n'est pas un délégué collecteur.
+     *
+     * <p>Le document de traçabilité ne nomme pas toujours le producteur :
+     * le reçu repose alors sur celui qui a apporté la matière, sociétaire
+     * ou non, et c'est son compte auxiliaire que le règlement solde
+     * (12/10/2026).</p>
+     */
+    SUPPLIER
 }

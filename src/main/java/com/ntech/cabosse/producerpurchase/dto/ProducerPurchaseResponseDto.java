@@ -22,6 +22,11 @@ public record ProducerPurchaseResponseDto(
         String producerPhone,
         UUID sectionId,
         String sectionName,
+        /** Fournisseur apporteur, quand le producteur n'est pas nomme. */
+        UUID supplierId,
+        String supplierName,
+        /** Le producteur, sinon le delegue, sinon le fournisseur. */
+        String counterpartyName,
         UUID articleId,
         String articleCode,
         String articleName,
@@ -75,6 +80,8 @@ public record ProducerPurchaseResponseDto(
                 e.id, e.ref, e.date, e.officialReceiptRef,
                 e.memberId, e.producerName, e.producerCode,
                 e.producerExternalCode, e.village, e.producerPhone, e.sectionId, e.sectionName,
+                e.supplierId, e.supplierName,
+                e.counterpartyName(),
                 e.articleId, e.articleCode, e.articleName, e.articleUnit,
                 e.siteId, e.campaignId, e.campaignYear,
                 e.truckNumber, weighingsOf(e),

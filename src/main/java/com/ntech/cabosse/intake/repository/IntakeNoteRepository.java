@@ -88,6 +88,7 @@ public class IntakeNoteRepository {
                         Updates.set("date", values.date),
                         Updates.set("supplierName", values.supplierName),
                         Updates.set("delegateSupplierId", values.delegateSupplierId),
+                        Updates.set("supplierId", values.supplierId),
                         Updates.set("grossWeightKg", values.grossWeightKg),
                         Updates.set("bagCount", values.bagCount),
                         Updates.set("netWeightKg", values.netWeightKg),

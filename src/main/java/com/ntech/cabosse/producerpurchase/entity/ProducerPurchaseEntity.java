@@ -55,6 +55,20 @@ public class ProducerPurchaseEntity {
     public UUID sectionId;
     public String sectionName;
 
+    /**
+     * Fournisseur apporteur, quand le producteur n'est pas nommé.
+     *
+     * <p>Un reçu a une contrepartie et une seule : le producteur par sa
+     * fiche membre, le délégué par {@link #delegateSupplierId}, ou ce
+     * fournisseur. Les extraits de traçabilité nationale laissent souvent
+     * la colonne « Producteur » vide, et bloquer la comptabilisation
+     * gardait tout un magasin hors du système (12/10/2026). Le reçu se
+     * pose alors sur l'apporteur, qu'il soit délégué ou non, sociétaire
+     * ou non, et c'est son compte que le règlement solde.</p>
+     */
+    public UUID supplierId;
+    public String supplierName;
+
     // ─── Produit → article (lien manuel COOP-03/NEG-01) ───
     public UUID articleId;
     public String articleCode;
@@ -194,6 +208,29 @@ public class ProducerPurchaseEntity {
     }
 
     /** Le statut, en tolérant les documents d'avant le champ. */
+    /**
+     * Qui a apporte la matiere : le producteur nomme, sinon le delegue,
+     * sinon le fournisseur. Un recu en a toujours un, et c'est ce nom que
+     * portent la piece, le mouvement de stock et la trace d'audit.
+     */
+    public String counterpartyName() {
+        if (producerName != null && !producerName.isBlank()) return producerName;
+        if (delegateName != null && !delegateName.isBlank()) return delegateName;
+        return supplierName;
+    }
+
+    /**
+     * A qui la cooperative doit cette livraison : le delegue qui l'a
+     * apportee, sinon le fournisseur, sinon le producteur. Different de
+     * {@link #counterpartyName()} : un producteur paye par son delegue
+     * n'est pas celui que la cooperative regle.
+     */
+    public String payeeName() {
+        if (delegateName != null && !delegateName.isBlank()) return delegateName;
+        if (supplierName != null && !supplierName.isBlank()) return supplierName;
+        return producerName;
+    }
+
     public ProducerPurchaseStatus statusOrActive() {
         return status == null ? ProducerPurchaseStatus.ACTIVE : status;
     }

@@ -59,13 +59,24 @@ public class SettlementRequestRepository {
      * <p>Une seule à la fois : deux demandes ouvertes sur la même
      * personne feraient sortir deux fois le même dû.</p>
      */
-    public Optional<SettlementRequestEntity> findOpenFor(UUID memberId, UUID delegateSupplierId) {
+    public Optional<SettlementRequestEntity> findOpenFor(UUID memberId, UUID delegateSupplierId,
+                                                         UUID supplierId) {
+        // Aucun bénéficiaire nommé : il n'y a rien à trouver. Chercher
+        // quand même posait un filtre sur une valeur nulle, que Mongo
+        // satisfait avec tout document où le champ est absent : la file à
+        // payer affichait alors, sur une ligne, la demande d'un autre
+        // tiers, et renvoyait son identifiant au bouton de règlement.
+        if (memberId == null && delegateSupplierId == null && supplierId == null) {
+            return Optional.empty();
+        }
         List<Bson> filters = new ArrayList<>();
         filters.add(Filters.in("status",
                 SettlementRequestStatus.PENDING_APPROVAL.name(),
                 SettlementRequestStatus.APPROVED.name()));
         filters.add(delegateSupplierId != null
                 ? Filters.eq("delegateSupplierId", delegateSupplierId)
+                : supplierId != null
+                ? Filters.eq("supplierId", supplierId)
                 : Filters.eq("memberId", memberId));
         return Optional.ofNullable(coll().find(Filters.and(filters)).first());
     }

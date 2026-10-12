@@ -41,6 +41,8 @@ public class SettlementRequestEntity {
     public ProducerPaymentBeneficiary beneficiaryKind;
     public UUID memberId;
     public UUID delegateSupplierId;
+    /** Fournisseur apporteur bénéficiaire, quand le reçu repose sur lui. */
+    public UUID supplierId;
     public String beneficiaryName;
 
     /** Ce que le demandeur a sollicité, au vu du dû à cet instant. */

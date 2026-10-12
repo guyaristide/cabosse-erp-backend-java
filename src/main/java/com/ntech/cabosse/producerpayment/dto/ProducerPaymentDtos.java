@@ -26,6 +26,8 @@ public final class ProducerPaymentDtos {
             UUID memberId,
             /** Délégué bénéficiaire. Exclusif du producteur. */
             UUID delegateSupplierId,
+            /** Fournisseur apporteur bénéficiaire. Exclusif des deux autres. */
+            UUID supplierId,
 
             @NotNull(message = "{v.mode-de-paiement-requis}") PaymentMethod paymentMethod,
 
@@ -71,7 +73,8 @@ public final class ProducerPaymentDtos {
     @Schema(description = "Règlement fournisseur")
     public record PaymentResponseDto(
             UUID id, String ref, LocalDate date,
-            String beneficiaryKind, UUID memberId, UUID delegateSupplierId, String beneficiaryName,
+            String beneficiaryKind, UUID memberId, UUID delegateSupplierId,
+            UUID supplierId, String beneficiaryName,
             BigDecimal totalAmount,
             String paymentMethod, String paymentRef,
             /** Frais bancaires du règlement, à la charge de la structure. */
@@ -93,7 +96,7 @@ public final class ProducerPaymentDtos {
             return new PaymentResponseDto(
                     e.id, e.ref, e.date,
                     e.beneficiaryKind != null ? e.beneficiaryKind.name() : null,
-                    e.memberId, e.delegateSupplierId, e.beneficiaryName,
+                    e.memberId, e.delegateSupplierId, e.supplierId, e.beneficiaryName,
                     e.totalAmount,
                     e.paymentMethod != null ? e.paymentMethod.name() : null,
                     e.paymentRef, e.bankFees, lines, e.pieceRef, e.notes, e.createdAt, e.createdByEmail);
@@ -113,6 +116,7 @@ public final class ProducerPaymentDtos {
     ) {
         @Schema(description = "Fournisseur et ses livraisons non soldées")
         public record Beneficiary(String kind, UUID memberId, UUID delegateSupplierId,
+                                  UUID supplierId,
                                   String name, BigDecimal remaining, List<Line> lines) {}
 
         @Schema(description = "Livraison partiellement ou non réglée")

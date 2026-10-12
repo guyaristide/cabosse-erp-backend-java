@@ -75,8 +75,10 @@ public class ProducerPaymentResource {
     @GET
     @Path("/outstanding")
     public Response outstanding(@QueryParam("memberId") UUID memberId,
-                                @QueryParam("delegateSupplierId") UUID delegateSupplierId) {
-        return Response.ok(ApiResponse.ok(service.outstanding(memberId, delegateSupplierId))).build();
+                                @QueryParam("delegateSupplierId") UUID delegateSupplierId,
+                                @QueryParam("supplierId") UUID supplierId) {
+        return Response.ok(ApiResponse.ok(
+                service.outstanding(memberId, delegateSupplierId, supplierId))).build();
     }
 
     @GET

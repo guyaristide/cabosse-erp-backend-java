@@ -307,6 +307,9 @@ public class ProducerPurchaseImportService {
                         blankToNull(raw.producerCardRef() != null && !raw.producerCardRef().isBlank()
                                 ? raw.producerCardRef() : raw.producerRef()),
                         n.memberId(),
+                        // Cet import reprend des reçus nominatifs : le
+                        // producteur y est toujours nommé.
+                        null,
                         n.articleId(),
                         parseUuid(raw.siteId()),
                         campaign != null ? campaign.id : parseUuid(raw.campaignId()),

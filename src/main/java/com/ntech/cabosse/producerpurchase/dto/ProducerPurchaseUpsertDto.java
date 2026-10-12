@@ -32,7 +32,23 @@ public record ProducerPurchaseUpsertDto(
          */
         @Size(max = 60) String producerExternalCode,
 
-        @NotNull UUID memberId,
+        /**
+         * Producteur du registre. Vide, le reçu repose sur le fournisseur
+         * qui a apporté la matière : voir {@link #supplierId}.
+         */
+        UUID memberId,
+
+        /**
+         * Fournisseur apporteur, quand le producteur n'est pas nommé.
+         *
+         * <p>Les extraits de traçabilité nationale laissent souvent la
+         * colonne « Producteur » vide : seul le fournisseur qui a apporté
+         * est connu, délégué collecteur ou non, sociétaire ou non. Le reçu
+         * se pose alors sur lui, et c'est son compte que le règlement
+         * solde (demandé le 12/10/2026).</p>
+         */
+        UUID supplierId,
+
         @NotNull UUID articleId,
 
         UUID siteId,

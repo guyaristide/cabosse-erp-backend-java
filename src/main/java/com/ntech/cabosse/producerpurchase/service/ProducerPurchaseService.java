@@ -121,12 +121,33 @@ public class ProducerPurchaseService {
     public ProducerPurchaseResponseDto create(ProducerPurchaseUpsertDto p) {
         TenantPreferences prefs = preferences.current();
 
-        MemberEntity m = members.findById(p.memberId()).orElseThrow(
-                () -> new NotFoundException(Messages.msg("m.ppu-producer-not-found", p.memberId())));
-        ensureProducerFileUsable(prefs, m, p.date());
-        if (prefs.requireProducerPaymentVigilance()) {
-            MemberPaymentVigilance.check(m, p.paymentMethod() != null ? p.paymentMethod().name() : null,
-                    producerRefKeys.identityProofTypeNames());
+        // Un reçu a une contrepartie et une seule : le producteur par sa
+        // fiche, ou le fournisseur qui a apporté la matière quand le
+        // document ne nomme personne (12/10/2026). Les contrôles de
+        // dossier producteur ne valent que pour la première : il n'y a
+        // pas d'enquête de ménage à exiger d'un fournisseur.
+        MemberEntity m = p.memberId() == null ? null
+                : members.findById(p.memberId()).orElseThrow(
+                        () -> new NotFoundException(
+                                Messages.msg("m.ppu-producer-not-found", p.memberId())));
+        SupplierEntity apporteur = null;
+        if (m == null) {
+            if (p.supplierId() == null && p.delegateSupplierId() == null) {
+                throw new BusinessException(Messages.msg("m.ppu-counterparty-required"));
+            }
+            if (p.supplierId() != null) {
+                apporteur = suppliers.findById(p.supplierId()).orElseThrow(
+                        () -> new NotFoundException(
+                                Messages.msg("m.ppu-supplier-not-found", p.supplierId())));
+            }
+        }
+        if (m != null) {
+            ensureProducerFileUsable(prefs, m, p.date());
+            if (prefs.requireProducerPaymentVigilance()) {
+                MemberPaymentVigilance.check(m,
+                        p.paymentMethod() != null ? p.paymentMethod().name() : null,
+                        producerRefKeys.identityProofTypeNames());
+            }
         }
 
         ArticleEntity article = articles.findById(p.articleId()).orElseThrow(
@@ -177,7 +198,9 @@ public class ProducerPurchaseService {
         // producteur par sa fiche fournisseur miroir. C'est lui qui porte
         // la catégorie de reprise, et donc les conditions appliquées.
         SupplierEntity carrier = delegate != null ? delegate
-                : (m.supplierId != null ? suppliers.findById(m.supplierId).orElse(null) : null);
+                : m != null
+                        ? (m.supplierId != null ? suppliers.findById(m.supplierId).orElse(null) : null)
+                        : apporteur;
         var categoryOfCarrier = carrier != null
                 ? supplierCategories.findById(carrier.categoryId).orElse(null) : null;
         // La rémunération reste attachée au délégué : un producteur qui
@@ -203,6 +226,11 @@ public class ProducerPurchaseService {
         List<CreditImputationDto> imputations =
                 p.creditImputations() == null ? List.of()
                         : p.creditImputations().stream().filter(java.util.Objects::nonNull).toList();
+        if (m == null && !imputations.isEmpty()) {
+            // Une retenue se prélève sur les crédits d'un producteur
+            // nommé : sans fiche, il n'y a rien à rembourser.
+            throw new BusinessException(Messages.msg("m.ppu-credit-needs-producer"));
+        }
         BigDecimal creditImputed = imputations.stream()
                 .map(CreditImputationDto::amount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -219,15 +247,24 @@ public class ProducerPurchaseService {
         e.id = idGenerator.newId();
         e.ref = refService.next();
         e.date = p.date();
-        e.memberId = m.id;
-        e.producerName = m.name;
-        e.producerCode = m.code;
-        e.producerExternalCode = externalCodeFor(m, p.producerExternalCode(), prefs);
-        e.village = m.village;
-        e.producerPhone = m.phone;
-        e.sectionId = m.sectionId;
-        e.sectionName = m.sectionId != null
-                ? sections.findById(m.sectionId).map(s -> s.name).orElse(null) : null;
+        if (m != null) {
+            e.memberId = m.id;
+            e.producerName = m.name;
+            e.producerCode = m.code;
+            e.producerExternalCode = externalCodeFor(m, p.producerExternalCode(), prefs);
+            e.village = m.village;
+            e.producerPhone = m.phone;
+            e.sectionId = m.sectionId;
+            e.sectionName = m.sectionId != null
+                    ? sections.findById(m.sectionId).map(s -> s.name).orElse(null) : null;
+        } else if (delegate == null) {
+            // Le nom du producteur reste vide plutôt que de recopier celui
+            // de l'apporteur : recopié, il ferait apparaître ces
+            // livraisons dans les apports personnels du fournisseur.
+            e.supplierId = apporteur.id;
+            e.supplierName = apporteur.name;
+            e.sectionId = apporteur.sectionId;
+        }
         e.articleId = article.id;
         e.articleCode = article.code;
         e.articleName = article.name;
@@ -372,7 +409,7 @@ public class ProducerPurchaseService {
         stockService.applyMovement(new MovementInput(
                 article.id, siteId, MovementKind.IN, weight, unitCost,
                 MovementSource.PRODUCER_PURCHASE, e.ref, e.id, null,
-                "Achat producteur " + e.producerName, null,
+                "Achat producteur " + e.counterpartyName(), null,
                 p.date().atStartOfDay(java.time.ZoneOffset.UTC).toInstant(),
                 false, lotRef, replaceCmup));
         e.movementRef = e.ref;
@@ -392,7 +429,7 @@ public class ProducerPurchaseService {
                 .actorEmail(actor())
                 .target("producer_purchase", e.id.toString(), e.ref)
                 .tenant(tenantContext.tenantId(), null)
-                .description("Achat producteur " + e.ref + " : " + e.producerName
+                .description("Achat producteur " + e.ref + " : " + e.counterpartyName()
                         + " · " + weight + " kg " + e.articleName + " (" + amount + ")")
                 .record();
 
@@ -431,10 +468,16 @@ public class ProducerPurchaseService {
                 && delegate.advanceAccount != null && !delegate.advanceAccount.isBlank()
                 ? delegate.advanceAccount.trim()
                 : prefs.collectorAdvanceAccount();
-        String beneficiary = delegate != null ? delegate.name : e.producerName;
+        String beneficiary = e.payeeName();
+        // Le fournisseur apporteur a son propre compte auxiliaire, sous son
+        // collectif : sans quoi sa balance individuelle ne se solderait
+        // jamais, le règlement débitant un compte que le reçu n'a pas
+        // crédité.
+        String payableAccount = delegate != null ? prefs.delegatePayableAccount()
+                : e.supplierId != null ? accounting.supplierAccount(e.supplierId)
+                : prefs.producerPayableAccount();
         AccountingService.PurchaseLeg payable = new AccountingService.PurchaseLeg(
-                delegate != null ? prefs.delegatePayableAccount() : prefs.producerPayableAccount(),
-                "Livraison " + e.ref + " due à " + beneficiary, amount);
+                payableAccount, "Livraison " + e.ref + " due à " + beneficiary, amount);
 
         List<AccountingService.SettlementLine> settlements = new java.util.ArrayList<>();
         if (delegate != null) {
@@ -549,7 +592,7 @@ public class ProducerPurchaseService {
                 .target("producer_purchase", e.id.toString(), e.ref)
                 .tenant(tenantContext.tenantId(), null)
                 .description("Livraison " + e.ref + " comptabilisée : "
-                        + (e.delegateName != null ? e.delegateName : e.producerName)
+                        + e.payeeName()
                         + " (" + nz(e.amount) + " " + Messages.currencyLabel() + ")")
                 .record();
         return ProducerPurchaseResponseDto.from(e);

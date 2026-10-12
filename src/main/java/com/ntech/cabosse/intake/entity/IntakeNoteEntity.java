@@ -50,6 +50,17 @@ public class IntakeNoteEntity {
     /** Délégué collecteur reconnu dans le référentiel, s'il l'a été. */
     public UUID delegateSupplierId;
 
+    /**
+     * Fournisseur du bordereau, délégué ou non.
+     *
+     * <p>Seuls les délégués étaient reconnus : un fournisseur ordinaire
+     * restait un nom sans fiche, et la comptabilisation n'avait alors
+     * personne sur qui poser le reçu. La coopérative achète pourtant
+     * aussi bien à un délégué qu'à un fournisseur simple, sociétaire ou
+     * non (12/10/2026).</p>
+     */
+    public UUID supplierId;
+
     /** N° d'ordre de la ligne sur le bordereau papier. */
     public Integer lineNumber;
 
