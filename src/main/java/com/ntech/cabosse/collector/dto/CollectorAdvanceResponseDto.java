@@ -40,7 +40,10 @@ public record CollectorAdvanceResponseDto(
             geste n'a pas eu lieu. */
         Instant approvedAt, String approvedByEmail,
         String rejectionReason, Instant rejectedAt, String rejectedByEmail,
-        Instant disbursedAt, String disbursedByEmail, String disbursedByName,
+        Instant disbursedAt,
+        /** Jour de sortie des fonds, quand il diffère de celui de la saisie. */
+        LocalDate disbursementDate,
+        String disbursedByEmail, String disbursedByName,
         Instant executionRequestedAt, String executionRequestedByEmail,
         java.util.List<com.ntech.cabosse.shared.storage.AttachmentDto> attachments
 ) {
@@ -65,7 +68,7 @@ public record CollectorAdvanceResponseDto(
                 deliveries, e.closedAt, e.createdAt, e.createdByEmail,
                 e.approvedAt, e.approvedByEmail,
                 e.rejectionReason, e.rejectedAt, e.rejectedByEmail,
-                e.disbursedAt, e.disbursedByEmail, e.disbursedByName,
+                e.disbursedAt, e.disbursementDate, e.disbursedByEmail, e.disbursedByName,
                 e.executionRequestedAt, e.executionRequestedByEmail,
                 com.ntech.cabosse.shared.storage.AttachmentDto.fromAll(e.attachments));
     }

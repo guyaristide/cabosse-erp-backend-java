@@ -46,6 +46,17 @@ public record DisburseAdvanceDto(
         @Size(max = 80) String paymentRef,
 
         /**
+         * Jour où les fonds sortent réellement, s'il n'est pas celui de
+         * la saisie.
+         *
+         * <p>Un chèque remis mardi et saisi vendredi doit porter sa date
+         * au journal, sans quoi le rapprochement bancaire ne tombe pas.
+         * Vide, l'écriture garde la date de la demande d'avance, comme
+         * avant (demandé le 12/10/2026).</p>
+         */
+        java.time.LocalDate disbursedOn,
+
+        /**
          * Frais bancaires, s'il y en a. À la charge de l'émetteur, donc de
          * la structure : ils ne touchent pas le compte courant du délégué,
          * qui reste débité du montant entier de l'avance.

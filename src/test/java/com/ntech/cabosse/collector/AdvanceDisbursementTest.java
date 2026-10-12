@@ -294,6 +294,58 @@ class AdvanceDisbursementTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void la_date_de_sortie_des_fonds_se_saisit_et_porte_l_ecriture() {
+        UserEntity admin = admin();
+        String delegateId = createDelegate(admin, "Délégué Daté");
+        String id = requestAdvance(admin, delegateId, 500_000, "CHEQUE");
+        approve(admin, id);
+
+        // Le chèque a été remis l'avant-veille : c'est cette date que le
+        // rapprochement bancaire cherchera, pas celle de la frappe
+        // (demandé le 12/10/2026).
+        LocalDate remis = LocalDate.now().minusDays(2);
+        String pieceRef = givenAs(admin).contentType("application/json")
+                .body("{ \"disbursedOn\": \"%s\", \"acknowledgeInsufficientBalance\": true }"
+                        .formatted(remis))
+                .when().post("/api/v1/collector-advances/" + id + "/disburse")
+                .then().statusCode(200)
+                .body("data.disbursementDate", equalTo(remis.toString()))
+                .extract().path("data.pieceRef");
+
+        List<Map<String, Object>> pieces = givenAs(admin)
+                .when().get("/api/v1/accounting/journal?perPage=100")
+                .then().statusCode(200).extract().path("data.items");
+        Map<String, Object> piece = pieces.stream()
+                .filter(x -> pieceRef.equals(x.get("ref")))
+                .findFirst().orElseThrow();
+        assertThat(piece.get("date")).isEqualTo(remis.toString());
+    }
+
+    @Test
+    void sans_date_saisie_l_ecriture_garde_celle_de_la_demande() {
+        UserEntity admin = admin();
+        String delegateId = createDelegate(admin, "Délégué Sans Date");
+        String id = requestAdvance(admin, delegateId, 200_000, "CASH");
+        approve(admin, id);
+
+        // Le champ est facultatif, et vide rien ne bouge : c'est tout
+        // l'objet d'un ajout qui ne doit rien changer à l'existant.
+        String pieceRef = givenAs(admin).when()
+                .post("/api/v1/collector-advances/" + id + "/disburse")
+                .then().statusCode(200)
+                .body("data.disbursementDate", org.hamcrest.Matchers.nullValue())
+                .extract().path("data.pieceRef");
+
+        List<Map<String, Object>> pieces = givenAs(admin)
+                .when().get("/api/v1/accounting/journal?perPage=100")
+                .then().statusCode(200).extract().path("data.items");
+        Map<String, Object> piece = pieces.stream()
+                .filter(x -> pieceRef.equals(x.get("ref")))
+                .findFirst().orElseThrow();
+        assertThat(piece.get("date")).isEqualTo(LocalDate.now().toString());
+    }
+
+    @Test
     void negative_fees_are_refused() {
         UserEntity admin = admin();
         String delegateId = createDelegate(admin, "Délégué Négatif");

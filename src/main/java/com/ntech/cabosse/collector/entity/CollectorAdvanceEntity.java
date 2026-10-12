@@ -137,6 +137,20 @@ public class CollectorAdvanceEntity {
     public String executionRequestedByEmail;
 
     public Instant disbursedAt;
+
+    /**
+     * Jour où les fonds sont réellement sortis, quand il diffère de celui
+     * de la saisie.
+     *
+     * <p>{@link #disbursedAt} est l'instant où le système a enregistré le
+     * geste : il reste la trace d'audit et ne se saisit pas. Un chèque
+     * remis mardi et saisi vendredi doit pourtant porter sa date au
+     * journal, sans quoi le rapprochement bancaire ne tombe pas
+     * (demandé le 12/10/2026). Vide, l'écriture garde la date de la
+     * demande d'avance, comme avant.</p>
+     */
+    public LocalDate disbursementDate;
+
     public UUID disbursedBy;
     public String disbursedByEmail;
     /**

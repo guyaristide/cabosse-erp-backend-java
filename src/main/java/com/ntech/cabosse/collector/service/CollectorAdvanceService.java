@@ -462,6 +462,10 @@ public class CollectorAdvanceService {
             // pèse, pour qu'un état ne montre pas des lignes à 0 FCFA.
             e.bankFees = (payload.bankFees() != null
                     && payload.bankFees().signum() > 0) ? payload.bankFees() : null;
+            // La date de sortie des fonds, quand elle n'est pas celle de
+            // la saisie. Laissée vide, rien ne change : l'écriture garde
+            // la date de la demande.
+            e.disbursementDate = payload.disbursedOn();
         }
         provisionGuard.warnIfBankCannotCover(e.paymentMethod, e.bankAccountId,
                 e.effectiveAmount(), e.bankFees,
@@ -473,9 +477,12 @@ public class CollectorAdvanceService {
         // plan ; nous les rattachons, nous n'en fabriquons aucun.
         String partyAccount = suppliers.findById(e.delegateSupplierId)
                 .map(sup -> sup.advanceAccount).orElse(null);
+        // L'écriture porte le jour où l'argent est sorti quand il a été
+        // saisi, sinon celui de la demande, comme avant.
+        LocalDate pieceDate = e.disbursementDate != null ? e.disbursementDate : e.advanceDate;
         accounting.postFromCollectorAdvance(e.id, e.ref, e.delegateName,
                         e.effectiveAmount(), e.paymentMethod,
-                        e.bankAccountId, e.bankFees, e.advanceDate, partyAccount)
+                        e.bankAccountId, e.bankFees, pieceDate, partyAccount)
                 .ifPresent(piece -> e.pieceRef = piece.ref);
         e.status = CollectorAdvanceStatus.OPEN;
         e.disbursedAt = now;
