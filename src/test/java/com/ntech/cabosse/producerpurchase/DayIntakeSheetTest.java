@@ -183,6 +183,50 @@ class DayIntakeSheetTest extends AbstractIntegrationTest {
      * manquant d'inventaire, constatée plus tôt.</p>
      */
     @Test
+    void le_jour_de_l_amorcage_la_fiche_le_montre() {
+        UserEntity admin = tenantAdmin();
+        String siteCode = "s-" + java.util.UUID.randomUUID().toString().substring(0, 8);
+        String siteId = givenAs(admin).contentType("application/json")
+                .body("{\"name\":\"Magasin central\",\"type\":\"CENTRAL_WAREHOUSE\",\"code\":\"" + siteCode + "\"}")
+                .when().post("/api/v1/sites").then().statusCode(201).extract().path("data.id");
+        String articleId = givenAs(admin).contentType("application/json")
+                .body("{\"type\":\"MERCHANDISE\",\"name\":\"Fève de cacao brousse\",\"unit\":\"kg\"}")
+                .when().post("/api/v1/articles").then().statusCode(201).extract().path("data.id");
+
+        LocalDate today = LocalDate.now();
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "siteId": "%s", "occurredAt": "%s",
+                          "lines": [ { "articleId": "%s", "quantity": 46572,
+                                       "unitPrice": 1200, "bags": 815 } ] }
+                        """.formatted(siteId, java.time.Instant.now(), articleId))
+                .when().post("/api/v1/stocks/opening").then().statusCode(201);
+
+        // Aucun reçu ce jour-là : la fiche ne lisait que les reçus et les
+        // corrections, ne savait pas de quel article parler, et
+        // s'affichait vide le jour même où le magasin posait son stock
+        // de départ (signalé le 12/10/2026).
+        givenAs(admin)
+                .queryParam("date", today.toString())
+                .queryParam("siteId", siteId)
+                .when().get("/api/v1/producer-purchases/day-sheet")
+                .then().statusCode(200)
+                .body("data.rows", hasSize(1))
+                .body("data.rows[0].rowKind", equalTo("OPENING"))
+                .body("data.rows[0].nbSacs", equalTo(815))
+                .body("data.rows[0].weightKg", equalTo(46572.0F))
+                .body("data.rows[0].cumulativeQuantity", equalTo(46572.0F))
+                .body("data.rows[0].cumulativeBags", equalTo(815))
+                // Le report reste à zéro : l'amorçage est du jour, pas
+                // un héritage de la veille.
+                .body("data.closingQuantity", equalTo(46572.0F))
+                .body("data.closingBags", equalTo(815))
+                // Et il ne gonfle pas ce que la journée a acheté.
+                .body("data.totalWeightKg", equalTo(0))
+                .body("data.totalAmount", equalTo(0));
+    }
+
+    @Test
     void la_correction_sort_la_matiere_et_passe_en_charge() {
         UserEntity admin = tenantAdmin();
         String siteCode = "s-" + java.util.UUID.randomUUID().toString().substring(0, 8);

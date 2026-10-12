@@ -50,6 +50,27 @@ public class StockMovementRepository {
         return m != null ? m.bags : null;
     }
 
+    /**
+     * Les amorçages d'un jour, sur un site et au besoin sur un article.
+     *
+     * <p>La fiche du jour ne lisait que les reçus et les corrections :
+     * le jour où le magasin pose son stock de départ, elle s'affichait
+     * vide et rien ne disait que l'amorçage avait eu lieu (signalé le
+     * 12/10/2026).</p>
+     */
+    public List<StockMovementEntity> listOpeningsOn(Instant dayStart, Instant dayEnd,
+                                                    UUID siteId, UUID articleId) {
+        List<Bson> filters = new ArrayList<>();
+        filters.add(Filters.eq("kind", "OPENING"));
+        filters.add(Filters.gte("occurredAt", dayStart));
+        filters.add(Filters.lt("occurredAt", dayEnd));
+        if (siteId != null) filters.add(Filters.eq("siteId", siteId));
+        if (articleId != null) filters.add(Filters.eq("articleId", articleId));
+        return coll().find(Filters.and(filters))
+                .sort(new Document("occurredAt", 1).append("_id", 1))
+                .into(new ArrayList<>());
+    }
+
     public Optional<StockMovementEntity> findById(UUID id) {
         return Optional.ofNullable(coll().find(Filters.eq("_id", id)).first());
     }

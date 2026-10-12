@@ -55,10 +55,22 @@ public class DayIntakeSheetService {
         // Sans article demandé, la fiche en adopte un seul si la journée
         // n'en a reçu qu'un : c'est le cas courant du magasin, et c'est ce
         // qui permet de rendre l'ouverture sans la fausser.
+        // L'amorçage du jour fait partie de la journée : le jour où le
+        // magasin pose son stock de départ, la fiche n'avait aucun reçu,
+        // ne savait pas de quel article parler, et s'affichait vide
+        // (signalé le 12/10/2026).
+        java.time.Instant dayStart = date.atStartOfDay(ZoneOffset.UTC).toInstant();
+        java.time.Instant dayEnd = date.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
+        List<com.ntech.cabosse.stock.entity.StockMovementEntity> openings =
+                movements.listOpeningsOn(dayStart, dayEnd, siteId, articleId);
+
         UUID sheetArticleId = articleId;
         String articleName = null;
         if (sheetArticleId == null) {
-            List<UUID> distinct = receipts.stream().map(r -> r.articleId).distinct().toList();
+            List<UUID> distinct = java.util.stream.Stream.concat(
+                            receipts.stream().map(r -> r.articleId),
+                            openings.stream().map(m -> m.articleId))
+                    .distinct().toList();
             if (distinct.size() == 1) sheetArticleId = distinct.get(0);
         }
         if (sheetArticleId != null) {
@@ -66,7 +78,11 @@ public class DayIntakeSheetService {
             articleName = receipts.stream()
                     .filter(r -> finalId.equals(r.articleId))
                     .map(r -> r.articleName).filter(java.util.Objects::nonNull)
-                    .findFirst().orElse(null);
+                    .findFirst()
+                    .orElseGet(() -> openings.stream()
+                            .filter(m -> finalId.equals(m.articleId))
+                            .map(m -> m.articleName).filter(java.util.Objects::nonNull)
+                            .findFirst().orElse(null));
         }
 
         BigDecimal opening = null;
@@ -93,12 +109,30 @@ public class DayIntakeSheetService {
                     date.atStartOfDay(ZoneOffset.UTC).toInstant().minusMillis(1)).quantity();
         }
 
-        List<DayIntakeRowDto> rows = new ArrayList<>(receipts.size());
+        List<DayIntakeRowDto> rows = new ArrayList<>(receipts.size() + openings.size());
         BigDecimal runningQty = opening != null ? opening : BigDecimal.ZERO;
         int runningBags = openingBags != null ? openingBags : 0;
         int enteredBags = 0;
         BigDecimal totalWeight = BigDecimal.ZERO;
         BigDecimal totalAmount = BigDecimal.ZERO;
+
+        // L'amorçage vient en tête : c'est le point de départ, pas une
+        // entrée du jour. Il nourrit les cumuls sans entrer dans les
+        // totaux achetés, qui comptent ce que la journée a acheté.
+        for (com.ntech.cabosse.stock.entity.StockMovementEntity m : openings) {
+            if (sheetArticleId != null && !sheetArticleId.equals(m.articleId)) continue;
+            BigDecimal weight = nz(m.quantitySigned).abs();
+            int bags = m.bags != null ? m.bags : 0;
+            runningQty = runningQty.add(weight);
+            runningBags += bags;
+            // Pas de nom d'apporteur : un amorçage n'en a pas, et
+            // l'écran le nomme lui-même dans la langue de la personne.
+            rows.add(new DayIntakeRowDto(
+                    null, date, null, m.ref, null, null,
+                    m.bags, weight, m.unitPrice, nz(m.total),
+                    runningQty, runningBags,
+                    "OPENING", null));
+        }
         for (ProducerPurchaseEntity r : receipts) {
             BigDecimal weight = nz(r.weightKg);
             runningQty = runningQty.add(weight);
