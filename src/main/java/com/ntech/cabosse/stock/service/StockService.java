@@ -925,6 +925,12 @@ public class StockService {
         return new OpeningResult(created, rejected);
     }
 
+    /** Les articles déjà mouvementés sur un site : ils ne s'amorcent plus. */
+    public List<UUID> articlesAlreadyMoved(UUID siteId) {
+        if (siteId == null) return List.of();
+        return movements.articleIdsWithMovement(siteId);
+    }
+
     public record OpeningLine(UUID articleId, BigDecimal quantity,
                                 BigDecimal unitPrice, String notes,
                                 /** Sacs en magasin au départ. Le stock ne les suit pas ailleurs. */

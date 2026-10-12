@@ -260,6 +260,22 @@ public class StockMovementRepository {
         return countByArticleAndSite(articleId, siteId) > 0;
     }
 
+    /**
+     * Les articles déjà mouvementés sur un site.
+     *
+     * <p>L'écran d'amorçage grisait ses lignes sur la situation de stock,
+     * qui masque les articles épuisés : un article reçu puis entièrement
+     * sorti n'y figure plus, la ligne restait saisissable, et le serveur
+     * la refusait après coup (constaté le 12/10/2026). La seule vérité
+     * est le mouvement, pas le solde.</p>
+     */
+    public List<UUID> articleIdsWithMovement(UUID siteId) {
+        List<UUID> out = new ArrayList<>();
+        coll().distinct("articleId", Filters.eq("siteId", siteId), UUID.class)
+                .forEach(out::add);
+        return out;
+    }
+
     /** Liste libre avec filtres pour export. */
     public List<StockMovementEntity> search(UUID siteId, String articleType, String q,
                                              Instant from, Instant to) {

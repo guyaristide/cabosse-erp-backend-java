@@ -171,6 +171,22 @@ public class StockResource {
                 .build();
     }
 
+    /**
+     * Les articles qu'un site ne peut plus amorcer.
+     *
+     * <p>L'écran grisait ses lignes sur la situation de stock, qui masque
+     * les articles épuisés : un article reçu puis entièrement sorti n'y
+     * figure plus, la ligne restait saisissable et le serveur la refusait
+     * après coup (constaté le 12/10/2026).</p>
+     */
+    @GET
+    @RequiresPermission(Permission.STOCK_MOVE)
+    @Path("/opening/locked")
+    @RolesAllowed({ Roles.TENANT_ADMIN })
+    public Response openingLocked(@QueryParam("siteId") UUID siteId) {
+        return Response.ok(ApiResponse.ok(service.articlesAlreadyMoved(siteId))).build();
+    }
+
     @POST
     @RequiresPermission(Permission.STOCK_MOVE)
     @Path("/opening")
