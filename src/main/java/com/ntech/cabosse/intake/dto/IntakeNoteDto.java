@@ -23,6 +23,8 @@ public record IntakeNoteDto(
         String supplierCode,
         String supplierName,
         UUID delegateSupplierId,
+        /** Fournisseur du bordereau, délégué ou non. */
+        UUID supplierId,
         Integer lineNumber,
         BigDecimal grossWeightKg,
         Integer bagCount,
@@ -46,7 +48,7 @@ public record IntakeNoteDto(
         return new IntakeNoteDto(
                 e.id, e.ref, e.date, e.movement, e.campaignLabel, e.campaignId,
                 e.productLabel, e.truckNumber, e.supplierCode, e.supplierName,
-                e.delegateSupplierId, e.lineNumber,
+                e.delegateSupplierId, e.supplierId, e.lineNumber,
                 e.grossWeightKg, e.bagCount, e.netWeightKg,
                 e.status, e.accountedAt, e.accountedByEmail,
                 e.accountedWeightKg, e.accountedAmount, gap,

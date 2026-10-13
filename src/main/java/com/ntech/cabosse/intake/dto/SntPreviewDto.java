@@ -28,11 +28,16 @@ public record SntPreviewDto(
         UUID delegateSupplierId,
         String delegateName,
         /**
-         * Un délégué est nommé (bordereau ou fichier) mais introuvable au
-         * référentiel : la validation refusera, un reçu créé sans
-         * rattachement n'apure jamais son compte d'avances.
+         * Un fournisseur est nommé (bordereau ou fichier) mais
+         * introuvable au référentiel.
+         *
+         * <p>Avertissement, non refus : la coopérative achète aussi à
+         * des producteurs, membres ou non, et le reçu se pose sur celui
+         * que le fichier nomme. Seule une ligne qui ne nomme personne et
+         * n'a aucun fournisseur reconnu est refusée (expert,
+         * 13/10/2026).</p>
          */
-        boolean delegateUnmatched,
+        boolean supplierUnmatched,
         /**
          * Fournisseur du bordereau, délégué ou non : il porte les reçus
          * dont le document ne nomme pas le producteur.

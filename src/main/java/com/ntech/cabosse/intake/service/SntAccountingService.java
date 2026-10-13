@@ -86,10 +86,11 @@ public class SntAccountingService {
             throw new BusinessException(Messages.msg("m.itk-already-accounted", note.ref));
         }
         SntPreviewDto preview = analyse(note, request);
-        if (preview.delegateUnmatched()) {
-            throw new BusinessException(Messages.msg(
-                    "m.itk-delegate-unmatched", clean(note.supplierName)));
-        }
+        // Le fournisseur non reconnu ne bloque plus : la coopérative
+        // achète aussi à des producteurs, membres ou non, et le reçu se
+        // pose sur celui que le fichier nomme. Quand une ligne ne nomme
+        // personne et qu'aucun fournisseur n'est reconnu, c'est la ligne
+        // elle-même qui est refusée, avec sa raison (expert, 13/10/2026).
         if (preview.rows().stream().allMatch(r -> "INVALID".equals(r.status()))) {
             throw new BusinessException(Messages.msg("m.itk-nothing-to-account"));
         }
@@ -145,10 +146,6 @@ public class SntAccountingService {
             throw new BusinessException(Messages.msg("m.itk-complete-not-accounted", note.ref));
         }
         SntPreviewDto preview = analyse(note, request);
-        if (preview.delegateUnmatched()) {
-            throw new BusinessException(Messages.msg(
-                    "m.itk-delegate-unmatched", clean(note.supplierName)));
-        }
 
         // Une livraison s'identifie par le numéro du carnet remis au
         // producteur, pas par sa position dans le tableur : l'ordre des
@@ -364,7 +361,7 @@ public class SntAccountingService {
         // fournisseur ordinaire reconnu à l'import du bordereau.
         final UUID counterpartySupplierId =
                 delegateId != null ? delegateId : note.supplierId;
-        boolean delegateUnmatched = counterpartySupplierId == null && namedDelegate != null;
+        boolean supplierUnmatched = counterpartySupplierId == null && namedDelegate != null;
         final UUID resolvedDelegateId = delegateId;
         String delegateName = resolvedDelegateId == null ? null
                 : collectors.stream().filter(su -> su.id.equals(resolvedDelegateId))
@@ -493,7 +490,7 @@ public class SntAccountingService {
                 ? note.netWeightKg.subtract(totalWeight) : null;
         return new SntPreviewDto(rows.size(), ready, warning, invalid, toCreate,
                 totalWeight, totalAmount, note.netWeightKg, gap,
-                resolvedDelegateId, delegateName, delegateUnmatched,
+                resolvedDelegateId, delegateName, supplierUnmatched,
                 counterpartySupplierId, supplierDisplayName, onSupplier, rows);
     }
 

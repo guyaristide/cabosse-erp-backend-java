@@ -140,7 +140,7 @@ class IntakeNoteTest extends AbstractIntegrationTest {
                 .then().statusCode(200)
                 .body("data.totalRows", equalTo(2))
                 .body("data.delegateName", equalTo("KOUI IBOBE MARCELIN"))
-                .body("data.delegateUnmatched", equalTo(false))
+                .body("data.supplierUnmatched", equalTo(false))
                 .body("data.membersToCreate", equalTo(1))
                 .body("data.rows[0].memberToCreate", equalTo(false))
                 .body("data.rows[1].memberToCreate", equalTo(true));
@@ -179,9 +179,12 @@ class IntakeNoteTest extends AbstractIntegrationTest {
         givenAs(admin).when().delete("/api/v1/intake-notes/" + noteId)
                 .then().statusCode(422);
 
-        // ─── Délégué nommé mais introuvable : la validation refuse ───
-        // Un reçu créé sans rattachement n'apurerait jamais son compte
-        // d'avances (constaté en production le 10/09/2026).
+        // ─── Fournisseur nommé mais introuvable : on avertit, on ne
+        // refuse plus ─── La coopérative achète aussi à des producteurs,
+        // membres ou non, et le reçu se pose sur celui que le fichier
+        // nomme (expert, 13/10/2026). Seul le compte courant d'un
+        // délégué non reconnu reste sans apurement, ce que l'avertissement
+        // dit.
         givenAs(admin).contentType("application/json")
                 .body("""
                         [ { "rowNumber": 2, "ref": "BR0300", "date": "%s",
@@ -204,14 +207,15 @@ class IntakeNoteTest extends AbstractIntegrationTest {
         givenAs(admin).contentType("application/json").body(orphanLines)
                 .when().post("/api/v1/intake-notes/" + orphanId + "/accounting/preview")
                 .then().statusCode(200)
-                .body("data.delegateUnmatched", equalTo(true));
+                .body("data.supplierUnmatched", equalTo(true));
         givenAs(admin).contentType("application/json").body(orphanLines)
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                 .when().post("/api/v1/intake-notes/" + orphanId + "/accounting/commit")
-                .then().statusCode(422);
-        // Le bordereau reste à comptabiliser : rien n'a été consommé.
+                .then().statusCode(200)
+                .body("data.createdReceipts", equalTo(1));
         givenAs(admin).when().get("/api/v1/intake-notes/" + orphanId)
                 .then().statusCode(200)
-                .body("data.status", equalTo("TO_ACCOUNT"));
+                .body("data.status", equalTo("ACCOUNTED"));
     }
 
     @Test

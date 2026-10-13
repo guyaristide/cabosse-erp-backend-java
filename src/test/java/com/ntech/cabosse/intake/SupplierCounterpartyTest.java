@@ -216,6 +216,50 @@ class SupplierCounterpartyTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void un_fournisseur_inconnu_n_interdit_plus_de_comptabiliser() {
+        UserEntity admin = admin();
+        LocalDate today = LocalDate.now();
+        String siteId = site(admin);
+        String articleId = article(admin);
+        givenAs(admin).contentType("application/json")
+                .body("{\"lastName\":\"Zale Issouf\",\"gender\":\"MALE\",\"status\":\"ACTIVE\"}")
+                .when().post("/api/v1/members").then().statusCode(201);
+
+        // Le bordereau nomme un apporteur que le référentiel des
+        // fournisseurs ne connaît pas : la coopérative achète aussi à
+        // des producteurs, membres ou non (expert, 13/10/2026).
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        [ { "rowNumber": 2, "date": "%s", "ref": "BR0878",
+                            "supplierName": "APPORTEUR INCONNU", "netWeightKg": "52" } ]
+                        """.formatted(today))
+                .when().post("/api/v1/intake-notes/import/commit?siteId=" + siteId)
+                .then().statusCode(200);
+        String noteId = givenAs(admin).when().get("/api/v1/intake-notes?status=TO_ACCOUNT")
+                .then().statusCode(200).extract().path("data[0].id");
+
+        String lines = """
+                { "articleId": "%s", "siteId": "%s", "lines": [
+                  { "rowNumber": 2, "date": "%s", "nbSacs": "1", "weightKg": "52",
+                    "amount": "62400", "producerName": "Zale Issouf" } ] }
+                """.formatted(articleId, siteId, today);
+
+        // L'avertissement reste, le refus part : le reçu se pose sur le
+        // producteur que le fichier nomme.
+        givenAs(admin).contentType("application/json").body(lines)
+                .when().post("/api/v1/intake-notes/" + noteId + "/accounting/preview")
+                .then().statusCode(200)
+                .body("data.supplierUnmatched", equalTo(true))
+                .body("data.invalidRows", equalTo(0));
+
+        givenAs(admin).contentType("application/json").body(lines)
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                .when().post("/api/v1/intake-notes/" + noteId + "/accounting/commit")
+                .then().statusCode(200)
+                .body("data.createdReceipts", equalTo(1));
+    }
+
+    @Test
     void ce_que_la_cooperative_doit_a_un_fournisseur_apporteur_se_regle() {
         UserEntity admin = admin();
         String siteId = site(admin);

@@ -169,7 +169,7 @@ public class IntakeNoteService {
                 // fournisseur, ce bordereau bloquera le lot entier, et
                 // l'apprendre des jours plus tard coûte la journée.
                 warned.add(new IntakeImportResultDto.WarnedRow(
-                        raw.rowNumber(), ref, Messages.msg("m.itk-w-delegate-unmatched")));
+                        raw.rowNumber(), ref, Messages.msg("m.itk-w-supplier-unmatched")));
             }
             if (e.campaignId == null && e.campaignLabel != null) {
                 trace.decided("LEFT_NULL", "campagne", e.campaignLabel, "aucune campagne reconnue");
