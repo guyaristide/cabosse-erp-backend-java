@@ -13,6 +13,15 @@ public record SntLineDto(
         int rowNumber,
         String reference,
         String date,
+        /**
+         * Sacs pesés sur la livraison.
+         *
+         * <p>Le magasinier compte les sacs sur son bordereau, le fichier
+         * national ne les portait pas, et la comptabilisation créait des
+         * reçus sans sacs : la fiche du jour additionnait des poids et
+         * perdait les sacs (expert, 13/10/2026).</p>
+         */
+        String nbSacs,
         String weightKg,
         String amount,
         String amountCard,

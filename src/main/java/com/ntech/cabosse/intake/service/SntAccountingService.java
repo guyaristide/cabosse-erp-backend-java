@@ -265,7 +265,7 @@ public class SntAccountingService {
                         note.campaignId,
                         note.truckNumber,
                         null,
-                        null,
+                        row.nbSacs(),
                         row.weightKg(),
                         row.pricePerKg(),
                         row.amount(),
@@ -289,7 +289,7 @@ public class SntAccountingService {
                 skipped.add(new SntPreviewDto.Row(row.rowNumber(), "INVALID",
                         List.of(reason), row.reference(), row.date(),
                         row.producerName(), row.producerPhone(), row.memberId(),
-                        row.memberName(), row.memberToCreate(), row.weightKg(),
+                        row.memberName(), row.memberToCreate(), row.nbSacs(), row.weightKg(),
                         row.amount(), row.pricePerKg(), row.paymentMethod()));
             }
         }
@@ -409,6 +409,12 @@ public class SntAccountingService {
             if (date == null) {
                 date = note.date;
             }
+            // Les sacs du bordereau : le fichier national ne les
+            // portait pas, et la comptabilisation créait des reçus sans
+            // sacs (expert, 13/10/2026). Facultatif : un fichier sans
+            // la colonne reste lisible.
+            BigDecimal rawBags = parseDecimal(raw.nbSacs());
+            Integer bags = rawBags == null || rawBags.signum() <= 0 ? null : rawBags.intValue();
             BigDecimal weight = parseDecimal(raw.weightKg());
             if (weight == null || weight.signum() <= 0) {
                 issues.add(Messages.msg("m.itk-weight-required"));
@@ -480,7 +486,7 @@ public class SntAccountingService {
                     producerName, clean(raw.producerPhone()),
                     matched != null ? matched.id : null,
                     matched != null ? matched.name : null,
-                    memberToCreate, weight, amount, price, method));
+                    memberToCreate, bags, weight, amount, price, method));
         }
 
         BigDecimal gap = note.netWeightKg != null

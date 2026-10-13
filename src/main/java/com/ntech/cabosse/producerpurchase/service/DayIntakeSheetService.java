@@ -122,15 +122,19 @@ public class DayIntakeSheetService {
         BigDecimal totalWeight = BigDecimal.ZERO;
         BigDecimal totalAmount = BigDecimal.ZERO;
 
-        // L'amorçage vient en tête : c'est le point de départ, pas une
-        // entrée du jour. Il nourrit les cumuls sans entrer dans les
-        // totaux achetés, qui comptent ce que la journée a acheté.
+        // L'amorçage vient en tête : c'est le point de départ de la
+        // journée. Il compte dans les totaux comme les entrées, le
+        // carnet du magasin totalisant ce qui est entré en magasin et
+        // non ce qui a été acheté (expert, 13/10/2026).
         for (com.ntech.cabosse.stock.entity.StockMovementEntity m : openings) {
             if (sheetArticleId != null && !sheetArticleId.equals(m.articleId)) continue;
             BigDecimal weight = nz(m.quantitySigned).abs();
             int bags = m.bags != null ? m.bags : 0;
             runningQty = runningQty.add(weight);
             runningBags += bags;
+            enteredBags += bags;
+            totalWeight = totalWeight.add(weight);
+            totalAmount = totalAmount.add(nz(m.total));
             // Pas de nom d'apporteur : un amorçage n'en a pas, et
             // l'écran le nomme lui-même dans la langue de la personne.
             rows.add(new DayIntakeRowDto(

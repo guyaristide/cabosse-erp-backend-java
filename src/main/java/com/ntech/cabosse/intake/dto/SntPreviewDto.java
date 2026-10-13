@@ -55,6 +55,8 @@ public record SntPreviewDto(
             UUID memberId,
             String memberName,
             boolean memberToCreate,
+            /** Sacs pesés sur la livraison, quand le fichier les porte. */
+            Integer nbSacs,
             BigDecimal weightKg,
             BigDecimal amount,
             /** Prix au kilo déduit : montant divisé par poids. */

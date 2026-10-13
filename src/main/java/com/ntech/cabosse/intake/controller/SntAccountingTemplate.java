@@ -21,6 +21,7 @@ public class SntAccountingTemplate {
         List<ExportColumn<SntTemplateRow>> cols = List.of(
                 ExportColumn.of(Messages.msg("m.imp-h-reference"),    SntTemplateRow::reference),
                 ExportColumn.of(Messages.msg("m.imp-h-date"),         SntTemplateRow::date),
+                ExportColumn.of(Messages.msg("m.imp-h-nb-sacs"),      SntTemplateRow::nbSacs),
                 ExportColumn.of(Messages.msg("m.snt-h-quantity"),     SntTemplateRow::weightKg),
                 ExportColumn.of(Messages.msg("m.snt-h-amount"),       SntTemplateRow::amount),
                 ExportColumn.of(Messages.msg("m.snt-h-amount-card"),  SntTemplateRow::amountCard),
@@ -31,7 +32,7 @@ public class SntAccountingTemplate {
                 ExportColumn.of(Messages.msg("m.snt-h-delegate-phone"), SntTemplateRow::delegatePhone)
         );
         List<SntTemplateRow> samples = List.of(
-                new SntTemplateRow("P-453-873", "17/07/2026", "305", "854000",
+                new SntTemplateRow("P-453-873", "17/07/2026", "24", "305", "854000",
                         "0", "854000", "Nom Producteur 1", "0154536688",
                         "Nom Délégué 1", "0172757084"));
         return new ExportDataset<>(Messages.msg("m.exp-t-modele-detail-snt"), cols, samples);

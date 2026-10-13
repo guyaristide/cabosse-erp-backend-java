@@ -126,7 +126,7 @@ class SupplierCounterpartyTest extends AbstractIntegrationTest {
         // d'autre. C'est la forme exacte des fichiers du terrain.
         String lines = """
                 { "articleId": "%s", "siteId": "%s", "lines": [
-                  { "rowNumber": 2, "date": "%s", "weightKg": "852",
+                  { "rowNumber": 2, "date": "%s", "nbSacs": "14", "weightKg": "852",
                     "amount": "1022400", "amountCard": "0", "amountCash": "1022400" } ] }
                 """.formatted(articleId, siteId, today);
 
@@ -163,6 +163,9 @@ class SupplierCounterpartyTest extends AbstractIntegrationTest {
         // tout l'objet de la levée du verrou.
         givenAs(admin).when().get("/api/v1/producer-purchases/" + purchaseId)
                 .then().statusCode(200)
+                // Les sacs du bordereau suivent jusqu'au reçu : sans eux
+                // la fiche du jour perdait son compte (expert, 13/10/2026).
+                .body("data.nbSacs", equalTo(14))
                 .body("data.weightKg", equalTo(852))
                 .body("data.pieceRef", notNullValue())
                 .body("data.movementRef", notNullValue());

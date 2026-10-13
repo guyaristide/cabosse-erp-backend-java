@@ -221,9 +221,12 @@ class DayIntakeSheetTest extends AbstractIntegrationTest {
                 // un héritage de la veille.
                 .body("data.closingQuantity", equalTo(46572.0F))
                 .body("data.closingBags", equalTo(815))
-                // Et il ne gonfle pas ce que la journée a acheté.
-                .body("data.totalWeightKg", equalTo(0))
-                .body("data.totalAmount", equalTo(0));
+                // Le carnet totalise ce qui est entré en magasin, pas ce
+                // que la journée a acheté : le report compte dans les
+                // totaux (expert, 13/10/2026).
+                .body("data.totalWeightKg", equalTo(46572.0F))
+                .body("data.totalBags", equalTo(815))
+                .body("data.totalAmount", equalTo(55886400.0F));
     }
 
     @Test
