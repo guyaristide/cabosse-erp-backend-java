@@ -10,12 +10,22 @@ import java.math.BigDecimal;
 import java.util.UUID;
 
 /**
- * L'appel d'un reçu sur le bordereau de sortie (CE-195) : le net prélevé,
- * jamais plus que le disponible du reçu, et les sacs emportés.
+ * L'appel d'un reçu, ou du stock de départ, sur le bordereau de sortie
+ * (CE-195) : le net prélevé, jamais plus que le disponible de la source,
+ * et les sacs emportés.
  */
-@Schema(description = "Une ligne du bordereau de sortie : l'appel d'un reçu")
+@Schema(description = "Une ligne du bordereau de sortie : l'appel d'un reçu ou du stock de départ")
 public record DispatchLineInputDto(
-        @NotNull(message = "{v.recu-requis}") UUID receiptId,
+        /** Reçu appelé. Exclusif de {@link #openingMovementId}. */
+        UUID receiptId,
+        /**
+         * Amorçage appelé, quand la matière vient du stock de départ.
+         *
+         * <p>Un bordereau ne se composait que de reçus d'achat, et un
+         * magasin dont la matière vient du stock de départ ne pouvait
+         * rien charger (expert, 14/10/2026).</p>
+         */
+        UUID openingMovementId,
         @NotNull(message = "{v.poids-requis}")
         @DecimalMin(value = "0", inclusive = false, message = "{v.poids-positif-requis}")
         BigDecimal netKg,

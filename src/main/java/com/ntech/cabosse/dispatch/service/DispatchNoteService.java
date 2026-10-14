@@ -63,6 +63,7 @@ public class DispatchNoteService {
     @Inject SiteRepository sites;
     @Inject CampaignResolver campaignResolver;
     @Inject StockService stockService;
+    @Inject com.ntech.cabosse.stock.repository.StockMovementRepository movements;
     @Inject StockItemRepository stockItems;
     @Inject TenantContext tenantContext;
     @Inject AuditService audit;
@@ -96,25 +97,42 @@ public class DispatchNoteService {
             throw new BusinessException(Messages.msg("m.stk-site-required"));
         }
 
-        // Les reçus appelés, tous du même article et du même site : un
-        // camion charge une matière, pas un assortiment.
-        List<ProducerPurchaseEntity> called = new ArrayList<>();
+        // Les sources appelées, toutes du même article et du même site :
+        // un camion charge une matière, pas un assortiment. Une source
+        // est un reçu d'achat, ou le stock de départ quand la matière
+        // vient de là (expert, 14/10/2026).
+        List<CalledSource> called = new ArrayList<>();
         for (DispatchLineInputDto line : p.lines()) {
-            ProducerPurchaseEntity receipt = receipts.findById(line.receiptId()).orElseThrow(
-                    () -> new NotFoundException(Messages.msg("m.ppu-receipt-not-found", line.receiptId())));
-            if (receipt.isCancelled()) {
-                throw new BusinessException(Messages.msg("m.dsp-receipt-cancelled", receipt.ref));
+            if ((line.receiptId() == null) == (line.openingMovementId() == null)) {
+                throw new BusinessException(Messages.msg("m.dsp-source-exclusive"));
             }
-            if (!p.siteId().equals(receipt.siteId)) {
-                throw new BusinessException(Messages.msg("m.dsp-receipt-other-site", receipt.ref));
+            if (line.receiptId() != null) {
+                ProducerPurchaseEntity receipt = receipts.findById(line.receiptId()).orElseThrow(
+                        () -> new NotFoundException(
+                                Messages.msg("m.ppu-receipt-not-found", line.receiptId())));
+                if (receipt.isCancelled()) {
+                    throw new BusinessException(Messages.msg("m.dsp-receipt-cancelled", receipt.ref));
+                }
+                if (!p.siteId().equals(receipt.siteId)) {
+                    throw new BusinessException(Messages.msg("m.dsp-receipt-other-site", receipt.ref));
+                }
+                called.add(CalledSource.of(receipt));
+            } else {
+                var opening = movements.findById(line.openingMovementId()).orElseThrow(
+                        () -> new NotFoundException(
+                                Messages.msg("m.dsp-opening-not-found", line.openingMovementId())));
+                if (!p.siteId().equals(opening.siteId)) {
+                    throw new BusinessException(
+                            Messages.msg("m.dsp-receipt-other-site", opening.ref));
+                }
+                called.add(CalledSource.of(opening));
             }
-            called.add(receipt);
         }
-        UUID articleId = called.get(0).articleId;
-        for (ProducerPurchaseEntity receipt : called) {
-            if (!articleId.equals(receipt.articleId)) {
+        UUID articleId = called.get(0).articleId();
+        for (CalledSource source : called) {
+            if (!articleId.equals(source.articleId())) {
                 throw new BusinessException(Messages.msg("m.dsp-mixed-articles",
-                        called.get(0).articleName, receipt.articleName));
+                        called.get(0).articleName(), source.articleName()));
             }
         }
 
@@ -123,14 +141,14 @@ public class DispatchNoteService {
         List<DispatchLineInputDto> consumed = new ArrayList<>();
         for (int i = 0; i < p.lines().size(); i++) {
             DispatchLineInputDto line = p.lines().get(i);
-            if (!receipts.tryDispatch(line.receiptId(), line.netKg())) {
-                for (DispatchLineInputDto done : consumed) {
-                    receipts.releaseDispatch(done.receiptId(), done.netKg());
-                }
-                ProducerPurchaseEntity receipt = called.get(i);
-                BigDecimal available = nz(receipt.weightKg).subtract(nz(receipt.dispatchedKg));
+            boolean taken = line.receiptId() != null
+                    ? receipts.tryDispatch(line.receiptId(), line.netKg())
+                    : movements.tryDispatchOpening(line.openingMovementId(), line.netKg());
+            if (!taken) {
+                releaseAll(consumed);
+                CalledSource source = called.get(i);
                 throw new BusinessException(Messages.msg("m.dsp-receipt-exhausted",
-                        receipt.ref, line.netKg(), available));
+                        source.ref(), line.netKg(), source.availableKg()));
             }
             consumed.add(line);
         }
@@ -143,11 +161,11 @@ public class DispatchNoteService {
             e.date = p.date();
             e.siteId = p.siteId();
             e.siteName = sites.findById(p.siteId()).map(s -> s.name).orElse(null);
-            ProducerPurchaseEntity first = called.get(0);
-            e.articleId = first.articleId;
-            e.articleCode = first.articleCode;
-            e.articleName = first.articleName;
-            e.articleUnit = first.articleUnit;
+            CalledSource first = called.get(0);
+            e.articleId = first.articleId();
+            e.articleCode = first.articleCode();
+            e.articleName = first.articleName();
+            e.articleUnit = first.articleUnit();
             if (p.customerId() != null) {
                 customers.findById(p.customerId()).ifPresent(c -> {
                     e.customerId = c.id;
@@ -173,11 +191,12 @@ public class DispatchNoteService {
             BigDecimal totalNet = BigDecimal.ZERO;
             for (int i = 0; i < p.lines().size(); i++) {
                 DispatchLineInputDto input = p.lines().get(i);
-                ProducerPurchaseEntity receipt = called.get(i);
+                CalledSource source = called.get(i);
                 DispatchLine line = new DispatchLine();
-                line.receiptId = receipt.id;
-                line.receiptRef = receipt.ref;
-                line.lotRef = receipt.deliveryRef != null ? receipt.deliveryRef : receipt.ref;
+                line.receiptId = input.receiptId();
+                line.openingMovementId = input.openingMovementId();
+                line.receiptRef = source.ref();
+                line.lotRef = source.lotRef();
                 line.netKg = input.netKg();
                 line.comment = input.comment() == null || input.comment().isBlank()
                         ? null : input.comment().trim();
@@ -212,9 +231,7 @@ public class DispatchNoteService {
                         false, line.lotRef, false));
             }
         } catch (RuntimeException ex) {
-            for (DispatchLineInputDto done : consumed) {
-                receipts.releaseDispatch(done.receiptId(), done.netKg());
-            }
+            releaseAll(consumed);
             throw ex;
         }
 
@@ -240,14 +257,19 @@ public class DispatchNoteService {
             throw new BusinessException(Messages.msg("m.dsp-cancel-sold", e.ref, e.saleRef));
         }
 
-        // Le stock revient ligne à ligne, chaque reçu retrouve son reliquat.
+        // Le stock revient ligne à ligne, chaque source retrouve son
+        // reliquat : un reçu d'achat, ou le stock de départ.
         for (DispatchLine line : e.lines) {
             stockService.applyMovement(new MovementInput(
                     e.articleId, e.siteId, MovementKind.IN, line.netKg, line.cmupAtDispatch,
                     MovementSource.DISPATCH_NOTE, e.ref, e.id, null,
                     "Contre-passation " + e.ref, null,
                     Instant.now(), true, line.lotRef, false));
-            receipts.releaseDispatch(line.receiptId, line.netKg);
+            if (line.receiptId != null) {
+                receipts.releaseDispatch(line.receiptId, line.netKg);
+            } else if (line.openingMovementId != null) {
+                movements.releaseDispatchOpening(line.openingMovementId, line.netKg);
+            }
         }
 
         e.status = DispatchNoteStatus.CANCELLED;
@@ -279,5 +301,39 @@ public class DispatchNoteService {
 
     private static String blankToNull(String s) {
         return s == null || s.isBlank() ? null : s.trim();
+    }
+
+    /** Rend à leurs sources les kilos déjà appelés. */
+    private void releaseAll(List<DispatchLineInputDto> consumed) {
+        for (DispatchLineInputDto done : consumed) {
+            if (done.receiptId() != null) {
+                receipts.releaseDispatch(done.receiptId(), done.netKg());
+            } else {
+                movements.releaseDispatchOpening(done.openingMovementId(), done.netKg());
+            }
+        }
+    }
+
+    /**
+     * Ce qu'une ligne appelle, quelle que soit sa source : un reçu
+     * d'achat, ou le stock de départ.
+     */
+    private record CalledSource(UUID articleId, String articleCode, String articleName,
+                                String articleUnit, String ref, String lotRef,
+                                BigDecimal availableKg) {
+
+        static CalledSource of(ProducerPurchaseEntity r) {
+            return new CalledSource(r.articleId, r.articleCode, r.articleName, r.articleUnit,
+                    r.ref, r.deliveryRef != null ? r.deliveryRef : r.ref,
+                    nz(r.weightKg).subtract(nz(r.dispatchedKg)));
+        }
+
+        static CalledSource of(com.ntech.cabosse.stock.entity.StockMovementEntity m) {
+            // Le lot d'un amorçage est sa propre référence : la matière
+            // du stock de départ n'a pas d'autre origine à citer.
+            return new CalledSource(m.articleId, m.articleCode, m.articleName, m.articleUnit,
+                    m.ref, m.lotRef != null ? m.lotRef : m.ref,
+                    nz(m.quantitySigned).abs().subtract(nz(m.dispatchedKg)));
+        }
     }
 }

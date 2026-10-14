@@ -1,6 +1,7 @@
 package com.ntech.cabosse.producerpurchase.service;
 
 import com.ntech.cabosse.producerpurchase.dto.DayIntakeRowDto;
+import com.ntech.cabosse.producerpurchase.dto.DayIntakeRowKind;
 import com.ntech.cabosse.producerpurchase.dto.DayIntakeSheetDto;
 import com.ntech.cabosse.producerpurchase.entity.ProducerPurchaseEntity;
 import com.ntech.cabosse.producerpurchase.repository.ProducerPurchaseRepository;
@@ -16,6 +17,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -196,6 +198,176 @@ public class DayIntakeSheetService {
                 opening, openingBags, rows, totalWeight, totalAmount, enteredBags, runningQty,
                 correctedWeight, correctedBags, runningBags,
                 outflowWeight, outflowBags);
+    }
+
+    /**
+     * Le registre détaillé du magasin : le même carnet, mais courant sur
+     * une plage de jours au lieu d'une journée.
+     *
+     * <p>Le magasinier tient un registre qui part du stock de départ et
+     * court jusqu'au jour lu, cumuls compris (expert, 14/10/2026). La
+     * fiche du jour ne sait montrer qu'une journée, et le cumul y repart
+     * du report à chaque ouverture.</p>
+     *
+     * <p>Les sorties y ont leur ligne, contrairement à la fiche du jour :
+     * un registre dont le cumul ne se vérifie pas ne sert à rien.</p>
+     */
+    public DayIntakeSheetDto buildRange(LocalDate from, LocalDate to, UUID siteId, UUID articleId) {
+        if (from == null || to == null) {
+            throw new BusinessException(Messages.msg("m.pds-date-required"));
+        }
+        if (from.isAfter(to)) {
+            LocalDate swap = from;
+            from = to;
+            to = swap;
+        }
+        Instant rangeStart = from.atStartOfDay(ZoneOffset.UTC).toInstant();
+        Instant rangeEnd = to.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
+
+        List<ProducerPurchaseEntity> receipts =
+                purchases.listBetweenAndSite(from, to, siteId, articleId);
+        List<com.ntech.cabosse.stock.entity.StockMovementEntity> openings =
+                movements.listOpeningsOn(rangeStart, rangeEnd, siteId, articleId);
+        List<StockCorrectionEntity> corrections =
+                correctionRepo.listBetweenAndSite(from, to, siteId, articleId);
+        List<com.ntech.cabosse.stock.entity.StockMovementEntity> outflows =
+                movements.listOutflowsBetween(rangeStart, rangeEnd, siteId, articleId);
+
+        UUID sheetArticleId = articleId;
+        String articleName = null;
+        if (sheetArticleId == null) {
+            List<UUID> distinct = java.util.stream.Stream.concat(
+                            receipts.stream().map(r -> r.articleId),
+                            openings.stream().map(m -> m.articleId))
+                    .distinct().toList();
+            if (distinct.size() == 1) sheetArticleId = distinct.get(0);
+        }
+        if (sheetArticleId != null) {
+            UUID finalId = sheetArticleId;
+            articleName = receipts.stream().filter(r -> finalId.equals(r.articleId))
+                    .map(r -> r.articleName).filter(java.util.Objects::nonNull).findFirst()
+                    .orElseGet(() -> openings.stream().filter(m -> finalId.equals(m.articleId))
+                            .map(m -> m.articleName).filter(java.util.Objects::nonNull)
+                            .findFirst().orElse(null));
+        }
+
+        BigDecimal opening = null;
+        Integer openingBags = null;
+        if (sheetArticleId != null && siteId != null) {
+            Integer anchor = movements.openingBags(sheetArticleId, siteId, rangeStart);
+            if (anchor != null) {
+                openingBags = anchor
+                        + purchases.sumBagsBefore(from, siteId, sheetArticleId)
+                        - correctionRepo.sumBagsBefore(from, siteId, sheetArticleId)
+                        - dispatchNotes.sumBagsBefore(from, siteId, sheetArticleId)
+                        - commoditySales.sumBagsWithoutDispatch(null, from, siteId, sheetArticleId);
+            }
+            opening = stockService.snapshotAt(sheetArticleId, siteId,
+                    rangeStart.minusMillis(1)).quantity();
+        }
+
+        // Tout ce que la période a bougé, dans l'ordre du carnet : le
+        // stock de départ ouvre le jour, les entrées suivent, les
+        // corrections viennent après ce qui est entré, les sorties
+        // ferment.
+        record Event(LocalDate date, int order, DayIntakeRowKind kind,
+                     Object payload) {}
+        List<Event> events = new ArrayList<>();
+        for (var m : openings) {
+            if (sheetArticleId != null && !sheetArticleId.equals(m.articleId)) continue;
+            events.add(new Event(dayOf(m.occurredAt), 0, DayIntakeRowKind.OPENING, m));
+        }
+        for (ProducerPurchaseEntity r : receipts) {
+            events.add(new Event(r.date, 1, DayIntakeRowKind.RECEIPT, r));
+        }
+        for (StockCorrectionEntity c : corrections) {
+            events.add(new Event(c.date, 2, DayIntakeRowKind.CORRECTION, c));
+        }
+        for (var m : outflows) {
+            if (sheetArticleId != null && !sheetArticleId.equals(m.articleId)) continue;
+            events.add(new Event(dayOf(m.occurredAt), 3, DayIntakeRowKind.OUTFLOW, m));
+        }
+        events.sort(java.util.Comparator
+                .comparing(Event::date, java.util.Comparator.nullsLast(LocalDate::compareTo))
+                .thenComparingInt(Event::order));
+
+        List<DayIntakeRowDto> rows = new ArrayList<>(events.size());
+        BigDecimal runningQty = opening != null ? opening : BigDecimal.ZERO;
+        int runningBags = openingBags != null ? openingBags : 0;
+        int enteredBags = 0;
+        BigDecimal totalWeight = BigDecimal.ZERO;
+        BigDecimal totalAmount = BigDecimal.ZERO;
+        BigDecimal correctedWeight = BigDecimal.ZERO;
+        int correctedBags = 0;
+        BigDecimal outflowWeight = BigDecimal.ZERO;
+        int outflowBags = 0;
+
+        for (Event event : events) {
+            switch (event.kind()) {
+                case OPENING -> {
+                    var m = (com.ntech.cabosse.stock.entity.StockMovementEntity) event.payload();
+                    BigDecimal weight = nz(m.quantitySigned).abs();
+                    int bags = m.bags != null ? m.bags : 0;
+                    runningQty = runningQty.add(weight);
+                    runningBags += bags;
+                    enteredBags += bags;
+                    totalWeight = totalWeight.add(weight);
+                    totalAmount = totalAmount.add(nz(m.total));
+                    rows.add(new DayIntakeRowDto(null, event.date(), null, m.ref, null, null,
+                            m.bags, weight, m.unitPrice, nz(m.total),
+                            runningQty, runningBags, "OPENING", null));
+                }
+                case RECEIPT -> {
+                    ProducerPurchaseEntity r = (ProducerPurchaseEntity) event.payload();
+                    BigDecimal weight = nz(r.weightKg);
+                    runningQty = runningQty.add(weight);
+                    runningBags += r.nbSacs != null ? r.nbSacs : 0;
+                    enteredBags += r.nbSacs != null ? r.nbSacs : 0;
+                    totalWeight = totalWeight.add(weight);
+                    totalAmount = totalAmount.add(nz(r.amount));
+                    rows.add(new DayIntakeRowDto(r.id, r.date,
+                            r.delegateName != null ? r.delegateName : r.producerName,
+                            r.ref, r.deliveryRef,
+                            r.delegateName != null ? "DELEGATE" : "PRODUCER",
+                            r.nbSacs, weight, r.guaranteedPricePerKg, nz(r.amount),
+                            runningQty, runningBags));
+                }
+                case CORRECTION -> {
+                    StockCorrectionEntity c = (StockCorrectionEntity) event.payload();
+                    BigDecimal removed = nz(c.weightKg);
+                    int bags = c.bags != null ? c.bags : 0;
+                    runningQty = runningQty.subtract(removed);
+                    runningBags -= bags;
+                    correctedWeight = correctedWeight.add(removed);
+                    correctedBags += bags;
+                    rows.add(new DayIntakeRowDto(null, c.date, c.reason, c.ref, null, null,
+                            bags == 0 ? null : -bags, removed.negate(), null, null,
+                            runningQty, runningBags, "CORRECTION", c.id));
+                }
+                case OUTFLOW -> {
+                    var m = (com.ntech.cabosse.stock.entity.StockMovementEntity) event.payload();
+                    BigDecimal left = nz(m.quantitySigned).abs();
+                    int bags = m.bags != null ? m.bags : 0;
+                    runningQty = runningQty.subtract(left);
+                    runningBags -= bags;
+                    outflowWeight = outflowWeight.add(left);
+                    outflowBags += bags;
+                    rows.add(new DayIntakeRowDto(null, event.date(),
+                            m.sourceRef, m.ref, null, null,
+                            bags == 0 ? null : -bags, left.negate(), null, null,
+                            runningQty, runningBags, "OUTFLOW", null));
+                }
+            }
+        }
+
+        return new DayIntakeSheetDto(to, siteId, sheetArticleId, articleName,
+                opening, openingBags, rows, totalWeight, totalAmount, enteredBags, runningQty,
+                correctedWeight, correctedBags, runningBags,
+                outflowWeight, outflowBags);
+    }
+
+    private static LocalDate dayOf(Instant instant) {
+        return instant == null ? null : instant.atZone(ZoneOffset.UTC).toLocalDate();
     }
 
     private static BigDecimal nz(BigDecimal v) {

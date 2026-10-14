@@ -925,6 +925,28 @@ public class StockService {
         return new OpeningResult(created, rejected);
     }
 
+    /**
+     * Les amorçages encore chargeables d'un site : ce que le stock de
+     * départ peut encore mettre dans un camion.
+     */
+    public List<com.ntech.cabosse.stock.dto.DispatchableOpeningDto> dispatchableOpenings(
+            UUID siteId, UUID articleId) {
+        return movements.listDispatchableOpenings(siteId, articleId).stream()
+                .map(m -> new com.ntech.cabosse.stock.dto.DispatchableOpeningDto(
+                        m.id, m.ref,
+                        m.occurredAt == null ? null
+                                : m.occurredAt.atZone(java.time.ZoneOffset.UTC).toLocalDate(),
+                        m.articleId, m.articleCode, m.articleName, m.articleUnit, m.siteId,
+                        nz(m.quantitySigned).abs(),
+                        nz(m.quantitySigned).abs().subtract(nz(m.dispatchedKg)),
+                        m.bags, m.unitPrice))
+                .toList();
+    }
+
+    private static BigDecimal nz(BigDecimal v) {
+        return v == null ? BigDecimal.ZERO : v;
+    }
+
     /** Les articles déjà mouvementés sur un site : ils ne s'amorcent plus. */
     public List<UUID> articlesAlreadyMoved(UUID siteId) {
         if (siteId == null) return List.of();

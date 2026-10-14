@@ -187,6 +187,19 @@ public class StockResource {
         return Response.ok(ApiResponse.ok(service.articlesAlreadyMoved(siteId))).build();
     }
 
+    /**
+     * Les amorçages encore chargeables : le stock de départ se charge
+     * comme un reçu, sinon un magasin dont la matière vient de là ne
+     * peut rien expédier (expert, 14/10/2026).
+     */
+    @GET
+    @Path("/opening/dispatchable")
+    public Response dispatchableOpenings(@QueryParam("siteId") UUID siteId,
+                                         @QueryParam("articleId") UUID articleId) {
+        return Response.ok(ApiResponse.ok(
+                service.dispatchableOpenings(siteId, articleId))).build();
+    }
+
     @POST
     @RequiresPermission(Permission.STOCK_MOVE)
     @Path("/opening")

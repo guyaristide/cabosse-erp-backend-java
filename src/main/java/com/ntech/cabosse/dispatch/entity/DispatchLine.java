@@ -14,6 +14,13 @@ public class DispatchLine {
     /** Le reçu d'achat appelé (le « BR » du carnet). */
     public UUID receiptId;
     public String receiptRef;
+
+    /**
+     * Amorçage appelé, quand la ligne prend sur le stock de départ.
+     * Exclusif de {@link #receiptId} : une ligne a une source et une
+     * seule (14/10/2026).
+     */
+    public UUID openingMovementId;
     /** Bordereau de livraison du reçu, quand il en a un : c'est le lot. */
     public String lotRef;
 

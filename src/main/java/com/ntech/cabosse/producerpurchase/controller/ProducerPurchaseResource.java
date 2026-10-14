@@ -169,11 +169,19 @@ public class ProducerPurchaseResource {
     @Path("/day-sheet")
     @RequiresPermission(Permission.COLLECTION_READ)
     public Response daySheet(@QueryParam("date") String dateRaw,
+                             @QueryParam("from") String fromRaw,
                              @QueryParam("siteId") UUID siteId,
                              @QueryParam("articleId") UUID articleId) {
         ensureCapability();
         java.time.LocalDate date = dateRaw != null && !dateRaw.isBlank()
                 ? java.time.LocalDate.parse(dateRaw) : java.time.LocalDate.now();
+        // Avec une borne de départ, c'est le registre détaillé : le même
+        // carnet, courant sur la période au lieu d'une journée (expert,
+        // 14/10/2026).
+        if (fromRaw != null && !fromRaw.isBlank()) {
+            return Response.ok(ApiResponse.ok(daySheets.buildRange(
+                    java.time.LocalDate.parse(fromRaw), date, siteId, articleId))).build();
+        }
         return Response.ok(ApiResponse.ok(daySheets.build(date, siteId, articleId))).build();
     }
 
@@ -187,6 +195,7 @@ public class ProducerPurchaseResource {
     @RequiresPermission(Permission.COLLECTION_READ)
     @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/pdf" })
     public Response daySheetExport(@QueryParam("date") String dateRaw,
+                                   @QueryParam("from") String fromRaw,
                                    @QueryParam("siteId") UUID siteId,
                                    @QueryParam("articleId") UUID articleId,
                                    @QueryParam("format") String formatRaw) {
@@ -195,7 +204,10 @@ public class ProducerPurchaseResource {
                 ? java.time.LocalDate.parse(dateRaw) : java.time.LocalDate.now();
         ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
         com.ntech.cabosse.producerpurchase.dto.DayIntakeSheetDto sheet =
-                daySheets.build(date, siteId, articleId);
+                fromRaw != null && !fromRaw.isBlank()
+                        ? daySheets.buildRange(java.time.LocalDate.parse(fromRaw), date,
+                                siteId, articleId)
+                        : daySheets.build(date, siteId, articleId);
         java.util.List<com.ntech.cabosse.producerpurchase.dto.DayIntakeRowDto> rows =
                 new java.util.ArrayList<>();
         if (sheet.openingQuantity() != null) {
@@ -208,9 +220,11 @@ public class ProducerPurchaseResource {
                 null, date, Messages.msg("m.pds-total-label"), null, null, null,
                 sheet.totalBags(), sheet.totalWeightKg(), null, sheet.totalAmount(),
                 sheet.closingQuantity(), sheet.closingBags()));
+        String title = fromRaw != null && !fromRaw.isBlank()
+                ? Messages.msg("m.pds-export-title-range", fromRaw, String.valueOf(date))
+                : Messages.msg("m.pds-export-title", String.valueOf(date));
         ExportDataset<com.ntech.cabosse.producerpurchase.dto.DayIntakeRowDto> dataset =
-                new ExportDataset<>(Messages.msg("m.pds-export-title", String.valueOf(date)),
-                        DayIntakeSheetExportColumns.all(), rows);
+                new ExportDataset<>(title, DayIntakeSheetExportColumns.all(), rows);
         exportAudit.record("fiche-entrees-jour", "Fiche des entrées du jour", format, sheet.rows().size());
         return ExportResponses.build("fiche-entrees-jour", format, dataset);
     }

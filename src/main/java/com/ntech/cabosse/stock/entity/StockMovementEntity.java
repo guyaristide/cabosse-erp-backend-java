@@ -57,6 +57,17 @@ public class StockMovementEntity {
     public Integer bags;
 
     /**
+     * Kilos de ce mouvement déjà appelés par un bordereau de sortie.
+     *
+     * <p>Seul l'amorçage s'en sert : un bordereau ne se composait que de
+     * reçus d'achat, et un magasin dont la matière vient du stock de
+     * départ ne pouvait rien charger (expert, 14/10/2026). Le reçu porte
+     * le même compteur ; ici il vit sur le mouvement, l'amorçage n'ayant
+     * pas de document.</p>
+     */
+    public java.math.BigDecimal dispatchedKg;
+
+    /**
      * Quantité signée : positive pour {@link MovementKind#IN},
      * {@link MovementKind#OPENING}, {@link MovementKind#TRANSFER_IN} ;
      * négative pour {@link MovementKind#OUT}, {@link MovementKind#TRANSFER_OUT} ;

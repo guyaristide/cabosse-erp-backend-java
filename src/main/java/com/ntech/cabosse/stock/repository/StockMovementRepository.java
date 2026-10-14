@@ -97,6 +97,68 @@ public class StockMovementRepository {
         return total;
     }
 
+    /**
+     * Les amorçages d'un site qui ont encore de la matière à charger.
+     *
+     * <p>Un bordereau de sortie ne se composait que de reçus d'achat :
+     * un magasin dont la matière vient du stock de départ ne pouvait
+     * rien charger (expert, 14/10/2026).</p>
+     */
+    public List<StockMovementEntity> listDispatchableOpenings(UUID siteId, UUID articleId) {
+        List<Bson> filters = new ArrayList<>();
+        filters.add(Filters.eq("kind", "OPENING"));
+        filters.add(stillCounts());
+        if (siteId != null) filters.add(Filters.eq("siteId", siteId));
+        if (articleId != null) filters.add(Filters.eq("articleId", articleId));
+        filters.add(Filters.expr(new Document("$lt", List.of(
+                new Document("$ifNull", List.of("$dispatchedKg", 0)),
+                new Document("$ifNull", List.of("$quantitySigned", 0))))));
+        return coll().find(Filters.and(filters))
+                .sort(new Document("occurredAt", 1).append("_id", 1))
+                .into(new ArrayList<>());
+    }
+
+    /**
+     * Appelle des kilos sur un amorçage sans jamais dépasser son
+     * disponible : update conditionnel atomique, deux chargements
+     * simultanés ne peuvent pas sortir deux fois la même matière.
+     */
+    public boolean tryDispatchOpening(UUID id, java.math.BigDecimal netKg) {
+        org.bson.types.Decimal128 taken = new org.bson.types.Decimal128(netKg);
+        var result = coll().updateOne(
+                Filters.and(
+                        Filters.eq("_id", id),
+                        Filters.expr(new Document("$lte", List.of(
+                                new Document("$add", List.of(
+                                        new Document("$ifNull", List.of("$dispatchedKg", 0)),
+                                        taken)),
+                                new Document("$ifNull", List.of("$quantitySigned", 0)))))),
+                Updates.inc("dispatchedKg", taken));
+        return result.getModifiedCount() == 1;
+    }
+
+    /** Rend à l'amorçage des kilos appelés, à l'annulation d'un bordereau. */
+    public void releaseDispatchOpening(UUID id, java.math.BigDecimal netKg) {
+        coll().updateOne(Filters.eq("_id", id),
+                Updates.inc("dispatchedKg", new org.bson.types.Decimal128(netKg.negate())));
+    }
+
+    /** Les sorties d'une plage, hors corrections, ligne à ligne. */
+    public List<StockMovementEntity> listOutflowsBetween(Instant from, Instant toExclusive,
+                                                         UUID siteId, UUID articleId) {
+        List<Bson> filters = new ArrayList<>();
+        filters.add(Filters.in("kind", "OUT", "TRANSFER_OUT"));
+        filters.add(Filters.ne("sourceType", "STOCK_CORRECTION"));
+        filters.add(Filters.gte("occurredAt", from));
+        filters.add(Filters.lt("occurredAt", toExclusive));
+        filters.add(stillCounts());
+        if (siteId != null) filters.add(Filters.eq("siteId", siteId));
+        if (articleId != null) filters.add(Filters.eq("articleId", articleId));
+        return coll().find(Filters.and(filters))
+                .sort(new Document("occurredAt", 1).append("_id", 1))
+                .into(new ArrayList<>());
+    }
+
     public Optional<StockMovementEntity> findById(UUID id) {
         return Optional.ofNullable(coll().find(Filters.eq("_id", id)).first());
     }

@@ -91,6 +91,25 @@ public class ProducerPurchaseRepository {
                 .into(new ArrayList<>());
     }
 
+    /**
+     * Les reçus d'une plage de dates, bornes incluses : le registre
+     * détaillé du magasin court sur la campagne, pas sur un jour
+     * (expert, 14/10/2026).
+     */
+    public List<ProducerPurchaseEntity> listBetweenAndSite(java.time.LocalDate from,
+                                                           java.time.LocalDate to,
+                                                           UUID siteId, UUID articleId) {
+        List<Bson> filters = new ArrayList<>();
+        if (from != null) filters.add(Filters.gte("date", from));
+        if (to != null) filters.add(Filters.lte("date", to));
+        filters.add(notCancelled());
+        if (siteId != null) filters.add(Filters.eq("siteId", siteId));
+        if (articleId != null) filters.add(Filters.eq("articleId", articleId));
+        return coll().find(Filters.and(filters))
+                .sort(new Document("date", 1).append("createdAt", 1))
+                .into(new ArrayList<>());
+    }
+
     /** Tous les reçus filtrés (registre / état de synthèse, NEG-01). */
     /** Reçus portés par le compte courant d'un délégué, du plus ancien au plus récent. */
     /**

@@ -51,6 +51,19 @@ public class StockCorrectionRepository {
                 .into(new ArrayList<>());
     }
 
+    /** Les corrections d'une plage de dates, bornes incluses. */
+    public List<StockCorrectionEntity> listBetweenAndSite(LocalDate from, LocalDate to,
+                                                          UUID siteId, UUID articleId) {
+        List<Bson> filters = new ArrayList<>();
+        if (from != null) filters.add(Filters.gte("date", from));
+        if (to != null) filters.add(Filters.lte("date", to));
+        if (siteId != null) filters.add(Filters.eq("siteId", siteId));
+        if (articleId != null) filters.add(Filters.eq("articleId", articleId));
+        return coll().find(Filters.and(filters))
+                .sort(new Document("date", 1).append("createdAt", 1))
+                .into(new ArrayList<>());
+    }
+
     /** Les sacs retirés avant une date, sur un couple (site, article). */
     public int sumBagsBefore(LocalDate date, UUID siteId, UUID articleId) {
         List<Bson> filters = new ArrayList<>();

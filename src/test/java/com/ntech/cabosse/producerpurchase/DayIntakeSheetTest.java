@@ -271,6 +271,59 @@ class DayIntakeSheetTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void le_registre_court_sur_la_periode_et_ses_cumuls_ne_repartent_pas_de_zero() {
+        UserEntity admin = tenantAdmin();
+        String siteCode = "s-" + java.util.UUID.randomUUID().toString().substring(0, 8);
+        String siteId = givenAs(admin).contentType("application/json")
+                .body("{\"name\":\"Magasin\",\"type\":\"CENTRAL_WAREHOUSE\",\"code\":\"" + siteCode + "\"}")
+                .when().post("/api/v1/sites").then().statusCode(201).extract().path("data.id");
+        String articleId = givenAs(admin).contentType("application/json")
+                .body("{\"type\":\"MERCHANDISE\",\"name\":\"Fèves\",\"unit\":\"kg\"}")
+                .when().post("/api/v1/articles").then().statusCode(201).extract().path("data.id");
+        String memberId = givenAs(admin).contentType("application/json")
+                .body("{\"lastName\":\"Kela\",\"gender\":\"MALE\",\"status\":\"ACTIVE\"}")
+                .when().post("/api/v1/members").then().statusCode(201).extract().path("data.id");
+
+        LocalDate start = LocalDate.now().minusDays(4);
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "siteId": "%s", "occurredAt": "%s",
+                          "lines": [ { "articleId": "%s", "quantity": 1000,
+                                       "unitPrice": 1200, "bags": 20 } ] }
+                        """.formatted(siteId,
+                        start.atTime(12, 0).toInstant(java.time.ZoneOffset.UTC), articleId))
+                .when().post("/api/v1/stocks/opening").then().statusCode(201);
+
+        // Un reçu deux jours plus tard : dans la fiche d'une journée, le
+        // cumul repart du report ; dans le registre, il court.
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "date": "%s", "memberId": "%s", "articleId": "%s", "siteId": "%s",
+                          "nbSacs": 4, "weightKg": 225, "guaranteedPricePerKg": 1200,
+                          "paymentMethod": "CASH" }
+                        """.formatted(start.plusDays(2), memberId, articleId, siteId))
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                .when().post("/api/v1/producer-purchases").then().statusCode(201);
+
+        givenAs(admin)
+                .queryParam("from", start.toString())
+                .queryParam("date", LocalDate.now().toString())
+                .queryParam("siteId", siteId)
+                .when().get("/api/v1/producer-purchases/day-sheet")
+                .then().statusCode(200)
+                .body("data.rows", hasSize(2))
+                .body("data.rows[0].rowKind", equalTo("OPENING"))
+                .body("data.rows[0].cumulativeQuantity", equalTo(1000.0F))
+                .body("data.rows[1].rowKind", equalTo("RECEIPT"))
+                // Le cumul ne repart pas de zéro au changement de jour :
+                // c'est tout l'objet du registre (expert, 14/10/2026).
+                .body("data.rows[1].cumulativeQuantity", equalTo(1225.0F))
+                .body("data.rows[1].cumulativeBags", equalTo(24))
+                .body("data.closingQuantity", equalTo(1225.0F))
+                .body("data.closingBags", equalTo(24));
+    }
+
+    @Test
     void un_recu_annule_ne_verrouille_plus_l_amorcage() {
         UserEntity admin = tenantAdmin();
         String siteCode = "s-" + java.util.UUID.randomUUID().toString().substring(0, 8);

@@ -116,6 +116,97 @@ class DispatchAndSaleTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void le_stock_de_depart_se_charge_comme_un_recu() {
+        UserEntity admin = tenantAdmin();
+        String siteCode = "s-" + java.util.UUID.randomUUID().toString().substring(0, 8);
+        String siteId = givenAs(admin).contentType("application/json")
+                .body("{\"name\":\"Magasin\",\"type\":\"CENTRAL_WAREHOUSE\",\"code\":\"" + siteCode + "\"}")
+                .when().post("/api/v1/sites").then().statusCode(201).extract().path("data.id");
+        String articleId = givenAs(admin).contentType("application/json")
+                .body("{\"type\":\"RAW_MATERIAL\",\"name\":\"Fèves séchées\",\"unit\":\"kg\",\"sellable\":true}")
+                .when().post("/api/v1/articles").then().statusCode(201).extract().path("data.id");
+        String customerId = givenAs(admin).contentType("application/json")
+                .body("{\"name\":\"Exportateur\",\"type\":\"COMPANY\"}")
+                .when().post("/api/v1/customers").then().statusCode(201).extract().path("data.id");
+        String memberId = givenAs(admin).contentType("application/json")
+                .body("{\"lastName\":\"Kacou\",\"gender\":\"MALE\",\"status\":\"ACTIVE\"}")
+                .when().post("/api/v1/members").then().statusCode(201).extract().path("data.id");
+
+        // Le stock de départ d'abord : un couple déjà mouvementé ne
+        // s'amorce plus.
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "siteId": "%s", "occurredAt": "%s",
+                          "lines": [ { "articleId": "%s", "quantity": 1000,
+                                       "unitPrice": 1000, "bags": 20 } ] }
+                        """.formatted(siteId, Instant.now(), articleId))
+                .when().post("/api/v1/stocks/opening").then().statusCode(201);
+
+        String receiptId = givenAs(admin).contentType("application/json")
+                .body("""
+                        { "date": "%s", "memberId": "%s", "articleId": "%s", "siteId": "%s",
+                          "nbSacs": 10, "weightKg": 500,
+                          "guaranteedPricePerKg": 1000, "paymentMethod": "CASH" }
+                        """.formatted(LocalDate.now(), memberId, articleId, siteId))
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                .when().post("/api/v1/producer-purchases").then().statusCode(201)
+                .extract().path("data.id");
+
+        // Un bordereau ne se composait que de reçus d'achat, et la
+        // matière du stock de départ était inexpédiable (expert,
+        // 14/10/2026).
+        String openingId = givenAs(admin)
+                .queryParam("siteId", siteId)
+                .when().get("/api/v1/stocks/opening/dispatchable")
+                .then().statusCode(200)
+                .body("data", hasSize(1))
+                .body("data[0].availableKg", equalTo(1000.0F))
+                .body("data[0].nbSacs", equalTo(20))
+                .extract().path("data[0].movementId");
+
+        String noteBody = """
+                { "date": "%s", "siteId": "%s", "customerId": "%s",
+                  "truckNumber": "CI-4521-AB", "lines": [
+                    { "openingMovementId": "%s", "netKg": 400, "bagsCount": 8 },
+                    { "receiptId": "%s", "netKg": 100, "bagsCount": 2 } ] }
+                """.formatted(LocalDate.now(), siteId, customerId, openingId, receiptId);
+        String noteId = givenAs(admin).contentType("application/json").body(noteBody)
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                .when().post("/api/v1/dispatch-notes").then().statusCode(201)
+                .extract().path("data.id");
+
+        givenAs(admin).when().get("/api/v1/dispatch-notes/" + noteId)
+                .then().statusCode(200)
+                .body("data.totalNetKg", equalTo(500))
+                .body("data.totalBags", equalTo(10));
+
+        // Le disponible de l'amorçage a fondu d'autant, et pas davantage.
+        givenAs(admin)
+                .queryParam("siteId", siteId)
+                .when().get("/api/v1/stocks/opening/dispatchable")
+                .then().statusCode(200)
+                .body("data[0].availableKg", equalTo(600.0F));
+
+        // Au-delà du disponible, le chargement est refusé.
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "date": "%s", "siteId": "%s", "lines": [
+                          { "openingMovementId": "%s", "netKg": 900 } ] }
+                        """.formatted(LocalDate.now(), siteId, openingId))
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                .when().post("/api/v1/dispatch-notes").then().statusCode(422);
+
+        // Et une ligne qui désigne deux sources n'a pas de sens.
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "date": "%s", "siteId": "%s", "lines": [
+                          { "openingMovementId": "%s", "receiptId": "%s", "netKg": 10 } ] }
+                        """.formatted(LocalDate.now(), siteId, openingId, receiptId))
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                .when().post("/api/v1/dispatch-notes").then().statusCode(422);
+    }
+
+    @Test
     void the_full_journey_from_loading_to_collection() {
         UserEntity admin = tenantAdmin();
         Seed s = seed(admin);
