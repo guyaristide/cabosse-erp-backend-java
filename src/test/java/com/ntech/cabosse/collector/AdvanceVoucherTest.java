@@ -93,6 +93,37 @@ class AdvanceVoucherTest extends AbstractIntegrationTest {
         assertThat(new String(voucher, 0, 5)).startsWith("%PDF-");
         assertThat(voucher.length).isGreaterThan(1000);
 
+        // Et la facture de collecte d'une livraison : ce que la
+        // coopérative achète au collecteur et ce qu'elle retient.
+        String articleId = givenAs(admin).contentType("application/json")
+                .body("{\"type\":\"MERCHANDISE\",\"name\":\"Cacao\",\"unit\":\"kg\"}")
+                .when().post("/api/v1/articles").then().statusCode(201).extract().path("data.id");
+        String siteId = givenAs(admin).contentType("application/json")
+                .body("{\"name\":\"Magasin\",\"type\":\"CENTRAL_WAREHOUSE\",\"code\":\"m-"
+                        + TestFixtures.randomSlugSuffix() + "\"}")
+                .when().post("/api/v1/sites").then().statusCode(201).extract().path("data.id");
+        String memberId = givenAs(admin).contentType("application/json")
+                .body("{\"lastName\":\"Kone\",\"gender\":\"MALE\",\"status\":\"ACTIVE\"}")
+                .when().post("/api/v1/members").then().statusCode(201).extract().path("data.id");
+        String deliveryRef = givenAs(admin).contentType("application/json")
+                .body("""
+                        { "date": "%s", "memberId": "%s", "articleId": "%s", "siteId": "%s",
+                          "weightKg": 1000, "guaranteedPricePerKg": 1200,
+                          "paymentMethod": "CASH", "delegateSupplierId": "%s",
+                          "deliveryRef": "BL-2026-0001" }
+                        """.formatted(LocalDate.now(), memberId, articleId, siteId, delegateId))
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                .when().post("/api/v1/producer-purchases").then().statusCode(201)
+                .extract().path("data.deliveryRef");
+
+        byte[] invoice = givenAs(admin)
+                .when().get("/api/v1/collector-advances/delegates/" + delegateId
+                        + "/deliveries/" + deliveryRef + "/invoice")
+                .then().statusCode(200)
+                .extract().asByteArray();
+        assertThat(new String(invoice, 0, 5)).startsWith("%PDF-");
+        assertThat(invoice.length).isGreaterThan(1000);
+
         byte[] statement = givenAs(admin)
                 .queryParam("asOf", LocalDate.now().toString())
                 .when().get("/api/v1/collector-advances/ledger/" + delegateId + "/statement")

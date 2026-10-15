@@ -51,6 +51,7 @@ public class CollectorAdvanceResource {
 
     @Inject ExportAudit exportAudit;
     @Inject com.ntech.cabosse.collector.service.AdvanceVoucherService vouchers;
+    @Inject com.ntech.cabosse.collector.service.CollectionInvoiceService invoices;
     @Inject com.ntech.cabosse.collector.service.DelegateLedgerPdfService ledgerPdf;
     @Inject CollectorAdvanceService service;
     @Inject com.fasterxml.jackson.databind.ObjectMapper json;
@@ -230,6 +231,25 @@ public class CollectorAdvanceResource {
         byte[] pdf = ledgerPdf.build(delegateSupplierId, campaignId, asOf);
         return Response.ok(pdf)
                 .header("Content-Disposition", "inline; filename=\"releve-delegue.pdf\"")
+                .build();
+    }
+
+    /**
+     * La facture de collecte d'une livraison : ce que la coopérative
+     * achète au collecteur et ce qu'elle retient (demandé le
+     * 15/10/2026).
+     */
+    @GET
+    @Path("/delegates/{delegateSupplierId}/deliveries/{deliveryRef}/invoice")
+    @jakarta.ws.rs.Produces("application/pdf")
+    @RequiresPermission(Permission.COLLECTION_READ)
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    public Response collectionInvoice(@PathParam("delegateSupplierId") UUID delegateSupplierId,
+                                      @PathParam("deliveryRef") String deliveryRef,
+                                      @QueryParam("campaignId") UUID campaignId) {
+        byte[] pdf = invoices.build(delegateSupplierId, deliveryRef, campaignId);
+        return Response.ok(pdf)
+                .header("Content-Disposition", "inline; filename=\"facture-collecte.pdf\"")
                 .build();
     }
 
