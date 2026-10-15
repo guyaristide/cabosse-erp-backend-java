@@ -55,6 +55,7 @@ public class DelegateLedgerPdfService {
 
     @Inject DelegateAccountService accounts;
     @Inject TenantRepository tenants;
+    @Inject com.ntech.cabosse.shared.export.PdfLetterhead letterhead;
     @Inject TenantContext tenantContext;
 
     public byte[] build(UUID delegateSupplierId, UUID campaignId, LocalDate asOf) {
@@ -65,7 +66,6 @@ public class DelegateLedgerPdfService {
                 .toList();
 
         TenantEntity tenant = tenants.findById(tenantContext.tenantId());
-        String organization = tenant != null ? tenant.name : "";
         Locale locale = Locales.of(tenant != null && tenant.preferences != null
                 ? tenant.preferences.language : null);
         String currency = Messages.currencyLabel();
@@ -81,7 +81,6 @@ public class DelegateLedgerPdfService {
             PdfWriter.getInstance(doc, out).setPageEvent(new PdfBranding());
             doc.open();
 
-            Font orgFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 13, Color.BLACK);
             Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 15, Color.BLACK);
             Font labelFont = FontFactory.getFont(FontFactory.HELVETICA, 8, MUTED);
             Font valueFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10, Color.BLACK);
@@ -89,7 +88,7 @@ public class DelegateLedgerPdfService {
             Font cellFont = FontFactory.getFont(FontFactory.HELVETICA, 8.5f, Color.BLACK);
             Font noteFont = FontFactory.getFont(FontFactory.HELVETICA, 9, MUTED);
 
-            doc.add(new Paragraph(organization, orgFont));
+            doc.add(letterhead.of(tenant));
             Paragraph title = new Paragraph(
                     Messages.msg(locale, "m.col-ledger-title").toUpperCase(locale), titleFont);
             title.setSpacingBefore(12);
@@ -109,11 +108,11 @@ public class DelegateLedgerPdfService {
                     DATE.format(cutoff), labelFont, valueFont);
             doc.add(header);
 
-            doc.add(linesTable(locale, ledger, lines, headFont, cellFont, valueFont));
+            doc.add(linesTable(locale, ledger, lines, currency, headFont, cellFont, valueFont));
 
             Paragraph closing = new Paragraph(
                     Messages.msg(locale, "m.col-ledger-balance",
-                            money(balance) + " " + currency), valueFont);
+                            com.ntech.cabosse.shared.export.PdfNumbers.money(balance)), valueFont);
             closing.setSpacingBefore(14);
             doc.add(closing);
             Paragraph words = new Paragraph(
@@ -140,17 +139,21 @@ public class DelegateLedgerPdfService {
      * colonne que le délégué suit du doigt.
      */
     private PdfPTable linesTable(Locale locale, DelegateLedgerDto ledger,
-                                 List<DelegateLedgerDto.Line> lines,
+                                 List<DelegateLedgerDto.Line> lines, String currency,
                                  Font headFont, Font cellFont, Font totalFont) {
         PdfPTable table = new PdfPTable(new float[]{1.2f, 1.4f, 1.6f, 1.4f, 1.2f, 1.4f, 1.2f, 1.4f});
         table.setWidthPercentage(100);
-        for (String key : new String[]{
-                "m.col-ledger-col-date", "m.col-ledger-col-operation", "m.col-ledger-col-ref",
-                "m.col-ledger-col-advanced", "m.col-ledger-col-weight",
-                "m.col-ledger-col-delivered", "m.col-ledger-col-retention",
-                "m.col-ledger-col-balance"}) {
-            head(table, Messages.msg(locale, key), headFont);
-        }
+        // L'unité et la devise vivent dans l'en-tête : une colonne de
+        // chiffres se lit mieux sans son unité répétée à chaque ligne
+        // (15/10/2026).
+        head(table, Messages.msg(locale, "m.col-ledger-col-date"), headFont);
+        head(table, Messages.msg(locale, "m.col-ledger-col-operation"), headFont);
+        head(table, Messages.msg(locale, "m.col-ledger-col-ref"), headFont);
+        head(table, Messages.msg(locale, "m.col-ledger-col-advanced", currency), headFont);
+        head(table, Messages.msg(locale, "m.col-ledger-col-weight"), headFont);
+        head(table, Messages.msg(locale, "m.col-ledger-col-delivered", currency), headFont);
+        head(table, Messages.msg(locale, "m.col-ledger-col-retention", currency), headFont);
+        head(table, Messages.msg(locale, "m.col-ledger-col-balance", currency), headFont);
 
         // Le report des campagnes antérieures ouvre le relevé : sans lui,
         // la première ligne semblerait partir de zéro.
@@ -161,18 +164,18 @@ public class DelegateLedgerPdfService {
         cell(table, "", cellFont, Element.ALIGN_RIGHT);
         cell(table, "", cellFont, Element.ALIGN_RIGHT);
         cell(table, "", cellFont, Element.ALIGN_RIGHT);
-        cell(table, money(ledger.previousBalance()), cellFont, Element.ALIGN_RIGHT);
+        cell(table, com.ntech.cabosse.shared.export.PdfNumbers.money(ledger.previousBalance()), cellFont, Element.ALIGN_RIGHT);
 
         for (DelegateLedgerDto.Line line : lines) {
             cell(table, line.date() == null ? "" : DATE.format(line.date()),
                     cellFont, Element.ALIGN_LEFT);
             cell(table, operationLabel(locale, line.operation()), cellFont, Element.ALIGN_LEFT);
             cell(table, join(line.ref(), line.fieldNoteRef()), cellFont, Element.ALIGN_LEFT);
-            cell(table, money(line.advanced()), cellFont, Element.ALIGN_RIGHT);
-            cell(table, money(line.weightKg()), cellFont, Element.ALIGN_RIGHT);
-            cell(table, money(line.delivered()), cellFont, Element.ALIGN_RIGHT);
-            cell(table, money(line.retention()), cellFont, Element.ALIGN_RIGHT);
-            cell(table, money(line.netBalance()), totalFont, Element.ALIGN_RIGHT);
+            cell(table, com.ntech.cabosse.shared.export.PdfNumbers.money(line.advanced()), cellFont, Element.ALIGN_RIGHT);
+            cell(table, com.ntech.cabosse.shared.export.PdfNumbers.quantity(line.weightKg()), cellFont, Element.ALIGN_RIGHT);
+            cell(table, com.ntech.cabosse.shared.export.PdfNumbers.money(line.delivered()), cellFont, Element.ALIGN_RIGHT);
+            cell(table, com.ntech.cabosse.shared.export.PdfNumbers.money(line.retention()), cellFont, Element.ALIGN_RIGHT);
+            cell(table, com.ntech.cabosse.shared.export.PdfNumbers.money(line.netBalance()), totalFont, Element.ALIGN_RIGHT);
         }
         return table;
     }
@@ -213,12 +216,6 @@ public class DelegateLedgerPdfService {
         cell.setHorizontalAlignment(align);
         cell.setPadding(5);
         table.addCell(cell);
-    }
-
-    private static String money(BigDecimal value) {
-        java.text.NumberFormat nf = java.text.NumberFormat.getNumberInstance(Locale.FRANCE);
-        nf.setMaximumFractionDigits(0);
-        return nf.format(value == null ? BigDecimal.ZERO : value);
     }
 
     private static BigDecimal nz(BigDecimal v) {

@@ -198,10 +198,12 @@ public class ReceptionNoteService {
         PdfPCell first = new PdfPCell(new Paragraph(label, font));
         first.setPadding(6);
         table.addCell(first);
+        // Groupés par milliers : un poids de cinq chiffres ne se lit pas
+        // d'un trait (15/10/2026).
         for (String value : new String[]{
-                gross != null ? gross.stripTrailingZeros().toPlainString() : "-",
+                com.ntech.cabosse.shared.export.PdfNumbers.quantityOrDash(gross),
                 bags,
-                net != null ? net.stripTrailingZeros().toPlainString() : "-"}) {
+                com.ntech.cabosse.shared.export.PdfNumbers.quantityOrDash(net)}) {
             PdfPCell cell = new PdfPCell(new Paragraph(value, font));
             cell.setPadding(6);
             cell.setHorizontalAlignment(Element.ALIGN_RIGHT);

@@ -57,6 +57,7 @@ public class AdvanceVoucherService {
     @Inject CollectorAdvanceRepository advances;
     @Inject DelegateAccountService accounts;
     @Inject TenantRepository tenants;
+    @Inject com.ntech.cabosse.shared.export.PdfLetterhead letterhead;
     @Inject TenantContext tenantContext;
 
     public byte[] build(UUID advanceId) {
@@ -71,7 +72,6 @@ public class AdvanceVoucherService {
         }
 
         TenantEntity tenant = tenants.findById(tenantContext.tenantId());
-        String organization = tenant != null ? tenant.name : "";
         Locale locale = Locales.of(tenant != null && tenant.preferences != null
                 ? tenant.preferences.language : null);
         String currency = Messages.currencyLabel();
@@ -84,7 +84,6 @@ public class AdvanceVoucherService {
             PdfWriter.getInstance(doc, out).setPageEvent(new PdfBranding());
             doc.open();
 
-            Font orgFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 13, Color.BLACK);
             Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 15, Color.BLACK);
             Font refFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11, Color.BLACK);
             Font labelFont = FontFactory.getFont(FontFactory.HELVETICA, 8, MUTED);
@@ -92,7 +91,7 @@ public class AdvanceVoucherService {
             Font cellFont = FontFactory.getFont(FontFactory.HELVETICA, 10, Color.BLACK);
             Font noteFont = FontFactory.getFont(FontFactory.HELVETICA, 9, MUTED);
 
-            doc.add(new Paragraph(organization, orgFont));
+            doc.add(letterhead.of(tenant));
             Paragraph beneficiary = new Paragraph(nullSafe(e.delegateName), valueFont);
             beneficiary.setAlignment(Element.ALIGN_CENTER);
             beneficiary.setSpacingBefore(10);
@@ -156,12 +155,12 @@ public class AdvanceVoucherService {
         table.setWidthPercentage(100);
         head(table, Messages.msg(locale, "m.col-voucher-col-description"), headFont, Element.ALIGN_LEFT);
         head(table, Messages.msg(locale, "m.col-voucher-col-quantity"), headFont, Element.ALIGN_RIGHT);
-        head(table, Messages.msg(locale, "m.col-voucher-col-amount"), headFont, Element.ALIGN_RIGHT);
+        head(table, Messages.msg(locale, "m.col-voucher-col-amount", currency), headFont, Element.ALIGN_RIGHT);
 
         cell(table, Messages.msg(locale, "m.col-voucher-line-label",
                 e.ref, nullSafe(e.delegateName)), cellFont, Element.ALIGN_LEFT);
         cell(table, "1", cellFont, Element.ALIGN_RIGHT);
-        cell(table, money(amount) + " " + currency, cellFont, Element.ALIGN_RIGHT);
+        cell(table, com.ntech.cabosse.shared.export.PdfNumbers.money(amount), cellFont, Element.ALIGN_RIGHT);
         return table;
     }
 
@@ -176,9 +175,9 @@ public class AdvanceVoucherService {
         table.setHorizontalAlignment(Element.ALIGN_RIGHT);
         table.setSpacingBefore(10);
         cell(table, Messages.msg(locale, "m.col-voucher-total"), headFont, Element.ALIGN_LEFT);
-        cell(table, money(amount) + " " + currency, headFont, Element.ALIGN_RIGHT);
+        cell(table, com.ntech.cabosse.shared.export.PdfNumbers.money(amount), headFont, Element.ALIGN_RIGHT);
         cell(table, Messages.msg(locale, "m.col-voucher-balance"), cellFont, Element.ALIGN_LEFT);
-        cell(table, money(balance) + " " + currency, cellFont, Element.ALIGN_RIGHT);
+        cell(table, com.ntech.cabosse.shared.export.PdfNumbers.money(balance), cellFont, Element.ALIGN_RIGHT);
         return table;
     }
 
@@ -221,13 +220,6 @@ public class AdvanceVoucherService {
         cell.setHorizontalAlignment(align);
         cell.setPadding(6);
         table.addCell(cell);
-    }
-
-    /** Le montant, groupé par milliers comme le reste des documents. */
-    private static String money(BigDecimal value) {
-        java.text.NumberFormat nf = java.text.NumberFormat.getNumberInstance(Locale.FRANCE);
-        nf.setMaximumFractionDigits(0);
-        return nf.format(value == null ? BigDecimal.ZERO : value);
     }
 
     private static String nullSafe(String v) {

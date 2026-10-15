@@ -69,6 +69,7 @@ public class CollectionInvoiceService {
     @Inject SupplierRepository suppliers;
     @Inject DelegateAccountService accounts;
     @Inject TenantRepository tenants;
+    @Inject com.ntech.cabosse.shared.export.PdfLetterhead letterhead;
     @Inject TenantContext tenantContext;
 
     public byte[] build(UUID delegateSupplierId, String deliveryRef, UUID campaignId) {
@@ -85,7 +86,6 @@ public class CollectionInvoiceService {
         }
 
         TenantEntity tenant = tenants.findById(tenantContext.tenantId());
-        String organization = tenant != null ? tenant.name : "";
         Locale locale = Locales.of(tenant != null && tenant.preferences != null
                 ? tenant.preferences.language : null);
         String currency = Messages.currencyLabel();
@@ -128,7 +128,6 @@ public class CollectionInvoiceService {
             PdfWriter.getInstance(doc, out).setPageEvent(new PdfBranding());
             doc.open();
 
-            Font orgFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 13, Color.BLACK);
             Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 15, Color.BLACK);
             Font refFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11, Color.BLACK);
             Font labelFont = FontFactory.getFont(FontFactory.HELVETICA, 8, MUTED);
@@ -136,7 +135,7 @@ public class CollectionInvoiceService {
             Font cellFont = FontFactory.getFont(FontFactory.HELVETICA, 9.5f, Color.BLACK);
             Font noteFont = FontFactory.getFont(FontFactory.HELVETICA, 9, MUTED);
 
-            doc.add(new Paragraph(organization, orgFont));
+            doc.add(letterhead.of(tenant));
             Paragraph title = new Paragraph(
                     Messages.msg(locale, "m.col-invoice-title").toUpperCase(locale), titleFont);
             title.setSpacingBefore(12);
@@ -200,23 +199,28 @@ public class CollectionInvoiceService {
                              Font cellFont, Font headFont) {
         PdfPTable table = new PdfPTable(new float[]{1.1f, 2.2f, 1.2f, 1.2f, 1.4f});
         table.setWidthPercentage(100);
-        for (String key : new String[]{"m.col-invoice-col-date", "m.col-invoice-col-producer",
-                "m.col-invoice-col-weight", "m.col-invoice-col-price", "m.col-invoice-col-amount"}) {
-            head(table, Messages.msg(locale, key), headFont);
-        }
+        // L'unité vit dans l'en-tête, pas dans chaque cellule : une
+        // colonne de chiffres se lit mieux sans son unité répétée
+        // vingt fois (15/10/2026).
+        String unit = lines.get(0).articleUnit != null ? lines.get(0).articleUnit : "kg";
+        head(table, Messages.msg(locale, "m.col-invoice-col-date"), headFont);
+        head(table, Messages.msg(locale, "m.col-invoice-col-producer"), headFont);
+        head(table, Messages.msg(locale, "m.col-invoice-col-weight", unit), headFont);
+        head(table, Messages.msg(locale, "m.col-invoice-col-price", currency, unit), headFont);
+        head(table, Messages.msg(locale, "m.col-invoice-col-amount", currency), headFont);
         for (ProducerPurchaseEntity r : lines) {
             cell(table, r.date == null ? "" : DATE.format(r.date), cellFont, Element.ALIGN_LEFT);
             cell(table, r.counterpartyName() == null ? "" : r.counterpartyName(),
                     cellFont, Element.ALIGN_LEFT);
-            cell(table, money(r.weightKg), cellFont, Element.ALIGN_RIGHT);
-            cell(table, money(r.guaranteedPricePerKg), cellFont, Element.ALIGN_RIGHT);
-            cell(table, money(r.amount), cellFont, Element.ALIGN_RIGHT);
+            cell(table, com.ntech.cabosse.shared.export.PdfNumbers.quantity(r.weightKg), cellFont, Element.ALIGN_RIGHT);
+            cell(table, com.ntech.cabosse.shared.export.PdfNumbers.money(r.guaranteedPricePerKg), cellFont, Element.ALIGN_RIGHT);
+            cell(table, com.ntech.cabosse.shared.export.PdfNumbers.money(r.amount), cellFont, Element.ALIGN_RIGHT);
         }
         cell(table, Messages.msg(locale, "m.col-invoice-gross"), headFont, Element.ALIGN_LEFT);
         cell(table, "", headFont, Element.ALIGN_LEFT);
-        cell(table, money(weight), headFont, Element.ALIGN_RIGHT);
+        cell(table, com.ntech.cabosse.shared.export.PdfNumbers.quantity(weight), headFont, Element.ALIGN_RIGHT);
         cell(table, "", headFont, Element.ALIGN_RIGHT);
-        cell(table, money(gross) + " " + currency, headFont, Element.ALIGN_RIGHT);
+        cell(table, com.ntech.cabosse.shared.export.PdfNumbers.money(gross), headFont, Element.ALIGN_RIGHT);
         return table;
     }
 
@@ -232,23 +236,25 @@ public class CollectionInvoiceService {
         table.setWidthPercentage(70);
         table.setHorizontalAlignment(Element.ALIGN_RIGHT);
         table.setSpacingBefore(12);
+        head(table, Messages.msg(locale, "m.col-invoice-recap"), headFont);
+        head(table, Messages.msg(locale, "m.col-invoice-col-amount", currency), headFont);
 
         line(table, Messages.msg(locale, "m.col-invoice-balance-before"),
-                money(balanceBefore) + " " + currency, cellFont, cellFont);
+                com.ntech.cabosse.shared.export.PdfNumbers.money(balanceBefore) , cellFont, cellFont);
         line(table, Messages.msg(locale, "m.col-invoice-gross"),
-                money(gross) + " " + currency, cellFont, cellFont);
+                com.ntech.cabosse.shared.export.PdfNumbers.money(gross) , cellFont, cellFont);
         line(table, Messages.msg(locale, "m.col-invoice-margin"),
-                "+ " + money(margin) + " " + currency, cellFont, cellFont);
+                "+ " + com.ntech.cabosse.shared.export.PdfNumbers.money(margin) , cellFont, cellFont);
         line(table, advanceRefs.isBlank()
                         ? Messages.msg(locale, "m.col-invoice-advances")
                         : Messages.msg(locale, "m.col-invoice-advances-refs", advanceRefs),
-                "- " + money(cleared) + " " + currency, cellFont, cellFont);
+                "- " + com.ntech.cabosse.shared.export.PdfNumbers.money(cleared) , cellFont, cellFont);
         line(table, Messages.msg(locale, "m.col-invoice-retention"),
-                "- " + money(retention) + " " + currency, cellFont, cellFont);
+                "- " + com.ntech.cabosse.shared.export.PdfNumbers.money(retention) , cellFont, cellFont);
         line(table, Messages.msg(locale, "m.col-invoice-net"),
-                money(net) + " " + currency, headFont, headFont);
+                com.ntech.cabosse.shared.export.PdfNumbers.money(net) , headFont, headFont);
         line(table, Messages.msg(locale, "m.col-invoice-balance-after"),
-                money(balanceAfter) + " " + currency, cellFont, cellFont);
+                com.ntech.cabosse.shared.export.PdfNumbers.money(balanceAfter) , cellFont, cellFont);
         return table;
     }
 
@@ -295,12 +301,6 @@ public class CollectionInvoiceService {
         cell.setHorizontalAlignment(align);
         cell.setPadding(5);
         table.addCell(cell);
-    }
-
-    private static String money(BigDecimal value) {
-        java.text.NumberFormat nf = java.text.NumberFormat.getNumberInstance(Locale.FRANCE);
-        nf.setMaximumFractionDigits(0);
-        return nf.format(value == null ? BigDecimal.ZERO : value);
     }
 
     private static BigDecimal nz(BigDecimal v) {
