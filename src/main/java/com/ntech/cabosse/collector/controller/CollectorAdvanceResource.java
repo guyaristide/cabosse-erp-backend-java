@@ -50,6 +50,8 @@ import java.util.UUID;
 public class CollectorAdvanceResource {
 
     @Inject ExportAudit exportAudit;
+    @Inject com.ntech.cabosse.collector.service.AdvanceVoucherService vouchers;
+    @Inject com.ntech.cabosse.collector.service.DelegateLedgerPdfService ledgerPdf;
     @Inject CollectorAdvanceService service;
     @Inject com.fasterxml.jackson.databind.ObjectMapper json;
     @Inject jakarta.validation.Validator validator;
@@ -193,6 +195,42 @@ public class CollectorAdvanceResource {
     @RequiresPermission(com.ntech.cabosse.permission.entity.Permission.ACCOUNTING_WRITE)
     public Response requestExecution(@PathParam("id") UUID id) {
         return Response.ok(ApiResponse.ok(service.requestExecution(id))).build();
+    }
+
+    /**
+     * La pièce d'une avance versée : le document que le délégué signe et
+     * que la coopérative conserve (demandé le 14/10/2026).
+     */
+    @GET
+    @Path("/{id}/voucher")
+    @jakarta.ws.rs.Produces("application/pdf")
+    @RequiresPermission(Permission.COLLECTION_READ)
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    public Response voucher(@PathParam("id") UUID id) {
+        byte[] pdf = vouchers.build(id);
+        return Response.ok(pdf)
+                .header("Content-Disposition", "inline; filename=\"piece-avance.pdf\"")
+                .build();
+    }
+
+    /**
+     * Le relevé du compte d'un délégué à une date : comment son solde
+     * s'est formé, opération par opération.
+     */
+    @GET
+    @Path("/ledger/{delegateSupplierId}/statement")
+    @jakarta.ws.rs.Produces("application/pdf")
+    @RequiresPermission(Permission.COLLECTION_READ)
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    public Response ledgerStatement(@PathParam("delegateSupplierId") UUID delegateSupplierId,
+                                    @QueryParam("campaignId") UUID campaignId,
+                                    @QueryParam("asOf") String asOfRaw) {
+        java.time.LocalDate asOf = asOfRaw != null && !asOfRaw.isBlank()
+                ? java.time.LocalDate.parse(asOfRaw) : null;
+        byte[] pdf = ledgerPdf.build(delegateSupplierId, campaignId, asOf);
+        return Response.ok(pdf)
+                .header("Content-Disposition", "inline; filename=\"releve-delegue.pdf\"")
+                .build();
     }
 
     @POST
