@@ -202,6 +202,16 @@ public class CommoditySaleEntity {
         public BigDecimal grainage;
         public BigDecimal moldyPct;
         public BigDecimal slatePct;
+        /**
+         * Quatre mesures que l'acheteur rend sur son bulletin et que la
+         * coopérative saisit telles quelles (demandé le 15/10/2026).
+         * Aucune n'entre encore dans un calcul : elles se conservent
+         * d'abord, les analyses viendront ensuite.
+         */
+        public BigDecimal wastePct;
+        public BigDecimal crabotsPct;
+        public BigDecimal fatContent;
+        public BigDecimal fineness;
         public BigDecimal purplePct;
         public BigDecimal mitedPct;
         public BigDecimal flatPct;

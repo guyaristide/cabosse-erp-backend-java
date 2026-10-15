@@ -108,6 +108,17 @@ public record CommoditySaleUpsertDto(
             @DecimalMin(value = "0", message = "{v.valeur-negative-interdite}") BigDecimal grainage,
             @DecimalMin(value = "0", message = "{v.pourcentage-negatif-interdit}") @DecimalMax(value = "100", message = "{v.pourcentage-superieur-a-100}") BigDecimal moldyPct,
             @DecimalMin(value = "0", message = "{v.pourcentage-negatif-interdit}") @DecimalMax(value = "100", message = "{v.pourcentage-superieur-a-100}") BigDecimal slatePct,
+            /**
+             * Déchets, crabots, matière grasse et finesse, tels que le
+             * bulletin de l'acheteur les rend. Aucun plafond à cent : la
+             * finesse et la matière grasse ne s'expriment pas toujours en
+             * pourcentage, et refuser une valeur qu'on ne calcule pas
+             * encore serait refuser pour rien (15/10/2026).
+             */
+            @DecimalMin(value = "0", message = "{v.valeur-negative-interdite}") BigDecimal wastePct,
+            @DecimalMin(value = "0", message = "{v.valeur-negative-interdite}") BigDecimal crabotsPct,
+            @DecimalMin(value = "0", message = "{v.valeur-negative-interdite}") BigDecimal fatContent,
+            @DecimalMin(value = "0", message = "{v.valeur-negative-interdite}") BigDecimal fineness,
             @DecimalMin(value = "0", message = "{v.pourcentage-negatif-interdit}") @DecimalMax(value = "100", message = "{v.pourcentage-superieur-a-100}") BigDecimal purplePct,
             @DecimalMin(value = "0", message = "{v.pourcentage-negatif-interdit}") @DecimalMax(value = "100", message = "{v.pourcentage-superieur-a-100}") BigDecimal mitedPct,
             @DecimalMin(value = "0", message = "{v.pourcentage-negatif-interdit}") @DecimalMax(value = "100", message = "{v.pourcentage-superieur-a-100}") BigDecimal flatPct,

@@ -490,6 +490,10 @@ public class CommoditySaleService {
         e.quality.grainage = q.grainage();
         e.quality.moldyPct = q.moldyPct();
         e.quality.slatePct = q.slatePct();
+        e.quality.wastePct = q.wastePct();
+        e.quality.crabotsPct = q.crabotsPct();
+        e.quality.fatContent = q.fatContent();
+        e.quality.fineness = q.fineness();
         e.quality.purplePct = q.purplePct();
         e.quality.mitedPct = q.mitedPct();
         e.quality.flatPct = q.flatPct();

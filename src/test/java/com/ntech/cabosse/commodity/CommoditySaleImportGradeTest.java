@@ -111,6 +111,34 @@ class CommoditySaleImportGradeTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void les_quatre_mesures_du_bulletin_traversent_l_import() {
+        UserEntity admin = admin();
+        seed(admin);
+        String siteId = siteOf(admin);
+
+        // Déchets, crabots, matière grasse et finesse : quatre colonnes
+        // que le bulletin de l'acheteur porte et que le modèle n'avait
+        // pas. Elles se conservent telles quelles, aucune n'entrant
+        // encore dans un calcul (demandé le 15/10/2026).
+        String row = """
+                [{ "rowNumber": 2, "customerName": "ZAMACOM", "productCode": "Cacao",
+                   "date": "2026-09-22", "siteId": "%s",
+                   "declaredKg": "1000", "acceptedKg": "990",
+                   "montantFacture": "1000000", "grade": "G1",
+                   "wastePct": "0,4", "crabotsPct": "0,3",
+                   "fatContent": "54,5", "fineness": "99" }]
+                """.formatted(siteId);
+
+        // La ligne passe : des mesures que personne ne calcule encore ne
+        // peuvent refuser un fichier.
+        givenAs(admin).contentType("application/json").body(row)
+                .when().post("/api/v1/commodity/sales/import/preview")
+                .then().statusCode(200)
+                .body("data.rows[0].status", org.hamcrest.Matchers.not(equalTo("INVALID")))
+                .body("data.rows[0].issues", hasSize(0));
+    }
+
+    @Test
     void un_grade_absent_est_annonce_avant_la_validation() {
         UserEntity admin = admin();
         seed(admin);

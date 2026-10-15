@@ -187,7 +187,10 @@ public class CommoditySaleImportService {
                                 parseDecimal(raw.wasteKg()), parseDecimal(raw.otherKg())),
                         new CommoditySaleUpsertDto.QualityDto(
                                 parseDecimal(raw.grainage()), parseDecimal(raw.moldyPct()),
-                                parseDecimal(raw.slatePct()), parseDecimal(raw.purplePct()),
+                                parseDecimal(raw.slatePct()),
+                                parseDecimal(raw.wastePct()), parseDecimal(raw.crabotsPct()),
+                                parseDecimal(raw.fatContent()), parseDecimal(raw.fineness()),
+                                parseDecimal(raw.purplePct()),
                                 parseDecimal(raw.mitedPct()), parseDecimal(raw.flatPct()),
                                 parseDecimal(raw.germinatedPct()), parseDecimal(raw.defectivePct()),
                                 parseDecimal(raw.foreignMatterPct()), parseDecimal(raw.ffaPct()),
