@@ -335,6 +335,16 @@ public class SntAccountingService {
         java.util.List<com.ntech.cabosse.supplier.entity.SupplierEntity> collectors =
                 suppliers.listAll().stream().filter(su -> su.collector).toList();
         UUID delegateId = note.delegateSupplierId;
+        // La qualité de délégué se lit sur la fiche au moment de
+        // comptabiliser, pas sur un champ figé à l'import : une fiche
+        // cochée « délégué collecteur » une demi-heure après le
+        // chargement du bordereau laissait celui-ci sans compte
+        // courant, définitivement (bordereau 0918, 16/10/2026).
+        if (delegateId == null && note.supplierId != null) {
+            delegateId = suppliers.findById(note.supplierId)
+                    .filter(su -> su.collector)
+                    .map(su -> su.id).orElse(null);
+        }
         String namedDelegate = clean(note.supplierName);
         if (delegateId == null && request.lines() != null) {
             for (SntLineDto raw : request.lines()) {

@@ -445,4 +445,79 @@ class SupplierCounterpartyTest extends AbstractIntegrationTest {
                 .body("data.invalidRows", equalTo(1))
                 .body("data.rows[0].issues[0]", containsString("MB-"));
     }
+
+    @Test
+    void un_code_et_un_nom_qui_se_contredisent_laissent_le_bordereau_sans_apporteur() {
+        UserEntity admin = admin();
+        LocalDate today = LocalDate.now();
+        String siteId = site(admin);
+
+        givenAs(admin).contentType("application/json")
+                .body("{\"code\":\"nab-c-023\",\"name\":\"TRAORE MADOU\",\"collector\":true}")
+                .when().post("/api/v1/suppliers").then().statusCode(201);
+        givenAs(admin).contentType("application/json")
+                .body("{\"code\":\"nab-c-167\",\"name\":\"TRAORE MOUSSA\",\"collector\":true}")
+                .when().post("/api/v1/suppliers").then().statusCode(201);
+
+        // Le code l'emportait en silence : le bordereau affichait un nom
+        // et devait l'argent à un autre (0896 et 0910, 16/10/2026).
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        [ { "rowNumber": 2, "productLabel": "Cacao", "date": "%s",
+                            "movement": "Entrée Stock", "ref": "BR0896", "truckNumber": "CJY879",
+                            "supplierCode": "nab-c-023", "supplierName": "TRAORE MOUSSA",
+                            "lineNumber": "1", "grossWeightKg": "920", "bagCount": "14",
+                            "netWeightKg": "909" } ]
+                        """.formatted(today))
+                .when().post("/api/v1/intake-notes/import/commit?siteId=" + siteId)
+                .then().statusCode(200)
+                .body("data.createdCount", equalTo(1))
+                .body("data.warnedRows[0].reason", containsString("TRAORE MOUSSA"));
+
+        givenAs(admin).when().get("/api/v1/intake-notes?status=TO_ACCOUNT")
+                .then().statusCode(200)
+                .body("data[0].supplierId", nullValue())
+                .body("data[0].delegateSupplierId", nullValue());
+    }
+
+    @Test
+    void une_fiche_cochee_delegue_apres_l_import_retrouve_son_compte() {
+        UserEntity admin = admin();
+        LocalDate today = LocalDate.now();
+        String siteId = site(admin);
+        String articleId = article(admin);
+
+        // À l'import, la fiche existe mais n'est pas encore délégué.
+        String supplierId = supplier(admin, "DOKO KOLO YVETTE", false);
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        [ { "rowNumber": 2, "productLabel": "Cacao", "date": "%s",
+                            "movement": "Entrée Stock", "ref": "BR0918", "truckNumber": "CJY879",
+                            "supplierName": "DOKO KOLO YVETTE", "lineNumber": "1",
+                            "grossWeightKg": "22", "bagCount": "1", "netWeightKg": "20" } ]
+                        """.formatted(today))
+                .when().post("/api/v1/intake-notes/import/commit?siteId=" + siteId)
+                .then().statusCode(200);
+        String noteId = givenAs(admin).when().get("/api/v1/intake-notes?status=TO_ACCOUNT")
+                .then().statusCode(200)
+                .body("data[0].delegateSupplierId", nullValue())
+                .extract().path("data[0].id");
+
+        // La case est cochée une demi-heure plus tard : le bordereau ne
+        // doit pas rester sans compte courant pour autant.
+        givenAs(admin).contentType("application/json")
+                .body("{\"name\":\"DOKO KOLO YVETTE\",\"collector\":true}")
+                .when().put("/api/v1/suppliers/" + supplierId).then().statusCode(200);
+
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "articleId": "%s", "siteId": "%s", "lines": [
+                          { "rowNumber": 2, "date": "%s", "nbSacs": "1", "weightKg": "20",
+                            "amount": "24000", "amountCash": "24000" } ] }
+                        """.formatted(articleId, siteId, today))
+                .when().post("/api/v1/intake-notes/" + noteId + "/accounting/preview")
+                .then().statusCode(200)
+                .body("data.delegateSupplierId", equalTo(supplierId))
+                .body("data.invalidRows", equalTo(0));
+    }
 }

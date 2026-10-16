@@ -155,8 +155,24 @@ public class IntakeNoteService {
             // portera le reçu quand le document ne nommera pas le
             // producteur. La qualité de délégué se lit ensuite sur sa
             // fiche, et elle seule déclenche le compte courant.
-            e.supplierId = matchSupplier(e.supplierCode, e.supplierName, allSuppliers);
-            e.delegateSupplierId = matchDelegate(e.supplierCode, e.supplierName, collectors);
+            // Le code et le nom doivent désigner la même personne. Quand
+            // ils divergent, le code l'emportait en silence : le
+            // bordereau affichait un nom et devait l'argent à un autre
+            // (relevé sur les bordereaux 0896 et 0910 le 16/10/2026).
+            // On ne tranche pas à la place du magasinier : le bordereau
+            // reste sans apporteur, et le dit.
+            boolean conflict = namesDifferentParties(e.supplierCode, e.supplierName, allSuppliers);
+            e.supplierId = conflict ? null
+                    : matchSupplier(e.supplierCode, e.supplierName, allSuppliers);
+            e.delegateSupplierId = conflict ? null
+                    : matchDelegate(e.supplierCode, e.supplierName, collectors);
+            if (conflict) {
+                trace.decided("LEFT_NULL", "fournisseur", e.supplierCode + " / " + e.supplierName,
+                        "le code et le nom désignent deux fournisseurs");
+                warned.add(new IntakeImportResultDto.WarnedRow(raw.rowNumber(), ref,
+                        Messages.msg("m.itk-w-supplier-code-name-conflict",
+                                e.supplierCode, e.supplierName)));
+            }
             // Les deux rattachements qui décident de la suite. Sans
             // fournisseur reconnu, la comptabilisation refusera le
             // bordereau ; sans campagne, il sortira des états. Ni l'un ni
@@ -366,6 +382,22 @@ public class IntakeNoteService {
                 .filter(c -> c.label != null && normalize(c.label).equals(wanted))
                 .map(c -> c.id)
                 .findFirst().orElse(null);
+    }
+
+    /**
+     * Le code et le nom du bordereau désignent-ils deux fournisseurs
+     * différents ?
+     *
+     * <p>Une graphie approchante du même nom n'est pas un conflit : c'est
+     * quand les deux colonnes retrouvent chacune une fiche, et que ce
+     * n'est pas la même, qu'il y a un choix à faire.</p>
+     */
+    private boolean namesDifferentParties(String code, String name,
+                                          List<SupplierEntity> candidates) {
+        if (code == null || name == null) return false;
+        UUID byCode = matchDelegate(code, null, candidates);
+        UUID byName = matchDelegate(null, name, candidates);
+        return byCode != null && byName != null && !byCode.equals(byName);
     }
 
     /** Le fournisseur nommé par le bordereau, par son code puis par son nom. */
