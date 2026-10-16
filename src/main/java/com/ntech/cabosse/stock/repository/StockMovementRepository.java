@@ -104,9 +104,13 @@ public class StockMovementRepository {
      * un magasin dont la matière vient du stock de départ ne pouvait
      * rien charger (expert, 14/10/2026).</p>
      */
-    public List<StockMovementEntity> listDispatchableOpenings(UUID siteId, UUID articleId) {
+    public List<StockMovementEntity> listDispatchableBulk(UUID siteId, UUID articleId) {
         List<Bson> filters = new ArrayList<>();
-        filters.add(Filters.eq("kind", "OPENING"));
+        // L'amorçage et le transfert reçu : deux façons pour un magasin
+        // de détenir de la matière en vrac qu'aucun reçu ne nomme. Sans
+        // le transfert, la matière complétée depuis un autre site
+        // arrivait invisible au chargement (expert, 16/10/2026).
+        filters.add(Filters.in("kind", "OPENING", "TRANSFER_IN"));
         filters.add(stillCounts());
         if (siteId != null) filters.add(Filters.eq("siteId", siteId));
         if (articleId != null) filters.add(Filters.eq("articleId", articleId));

@@ -24,6 +24,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 
 /**
  * Du chargement à l'encaissement (épic magasin, CE-195 et CE-194, modèle
@@ -346,5 +347,63 @@ class DispatchAndSaleTest extends AbstractIntegrationTest {
                 .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                 .when().post("/api/v1/commodity/sales/" + saleId + "/payments")
                 .then().statusCode(422);
+    }
+
+    @Test
+    void la_matiere_recue_d_un_autre_site_se_charge_comme_le_stock_de_depart() {
+        UserEntity admin = tenantAdmin();
+        Seed s = seed(admin);
+
+        // Le second magasin, et son stock de départ.
+        // Le plan d'essai n'autorise qu'un site, et la coopérative en a
+        // deux : c'est son abonnement qui ouvre le second.
+        tenant.planCode = "enterprise";
+        tenants.update(tenant);
+        String other = givenAs(admin).contentType("application/json")
+                .body("{\"name\":\"Magasin secondaire\",\"type\":\"CENTRAL_WAREHOUSE\",\"code\":\"mag2-"
+                        + java.util.UUID.randomUUID().toString().substring(0, 8) + "\"}")
+                .when().post("/api/v1/sites").then().statusCode(201).extract().path("data.id");
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "siteId": "%s", "occurredAt": "%s",
+                          "lines": [ { "articleId": "%s", "quantity": 500, "unitPrice": 1000 } ] }
+                        """.formatted(other,
+                        LocalDate.now().minusDays(2).atTime(12, 0)
+                                .toInstant(java.time.ZoneOffset.UTC), s.articleId()))
+                .when().post("/api/v1/stocks/opening").then().statusCode(201);
+
+        // La coopérative complète le chargement depuis l'autre site.
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "articleId": "%s", "fromSiteId": "%s", "toSiteId": "%s",
+                          "quantity": 300, "reason": "Complément de chargement" }
+                        """.formatted(s.articleId(), other, s.siteId()))
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                .when().post("/api/v1/stocks/transfer").then().statusCode(201);
+
+        // Sans cela, les kilos transférés arrivaient invisibles au
+        // chargement (expert, 16/10/2026).
+        String transferId = givenAs(admin)
+                .queryParam("siteId", s.siteId())
+                .when().get("/api/v1/stocks/opening/dispatchable")
+                .then().statusCode(200)
+                .body("data.find { it.origin == 'TRANSFER' }.availableKg", equalTo(300.0F))
+                .extract().path("data.find { it.origin == 'TRANSFER' }.movementId");
+
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "date": "%s", "siteId": "%s", "lines": [
+                          { "openingMovementId": "%s", "netKg": 300, "bagsCount": 5 } ] }
+                        """.formatted(LocalDate.now(), s.siteId(), transferId))
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                .when().post("/api/v1/dispatch-notes").then().statusCode(201)
+                .body("data.totalNetKg", equalTo(300));
+
+        // Et il n'en reste rien à appeler une seconde fois.
+        givenAs(admin)
+                .queryParam("siteId", s.siteId())
+                .when().get("/api/v1/stocks/opening/dispatchable")
+                .then().statusCode(200)
+                .body("data.find { it.origin == 'TRANSFER' }", nullValue());
     }
 }

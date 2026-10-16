@@ -927,33 +927,50 @@ public class StockService {
     }
 
     /**
-     * Les amorçages encore chargeables d'un site : ce que le stock de
-     * départ peut encore mettre dans un camion.
+     * Le vrac encore chargeable d'un site : ce que le magasin détient
+     * sans qu'aucun reçu ne le nomme, stock de départ et matière reçue
+     * d'un autre site.
      */
     public List<com.ntech.cabosse.stock.dto.DispatchableOpeningDto> dispatchableOpenings(
             UUID siteId, UUID articleId) {
-        List<com.ntech.cabosse.stock.entity.StockMovementEntity> openings =
-                movements.listDispatchableOpenings(siteId, articleId);
+        List<com.ntech.cabosse.stock.entity.StockMovementEntity> sources =
+                movements.listDispatchableBulk(siteId, articleId);
         List<com.ntech.cabosse.stock.dto.DispatchableOpeningDto> out =
-                new java.util.ArrayList<>(openings.size());
-        for (com.ntech.cabosse.stock.entity.StockMovementEntity m : openings) {
-            // Le brassage se déduit du stock de départ, pas des reçus :
-            // c'est la matière en vrac qui perd du poids, et les reçus
-            // gardent celui de leur livraison (expert, 15/10/2026).
-            var shrinkage = corrections.totalShrinkage(m.siteId, m.articleId);
+                new java.util.ArrayList<>(sources.size());
+        // Le brassage se déduit du vrac, pas des reçus : c'est la
+        // matière en vrac qui perd du poids, et les reçus gardent celui
+        // de leur livraison (expert, 15/10/2026). Il se consomme une
+        // seule fois, du plus ancien au plus récent : le retrancher de
+        // chaque source le compterait autant de fois qu'il y en a.
+        java.util.Map<String, BigDecimal> weightLeft = new java.util.HashMap<>();
+        java.util.Map<String, Integer> bagsLeft = new java.util.HashMap<>();
+        for (com.ntech.cabosse.stock.entity.StockMovementEntity m : sources) {
+            String key = m.siteId + "|" + m.articleId;
+            if (!weightLeft.containsKey(key)) {
+                var shrinkage = corrections.totalShrinkage(m.siteId, m.articleId);
+                weightLeft.put(key, shrinkage.weightKg());
+                bagsLeft.put(key, shrinkage.bags());
+            }
             BigDecimal posed = nz(m.quantitySigned).abs();
-            BigDecimal available = posed
-                    .subtract(nz(m.dispatchedKg))
-                    .subtract(shrinkage.weightKg())
-                    .max(BigDecimal.ZERO);
-            Integer bags = m.bags == null ? null
-                    : Math.max(0, m.bags - shrinkage.bags());
+            BigDecimal stillHere = posed.subtract(nz(m.dispatchedKg)).max(BigDecimal.ZERO);
+            BigDecimal absorbed = weightLeft.get(key).min(stillHere);
+            weightLeft.put(key, weightLeft.get(key).subtract(absorbed));
+            BigDecimal available = stillHere.subtract(absorbed);
+
+            Integer bags = m.bags;
+            if (bags != null) {
+                int takeBags = Math.min(bagsLeft.get(key), bags);
+                bagsLeft.put(key, bagsLeft.get(key) - takeBags);
+                bags = bags - takeBags;
+            }
             out.add(new com.ntech.cabosse.stock.dto.DispatchableOpeningDto(
                     m.id, m.ref,
                     m.occurredAt == null ? null
                             : m.occurredAt.atZone(java.time.ZoneOffset.UTC).toLocalDate(),
                     m.articleId, m.articleCode, m.articleName, m.articleUnit, m.siteId,
-                    posed, available, bags, m.unitPrice));
+                    posed, available, bags, m.unitPrice,
+                    m.kind == com.ntech.cabosse.stock.entity.MovementKind.TRANSFER_IN
+                            ? "TRANSFER" : "OPENING"));
         }
         return out;
     }

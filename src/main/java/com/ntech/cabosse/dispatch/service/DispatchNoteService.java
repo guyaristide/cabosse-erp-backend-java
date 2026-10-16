@@ -64,7 +64,6 @@ public class DispatchNoteService {
     @Inject CampaignResolver campaignResolver;
     @Inject StockService stockService;
     @Inject com.ntech.cabosse.stock.repository.StockMovementRepository movements;
-    @Inject com.ntech.cabosse.stock.repository.StockCorrectionRepository corrections;
     @Inject StockItemRepository stockItems;
     @Inject TenantContext tenantContext;
     @Inject AuditService audit;
@@ -102,6 +101,16 @@ public class DispatchNoteService {
         // un camion charge une matière, pas un assortiment. Une source
         // est un reçu d'achat, ou le stock de départ quand la matière
         // vient de là (expert, 14/10/2026).
+        // Le vrac appelable du site, brassage déjà réparti : c'est lui
+        // qui dit ce qui reste sur chaque source, et une perte ne se
+        // retranche qu'une fois même quand le magasin tient plusieurs
+        // vracs, amorçage et transferts reçus (16/10/2026).
+        java.util.Map<UUID, com.ntech.cabosse.stock.dto.DispatchableOpeningDto> bulk =
+                new java.util.HashMap<>();
+        for (var source : stockService.dispatchableOpenings(p.siteId(), null)) {
+            bulk.put(source.movementId(), source);
+        }
+
         List<CalledSource> called = new ArrayList<>();
         for (DispatchLineInputDto line : p.lines()) {
             if ((line.receiptId() == null) == (line.openingMovementId() == null)) {
@@ -126,9 +135,12 @@ public class DispatchNoteService {
                     throw new BusinessException(
                             Messages.msg("m.dsp-receipt-other-site", opening.ref));
                 }
-                called.add(CalledSource.of(opening,
-                        corrections.totalShrinkage(opening.siteId, opening.articleId)
-                                .weightKg()));
+                var available = bulk.get(opening.id);
+                if (available == null) {
+                    throw new BusinessException(
+                            Messages.msg("m.dsp-source-exhausted", opening.ref));
+                }
+                called.add(CalledSource.of(opening, available));
             }
         }
         UUID articleId = called.get(0).articleId();
@@ -336,15 +348,19 @@ public class DispatchNoteService {
         }
 
         static CalledSource of(com.ntech.cabosse.stock.entity.StockMovementEntity m,
-                               BigDecimal shrinkage) {
-            // Le lot d'un amorçage est sa propre référence : la matière
-            // du stock de départ n'a pas d'autre origine à citer. Le
-            // brassage, lui, en est déjà sorti.
+                               com.ntech.cabosse.stock.dto.DispatchableOpeningDto available) {
+            // Le lot d'un vrac est sa propre référence : ni l'amorçage
+            // ni un transfert reçu n'ont d'autre origine à citer. Ce que
+            // le brassage lui a pris est déjà retranché du disponible ;
+            // on le redit au plafond atomique pour qu'il tienne aussi
+            // face à un chargement concurrent.
+            BigDecimal reserved = nz(m.quantitySigned).abs()
+                    .subtract(nz(m.dispatchedKg))
+                    .subtract(nz(available.availableKg()))
+                    .max(BigDecimal.ZERO);
             return new CalledSource(m.articleId, m.articleCode, m.articleName, m.articleUnit,
                     m.ref, m.lotRef != null ? m.lotRef : m.ref,
-                    nz(m.quantitySigned).abs().subtract(nz(m.dispatchedKg))
-                            .subtract(nz(shrinkage)).max(BigDecimal.ZERO),
-                    nz(shrinkage));
+                    nz(available.availableKg()), reserved);
         }
     }
 }
