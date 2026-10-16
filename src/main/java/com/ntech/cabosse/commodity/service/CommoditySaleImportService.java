@@ -13,6 +13,7 @@ import com.ntech.cabosse.article.repository.ArticleRepository;
 import com.ntech.cabosse.customer.entity.CustomerEntity;
 import com.ntech.cabosse.customer.repository.CustomerRepository;
 import com.ntech.cabosse.shared.i18n.Messages;
+import com.ntech.cabosse.shared.imports.NameAliases;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
@@ -46,18 +47,25 @@ public class CommoditySaleImportService {
         if (input == null || input.isEmpty()) {
             return new CommoditySaleImportPreviewDto(0, 0, 0, List.of());
         }
-        Map<String, CustomerEntity> byName = new HashMap<>();
+        // Le client, sous toutes les écritures de son nom : le fichier
+        // de l'usine écrit « IVORY COCOA PRODUCTS (ICP) » là où la fiche
+        // porte le sigle seul (16/10/2026).
+        Map<String, List<CustomerEntity>> customersByKey = new HashMap<>();
         for (CustomerEntity c : customers.listAll()) {
-            if (c.name != null) byName.putIfAbsent(c.name.trim().toUpperCase(Locale.ROOT), c);
+            for (String key : NameAliases.of(c.name)) {
+                customersByKey.computeIfAbsent(key, k -> new ArrayList<>()).add(c);
+            }
         }
-        // Articles vendables, rapprochés par code OU nom.
+        // Articles vendables, rapprochés par code OU nom. Ceux qui ne le
+        // sont pas sont indexés à part : « inconnu » envoyait créer un
+        // article qui existait déjà, alors qu'il manquait une case.
         Map<String, ArticleEntity> articlesByKey = new HashMap<>();
+        Map<String, ArticleEntity> notSellableByKey = new HashMap<>();
         for (ArticleEntity a : articles.listAll()) {
-            if (!a.sellable || !a.active) continue;
-            if (a.code != null && !a.code.isBlank())
-                articlesByKey.putIfAbsent(a.code.trim().toUpperCase(Locale.ROOT), a);
-            if (a.name != null && !a.name.isBlank())
-                articlesByKey.putIfAbsent(a.name.trim().toUpperCase(Locale.ROOT), a);
+            Map<String, ArticleEntity> target = a.sellable && a.active
+                    ? articlesByKey : notSellableByKey;
+            for (String key : NameAliases.of(a.code)) target.putIfAbsent(key, a);
+            for (String key : NameAliases.of(a.name)) target.putIfAbsent(key, a);
         }
 
         List<Row> rows = new ArrayList<>();
@@ -65,13 +73,34 @@ public class CommoditySaleImportService {
         for (CommoditySaleImportRowDto raw : input) {
             List<FieldIssue> issues = new ArrayList<>();
 
-            CustomerEntity customer = raw.customerName() == null || raw.customerName().isBlank()
-                    ? null : byName.get(raw.customerName().trim().toUpperCase(Locale.ROOT));
-            if (customer == null) issues.add(new FieldIssue("customerName", Messages.msg("m.imp-customer-not-found")));
+            CustomerEntity customer = null;
+            boolean ambiguousCustomer = false;
+            for (String key : NameAliases.of(raw.customerName())) {
+                List<CustomerEntity> hits = customersByKey.getOrDefault(key, List.of());
+                if (hits.size() == 1) { customer = hits.get(0); break; }
+                if (hits.size() > 1) { ambiguousCustomer = true; break; }
+            }
+            if (customer == null) {
+                issues.add(new FieldIssue("customerName", ambiguousCustomer
+                        ? Messages.msg("m.imp-customer-ambiguous", blankToNull(raw.customerName()))
+                        : Messages.msg("m.imp-customer-not-found")));
+            }
 
-            ArticleEntity article = raw.productCode() == null || raw.productCode().isBlank()
-                    ? null : articlesByKey.get(raw.productCode().trim().toUpperCase(Locale.ROOT));
-            if (article == null) issues.add(new FieldIssue("productCode", Messages.msg("m.imp-sellable-article-unknown")));
+            ArticleEntity article = null;
+            ArticleEntity notSellable = null;
+            for (String key : NameAliases.of(raw.productCode())) {
+                article = articlesByKey.get(key);
+                if (article != null) break;
+                if (notSellable == null) notSellable = notSellableByKey.get(key);
+            }
+            if (article == null) {
+                // L'article existe, il n'est simplement pas ouvert à la
+                // vente : le geste est une case à cocher sur sa fiche,
+                // pas la création d'un doublon.
+                issues.add(new FieldIssue("productCode", notSellable != null
+                        ? Messages.msg("m.imp-article-not-sellable", notSellable.name)
+                        : Messages.msg("m.imp-sellable-article-unknown")));
+            }
 
             LocalDate date = parseDate(raw.date());
             if (date == null) issues.add(new FieldIssue("date", Messages.msg("m.imp-date-invalid-or-missing")));

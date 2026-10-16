@@ -229,4 +229,55 @@ class CommoditySaleImportGradeTest extends AbstractIntegrationTest {
                 .body("data.find { it.code == 'ZZ9' }", org.hamcrest.Matchers.nullValue());
     }
 
+
+    @Test
+    void le_sigle_entre_parentheses_retrouve_le_client() {
+        UserEntity admin = admin();
+        seed(admin);
+        // La fiche porte le sigle, le fichier de l'usine écrit le nom
+        // complet suivi du sigle (relevé le 16/10/2026).
+        givenAs(admin).contentType("application/json")
+                .body("{ \"name\": \"ICP\", \"type\": \"COMPANY\" }")
+                .when().post("/api/v1/customers").then().statusCode(201);
+
+        String row = """
+                [{ "rowNumber": 2, "customerName": "IVORY COCOA PRODUCTS (ICP)",
+                   "productCode": "Cacao", "date": "2026-09-22", "siteId": "%s",
+                   "declaredKg": "44077", "acceptedKg": "41163.83",
+                   "montantFacture": "53512977", "grade": "G2" }]
+                """.formatted(siteOf(admin));
+
+        givenAs(admin).contentType("application/json").body(row)
+                .when().post("/api/v1/commodity-sales/import/preview")
+                .then().statusCode(200)
+                .body("data.rows[0].customerName", equalTo("ICP"))
+                .body("data.invalid", equalTo(0));
+    }
+
+    @Test
+    void un_article_non_vendable_le_dit_au_lieu_de_se_dire_inconnu() {
+        UserEntity admin = admin();
+        seed(admin);
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "type": "RAW_MATERIAL", "name": "Fèves de cacao", "unit": "kg",
+                          "sellable": false, "purchasable": true }
+                        """)
+                .when().post("/api/v1/articles").then().statusCode(201);
+
+        // « Article vendable inconnu » envoyait créer un doublon d'un
+        // article qui existe : il lui manque une case.
+        String row = """
+                [{ "rowNumber": 2, "customerName": "ZAMACOM", "productCode": "Fèves de cacao",
+                   "date": "2026-09-22", "siteId": "%s",
+                   "declaredKg": "1000", "acceptedKg": "990",
+                   "montantFacture": "1000000", "grade": "G1" }]
+                """.formatted(siteOf(admin));
+
+        givenAs(admin).contentType("application/json").body(row)
+                .when().post("/api/v1/commodity-sales/import/preview")
+                .then().statusCode(200)
+                .body("data.rows[0].issues.find { it.field == 'productCode' }.message",
+                        containsString("vendable"));
+    }
 }
