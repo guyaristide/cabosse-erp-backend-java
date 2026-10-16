@@ -85,6 +85,32 @@ public class StockCorrectionRepository {
         return coll().countDocuments(searchFilter(siteId, articleId));
     }
 
+    /**
+     * Tout ce que le brassage a retiré sur un couple (article, site),
+     * en poids et en sacs.
+     *
+     * <p>Une perte de brassage porte sur la matière en vrac du magasin,
+     * celle que le stock de départ a posée : c'est de lui qu'elle se
+     * déduit, et non des reçus, qui gardent le poids de leur livraison
+     * (expert, 15/10/2026).</p>
+     */
+    public Shrinkage totalShrinkage(UUID siteId, UUID articleId) {
+        List<Bson> filters = new ArrayList<>();
+        if (siteId != null) filters.add(Filters.eq("siteId", siteId));
+        if (articleId != null) filters.add(Filters.eq("articleId", articleId));
+        java.math.BigDecimal weight = java.math.BigDecimal.ZERO;
+        int bags = 0;
+        for (StockCorrectionEntity c : coll().find(
+                filters.isEmpty() ? Filters.empty() : Filters.and(filters))) {
+            weight = weight.add(c.weightKg == null ? java.math.BigDecimal.ZERO : c.weightKg);
+            bags += c.bags == null ? 0 : c.bags;
+        }
+        return new Shrinkage(weight, bags);
+    }
+
+    /** Ce que le brassage a retiré : du poids, et des sacs. */
+    public record Shrinkage(java.math.BigDecimal weightKg, int bags) {}
+
     public List<StockCorrectionEntity> search(UUID siteId, UUID articleId, int skip, int limit) {
         return coll().find(searchFilter(siteId, articleId))
                 .sort(new Document("date", -1).append("createdAt", -1))

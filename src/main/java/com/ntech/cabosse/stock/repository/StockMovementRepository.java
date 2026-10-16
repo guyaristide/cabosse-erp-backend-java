@@ -123,15 +123,21 @@ public class StockMovementRepository {
      * disponible : update conditionnel atomique, deux chargements
      * simultanés ne peuvent pas sortir deux fois la même matière.
      */
-    public boolean tryDispatchOpening(UUID id, java.math.BigDecimal netKg) {
+    public boolean tryDispatchOpening(UUID id, java.math.BigDecimal netKg,
+                                      java.math.BigDecimal reservedKg) {
         org.bson.types.Decimal128 taken = new org.bson.types.Decimal128(netKg);
+        // Le brassage est déjà sorti du magasin : il réduit le plafond
+        // de l'amorçage au même titre que ce qui en a déjà été chargé
+        // (expert, 15/10/2026).
+        org.bson.types.Decimal128 reserved = new org.bson.types.Decimal128(
+                reservedKg == null ? java.math.BigDecimal.ZERO : reservedKg);
         var result = coll().updateOne(
                 Filters.and(
                         Filters.eq("_id", id),
                         Filters.expr(new Document("$lte", List.of(
                                 new Document("$add", List.of(
                                         new Document("$ifNull", List.of("$dispatchedKg", 0)),
-                                        taken)),
+                                        taken, reserved)),
                                 new Document("$ifNull", List.of("$quantitySigned", 0)))))),
                 Updates.inc("dispatchedKg", taken));
         return result.getModifiedCount() == 1;

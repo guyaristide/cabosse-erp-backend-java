@@ -86,6 +86,7 @@ public class StockService {
     @Inject SiteRepository sites;
     @Inject StockItemRepository stockItems;
     @Inject StockMovementRepository movements;
+    @Inject com.ntech.cabosse.stock.repository.StockCorrectionRepository corrections;
     @Inject com.ntech.cabosse.campaign.service.CampaignResolver campaignResolver;
     @Inject StockMovementRefService refService;
     @Inject AuditService audit;
@@ -931,16 +932,30 @@ public class StockService {
      */
     public List<com.ntech.cabosse.stock.dto.DispatchableOpeningDto> dispatchableOpenings(
             UUID siteId, UUID articleId) {
-        return movements.listDispatchableOpenings(siteId, articleId).stream()
-                .map(m -> new com.ntech.cabosse.stock.dto.DispatchableOpeningDto(
-                        m.id, m.ref,
-                        m.occurredAt == null ? null
-                                : m.occurredAt.atZone(java.time.ZoneOffset.UTC).toLocalDate(),
-                        m.articleId, m.articleCode, m.articleName, m.articleUnit, m.siteId,
-                        nz(m.quantitySigned).abs(),
-                        nz(m.quantitySigned).abs().subtract(nz(m.dispatchedKg)),
-                        m.bags, m.unitPrice))
-                .toList();
+        List<com.ntech.cabosse.stock.entity.StockMovementEntity> openings =
+                movements.listDispatchableOpenings(siteId, articleId);
+        List<com.ntech.cabosse.stock.dto.DispatchableOpeningDto> out =
+                new java.util.ArrayList<>(openings.size());
+        for (com.ntech.cabosse.stock.entity.StockMovementEntity m : openings) {
+            // Le brassage se déduit du stock de départ, pas des reçus :
+            // c'est la matière en vrac qui perd du poids, et les reçus
+            // gardent celui de leur livraison (expert, 15/10/2026).
+            var shrinkage = corrections.totalShrinkage(m.siteId, m.articleId);
+            BigDecimal posed = nz(m.quantitySigned).abs();
+            BigDecimal available = posed
+                    .subtract(nz(m.dispatchedKg))
+                    .subtract(shrinkage.weightKg())
+                    .max(BigDecimal.ZERO);
+            Integer bags = m.bags == null ? null
+                    : Math.max(0, m.bags - shrinkage.bags());
+            out.add(new com.ntech.cabosse.stock.dto.DispatchableOpeningDto(
+                    m.id, m.ref,
+                    m.occurredAt == null ? null
+                            : m.occurredAt.atZone(java.time.ZoneOffset.UTC).toLocalDate(),
+                    m.articleId, m.articleCode, m.articleName, m.articleUnit, m.siteId,
+                    posed, available, bags, m.unitPrice));
+        }
+        return out;
     }
 
     private static BigDecimal nz(BigDecimal v) {

@@ -64,6 +64,7 @@ public class DispatchNoteService {
     @Inject CampaignResolver campaignResolver;
     @Inject StockService stockService;
     @Inject com.ntech.cabosse.stock.repository.StockMovementRepository movements;
+    @Inject com.ntech.cabosse.stock.repository.StockCorrectionRepository corrections;
     @Inject StockItemRepository stockItems;
     @Inject TenantContext tenantContext;
     @Inject AuditService audit;
@@ -125,7 +126,9 @@ public class DispatchNoteService {
                     throw new BusinessException(
                             Messages.msg("m.dsp-receipt-other-site", opening.ref));
                 }
-                called.add(CalledSource.of(opening));
+                called.add(CalledSource.of(opening,
+                        corrections.totalShrinkage(opening.siteId, opening.articleId)
+                                .weightKg()));
             }
         }
         UUID articleId = called.get(0).articleId();
@@ -143,7 +146,8 @@ public class DispatchNoteService {
             DispatchLineInputDto line = p.lines().get(i);
             boolean taken = line.receiptId() != null
                     ? receipts.tryDispatch(line.receiptId(), line.netKg())
-                    : movements.tryDispatchOpening(line.openingMovementId(), line.netKg());
+                    : movements.tryDispatchOpening(line.openingMovementId(), line.netKg(),
+                            called.get(i).reservedKg());
             if (!taken) {
                 releaseAll(consumed);
                 CalledSource source = called.get(i);
@@ -320,20 +324,24 @@ public class DispatchNoteService {
      */
     private record CalledSource(UUID articleId, String articleCode, String articleName,
                                 String articleUnit, String ref, String lotRef,
-                                BigDecimal availableKg) {
+                                BigDecimal availableKg, BigDecimal reservedKg) {
 
         static CalledSource of(ProducerPurchaseEntity r) {
             return new CalledSource(r.articleId, r.articleCode, r.articleName, r.articleUnit,
                     r.ref, r.deliveryRef != null ? r.deliveryRef : r.ref,
-                    nz(r.weightKg).subtract(nz(r.dispatchedKg)));
+                    nz(r.weightKg).subtract(nz(r.dispatchedKg)), BigDecimal.ZERO);
         }
 
-        static CalledSource of(com.ntech.cabosse.stock.entity.StockMovementEntity m) {
+        static CalledSource of(com.ntech.cabosse.stock.entity.StockMovementEntity m,
+                               BigDecimal shrinkage) {
             // Le lot d'un amorçage est sa propre référence : la matière
-            // du stock de départ n'a pas d'autre origine à citer.
+            // du stock de départ n'a pas d'autre origine à citer. Le
+            // brassage, lui, en est déjà sorti.
             return new CalledSource(m.articleId, m.articleCode, m.articleName, m.articleUnit,
                     m.ref, m.lotRef != null ? m.lotRef : m.ref,
-                    nz(m.quantitySigned).abs().subtract(nz(m.dispatchedKg)));
+                    nz(m.quantitySigned).abs().subtract(nz(m.dispatchedKg))
+                            .subtract(nz(shrinkage)).max(BigDecimal.ZERO),
+                    nz(shrinkage));
         }
     }
 }

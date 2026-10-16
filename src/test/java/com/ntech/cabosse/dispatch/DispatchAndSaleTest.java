@@ -155,13 +155,25 @@ class DispatchAndSaleTest extends AbstractIntegrationTest {
         // Un bordereau ne se composait que de reçus d'achat, et la
         // matière du stock de départ était inexpédiable (expert,
         // 14/10/2026).
+        // Une perte de brassage de 100 kg et 2 sacs : elle sort du stock
+        // de départ, qui est la matière en vrac, et non des reçus qui
+        // gardent le poids de leur livraison (expert, 15/10/2026).
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "date": "%s", "siteId": "%s", "articleId": "%s",
+                          "weightKg": 100, "bags": 2, "reason": "Perte de poids pour brassage" }
+                        """.formatted(LocalDate.now(), siteId, articleId))
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                .when().post("/api/v1/stock-corrections").then().statusCode(201);
+
         String openingId = givenAs(admin)
                 .queryParam("siteId", siteId)
                 .when().get("/api/v1/stocks/opening/dispatchable")
                 .then().statusCode(200)
                 .body("data", hasSize(1))
-                .body("data[0].availableKg", equalTo(1000.0F))
-                .body("data[0].nbSacs", equalTo(20))
+                .body("data[0].weightKg", equalTo(1000.0F))
+                .body("data[0].availableKg", equalTo(900.0F))
+                .body("data[0].nbSacs", equalTo(18))
                 .extract().path("data[0].movementId");
 
         String noteBody = """
@@ -185,13 +197,14 @@ class DispatchAndSaleTest extends AbstractIntegrationTest {
                 .queryParam("siteId", siteId)
                 .when().get("/api/v1/stocks/opening/dispatchable")
                 .then().statusCode(200)
-                .body("data[0].availableKg", equalTo(600.0F));
+                .body("data[0].availableKg", equalTo(500.0F));
 
-        // Au-delà du disponible, le chargement est refusé.
+        // Au-delà du disponible, brassage déduit, le chargement est
+        // refusé : 1 000 posés moins 100 de brassage moins 400 chargés.
         givenAs(admin).contentType("application/json")
                 .body("""
                         { "date": "%s", "siteId": "%s", "lines": [
-                          { "openingMovementId": "%s", "netKg": 900 } ] }
+                          { "openingMovementId": "%s", "netKg": 550 } ] }
                         """.formatted(LocalDate.now(), siteId, openingId))
                 .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                 .when().post("/api/v1/dispatch-notes").then().statusCode(422);
