@@ -224,4 +224,71 @@ class SntDispatchTest extends AbstractIntegrationTest {
         givenAs(admin).when().get("/api/v1/intake-notes/" + f.first())
                 .then().statusCode(200).body("data.status", equalTo("ACCOUNTED"));
     }
+
+    /**
+     * Un troisième bordereau, au nom d'un autre délégué : sans lui, la
+     * sélection n'en couvrirait qu'un et le fichier n'aurait personne à
+     * nommer.
+     */
+    private String thirdNote(UserEntity admin, Fixture f, String delegateName) {
+        givenAs(admin).contentType("application/json")
+                .body("{\"name\":\"" + delegateName + "\",\"collector\":true,"
+                        + "\"phone\":\"0188776655\"}")
+                .when().post("/api/v1/suppliers").then().statusCode(201);
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        [ { "rowNumber": 4, "ref": "BR0403", "date": "%s",
+                            "supplierName": "%s", "netWeightKg": "150" } ]
+                        """.formatted(D1, delegateName))
+                .when().post("/api/v1/intake-notes/import/commit?siteId=" + f.siteId())
+                .then().statusCode(200);
+        return givenAs(admin).when().get("/api/v1/intake-notes")
+                .then().extract().path("data.find { it.ref == 'BR0403' }.id");
+    }
+
+    /** Une seule ligne, au nom de qui le fichier dit. */
+    private String oneLine(Fixture f, String third, String delegateName) {
+        return """
+                { "articleId": "%s", "siteId": "%s", "intakeIds": ["%s","%s","%s"],
+                  "lines": [
+                    { "rowNumber": 9, "reference": "P-100-009", "date": "%s",
+                      "weightKg": "150", "amount": "420000", "amountCash": "420000",
+                      "producerName": "KONE ADAMA", "producerPhone": "0101010101",
+                      "delegateName": "%s" } ] }
+                """.formatted(f.articleId(), f.siteId(), f.first(), f.second(), third,
+                D1, delegateName);
+    }
+
+    @Test
+    void la_section_entre_parentheses_ne_cache_pas_le_delegue() {
+        UserEntity admin = admin();
+        Fixture f = twoNotes(admin);
+        String third = thirdNote(admin, f, "TRAORE MOUSSA");
+
+        // Le terrain écrit le délégué avec sa section : la parenthèse
+        // dit d'où il vient, pas qui il est (bordereau 0896, 16/10/2026).
+        givenAs(admin).contentType("application/json")
+                .body(oneLine(f, third, "TRAORE MOUSSA (DIOUROUZON)"))
+                .when().post("/api/v1/intake-notes/accounting/dispatch/preview")
+                .then().statusCode(200)
+                .body("data.unassigned", hasSize(0))
+                .body("data.notes.find { it.ref == 'BR0403' }.rowNumbers", hasSize(1));
+    }
+
+    @Test
+    void un_nom_que_le_registre_ignore_le_dit_en_clair() {
+        UserEntity admin = admin();
+        Fixture f = twoNotes(admin);
+        String third = thirdNote(admin, f, "TRAORE MOUSSA");
+
+        // « Aucun bordereau n'est à son nom » envoyait chercher du côté
+        // des bordereaux, quand c'est la fiche du fournisseur qui manque.
+        givenAs(admin).contentType("application/json")
+                .body(oneLine(f, third, "BAMBA SOULEYMANE"))
+                .when().post("/api/v1/intake-notes/accounting/dispatch/preview")
+                .then().statusCode(200)
+                .body("data.unassigned", hasSize(1))
+                .body("data.unassigned[0].reason",
+                        org.hamcrest.Matchers.containsString("BAMBA SOULEYMANE"));
+    }
 }

@@ -11,6 +11,7 @@ import com.ntech.cabosse.intake.repository.IntakeNoteRepository;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.imports.ImportFields;
+import com.ntech.cabosse.shared.imports.PartyMatch;
 import com.ntech.cabosse.supplier.entity.SupplierEntity;
 import com.ntech.cabosse.supplier.repository.SupplierRepository;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -113,8 +114,11 @@ public class SntDispatchService {
         if (request.intakeIds() == null || request.intakeIds().isEmpty()) {
             throw new BusinessException(Messages.msg("m.itk-dispatch-no-note"));
         }
-        List<SupplierEntity> collectors = suppliers.listAll().stream()
-                .filter(s -> s.collector).toList();
+        // Tous les fournisseurs, et non les seuls délégués : depuis le
+        // 13/10/2026 un bordereau peut venir d'un producteur membre ou
+        // non membre, et le restreindre aux délégués rendait son
+        // apporteur introuvable (expert, 16/10/2026).
+        List<SupplierEntity> parties = suppliers.listAll();
 
         List<Bucket> buckets = new ArrayList<>();
         for (UUID id : request.intakeIds()) {
@@ -128,16 +132,16 @@ public class SntDispatchService {
                 (Bucket b) -> b.note.date == null ? LocalDate.MIN : b.note.date)
                 .thenComparing(b -> b.note.ref == null ? "" : b.note.ref));
 
-        // Un seul délégué sur toute la sélection : le fichier n'a pas
+        // Un seul apporteur sur toute la sélection : le fichier n'a pas
         // besoin de le nommer, il n'y a pas d'ambiguïté à lever.
-        List<UUID> delegates = buckets.stream()
-                .map(b -> b.note.delegateSupplierId)
+        List<UUID> counterparties = buckets.stream()
+                .map(Bucket::counterpartyId)
                 .filter(java.util.Objects::nonNull).distinct().toList();
-        UUID soleDelegate = delegates.size() == 1 ? delegates.get(0) : null;
+        UUID soleDelegate = counterparties.size() == 1 ? counterparties.get(0) : null;
 
         List<Line> lines = new ArrayList<>();
         for (SntLineDto raw : request.lines() == null ? List.<SntLineDto>of() : request.lines()) {
-            lines.add(new Line(raw, resolveDelegate(raw, collectors)));
+            lines.add(new Line(raw, PartyMatch.of(raw.delegateName(), raw.delegatePhone(), parties)));
         }
         // Les plus anciennes d'abord, pour qu'elles tombent sur les
         // bordereaux les plus anciens.
@@ -173,47 +177,48 @@ public class SntDispatchService {
         return new Allocation(buckets, unassigned);
     }
 
-    /** Le bordereau peut-il recevoir cette ligne, du point de vue du délégué ? */
+    /** Le bordereau peut-il recevoir cette ligne, du point de vue de l'apporteur ? */
     private static boolean matches(Bucket bucket, Line line, UUID soleDelegate) {
-        if (line.delegateId == null) {
-            // Le fichier ne nomme personne : acceptable tant que la
-            // sélection ne porte que sur un délégué.
-            return soleDelegate != null && soleDelegate.equals(bucket.note.delegateSupplierId);
+        if (line.party.id() == null) {
+            // Le fichier ne nomme personne de reconnu : acceptable tant
+            // que la sélection ne porte que sur un apporteur.
+            return soleDelegate != null && soleDelegate.equals(bucket.counterpartyId());
         }
-        return line.delegateId.equals(bucket.note.delegateSupplierId);
+        return line.party.id().equals(bucket.counterpartyId());
     }
 
-    /** Pourquoi cette ligne n'a trouvé aucun bordereau. */
+    /**
+     * Pourquoi cette ligne n'a trouvé aucun bordereau.
+     *
+     * <p>La raison dit ce qui s'est réellement passé, et non ce qu'on en
+     * déduisait : un nom que le registre ne connaît pas et un nom connu
+     * dont aucun bordereau n'est retenu appellent deux gestes différents,
+     * et les confondre laissait le comptable chercher (signalé le
+     * 16/10/2026 sur le bordereau 0896).</p>
+     */
     private static String reasonFor(Line line, List<Bucket> buckets, UUID soleDelegate) {
         if (line.weight == null || line.weight.signum() <= 0) {
             return Messages.msg("m.itk-dispatch-no-weight");
         }
-        boolean sameDelegate = buckets.stream().anyMatch(b -> matches(b, line, soleDelegate));
-        if (!sameDelegate) return Messages.msg("m.itk-dispatch-other-delegate");
+        if (line.party.id() == null && line.party.named() != null) {
+            return line.party.ambiguous()
+                    ? Messages.msg("m.itk-dispatch-party-ambiguous", line.party.named())
+                    : Messages.msg("m.itk-dispatch-party-unknown", line.party.named());
+        }
+        if (line.party.id() == null && soleDelegate == null) {
+            return Messages.msg("m.itk-dispatch-party-missing");
+        }
+        boolean samePartyNote = buckets.stream().anyMatch(b -> matches(b, line, soleDelegate));
+        if (!samePartyNote) {
+            return Messages.msg("m.itk-dispatch-other-delegate",
+                    line.party.named() == null ? "" : line.party.named());
+        }
         boolean anyDateFits = buckets.stream()
                 .filter(b -> matches(b, line, soleDelegate))
                 .anyMatch(b -> line.date == null || b.note.date == null
                         || !line.date.isAfter(b.note.date));
         if (!anyDateFits) return Messages.msg("m.itk-dispatch-after-every-note");
         return Messages.msg("m.itk-dispatch-notes-full");
-    }
-
-    private UUID resolveDelegate(SntLineDto raw, List<SupplierEntity> collectors) {
-        String phone = ImportFields.phoneKey(raw.delegatePhone());
-        if (phone != null) {
-            var hit = collectors.stream()
-                    .filter(s -> phone.equals(ImportFields.phoneKey(s.phone))).toList();
-            if (hit.size() == 1) return hit.get(0).id;
-        }
-        String name = ImportFields.clean(raw.delegateName());
-        if (name != null) {
-            String wanted = ImportFields.normalize(name);
-            var hit = collectors.stream()
-                    .filter(s -> s.name != null && ImportFields.normalize(s.name).equals(wanted))
-                    .toList();
-            if (hit.size() == 1) return hit.get(0).id;
-        }
-        return null;
     }
 
     private static BigDecimal nz(BigDecimal v) {
@@ -230,6 +235,14 @@ public class SntDispatchService {
             this.note = note;
         }
 
+        /**
+         * À qui ce bordereau est au nom : son délégué quand il en a un,
+         * sinon le fournisseur ordinaire qui a apporté la matière.
+         */
+        private UUID counterpartyId() {
+            return note.delegateSupplierId != null ? note.delegateSupplierId : note.supplierId;
+        }
+
         private void take(Line line) {
             lines.add(line.raw);
             weight = weight.add(line.weight);
@@ -242,14 +255,14 @@ public class SntDispatchService {
         private final SntLineDto raw;
         private final LocalDate date;
         private final BigDecimal weight;
-        private final UUID delegateId;
+        private final PartyMatch party;
         private boolean taken;
 
-        private Line(SntLineDto raw, UUID delegateId) {
+        private Line(SntLineDto raw, PartyMatch party) {
             this.raw = raw;
             this.date = ImportFields.parseDate(raw.date());
             this.weight = ImportFields.parseDecimal(raw.weightKg());
-            this.delegateId = delegateId;
+            this.party = party;
         }
     }
 
