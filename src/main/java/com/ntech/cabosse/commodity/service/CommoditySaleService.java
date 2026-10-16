@@ -383,11 +383,15 @@ public class CommoditySaleService {
             }
             e.movementRef = dispatchNote.ref;
         } else {
+            // Les sacs partent avec le poids : le registre du magasin les
+            // compte, et une sortie sans sacs y laissait un compte qui ne
+            // baissait jamais (expert, 16/10/2026).
             stockService.applyMovement(new MovementInput(
                     article.id, p.siteId(), MovementKind.OUT, declaredKg, nz(cmup),
                     MovementSource.COMMODITY_SALE, e.ref, e.id, null,
                     "Vente " + article.name + " " + e.customerName, null,
-                    p.date().atStartOfDay(java.time.ZoneOffset.UTC).toInstant()));
+                    p.date().atStartOfDay(java.time.ZoneOffset.UTC).toInstant(),
+                    false, null, false, e.weights == null ? null : e.weights.sacsAccepted));
             e.movementRef = e.ref;
         }
 

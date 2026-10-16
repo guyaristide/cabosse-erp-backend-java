@@ -224,7 +224,10 @@ public class DispatchNoteService {
             repo.insert(e);
 
             // Une sortie de stock par ligne, chacune sous le lot de son
-            // reçu : la traçabilité aval y lira l'exact.
+            // reçu : la traçabilité aval y lira l'exact. Les sacs partent
+            // avec elle : le registre du magasin compte en sacs autant
+            // qu'en kilos, et une sortie sans sacs laissait son compte
+            // intact pendant que le poids baissait (expert, 16/10/2026).
             for (DispatchLine line : lines) {
                 stockService.applyMovement(new MovementInput(
                         e.articleId, e.siteId, MovementKind.OUT, line.netKg, cmup,
@@ -232,7 +235,7 @@ public class DispatchNoteService {
                         "Chargement " + e.ref + (e.customerName != null ? " vers " + e.customerName : ""),
                         null,
                         p.date().atStartOfDay(ZoneOffset.UTC).toInstant(),
-                        false, line.lotRef, false));
+                        false, line.lotRef, false, line.bagsCount));
             }
         } catch (RuntimeException ex) {
             releaseAll(consumed);
@@ -268,7 +271,7 @@ public class DispatchNoteService {
                     e.articleId, e.siteId, MovementKind.IN, line.netKg, line.cmupAtDispatch,
                     MovementSource.DISPATCH_NOTE, e.ref, e.id, null,
                     "Contre-passation " + e.ref, null,
-                    Instant.now(), true, line.lotRef, false));
+                    Instant.now(), true, line.lotRef, false, line.bagsCount));
             if (line.receiptId != null) {
                 receipts.releaseDispatch(line.receiptId, line.netKg);
             } else if (line.openingMovementId != null) {

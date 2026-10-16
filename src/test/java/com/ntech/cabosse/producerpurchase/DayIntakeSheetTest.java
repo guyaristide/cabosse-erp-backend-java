@@ -324,6 +324,56 @@ class DayIntakeSheetTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void une_sortie_retire_ses_sacs_du_registre() {
+        UserEntity admin = tenantAdmin();
+        String siteCode = "s-" + java.util.UUID.randomUUID().toString().substring(0, 8);
+        String siteId = givenAs(admin).contentType("application/json")
+                .body("{\"name\":\"Magasin\",\"type\":\"CENTRAL_WAREHOUSE\",\"code\":\"" + siteCode + "\"}")
+                .when().post("/api/v1/sites").then().statusCode(201).extract().path("data.id");
+        String articleId = givenAs(admin).contentType("application/json")
+                .body("{\"type\":\"MERCHANDISE\",\"name\":\"Fèves\",\"unit\":\"kg\"}")
+                .when().post("/api/v1/articles").then().statusCode(201).extract().path("data.id");
+
+        LocalDate start = LocalDate.now().minusDays(4);
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "siteId": "%s", "occurredAt": "%s",
+                          "lines": [ { "articleId": "%s", "quantity": 1000,
+                                       "unitPrice": 1200, "bags": 20 } ] }
+                        """.formatted(siteId,
+                        start.atTime(12, 0).toInstant(java.time.ZoneOffset.UTC), articleId))
+                .when().post("/api/v1/stocks/opening").then().statusCode(201);
+
+        String openingId = givenAs(admin).queryParam("siteId", siteId)
+                .when().get("/api/v1/stocks/opening/dispatchable")
+                .then().statusCode(200).extract().path("data[0].movementId");
+
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "date": "%s", "siteId": "%s", "lines": [
+                          { "openingMovementId": "%s", "netKg": 400, "bagsCount": 8 } ] }
+                        """.formatted(LocalDate.now(), siteId, openingId))
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                .when().post("/api/v1/dispatch-notes").then().statusCode(201);
+
+        // Le poids baissait, les sacs non : le registre fermait sur 20
+        // sacs pour 600 kg (expert, 16/10/2026).
+        givenAs(admin)
+                .queryParam("from", start.toString())
+                .queryParam("date", LocalDate.now().toString())
+                .queryParam("siteId", siteId)
+                .when().get("/api/v1/producer-purchases/day-sheet")
+                .then().statusCode(200)
+                .body("data.rows", hasSize(2))
+                .body("data.rows[1].rowKind", equalTo("OUTFLOW"))
+                .body("data.rows[1].nbSacs", equalTo(-8))
+                .body("data.rows[1].cumulativeBags", equalTo(12))
+                .body("data.totalOutflowBags", equalTo(8))
+                .body("data.closingQuantity", equalTo(600.0F))
+                .body("data.closingBags", equalTo(12));
+    }
+
+    @Test
     void un_recu_annule_ne_verrouille_plus_l_amorcage() {
         UserEntity admin = tenantAdmin();
         String siteCode = "s-" + java.util.UUID.randomUUID().toString().substring(0, 8);
