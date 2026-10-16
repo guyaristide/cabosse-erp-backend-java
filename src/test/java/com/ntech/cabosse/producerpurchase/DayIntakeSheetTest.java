@@ -374,6 +374,50 @@ class DayIntakeSheetTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void la_qualite_de_l_apporteur_se_lit_sur_sa_fiche() {
+        UserEntity admin = tenantAdmin();
+        String siteCode = "s-" + java.util.UUID.randomUUID().toString().substring(0, 8);
+        String siteId = givenAs(admin).contentType("application/json")
+                .body("{\"name\":\"Magasin\",\"type\":\"CENTRAL_WAREHOUSE\",\"code\":\"" + siteCode + "\"}")
+                .when().post("/api/v1/sites").then().statusCode(201).extract().path("data.id");
+        String articleId = givenAs(admin).contentType("application/json")
+                .body("{\"type\":\"MERCHANDISE\",\"name\":\"Fèves\",\"unit\":\"kg\"}")
+                .when().post("/api/v1/articles").then().statusCode(201).extract().path("data.id");
+        String supplierId = givenAs(admin).contentType("application/json")
+                .body("{\"code\":\"tou-dramane\",\"name\":\"TOU DRAMANE\",\"collector\":true}")
+                .when().post("/api/v1/suppliers").then().statusCode(201).extract().path("data.id");
+
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "date": "%s", "delegateSupplierId": "%s", "articleId": "%s",
+                          "siteId": "%s", "nbSacs": 2, "weightKg": 96,
+                          "guaranteedPricePerKg": 1200, "paymentMethod": "CASH" }
+                        """.formatted(LocalDate.now(), supplierId, articleId, siteId))
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                .when().post("/api/v1/producer-purchases").then().statusCode(201);
+
+        givenAs(admin).queryParam("date", LocalDate.now().toString())
+                .queryParam("siteId", siteId)
+                .when().get("/api/v1/producer-purchases/day-sheet")
+                .then().statusCode(200)
+                .body("data.rows[0].supplierKind", equalTo("DELEGATE"));
+
+        // Le registre affichait « Délégué » en face de planteurs, parce
+        // que le reçu en gardait une copie figée. La qualité vit sur la
+        // fiche : la décocher suffit (expert, 16/10/2026).
+        givenAs(admin).contentType("application/json")
+                .body("{\"name\":\"TOU DRAMANE\",\"collector\":false}")
+                .when().put("/api/v1/suppliers/" + supplierId).then().statusCode(200);
+
+        givenAs(admin).queryParam("date", LocalDate.now().toString())
+                .queryParam("siteId", siteId)
+                .when().get("/api/v1/producer-purchases/day-sheet")
+                .then().statusCode(200)
+                .body("data.rows[0].supplierKind", equalTo("PRODUCER"))
+                .body("data.rows[0].supplierName", equalTo("TOU DRAMANE"));
+    }
+
+    @Test
     void un_recu_annule_ne_verrouille_plus_l_amorcage() {
         UserEntity admin = tenantAdmin();
         String siteCode = "s-" + java.util.UUID.randomUUID().toString().substring(0, 8);

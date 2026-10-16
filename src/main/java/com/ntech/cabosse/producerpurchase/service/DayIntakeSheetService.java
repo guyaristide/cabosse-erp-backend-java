@@ -48,6 +48,33 @@ public class DayIntakeSheetService {
     @Inject StockCorrectionRepository correctionRepo;
     @Inject DispatchNoteRepository dispatchNotes;
     @Inject com.ntech.cabosse.commodity.repository.CommoditySaleRepository commoditySales;
+    @Inject com.ntech.cabosse.supplier.repository.SupplierRepository suppliers;
+
+    /**
+     * La qualité de l'apporteur, lue sur sa fiche et non sur le reçu.
+     *
+     * <p>Le reçu gardait une copie figée : tout le monde y était délégué,
+     * parce que la collecte avait d'abord été pensée avec les seuls
+     * délégués. En réalité la coopérative achète aussi à des planteurs,
+     * et le registre affichait « Délégué » en face de leur nom (expert,
+     * 16/10/2026). La qualité vit sur le fournisseur : décocher la case
+     * sur sa fiche suffit désormais à corriger le registre, sans rien
+     * retoucher des reçus déjà écrits.</p>
+     */
+    private String supplierKindOf(ProducerPurchaseEntity r,
+                                  java.util.Map<UUID, Boolean> collectorById) {
+        if (r.memberId != null) return "PRODUCER";
+        UUID party = r.delegateSupplierId != null ? r.delegateSupplierId : r.supplierId;
+        if (party == null) return r.delegateName != null ? "DELEGATE" : "PRODUCER";
+        return Boolean.TRUE.equals(collectorById.get(party)) ? "DELEGATE" : "PRODUCER";
+    }
+
+    /** Qui est délégué aujourd'hui, par identifiant de fiche. */
+    private java.util.Map<UUID, Boolean> collectorFlags() {
+        java.util.Map<UUID, Boolean> out = new java.util.HashMap<>();
+        for (var s : suppliers.listAll()) out.put(s.id, s.collector);
+        return out;
+    }
 
     public DayIntakeSheetDto build(LocalDate date, UUID siteId, UUID articleId) {
         if (date == null) {
@@ -117,6 +144,7 @@ public class DayIntakeSheetService {
                     date.atStartOfDay(ZoneOffset.UTC).toInstant().minusMillis(1)).quantity();
         }
 
+        java.util.Map<UUID, Boolean> collectorById = collectorFlags();
         List<DayIntakeRowDto> rows = new ArrayList<>(receipts.size() + openings.size());
         BigDecimal runningQty = opening != null ? opening : BigDecimal.ZERO;
         int runningBags = openingBags != null ? openingBags : 0;
@@ -156,7 +184,7 @@ public class DayIntakeSheetService {
                     r.id, r.date,
                     r.delegateName != null ? r.delegateName : r.producerName,
                     r.ref, r.deliveryRef,
-                    r.delegateName != null ? "DELEGATE" : "PRODUCER",
+                    supplierKindOf(r, collectorById),
                     r.nbSacs, weight, r.guaranteedPricePerKg, nz(r.amount),
                     runningQty, runningBags));
         }
@@ -291,6 +319,7 @@ public class DayIntakeSheetService {
                 .comparing(Event::date, java.util.Comparator.nullsLast(LocalDate::compareTo))
                 .thenComparingInt(Event::order));
 
+        java.util.Map<UUID, Boolean> collectorById = collectorFlags();
         List<DayIntakeRowDto> rows = new ArrayList<>(events.size());
         BigDecimal runningQty = opening != null ? opening : BigDecimal.ZERO;
         int runningBags = openingBags != null ? openingBags : 0;
@@ -328,7 +357,7 @@ public class DayIntakeSheetService {
                     rows.add(new DayIntakeRowDto(r.id, r.date,
                             r.delegateName != null ? r.delegateName : r.producerName,
                             r.ref, r.deliveryRef,
-                            r.delegateName != null ? "DELEGATE" : "PRODUCER",
+                            supplierKindOf(r, collectorById),
                             r.nbSacs, weight, r.guaranteedPricePerKg, nz(r.amount),
                             runningQty, runningBags));
                 }
