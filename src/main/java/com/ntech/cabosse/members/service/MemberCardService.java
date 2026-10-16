@@ -50,6 +50,7 @@ public class MemberCardService {
     @Inject MemberRepository members;
     @Inject TenantRepository tenants;
     @Inject TenantContext tenantContext;
+    @Inject com.ntech.cabosse.shared.export.PdfLetterhead letterhead;
 
     public byte[] buildCard(UUID memberId) {
         MemberEntity m = members.findById(memberId)
@@ -61,7 +62,6 @@ public class MemberCardService {
             throw new BusinessException(Messages.msg("m.mbr-card-retired-or-inactive"));
         }
         TenantEntity tenant = tenants.findById(tenantContext.tenantId());
-        String organization = tenant != null ? tenant.name : "";
         // La carte est remise au coopérateur, pas à l'agent qui l'imprime :
         // elle suit la langue de la structure, comme un courriel suit celle
         // de son destinataire.
@@ -75,14 +75,14 @@ public class MemberCardService {
                     .setPageEvent(new com.ntech.cabosse.shared.export.PdfBranding());
             doc.open();
 
-            Font orgFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 13, Color.BLACK);
             Font titleFont = FontFactory.getFont(FontFactory.HELVETICA, 9, new Color(0x66, 0x66, 0x66));
             Font nameFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 16, Color.BLACK);
             Font labelFont = FontFactory.getFont(FontFactory.HELVETICA, 8, new Color(0x66, 0x66, 0x66));
             Font valueFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10, Color.BLACK);
 
-            Paragraph org = new Paragraph(organization, orgFont);
-            doc.add(org);
+            // La carte est remise au producteur et se présente : elle
+            // porte la marque de la coopérative (16/10/2026).
+            doc.add(letterhead.of(tenant));
             Paragraph title = new Paragraph("CARTE DE MEMBRE", titleFont);
             title.setSpacingAfter(10);
             doc.add(title);

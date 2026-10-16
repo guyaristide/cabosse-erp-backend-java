@@ -410,14 +410,11 @@ public class StockMovementRepository {
     }
 
     /** Liste libre avec filtres pour export. */
-    public List<StockMovementEntity> search(UUID siteId, String articleType, String q,
+    public List<StockMovementEntity> search(UUID siteId, UUID articleId, String q,
                                              Instant from, Instant to) {
         List<Bson> filters = new ArrayList<>();
         if (siteId != null) filters.add(Filters.eq("siteId", siteId));
-        if (articleType != null && !articleType.isBlank()) {
-            // articleType n'est pas dans le mvt — on filtre côté service
-            // via le StockItem associé. Cette branche n'est pas appliquée ici.
-        }
+        if (articleId != null) filters.add(Filters.eq("articleId", articleId));
         if (q != null && !q.isBlank()) {
             String escaped = java.util.regex.Pattern.quote(q.trim());
             filters.add(Filters.or(

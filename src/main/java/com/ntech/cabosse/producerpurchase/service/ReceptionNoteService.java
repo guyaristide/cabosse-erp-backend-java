@@ -57,12 +57,12 @@ public class ReceptionNoteService {
     @Inject ProducerPurchaseRepository purchases;
     @Inject TenantRepository tenants;
     @Inject TenantContext tenantContext;
+    @Inject com.ntech.cabosse.shared.export.PdfLetterhead letterhead;
 
     public byte[] build(UUID purchaseId) {
         ProducerPurchaseEntity e = purchases.findById(purchaseId)
                 .orElseThrow(() -> new NotFoundException(Messages.msg("m.ppu-receipt-not-found", purchaseId)));
         TenantEntity tenant = tenants.findById(tenantContext.tenantId());
-        String organization = tenant != null ? tenant.name : "";
         // Le bordereau est signé par le fournisseur : il suit la langue de
         // la structure, comme la carte de membre.
         Locale locale = Locales.of(tenant != null && tenant.preferences != null
@@ -73,7 +73,6 @@ public class ReceptionNoteService {
             PdfWriter.getInstance(doc, out).setPageEvent(new PdfBranding());
             doc.open();
 
-            Font orgFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 13, Color.BLACK);
             Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 15, Color.BLACK);
             Font refFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11, Color.BLACK);
             Font labelFont = FontFactory.getFont(FontFactory.HELVETICA, 8, MUTED);
@@ -81,7 +80,9 @@ public class ReceptionNoteService {
             Font cellFont = FontFactory.getFont(FontFactory.HELVETICA, 10, Color.BLACK);
             Font totalFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10, Color.BLACK);
 
-            doc.add(new Paragraph(organization, orgFont));
+            // Le bordereau est remis à l'apporteur et signé : il porte
+            // la marque de la structure, et non son seul nom (16/10/2026).
+            doc.add(letterhead.of(tenant));
             Paragraph title = new Paragraph(
                     Messages.msg(locale, "m.ppu-note-title").toUpperCase(locale), titleFont);
             title.setSpacingBefore(6);

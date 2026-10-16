@@ -40,6 +40,35 @@ public class PdfLetterhead {
     private static final float LOGO_HEIGHT = 46f;
 
     @Inject TenantLogoService logos;
+    @Inject com.ntech.cabosse.tenant.repository.TenantRepository tenants;
+    @Inject com.ntech.cabosse.shared.tenant.TenantContext tenantContext;
+
+    /**
+     * Le bandeau de la structure dont on sert la requête.
+     *
+     * <p>Pour les documents qui n'ont pas déjà leur tenant sous la main,
+     * à commencer par les états exportés, qui s'écrivent sans contexte
+     * métier.</p>
+     */
+    public PdfPTable ofCurrentTenant() {
+        return of(tenants.findById(tenantContext.tenantId()));
+    }
+
+    /**
+     * Le bandeau de la structure courante, hors injection.
+     *
+     * <p>Les états exportés s'écrivent dans un flux statique, sans
+     * service injecté : c'est le seul endroit qui réclame ce détour, et
+     * il reste sans effet hors requête HTTP.</p>
+     */
+    public static PdfPTable currentOrNull() {
+        try {
+            return jakarta.enterprise.inject.spi.CDI.current()
+                    .select(PdfLetterhead.class).get().ofCurrentTenant();
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
 
     /**
      * Le bandeau de tête : le logo à gauche quand il existe, le nom de la

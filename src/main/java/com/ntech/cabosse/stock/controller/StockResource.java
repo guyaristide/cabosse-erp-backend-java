@@ -283,6 +283,7 @@ public class StockResource {
     @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 "application/pdf" })
     public Response exportMovements(@QueryParam("siteId") UUID siteId,
+                                     @QueryParam("articleId") UUID articleId,
                                      @QueryParam("q") String q,
                                      @QueryParam("from") String fromRaw,
                                      @QueryParam("to") String toRaw,
@@ -290,8 +291,11 @@ public class StockResource {
         java.time.Instant from = parseInstant(fromRaw);
         java.time.Instant to = parseInstant(toRaw);
         ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
+        // La fiche d'un article imprime son propre journal : l'état du
+        // magasin entier ne répond pas à la question qu'on s'y pose
+        // (demandé le 16/10/2026).
         List<StockMovementResponseDto> rows = movementsRepo
-                .search(siteId, null, q, from, to).stream()
+                .search(siteId, articleId, q, from, to).stream()
                 .map(StockMovementResponseDto::from)
                 .toList();
         ExportDataset<StockMovementResponseDto> dataset = new ExportDataset<>(

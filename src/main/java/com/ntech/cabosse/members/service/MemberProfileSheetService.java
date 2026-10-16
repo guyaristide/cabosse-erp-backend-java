@@ -104,6 +104,7 @@ public class MemberProfileSheetService {
     @Inject CropService crops;
     @Inject TenantRepository tenants;
     @Inject TenantContext tenantContext;
+    @Inject com.ntech.cabosse.shared.export.PdfLetterhead letterhead;
     @Inject ProducerRefKeyService producerRefKeys;
     @Inject com.ntech.cabosse.tenant.service.TenantPreferencesLookup preferences;
 
@@ -132,6 +133,9 @@ public class MemberProfileSheetService {
                     .setPageEvent(new com.ntech.cabosse.shared.export.PdfBranding());
             doc.open();
 
+            // La fiche sort de la structure : elle porte sa marque
+            // avant son titre (16/10/2026).
+            doc.add(letterhead.of(tenant));
             doc.add(titleBand(organization));
             doc.add(header(m, campaign, sectionName, agentName));
 

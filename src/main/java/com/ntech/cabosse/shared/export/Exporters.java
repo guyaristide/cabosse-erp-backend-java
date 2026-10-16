@@ -563,6 +563,12 @@ public final class Exporters {
             Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 14, java.awt.Color.BLACK);
             Font small = FontFactory.getFont(FontFactory.HELVETICA, 8, java.awt.Color.DARK_GRAY);
 
+            // L'état sort de la structure et circule : il porte sa marque,
+            // comme les pièces qu'elle fait signer (demandé le 16/10/2026,
+            // « le logo dans toutes les impressions »).
+            PdfPTable head = PdfLetterhead.currentOrNull();
+            if (head != null) doc.add(head);
+
             Paragraph title = new Paragraph(dataset.title(), titleFont);
             title.setSpacingAfter(2f);
             doc.add(title);
