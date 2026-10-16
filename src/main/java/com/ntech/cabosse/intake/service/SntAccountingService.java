@@ -372,6 +372,12 @@ public class SntAccountingService {
                         .map(su -> su.name).orElse(clean(note.supplierName))
                 : clean(note.supplierName);
 
+        // La section de l'apporteur : elle départage les homonymes du
+        // registre, faute de quoi une livraison sur deux reste à quai.
+        final UUID counterpartySection = counterpartySupplierId == null ? null
+                : suppliers.findById(counterpartySupplierId)
+                        .map(su -> su.sectionId).orElse(null);
+
         // Index des membres : téléphone d'abord (8 derniers chiffres),
         // nom normalisé ensuite. Un téléphone partagé par deux fiches ne
         // tranche pas : on retombe sur le nom.
@@ -440,8 +446,30 @@ public class SntAccountingService {
                     if (nameHits.size() == 1) {
                         matched = nameHits.get(0);
                     } else if (nameHits.size() > 1) {
-                        issues.add(Messages.msg("m.itk-producer-ambiguous"));
-                        blocking = true;
+                        // Les homonymes sont la règle sur un registre de
+                        // village : 172 noms partagés sur celui de la
+                        // coopérative (diagnostic du 16/10/2026), et
+                        // chacun faisait sauter toutes les livraisons de
+                        // ces personnes. La section tranche quand elle
+                        // tranche : un délégué collecte dans la sienne,
+                        // et un producteur d'ailleurs ne lui livre pas.
+                        // Deux homonymes dans la même section restent
+                        // refusés, choisir à l'aveugle créerait une dette
+                        // au mauvais nom.
+                        List<MemberEntity> sameSection = counterpartySection == null
+                                ? List.of()
+                                : nameHits.stream()
+                                        .filter(m -> counterpartySection.equals(m.sectionId))
+                                        .toList();
+                        if (sameSection.size() == 1) {
+                            matched = sameSection.get(0);
+                            issues.add(Messages.msg("m.itk-producer-section-resolved",
+                                    nullSafe(matched.code)));
+                        } else {
+                            issues.add(Messages.msg("m.itk-producer-ambiguous",
+                                    codesOf(nameHits)));
+                            blocking = true;
+                        }
                     } else {
                         memberToCreate = true;
                         issues.add(Messages.msg("m.itk-producer-will-be-created"));
@@ -514,6 +542,16 @@ public class SntAccountingService {
                 null, Boolean.FALSE,
                 "Créé à la comptabilisation du bordereau " + note.ref));
         return created.id();
+    }
+
+    /** Les fiches qui se disputent le nom, pour que le comptable tranche. */
+    private static String codesOf(List<MemberEntity> hits) {
+        return hits.stream().map(m -> m.code == null ? "?" : m.code)
+                .collect(java.util.stream.Collectors.joining(", "));
+    }
+
+    private static String nullSafe(String v) {
+        return v == null ? "" : v;
     }
 
     private String actor() {

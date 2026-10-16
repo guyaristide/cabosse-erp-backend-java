@@ -324,4 +324,125 @@ class SupplierCounterpartyTest extends AbstractIntegrationTest {
                 .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
                 .when().post("/api/v1/producer-purchases").then().statusCode(422);
     }
+
+    @Test
+    void la_section_departage_deux_producteurs_du_meme_nom() {
+        UserEntity admin = admin();
+        LocalDate today = LocalDate.now();
+        String siteId = site(admin);
+        String articleId = article(admin);
+
+        String sectionA = givenAs(admin).contentType("application/json")
+                .body("{\"code\":\"CRA\",\"name\":\"Craobo\"}")
+                .when().post("/api/v1/sections").then().statusCode(201).extract().path("data.id");
+        String sectionB = givenAs(admin).contentType("application/json")
+                .body("{\"code\":\"NAB\",\"name\":\"Nabo\"}")
+                .when().post("/api/v1/sections").then().statusCode(201).extract().path("data.id");
+
+        // Deux producteurs du même nom, un par section : le registre
+        // d'un village en compte 172 paires (diagnostic du 16/10/2026).
+        for (String section : new String[]{ sectionA, sectionB }) {
+            givenAs(admin).contentType("application/json")
+                    .body("""
+                            { "lastName": "TRAORE", "firstName": "MOUSSA", "gender": "MALE",
+                              "status": "ACTIVE", "sectionId": "%s" }
+                            """.formatted(section))
+                    .when().post("/api/v1/members").then().statusCode(201);
+        }
+
+        // Le délégué collecte dans la première : c'est elle qui tranche.
+        String delegateId = givenAs(admin).contentType("application/json")
+                .body("""
+                        { "code": "d-%s", "name": "KOUI IBOBE", "collector": true,
+                          "sectionId": "%s" }
+                        """.formatted(TestFixtures.randomSlugSuffix(), sectionA))
+                .when().post("/api/v1/suppliers").then().statusCode(201).extract().path("data.id");
+
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        [ { "rowNumber": 2, "productLabel": "Cacao", "date": "%s",
+                            "movement": "Entrée Stock", "ref": "BR0896", "truckNumber": "CJY879",
+                            "supplierName": "KOUI IBOBE", "lineNumber": "1",
+                            "grossWeightKg": "920", "bagCount": "14", "netWeightKg": "909" } ]
+                        """.formatted(today))
+                .when().post("/api/v1/intake-notes/import/commit?siteId=" + siteId)
+                .then().statusCode(200);
+        String noteId = givenAs(admin).when().get("/api/v1/intake-notes?status=TO_ACCOUNT")
+                .then().statusCode(200).extract().path("data[0].id");
+
+        String lines = """
+                { "articleId": "%s", "siteId": "%s", "lines": [
+                  { "rowNumber": 2, "date": "%s", "nbSacs": "14", "weightKg": "909",
+                    "amount": "1090800", "amountCash": "1090800",
+                    "producerName": "TRAORE MOUSSA" } ] }
+                """.formatted(articleId, siteId, today);
+
+        // Sans la section, la ligne sautait et tout le bordereau avec.
+        givenAs(admin).contentType("application/json").body(lines)
+                .when().post("/api/v1/intake-notes/" + noteId + "/accounting/preview")
+                .then().statusCode(200)
+                .body("data.invalidRows", equalTo(0))
+                .body("data.delegateSupplierId", equalTo(delegateId))
+                .body("data.rows[0].memberName", containsString("MOUSSA"));
+
+        givenAs(admin).contentType("application/json").body(lines)
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                .when().post("/api/v1/intake-notes/" + noteId + "/accounting/commit")
+                .then().statusCode(200)
+                .body("data.createdReceipts", equalTo(1))
+                .body("data.createdMembers", equalTo(0));
+    }
+
+    @Test
+    void deux_homonymes_de_la_meme_section_restent_refuses() {
+        UserEntity admin = admin();
+        LocalDate today = LocalDate.now();
+        String siteId = site(admin);
+        String articleId = article(admin);
+
+        String section = givenAs(admin).contentType("application/json")
+                .body("{\"code\":\"CRA\",\"name\":\"Craobo\"}")
+                .when().post("/api/v1/sections").then().statusCode(201).extract().path("data.id");
+        for (int i = 0; i < 2; i++) {
+            givenAs(admin).contentType("application/json")
+                    .body("""
+                            { "lastName": "TRAORE", "firstName": "MOUSSA", "gender": "MALE",
+                              "status": "ACTIVE", "sectionId": "%s" }
+                            """.formatted(section))
+                    .when().post("/api/v1/members").then().statusCode(201);
+        }
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "code": "d-%s", "name": "KOUI IBOBE", "collector": true,
+                          "sectionId": "%s" }
+                        """.formatted(TestFixtures.randomSlugSuffix(), section))
+                .when().post("/api/v1/suppliers").then().statusCode(201);
+
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        [ { "rowNumber": 2, "productLabel": "Cacao", "date": "%s",
+                            "movement": "Entrée Stock", "ref": "BR0897", "truckNumber": "CJY879",
+                            "supplierName": "KOUI IBOBE", "lineNumber": "1",
+                            "grossWeightKg": "920", "bagCount": "14", "netWeightKg": "909" } ]
+                        """.formatted(today))
+                .when().post("/api/v1/intake-notes/import/commit?siteId=" + siteId)
+                .then().statusCode(200);
+        String noteId = givenAs(admin).when().get("/api/v1/intake-notes?status=TO_ACCOUNT")
+                .then().statusCode(200).extract().path("data[0].id");
+
+        // Choisir à l'aveugle créerait une dette au mauvais nom : la
+        // ligne reste refusée, mais elle dit désormais quelles fiches se
+        // disputent le nom.
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "articleId": "%s", "siteId": "%s", "lines": [
+                          { "rowNumber": 2, "date": "%s", "nbSacs": "14", "weightKg": "909",
+                            "amount": "1090800", "amountCash": "1090800",
+                            "producerName": "TRAORE MOUSSA" } ] }
+                        """.formatted(articleId, siteId, today))
+                .when().post("/api/v1/intake-notes/" + noteId + "/accounting/preview")
+                .then().statusCode(200)
+                .body("data.invalidRows", equalTo(1))
+                .body("data.rows[0].issues[0]", containsString("MB-"));
+    }
 }
