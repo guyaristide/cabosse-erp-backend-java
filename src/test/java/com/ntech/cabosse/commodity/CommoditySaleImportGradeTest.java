@@ -248,10 +248,10 @@ class CommoditySaleImportGradeTest extends AbstractIntegrationTest {
                 """.formatted(siteOf(admin));
 
         givenAs(admin).contentType("application/json").body(row)
-                .when().post("/api/v1/commodity-sales/import/preview")
+                .when().post("/api/v1/commodity/sales/import/preview")
                 .then().statusCode(200)
-                .body("data.rows[0].customerName", equalTo("ICP"))
-                .body("data.invalid", equalTo(0));
+                .body("data.rows[0].normalized.customerName", equalTo("ICP"))
+                .body("data.invalidRows", equalTo(0));
     }
 
     @Test
@@ -275,7 +275,7 @@ class CommoditySaleImportGradeTest extends AbstractIntegrationTest {
                 """.formatted(siteOf(admin));
 
         givenAs(admin).contentType("application/json").body(row)
-                .when().post("/api/v1/commodity-sales/import/preview")
+                .when().post("/api/v1/commodity/sales/import/preview")
                 .then().statusCode(200)
                 .body("data.rows[0].issues.find { it.field == 'productCode' }.message",
                         containsString("vendable"));
