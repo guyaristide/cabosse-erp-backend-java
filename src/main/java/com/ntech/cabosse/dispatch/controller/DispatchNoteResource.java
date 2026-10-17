@@ -56,10 +56,12 @@ public class DispatchNoteResource {
     public Response list(@QueryParam("status") DispatchNoteStatus status,
                          @QueryParam("siteId") UUID siteId,
                          @QueryParam("page") @DefaultValue("0") int page,
-                         @QueryParam("perPage") @DefaultValue("20") int perPage) {
+                         @QueryParam("perPage") @DefaultValue("20") int perPage,
+                         @QueryParam("sort") String sort,
+                         @QueryParam("sortDir") String sortDir) {
         ensureCapability();
         return Response.ok(ApiResponse.ok(
-                service.page(status, siteId, PageRequest.of(page, perPage)))).build();
+                service.page(status, siteId, PageRequest.of(page, perPage, sort, sortDir)))).build();
     }
 
     @GET

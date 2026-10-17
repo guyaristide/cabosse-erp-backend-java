@@ -75,9 +75,10 @@ public class DispatchNoteService {
     public Pagination<DispatchNoteResponseDto> page(DispatchNoteStatus status, UUID siteId,
                                                     PageRequest pr) {
         long total = repo.count(status, siteId);
-        List<DispatchNoteResponseDto> items = repo.list(status, siteId, pr.skip(), pr.perPage())
+        var sort = DispatchNoteRepository.SORTABLE.resolve(pr);
+        List<DispatchNoteResponseDto> items = repo.list(status, siteId, pr.skip(), pr.perPage(), sort)
                 .stream().map(DispatchNoteResponseDto::from).toList();
-        return Pagination.of(total, pr, new String[]{"date"}, "desc",
+        return Pagination.of(total, pr, sort.names(), sort.order(),
                 new java.util.HashMap<>(), items);
     }
 

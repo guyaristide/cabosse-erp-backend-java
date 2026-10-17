@@ -93,14 +93,31 @@ public class DispatchNoteRepository {
                 .into(new ArrayList<>());
     }
 
+    /** Les colonnes sur lesquelles la liste accepte d'être triée. */
+    public static final com.ntech.cabosse.shared.api.SortFields SORTABLE =
+            com.ntech.cabosse.shared.api.SortFields.defaultSort("date", false)
+                    .on("date")
+                    .on("ref")
+                    .on("customer", "customerName")
+                    .on("weight", "totalNetKg")
+                    .build();
+
     public List<DispatchNoteEntity> list(DispatchNoteStatus status, UUID siteId,
                                          int skip, int limit) {
+        return list(status, siteId, skip, limit, SORTABLE.resolve(null));
+    }
+
+    public List<DispatchNoteEntity> list(DispatchNoteStatus status, UUID siteId,
+                                         int skip, int limit,
+                                         com.ntech.cabosse.shared.api.SortFields.Sort sort) {
+        Document order = sort.toDocument();
+        if (!order.containsKey("ref")) order.append("ref", sort.ascending() ? 1 : -1);
         List<Bson> filters = new ArrayList<>();
         if (status != null) filters.add(Filters.eq("status", status.name()));
         if (siteId != null) filters.add(Filters.eq("siteId", siteId));
         Bson filter = filters.isEmpty() ? new Document() : Filters.and(filters);
         return coll().find(filter)
-                .sort(new Document("date", -1).append("ref", -1))
+                .sort(order)
                 .skip(skip).limit(limit)
                 .into(new ArrayList<>());
     }

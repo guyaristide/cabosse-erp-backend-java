@@ -115,6 +115,28 @@ public class CollectorAdvanceService {
                 .map(CollectorAdvanceResponseDto::from).toList();
     }
 
+    /**
+     * La page d'avances, triée comme la requête le demande.
+     *
+     * <p>Le tri se résout ici et non dans le contrôleur : savoir quelles
+     * colonnes une liste accepte est une connaissance du domaine, et un
+     * contrôleur qui irait la chercher au repository sauterait une
+     * couche.</p>
+     */
+    public com.ntech.cabosse.shared.api.Pagination<CollectorAdvanceResponseDto> page(
+            String status, com.ntech.cabosse.shared.api.PageRequest pr) {
+        var sort = com.ntech.cabosse.collector.repository.CollectorAdvanceRepository
+                .SORTABLE.resolve(pr);
+        long total = countSearch(status);
+        List<CollectorAdvanceResponseDto> items =
+                repo.search(status, pr.skip(), pr.perPage(), sort).stream()
+                        .map(CollectorAdvanceResponseDto::from).toList();
+        java.util.Map<String, String> filters = new java.util.HashMap<>();
+        if (status != null && !status.isBlank()) filters.put("status", status);
+        return com.ntech.cabosse.shared.api.Pagination.of(
+                total, pr, sort.names(), sort.order(), filters, items);
+    }
+
     public CollectorAdvanceResponseDto getById(UUID id) {
         return CollectorAdvanceResponseDto.from(loadOrFail(id));
     }

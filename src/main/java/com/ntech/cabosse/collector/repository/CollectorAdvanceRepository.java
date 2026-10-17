@@ -93,9 +93,25 @@ public class CollectorAdvanceRepository {
         return out;
     }
 
+    /** Les colonnes sur lesquelles la liste accepte d'être triée. */
+    public static final com.ntech.cabosse.shared.api.SortFields SORTABLE =
+            com.ntech.cabosse.shared.api.SortFields.defaultSort("createdAt", false)
+                    .on("createdAt")
+                    .on("ref")
+                    .on("delegate", "delegateName")
+                    .on("amount", "advanceAmount")
+                    .build();
+
     public List<CollectorAdvanceEntity> search(String status, int skip, int limit) {
+        return search(status, skip, limit, SORTABLE.resolve(null));
+    }
+
+    public List<CollectorAdvanceEntity> search(String status, int skip, int limit,
+                                               com.ntech.cabosse.shared.api.SortFields.Sort sort) {
+        org.bson.Document order = sort.toDocument();
+        if (!order.containsKey("ref")) order.append("ref", sort.ascending() ? 1 : -1);
         return coll().find(searchFilter(status))
-                .sort(new org.bson.Document("createdAt", -1))
+                .sort(order)
                 .skip(skip).limit(limit).into(new ArrayList<>());
     }
 

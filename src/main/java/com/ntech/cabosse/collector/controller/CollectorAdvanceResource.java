@@ -61,14 +61,11 @@ public class CollectorAdvanceResource {
     @GET
     public Response list(@QueryParam("status") String status,
                          @QueryParam("page") @DefaultValue("0") int page,
-                         @QueryParam("perPage") @DefaultValue("20") int perPage) {
-        PageRequest pr = PageRequest.of(page, perPage);
-        long total = service.countSearch(status);
-        List<CollectorAdvanceResponseDto> items = service.search(status, pr.skip(), pr.perPage());
-        Map<String, String> filters = new HashMap<>();
-        if (status != null && !status.isBlank()) filters.put("status", status);
-        return Response.ok(ApiResponse.ok(Pagination.of(
-                total, pr, new String[]{"createdAt"}, "desc", filters, items))).build();
+                         @QueryParam("perPage") @DefaultValue("20") int perPage,
+                         @QueryParam("sort") String sort,
+                         @QueryParam("sortDir") String sortDir) {
+        return Response.ok(ApiResponse.ok(
+                service.page(status, PageRequest.of(page, perPage, sort, sortDir)))).build();
     }
 
     /**
