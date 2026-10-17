@@ -250,7 +250,8 @@ public class TenantDiagnosticsService {
                         + receipts + " reçus");
             }
         }
-        return new ConsistencyCheckDto("noteWeightMismatch", anomalies, samples);
+        return new ConsistencyCheckDto("noteWeightMismatch", anomalies, samples,
+                ConsistencyCheckDto.Fixer.TENANT, "/app/stocks/intake-notes");
     }
 
     /**
@@ -276,7 +277,8 @@ public class TenantDiagnosticsService {
                         + " · " + decimal(receipt.get("weightKg")).toPlainString() + " kg");
             }
         }
-        return new ConsistencyCheckDto("receiptWithoutNote", anomalies, samples);
+        return new ConsistencyCheckDto("receiptWithoutNote", anomalies, samples,
+                ConsistencyCheckDto.Fixer.PLATFORM, null);
     }
 
     /**
@@ -294,7 +296,8 @@ public class TenantDiagnosticsService {
                 samples.add(receipt.getString("ref") + " · " + receipt.getString("producerName"));
             }
         }
-        return new ConsistencyCheckDto("receiptWithoutCampaign", anomalies, samples);
+        return new ConsistencyCheckDto("receiptWithoutCampaign", anomalies, samples,
+                ConsistencyCheckDto.Fixer.PLATFORM, null);
     }
 
     /**
@@ -323,7 +326,8 @@ public class TenantDiagnosticsService {
                                 : " · « " + supplier + " » inconnu au référentiel"));
             }
         }
-        return new ConsistencyCheckDto("noteWithoutDelegate", anomalies, samples);
+        return new ConsistencyCheckDto("noteWithoutDelegate", anomalies, samples,
+                ConsistencyCheckDto.Fixer.TENANT, "/app/references/suppliers");
     }
 
     /** Un reçu qui n'a pas fait entrer sa matière : la création a cassé en chemin. */
@@ -342,7 +346,8 @@ public class TenantDiagnosticsService {
                         + decimal(receipt.get("weightKg")).toPlainString() + " kg jamais entrés");
             }
         }
-        return new ConsistencyCheckDto("receiptWithoutMovement", anomalies, samples);
+        return new ConsistencyCheckDto("receiptWithoutMovement", anomalies, samples,
+                ConsistencyCheckDto.Fixer.PLATFORM, null);
     }
 
     /** Le plafond d'imputation a sauté : le consommé dépasse ce qui a été accordé. */
@@ -361,7 +366,8 @@ public class TenantDiagnosticsService {
                         + approved.toPlainString() + " accordés");
             }
         }
-        return new ConsistencyCheckDto("advanceOverConsumed", anomalies, samples);
+        return new ConsistencyCheckDto("advanceOverConsumed", anomalies, samples,
+                ConsistencyCheckDto.Fixer.PLATFORM, null);
     }
 
     /**
@@ -391,7 +397,8 @@ public class TenantDiagnosticsService {
                 samples.add(entry.getKey() + " : " + String.join(", ", entry.getValue()));
             }
         }
-        return new ConsistencyCheckDto("duplicateProducerName", anomalies, samples);
+        return new ConsistencyCheckDto("duplicateProducerName", anomalies, samples,
+                ConsistencyCheckDto.Fixer.TENANT, "/app/members");
     }
 
     // ─── Mise à plat pour l'export ──────────────────────────────────

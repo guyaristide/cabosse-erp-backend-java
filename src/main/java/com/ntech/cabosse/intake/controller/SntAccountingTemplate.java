@@ -29,12 +29,16 @@ public class SntAccountingTemplate {
                 ExportColumn.of(Messages.msg("m.imp-h-producteur"),   SntTemplateRow::producerName),
                 ExportColumn.of(Messages.msg("m.snt-h-producer-phone"), SntTemplateRow::producerPhone),
                 ExportColumn.of(Messages.msg("m.imp-h-delegue"),      SntTemplateRow::delegateName),
-                ExportColumn.of(Messages.msg("m.snt-h-delegate-phone"), SntTemplateRow::delegatePhone)
+                ExportColumn.of(Messages.msg("m.snt-h-delegate-phone"), SntTemplateRow::delegatePhone),
+                // En dernier et facultative : le statut de l'apporteur
+                // tel que le terrain l'écrit. Le système déduit le sien
+                // quand la colonne reste vide (expert, 17/10/2026).
+                ExportColumn.of(Messages.msg("m.snt-h-status"), SntTemplateRow::status)
         );
         List<SntTemplateRow> samples = List.of(
                 new SntTemplateRow("P-453-873", "17/07/2026", "24", "305", "854000",
                         "0", "854000", "Nom Producteur 1", "0154536688",
-                        "Nom Délégué 1", "0172757084"));
+                        "Nom Délégué 1", "0172757084", "Planteur"));
         return new ExportDataset<>(Messages.msg("m.exp-t-modele-detail-snt"), cols, samples);
     }
 }

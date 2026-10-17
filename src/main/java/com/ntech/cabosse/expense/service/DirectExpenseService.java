@@ -76,6 +76,10 @@ public class DirectExpenseService {
             e.approvedAt = java.time.Instant.now();
             e.approvedByEmail = actor();
         }
+        // C'est l'accord complet qui écrit : le premier échelon ne
+        // suffit pas quand le second est requis, sinon la charge
+        // entrerait en comptabilité avant que le conseil se prononce.
+        if (e.payable()) post(e);
         repo.replace(e);
         audit.event(AuditEventType.DIRECT_EXPENSE_RECORDED)
                 .actorEmail(actor())
@@ -258,11 +262,12 @@ public class DirectExpenseService {
         e.createdBy = safeUserId();
         e.actorEmail = actor();
 
-        accounting.postFromDirectExpense(
-                e.id, e.ref, e.expenseDate, e.chargeAccount, e.label,
-                e.amountHt, e.vatAmount, e.amountTtc, e.payableAccount,
-                e.allocationKeyCode)
-                .ifPresent(piece -> e.pieceRef = piece.ref);
+        // L'écriture attend la décision quand une décision est attendue.
+        // Comptabiliser d'abord mettait l'approbateur devant le fait
+        // accompli : la charge était consommée, refuser ne la défaisait
+        // pas, et le refus coûtait une contre-passation (expert,
+        // 17/10/2026). Sans circuit, rien n'attend personne.
+        if (e.approvalStatus == null) post(e);
 
         repo.insert(e);
         audit.event(AuditEventType.DIRECT_EXPENSE_RECORDED)
@@ -272,6 +277,22 @@ public class DirectExpenseService {
                 .description(kind.name() + " " + e.label + " — " + e.amountTtc + " (" + e.ref + ")")
                 .record();
         return DirectExpenseResponseDto.from(e);
+    }
+
+    /**
+     * Pose l'écriture de la dépense, une seule fois.
+     *
+     * <p>Le garde-fou n'est pas théorique : les dépenses saisies avant
+     * le 17/10/2026 portaient déjà leur pièce à l'approbation, et les
+     * approuver aujourd'hui en écrirait une seconde.</p>
+     */
+    private void post(DirectExpenseEntity e) {
+        if (e.pieceRef != null) return;
+        accounting.postFromDirectExpense(
+                e.id, e.ref, e.expenseDate, e.chargeAccount, e.label,
+                e.amountHt, e.vatAmount, e.amountTtc, e.payableAccount,
+                e.allocationKeyCode)
+                .ifPresent(piece -> e.pieceRef = piece.ref);
     }
 
     // ─── Internals ──────────────────────────────────────────────────

@@ -87,6 +87,11 @@ class ListSortingTest extends AbstractIntegrationTest {
                 .when().post("/api/v1/members").then().statusCode(201);
     }
 
+    /*
+     * Le sens voyage sous « sortDir » et non « direction » : ce dernier
+     * désigne déjà le sens d'un mouvement de trésorerie, sur un
+     * endpoint qui pagine lui aussi.
+     */
     @Test
     void la_liste_se_trie_sur_la_colonne_demandee() {
         UserEntity admin = admin();
@@ -99,7 +104,7 @@ class ListSortingTest extends AbstractIntegrationTest {
                 .body("data.order", equalTo("asc"))
                 .body("data.items.name", contains("ABOU", "MIAN", "ZOTIA"));
 
-        givenAs(admin).queryParam("sort", "name").queryParam("direction", "desc")
+        givenAs(admin).queryParam("sort", "name").queryParam("sortDir", "desc")
                 .when().get("/api/v1/members")
                 .then().statusCode(200)
                 .body("data.order", equalTo("desc"))
@@ -114,7 +119,7 @@ class ListSortingTest extends AbstractIntegrationTest {
         // Ni erreur ni tri sauvage : la liste s'affiche dans son ordre
         // par défaut, et l'enveloppe dit lequel. Refuser casserait
         // l'écran entier pour une colonne disparue.
-        givenAs(admin).queryParam("sort", "notes").queryParam("direction", "desc")
+        givenAs(admin).queryParam("sort", "notes").queryParam("sortDir", "desc")
                 .when().get("/api/v1/members")
                 .then().statusCode(200)
                 .body("data.sorts", contains("name"))
@@ -146,7 +151,7 @@ class ListSortingTest extends AbstractIntegrationTest {
                     .when().post("/api/v1/producer-purchases").then().statusCode(201);
         }
 
-        givenAs(admin).queryParam("sort", "weightKg").queryParam("direction", "asc")
+        givenAs(admin).queryParam("sort", "weightKg").queryParam("sortDir", "asc")
                 .when().get("/api/v1/producer-purchases")
                 .then().statusCode(200)
                 .body("data.sorts", contains("weightKg"))

@@ -276,4 +276,62 @@ class ExpenseApprovalTest extends AbstractIntegrationTest {
                 .body("data.page.items", hasSize(1))
                 .body("data.page.items[0].amount", equalTo(5000));
     }
+
+    @Test
+    void la_charge_n_entre_en_comptabilite_qu_a_l_accord() {
+        UserEntity a = admin();
+        setPrefs(a, "{ \"expenseApprovalScope\": \"ALL\", \"expenseApprovalThreshold\": 0 }");
+        String id = expense(a, "PETTY_CASH", 5000);
+
+        // Écrire dès la saisie mettait l'approbateur devant le fait
+        // accompli : la charge était consommée, et refuser ne la
+        // défaisait pas (expert, 17/10/2026).
+        givenAs(a).when().get("/api/v1/direct-expenses/" + id)
+                .then().statusCode(200)
+                .body("data.approvalStatus", equalTo("PENDING"))
+                .body("data.pieceRef", org.hamcrest.Matchers.nullValue());
+
+        givenAs(a).contentType("application/json")
+                .when().post("/api/v1/direct-expenses/" + id + "/approve")
+                .then().statusCode(200)
+                .body("data.pieceRef", org.hamcrest.Matchers.notNullValue());
+    }
+
+    @Test
+    void une_depense_refusee_n_a_rien_a_contre_passer() {
+        UserEntity a = admin();
+        setPrefs(a, "{ \"expenseApprovalScope\": \"ALL\", \"expenseApprovalThreshold\": 0 }");
+        String id = expense(a, "PETTY_CASH", 5000);
+
+        givenAs(a).contentType("application/json").body("{\"reason\":\"Hors budget\"}")
+                .when().post("/api/v1/direct-expenses/" + id + "/reject")
+                .then().statusCode(200);
+
+        // Rien n'a été écrit, donc rien à défaire : c'est tout l'objet
+        // du changement de séquence.
+        givenAs(a).when().get("/api/v1/direct-expenses/" + id)
+                .then().statusCode(200)
+                .body("data.approvalStatus", equalTo("REJECTED"))
+                .body("data.pieceRef", org.hamcrest.Matchers.nullValue());
+    }
+
+    @Test
+    void le_premier_echelon_seul_n_ecrit_pas_quand_le_second_est_requis() {
+        UserEntity a = admin();
+        setPrefs(a, "{ \"expenseApprovalScope\": \"ALL\", \"expenseApprovalThreshold\": 0,"
+                + " \"expenseGovernanceThreshold\": 1000 }");
+        String id = expense(a, "PETTY_CASH", 5000);
+
+        givenAs(a).contentType("application/json")
+                .when().post("/api/v1/direct-expenses/" + id + "/approve")
+                .then().statusCode(200)
+                .body("data.pieceRef", org.hamcrest.Matchers.nullValue());
+
+        // La charge attend le conseil : l'accord du premier échelon ne
+        // vaut pas le sien.
+        givenAs(a).contentType("application/json")
+                .when().post("/api/v1/direct-expenses/" + id + "/approve?governance=true")
+                .then().statusCode(200)
+                .body("data.pieceRef", org.hamcrest.Matchers.notNullValue());
+    }
 }

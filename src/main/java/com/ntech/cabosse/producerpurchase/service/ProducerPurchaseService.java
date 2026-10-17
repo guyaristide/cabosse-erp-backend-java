@@ -289,6 +289,9 @@ public class ProducerPurchaseService {
         e.bankAccountId = p.bankAccountId();
         e.paymentRef = blankToNull(p.paymentRef());
         e.deliveryRef = blankToNull(p.deliveryRef());
+        // Le statut écrit sur le document d'origine, quand il y en a
+        // un : le registre l'affichera à la place du statut déduit.
+        e.counterpartyStatus = blankToNull(p.counterpartyStatus());
         if (categoryOfCarrier != null) {
             e.supplierCategoryId = categoryOfCarrier.id;
             e.supplierCategoryName = categoryOfCarrier.name;

@@ -334,6 +334,8 @@ public class ProducerPurchaseImportService {
                         deliveryRef,
                         // L'import ne décide aucune retenue : elle se
                         // discute avec le producteur, pas dans un fichier.
+                        null,
+                        // Cet import-là ne porte pas de colonne statut.
                         null));
                 createdRefs.add(created.ref());
             } catch (RuntimeException e) {

@@ -122,6 +122,16 @@ public class ProducerPurchaseEntity {
     public String delegateName;
 
     /**
+     * Le statut de l'apporteur écrit sur le document d'origine.
+     *
+     * <p>Texte libre, facultatif. Le registre affiche celui-ci quand il
+     * existe, et le statut déduit de la fiche sinon : le système ne
+     * connaît que délégué et producteur, le carnet en distingue
+     * d'autres (expert, 17/10/2026).</p>
+     */
+    public String counterpartyStatus;
+
+    /**
      * Rémunération du délégué constatée sur ce reçu. Elle vient s'ajouter
      * à ce que la coopérative lui doit, donc réduit d'autant sa dette.
      */

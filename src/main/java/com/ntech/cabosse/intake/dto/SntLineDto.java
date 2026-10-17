@@ -29,5 +29,18 @@ public record SntLineDto(
         String producerName,
         String producerPhone,
         String delegateName,
-        String delegatePhone
+        String delegatePhone,
+        /**
+         * Le statut de l'apporteur, tel que le terrain l'écrit :
+         * planteur, fournisseur, délégué, ou ce que la coopérative
+         * emploie.
+         *
+         * <p>Champ libre et facultatif. Le système sait déduire un
+         * statut de la fiche de l'apporteur, mais il ne connaît que ses
+         * deux catégories à lui ; le carnet, lui, en distingue d'autres
+         * que personne n'a envie de faire entrer dans un référentiel
+         * (expert, 17/10/2026). Renseigné, il l'emporte ; vide, le
+         * statut déduit reste.</p>
+         */
+        String status
 ) {}

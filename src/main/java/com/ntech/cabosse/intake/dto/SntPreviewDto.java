@@ -66,6 +66,12 @@ public record SntPreviewDto(
             BigDecimal amount,
             /** Prix au kilo déduit : montant divisé par poids. */
             BigDecimal pricePerKg,
-            String paymentMethod
+            String paymentMethod,
+            /**
+             * Le statut écrit dans le fichier, quand il en porte un.
+             * Nommé ainsi pour ne pas se confondre avec {@code status},
+             * qui dit si la ligne passe.
+             */
+            String statusLabel
     ) {}
 }

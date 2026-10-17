@@ -98,5 +98,12 @@ public record ProducerPurchaseUpsertDto(
          * avances du producteur. Rien n'est retenu d'office : c'est une
          * personne qui fixe, engagement par engagement, ce qu'elle prélève.
          */
-        java.util.List<@jakarta.validation.Valid CreditImputationDto> creditImputations
+        java.util.List<@jakarta.validation.Valid CreditImputationDto> creditImputations,
+
+        /**
+         * Le statut de l'apporteur écrit sur le document d'origine.
+         * Libre et facultatif : vide, le registre déduit le statut de
+         * la fiche de l'apporteur comme avant.
+         */
+        @Size(max = 40) String counterpartyStatus
 ) {}

@@ -520,4 +520,84 @@ class SupplierCounterpartyTest extends AbstractIntegrationTest {
                 .body("data.delegateSupplierId", equalTo(supplierId))
                 .body("data.invalidRows", equalTo(0));
     }
+
+    @Test
+    void le_statut_du_fichier_se_retrouve_dans_le_registre() {
+        UserEntity admin = admin();
+        LocalDate today = LocalDate.now();
+        String siteId = site(admin);
+        String articleId = article(admin);
+        supplier(admin, "KOUI IBOBE", true);
+
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        [ { "rowNumber": 2, "productLabel": "Cacao", "date": "%s",
+                            "movement": "Entrée Stock", "ref": "BR0920", "truckNumber": "CJY879",
+                            "supplierName": "KOUI IBOBE", "lineNumber": "1",
+                            "grossWeightKg": "110", "bagCount": "2", "netWeightKg": "108" } ]
+                        """.formatted(today))
+                .when().post("/api/v1/intake-notes/import/commit?siteId=" + siteId)
+                .then().statusCode(200);
+        String noteId = givenAs(admin).when().get("/api/v1/intake-notes?status=TO_ACCOUNT")
+                .then().statusCode(200).extract().path("data[0].id");
+
+        // Le terrain distingue des qualités que le système ne connaît
+        // pas : il n'en connaît que deux, délégué et producteur. La
+        // colonne est libre, et facultative (expert, 17/10/2026).
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "articleId": "%s", "siteId": "%s", "lines": [
+                          { "rowNumber": 2, "date": "%s", "nbSacs": "2", "weightKg": "108",
+                            "amount": "129600", "amountCash": "129600",
+                            "status": "Planteur" } ] }
+                        """.formatted(articleId, siteId, today))
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                .when().post("/api/v1/intake-notes/" + noteId + "/accounting/commit")
+                .then().statusCode(200).body("data.createdReceipts", equalTo(1));
+
+        givenAs(admin).queryParam("date", today.toString()).queryParam("siteId", siteId)
+                .when().get("/api/v1/producer-purchases/day-sheet")
+                .then().statusCode(200)
+                .body("data.rows[0].supplierStatusLabel", equalTo("Planteur"))
+                // Le code déduit reste à côté : l'écran affiche le
+                // libellé, le reste du produit continue de lire le code.
+                .body("data.rows[0].supplierKind", equalTo("DELEGATE"));
+    }
+
+    @Test
+    void sans_colonne_statut_le_registre_garde_celui_qu_il_deduit() {
+        UserEntity admin = admin();
+        LocalDate today = LocalDate.now();
+        String siteId = site(admin);
+        String articleId = article(admin);
+        supplier(admin, "KOUI IBOBE", true);
+
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        [ { "rowNumber": 2, "productLabel": "Cacao", "date": "%s",
+                            "movement": "Entrée Stock", "ref": "BR0921", "truckNumber": "CJY879",
+                            "supplierName": "KOUI IBOBE", "lineNumber": "1",
+                            "grossWeightKg": "110", "bagCount": "2", "netWeightKg": "108" } ]
+                        """.formatted(today))
+                .when().post("/api/v1/intake-notes/import/commit?siteId=" + siteId)
+                .then().statusCode(200);
+        String noteId = givenAs(admin).when().get("/api/v1/intake-notes?status=TO_ACCOUNT")
+                .then().statusCode(200).extract().path("data[0].id");
+
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "articleId": "%s", "siteId": "%s", "lines": [
+                          { "rowNumber": 2, "date": "%s", "nbSacs": "2", "weightKg": "108",
+                            "amount": "129600", "amountCash": "129600" } ] }
+                        """.formatted(articleId, siteId, today))
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                .when().post("/api/v1/intake-notes/" + noteId + "/accounting/commit")
+                .then().statusCode(200);
+
+        givenAs(admin).queryParam("date", today.toString()).queryParam("siteId", siteId)
+                .when().get("/api/v1/producer-purchases/day-sheet")
+                .then().statusCode(200)
+                .body("data.rows[0].supplierStatusLabel", nullValue())
+                .body("data.rows[0].supplierKind", equalTo("DELEGATE"));
+    }
 }

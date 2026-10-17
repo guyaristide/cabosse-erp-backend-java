@@ -276,7 +276,10 @@ public class SntAccountingService {
                         null,
                         saleDelegate,
                         deliveryRef,
-                        null));
+                        null,
+                        // Le statut du fichier, quand il en porte un :
+                        // le registre l'affichera tel quel.
+                        row.statusLabel()));
                 refs.add(created.ref());
                 totalWeight = totalWeight.add(nz(row.weightKg()));
                 totalAmount = totalAmount.add(nz(row.amount()));
@@ -287,7 +290,8 @@ public class SntAccountingService {
                         List.of(reason), row.reference(), row.date(),
                         row.producerName(), row.producerPhone(), row.memberId(),
                         row.memberName(), row.memberToCreate(), row.nbSacs(), row.weightKg(),
-                        row.amount(), row.pricePerKg(), row.paymentMethod()));
+                        row.amount(), row.pricePerKg(), row.paymentMethod(),
+                        row.statusLabel()));
             }
         }
         return new Created(refs, skipped, totalWeight, totalAmount, createdMembers);
@@ -521,7 +525,8 @@ public class SntAccountingService {
                     producerName, clean(raw.producerPhone()),
                     matched != null ? matched.id : null,
                     matched != null ? matched.name : null,
-                    memberToCreate, bags, weight, amount, price, method));
+                    memberToCreate, bags, weight, amount, price, method,
+                    clean(raw.status())));
         }
 
         BigDecimal gap = note.netWeightKg != null
