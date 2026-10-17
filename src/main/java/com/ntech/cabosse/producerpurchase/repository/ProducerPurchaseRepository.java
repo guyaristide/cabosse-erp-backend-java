@@ -6,6 +6,7 @@ import com.ntech.cabosse.producerpurchase.entity.ProducerPurchaseEntity;
 import com.ntech.cabosse.shared.persistence.TenantMongoDatabaseProvider;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import com.ntech.cabosse.shared.api.SortFields;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 
@@ -52,10 +53,35 @@ public class ProducerPurchaseRepository {
         return coll().countDocuments(searchFilter(q, campaignId, memberId));
     }
 
+    /**
+     * Les colonnes sur lesquelles l'écran accepte de trier.
+     *
+     * <p>Chacune est indexée ou porte un nombre de documents borné par
+     * la campagne : trier sur un champ libre reviendrait à parcourir
+     * toute la collection à chaque clic d'en-tête.</p>
+     */
+    public static final SortFields SORTABLE = SortFields.defaultSort("date", false)
+            .on("date")
+            .on("ref")
+            .on("weightKg")
+            .on("amount")
+            .on("counterparty", "delegateName")
+            .build();
+
     public List<ProducerPurchaseEntity> search(String q, UUID campaignId, UUID memberId,
                                                int skip, int limit) {
+        return search(q, campaignId, memberId, skip, limit, SORTABLE.resolve(null));
+    }
+
+    public List<ProducerPurchaseEntity> search(String q, UUID campaignId, UUID memberId,
+                                               int skip, int limit, SortFields.Sort sort) {
+        // Le second critère départage à valeur égale : sans lui, deux
+        // reçus du même jour changent de place d'une page à l'autre et
+        // l'un d'eux se voit deux fois.
+        Document order = sort.toDocument();
+        if (!order.containsKey("ref")) order.append("ref", sort.ascending() ? 1 : -1);
         return coll().find(searchFilter(q, campaignId, memberId))
-                .sort(new Document("date", -1).append("ref", -1))
+                .sort(order)
                 .skip(skip).limit(limit)
                 .into(new ArrayList<>());
     }

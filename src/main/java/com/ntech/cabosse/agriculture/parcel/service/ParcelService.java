@@ -57,15 +57,16 @@ public class ParcelService {
     public Pagination<ParcelResponseDto> page(String q, ParcelStatus statusFilter, UUID memberId,
                                               PageRequest pr) {
         long total = parcels.countSearch(q, statusFilter, memberId);
+        var sort = com.ntech.cabosse.agriculture.parcel.repository.ParcelRepository.SORTABLE.resolve(pr);
         List<ParcelResponseDto> items =
-                parcels.search(q, statusFilter, memberId, pr.skip(), pr.perPage()).stream()
+                parcels.search(q, statusFilter, memberId, pr.skip(), pr.perPage(), sort).stream()
                         .map(ParcelResponseDto::from)
                         .toList();
         Map<String, String> filters = new HashMap<>();
         if (q != null && !q.isBlank()) filters.put("q", q.trim());
         if (statusFilter != null) filters.put("status", statusFilter.name());
         if (memberId != null) filters.put("memberId", memberId.toString());
-        return Pagination.of(total, pr, new String[]{"name"}, "asc", filters, items);
+        return Pagination.of(total, pr, sort.names(), sort.order(), filters, items);
     }
 
 

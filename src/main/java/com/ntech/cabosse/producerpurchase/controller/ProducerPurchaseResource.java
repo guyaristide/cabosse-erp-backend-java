@@ -81,10 +81,12 @@ public class ProducerPurchaseResource {
                          @QueryParam("campaignId") UUID campaignId,
                          @QueryParam("memberId") UUID memberId,
                          @QueryParam("page") @DefaultValue("0") int page,
-                         @QueryParam("perPage") @DefaultValue("20") int perPage) {
+                         @QueryParam("perPage") @DefaultValue("20") int perPage,
+                         @QueryParam("sort") String sort,
+                         @QueryParam("sortDir") String direction) {
         ensureCapability();
-        return Response.ok(ApiResponse.ok(
-                service.page(q, campaignId, memberId, PageRequest.of(page, perPage)))).build();
+        return Response.ok(ApiResponse.ok(service.page(q, campaignId, memberId,
+                PageRequest.of(page, perPage, sort, direction)))).build();
     }
 
     /** Export de la liste, mêmes filtres qu'à l'écran. */

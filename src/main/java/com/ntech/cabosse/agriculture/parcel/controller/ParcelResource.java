@@ -65,12 +65,14 @@ public class ParcelResource {
                          @QueryParam("status") String statusRaw,
                          @QueryParam("memberId") String memberIdRaw,
                          @QueryParam("page") @DefaultValue("0") int page,
-                         @QueryParam("perPage") @DefaultValue("20") int perPage) {
+                         @QueryParam("perPage") @DefaultValue("20") int perPage,
+                         @QueryParam("sort") String sort,
+                         @QueryParam("sortDir") String direction) {
         ensureCapability();
         ParcelStatus statusFilter = parseStatus(statusRaw);
         UUID memberId = parseUuid(memberIdRaw);
         return Response.ok(ApiResponse.ok(
-                service.page(q, statusFilter, memberId, PageRequest.of(page, perPage)))).build();
+                service.page(q, statusFilter, memberId, PageRequest.of(page, perPage, sort, direction)))).build();
     }
 
     /** Export de la liste, mêmes filtres qu'à l'écran. */

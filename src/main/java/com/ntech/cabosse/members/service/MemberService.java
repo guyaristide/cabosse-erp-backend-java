@@ -99,7 +99,8 @@ public class MemberService {
         long total = members.countSearch(criteria);
         int validityMonths = fileValidityMonths();
         java.util.Set<String> proofTypes = producerRefKeys.identityProofTypeNames();
-        List<MemberResponseDto> items = members.search(criteria, pr.skip(), pr.perPage())
+        var sort = MemberRepository.SORTABLE.resolve(pr);
+        List<MemberResponseDto> items = members.search(criteria, pr.skip(), pr.perPage(), sort)
                 .stream()
                 .map(m -> MemberResponseDto.from(m, validityMonths, proofTypes))
                 .toList();
@@ -117,7 +118,7 @@ public class MemberService {
             filters.put("village", criteria.village().trim());
         }
         if (criteria.gender() != null) filters.put("gender", criteria.gender().name());
-        return Pagination.of(total, pr, new String[]{"name"}, "asc", filters, items);
+        return Pagination.of(total, pr, sort.names(), sort.order(), filters, items);
     }
 
     /** Les villages portés par des fiches, pour alimenter le filtre. */

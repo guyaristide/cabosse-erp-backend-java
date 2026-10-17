@@ -57,9 +57,28 @@ public class MemberRepository {
         return coll().countDocuments(searchFilter(criteria));
     }
 
+    /** Les colonnes sur lesquelles le registre accepte d'être trié. */
+    public static final com.ntech.cabosse.shared.api.SortFields SORTABLE =
+            com.ntech.cabosse.shared.api.SortFields.defaultSort("name", true)
+                    .on("name")
+                    .on("code")
+                    .on("status")
+                    .on("village")
+                    .on("joinedAt")
+                    .build();
+
     public List<MemberEntity> search(MemberSearchCriteria criteria, int skip, int limit) {
+        return search(criteria, skip, limit, SORTABLE.resolve(null));
+    }
+
+    public List<MemberEntity> search(MemberSearchCriteria criteria, int skip, int limit,
+                                     com.ntech.cabosse.shared.api.SortFields.Sort sort) {
+        Document order = sort.toDocument();
+        // Le nom départage à valeur égale, sinon une fiche change de
+        // page entre deux lectures et une autre disparaît.
+        if (!order.containsKey("name")) order.append("name", 1);
         return coll().find(searchFilter(criteria))
-                .sort(new Document("name", 1))
+                .sort(order)
                 .skip(skip)
                 .limit(limit)
                 .into(new ArrayList<>());

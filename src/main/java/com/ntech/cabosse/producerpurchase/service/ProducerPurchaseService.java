@@ -98,10 +98,14 @@ public class ProducerPurchaseService {
     public Pagination<ProducerPurchaseResponseDto> page(String q, UUID campaignId,
                                                         UUID memberId, PageRequest pr) {
         long total = repo.countSearch(q, campaignId, memberId);
+        var sort = ProducerPurchaseRepository.SORTABLE.resolve(pr);
         List<ProducerPurchaseResponseDto> items = repo
-                .search(q, campaignId, memberId, pr.skip(), pr.perPage())
+                .search(q, campaignId, memberId, pr.skip(), pr.perPage(), sort)
                 .stream().map(ProducerPurchaseResponseDto::from).toList();
-        return Pagination.of(total, pr, new String[]{"date"}, "desc",
+        // Le tri renvoyé est celui qui a servi, pas celui qui a été
+        // demandé : un écran plus ancien que le serveur doit afficher
+        // la vérité, pas sa demande.
+        return Pagination.of(total, pr, sort.names(), sort.order(),
                 new java.util.HashMap<>(), items);
     }
 

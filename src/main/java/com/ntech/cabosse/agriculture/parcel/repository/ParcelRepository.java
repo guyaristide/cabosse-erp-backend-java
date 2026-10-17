@@ -50,10 +50,27 @@ public class ParcelRepository {
         return coll().countDocuments(searchFilter(q, statusFilter, memberId));
     }
 
+    /** Les colonnes sur lesquelles la liste accepte d'être triée. */
+    public static final com.ntech.cabosse.shared.api.SortFields SORTABLE =
+            com.ntech.cabosse.shared.api.SortFields.defaultSort("name", true)
+                    .on("name")
+                    .on("code")
+                    .on("status")
+                    .on("surfaceHa")
+                    .build();
+
     public List<ParcelEntity> search(String q, ParcelStatus statusFilter, UUID memberId,
                                      int skip, int limit) {
+        return search(q, statusFilter, memberId, skip, limit, SORTABLE.resolve(null));
+    }
+
+    public List<ParcelEntity> search(String q, ParcelStatus statusFilter, UUID memberId,
+                                     int skip, int limit,
+                                     com.ntech.cabosse.shared.api.SortFields.Sort sort) {
+        Document order = sort.toDocument();
+        if (!order.containsKey("name")) order.append("name", 1);
         return coll().find(searchFilter(q, statusFilter, memberId))
-                .sort(new Document("name", 1))
+                .sort(order)
                 .skip(skip)
                 .limit(limit)
                 .into(new ArrayList<>());

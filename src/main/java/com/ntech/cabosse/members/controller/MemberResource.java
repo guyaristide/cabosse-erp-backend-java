@@ -101,13 +101,15 @@ public class MemberResource {
                          @QueryParam("village") String village,
                          @QueryParam("gender") String genderRaw,
                          @QueryParam("page") @DefaultValue("0") int page,
-                         @QueryParam("perPage") @DefaultValue("20") int perPage) {
+                         @QueryParam("perPage") @DefaultValue("20") int perPage,
+                         @QueryParam("sort") String sort,
+                         @QueryParam("sortDir") String direction) {
         ensureCapability();
         return Response.ok(ApiResponse.ok(service.page(
                 new com.ntech.cabosse.members.repository.MemberSearchCriteria(
                         q, parseStatus(statusRaw), parseCollector(collectorRaw),
                         sectionId, village, parseGender(genderRaw)),
-                PageRequest.of(page, perPage)))).build();
+                PageRequest.of(page, perPage, sort, direction)))).build();
     }
 
     /**
