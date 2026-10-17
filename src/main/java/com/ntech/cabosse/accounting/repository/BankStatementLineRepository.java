@@ -41,6 +41,18 @@ public class BankStatementLineRepository {
                 .into(new ArrayList<>());
     }
 
+    /** Parmi ces empreintes, celles qu'une ligne de ce compte porte déjà : une requête, pas une par ligne. */
+    public java.util.Set<String> existingHashes(UUID bankAccountId, java.util.Collection<String> hashes) {
+        java.util.Set<String> found = new java.util.HashSet<>();
+        if (hashes.isEmpty()) return found;
+        coll().find(Filters.and(
+                        Filters.eq("bankAccountId", bankAccountId),
+                        Filters.in("sourceHash", hashes)))
+                .projection(new Document("sourceHash", 1))
+                .forEach(l -> found.add(l.sourceHash));
+        return found;
+    }
+
     public boolean hashExists(UUID bankAccountId, String sourceHash) {
         return coll().countDocuments(Filters.and(
                 Filters.eq("bankAccountId", bankAccountId),

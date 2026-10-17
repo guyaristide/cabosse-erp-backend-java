@@ -284,7 +284,7 @@ public class MemberResource {
                         : jakarta.ws.rs.core.MediaType.APPLICATION_OCTET_STREAM)
                 .header("Content-Length", s.sizeBytes())
                 .header("Content-Disposition",
-                        "inline; filename=\"" + (s.fileName() != null ? s.fileName() : "piece") + "\"")
+                        com.ntech.cabosse.shared.storage.ContentDispositions.inline(s.fileName(), "piece"))
                 .header("Cache-Control", "private, max-age=300")
                 .build();
     }
@@ -360,7 +360,7 @@ public class MemberResource {
     @RequiresPermission(Permission.MEMBER_WRITE)
     @Path("/import/preview")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
-    public Response importPreview(java.util.List<MemberImportRowDto> rows) {
+    public Response importPreview(@jakarta.validation.constraints.Size(max = 10000) java.util.List<MemberImportRowDto> rows) {
         ensureCapability();
         return Response.ok(ApiResponse.ok(importService.preview(rows))).build();
     }
@@ -374,7 +374,7 @@ public class MemberResource {
     @RequiresPermission(Permission.MEMBER_WRITE)
     @Path("/import/commit")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
-    public Response importCommit(java.util.List<MemberImportRowDto> rows,
+    public Response importCommit(@jakarta.validation.constraints.Size(max = 10000) java.util.List<MemberImportRowDto> rows,
                                  @QueryParam("includeWarnings") boolean includeWarnings,
                                  @QueryParam("async") boolean async) {
         ensureCapability();

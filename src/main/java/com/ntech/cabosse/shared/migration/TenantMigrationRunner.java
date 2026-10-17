@@ -4,7 +4,9 @@ import com.mongodb.client.MongoClient;
 import io.mongock.driver.mongodb.sync.v4.driver.MongoSync4Driver;
 import io.mongock.runner.standalone.MongockStandalone;
 import jakarta.enterprise.context.ApplicationScoped;
+import com.ntech.cabosse.shared.persistence.ControlPlane;
 import jakarta.inject.Inject;
+import org.jboss.logging.Logger;
 
 /**
  * Lanceur Mongock pour une base tenant donnée. Chaque base tenant porte
@@ -35,7 +37,18 @@ public class TenantMigrationRunner {
      * puissent l'injecter et interroger le control plane afin de vérifier
      * les capacités du tenant avant exécution.</p>
      */
+    @Inject Logger log;
+
     public void runMigrationsFor(String databaseName) {
+        // Le plan de contrôle n'est pas une base de structure : y rejouer
+        // les migrations tenant y crée des collections homonymes (regions,
+        // cloud_files) et met en péril les catalogues globaux. Le tenant
+        // technique de la plateforme pointe historiquement dessus, d'où
+        // ce refus ici, au seul endroit par où passent tous les appelants.
+        if (ControlPlane.DATABASE.equals(databaseName)) {
+            log.warnf("Tenant migrations refused on the control plane database %s", databaseName);
+            return;
+        }
         MongoSync4Driver driver = MongoSync4Driver.withDefaultLock(
                 mongoClient, databaseName);
 

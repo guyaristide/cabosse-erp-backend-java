@@ -23,8 +23,31 @@ public final class FileUploadLimits {
             "image/png", "image/jpeg", "image/jpg", "image/webp"
     );
 
-    private static final Set<String> LOGO_MIMES = Set.of(
-            "image/png", "image/jpeg", "image/jpg", "image/webp", "image/svg+xml"
+    /**
+     * Le format vectoriel n'en fait plus partie : un fichier SVG peut
+     * porter du script, et servi sous son vrai type depuis l'origine de
+     * l'API, ouvert directement, il l'exécuterait (audit du 17/10/2026).
+     * Les logos déjà déposés restent servis, sous une politique de
+     * contenu qui interdit tout script.
+     */
+    private static final Set<String> LOGO_MIMES = COMMON_IMAGE_MIMES;
+
+    /**
+     * Les premiers octets qu'un fichier de ce type porte réellement.
+     *
+     * <p>Le type annoncé par le client n'est qu'une chaîne : n'importe
+     * quel binaire passait en se disant document. Un type sans signature
+     * connue ici n'est vérifié que par la liste des types autorisés.</p>
+     */
+    private static final Map<String, java.util.List<byte[]>> SIGNATURES = Map.of(
+            "application/pdf", java.util.List.of("%PDF".getBytes(java.nio.charset.StandardCharsets.US_ASCII)),
+            "image/png", java.util.List.of(new byte[] {
+                    (byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A }),
+            "image/jpeg", java.util.List.of(new byte[] { (byte) 0xFF, (byte) 0xD8, (byte) 0xFF }),
+            "image/jpg", java.util.List.of(new byte[] { (byte) 0xFF, (byte) 0xD8, (byte) 0xFF }),
+            "image/webp", java.util.List.of("RIFF".getBytes(java.nio.charset.StandardCharsets.US_ASCII)),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            java.util.List.of(new byte[] { 'P', 'K', 0x03, 0x04 })
     );
 
     public static final Map<String, TypeRule> RULES = Map.of(
@@ -59,6 +82,35 @@ public final class FileUploadLimits {
                     "text/csv"
             ))
     );
+
+    /**
+     * Lève {@link BusinessException} si le type est inconnu, si la taille
+     * ou le mime ne respectent pas la règle, ou si le contenu ne commence
+     * pas par ce qu'un fichier du type annoncé commence toujours.
+     */
+    public static void enforce(String type, byte[] content, String mimeType) {
+        enforce(type, content != null ? content.length : 0, mimeType);
+        if (!matchesSignature(mimeType, content)) {
+            throw new BusinessException(Messages.msg("m.shr-file-signature-mismatch", mimeType));
+        }
+    }
+
+    /** Vrai si le contenu commence comme un fichier de ce type, ou si le type n'a pas de signature connue. */
+    static boolean matchesSignature(String mimeType, byte[] content) {
+        java.util.List<byte[]> expected = mimeType == null ? null : SIGNATURES.get(mimeType.toLowerCase());
+        if (expected == null) return true;
+        if (content == null) return false;
+        for (byte[] magic : expected) {
+            if (content.length >= magic.length
+                    && java.util.Arrays.equals(content, 0, magic.length, magic, 0, magic.length)) {
+                if (!"image/webp".equalsIgnoreCase(mimeType)) return true;
+                // RIFF n'est qu'un conteneur : WEBP se lit à l'octet 8.
+                return content.length >= 12 && content[8] == 'W' && content[9] == 'E'
+                        && content[10] == 'B' && content[11] == 'P';
+            }
+        }
+        return false;
+    }
 
     /**
      * Lève {@link BusinessException} si le type est inconnu, ou si la taille

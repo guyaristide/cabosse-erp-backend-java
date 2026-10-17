@@ -59,6 +59,7 @@ public class CollectorAdvanceResource {
     @Inject DelegateAccountService accountService;
 
     @GET
+    @RequiresPermission(Permission.COLLECTION_READ)
     public Response list(@QueryParam("status") String status,
                          @QueryParam("page") @DefaultValue("0") int page,
                          @QueryParam("perPage") @DefaultValue("20") int perPage,
@@ -78,6 +79,7 @@ public class CollectorAdvanceResource {
      */
     @GET
     @Path("/counts")
+    @RequiresPermission(Permission.COLLECTION_READ)
     public Response counts() {
         return Response.ok(ApiResponse.ok(service.countByStatus())).build();
     }
@@ -85,6 +87,7 @@ public class CollectorAdvanceResource {
     /** Export de la liste, mêmes filtres qu'à l'écran. */
     @GET
     @Path("/export")
+    @RequiresPermission(Permission.COLLECTION_READ)
     @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/pdf" })
     public Response export(@QueryParam("status") String status,
                            @QueryParam("format") String formatRaw) {
@@ -99,6 +102,7 @@ public class CollectorAdvanceResource {
 
     @GET
     @Path("/{id}")
+    @RequiresPermission(Permission.COLLECTION_READ)
     public Response getById(@PathParam("id") UUID id) {
         return Response.ok(ApiResponse.ok(service.getById(id))).build();
     }
@@ -311,6 +315,7 @@ public class CollectorAdvanceResource {
      */
     @GET
     @Path("/delegates/{supplierId}/terms")
+    @RequiresPermission(Permission.COLLECTION_READ)
     public Response delegateTerms(@PathParam("supplierId") UUID supplierId,
                                   @QueryParam("campaignId") UUID campaignId,
                                   @QueryParam("volumeKg") java.math.BigDecimal volumeKg,
@@ -321,6 +326,7 @@ public class CollectorAdvanceResource {
 
     @GET
     @Path("/delegates/{supplierId}")
+    @RequiresPermission(Permission.COLLECTION_READ)
     public Response delegateAccount(@PathParam("supplierId") UUID supplierId,
                                     @QueryParam("campaignId") UUID campaignId) {
         return Response.ok(ApiResponse.ok(accountService.account(supplierId, campaignId))).build();
@@ -335,12 +341,14 @@ public class CollectorAdvanceResource {
      */
     @GET
     @Path("/delegates/statement")
+    @RequiresPermission(Permission.COLLECTION_READ)
     public Response delegateStatement(@QueryParam("campaignId") java.util.List<UUID> campaignIds) {
         return Response.ok(ApiResponse.ok(accountService.statement(campaignIds))).build();
     }
 
     @GET
     @Path("/delegates/statement/export")
+    @RequiresPermission(Permission.COLLECTION_READ)
     @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/pdf" })
     public Response delegateStatementExport(@QueryParam("campaignId") java.util.List<UUID> campaignIds,
                                             @QueryParam("format") String formatRaw) {
@@ -355,6 +363,7 @@ public class CollectorAdvanceResource {
     /** Suivi détaillé d'un délégué, opération par opération. */
     @GET
     @Path("/delegates/{supplierId}/ledger")
+    @RequiresPermission(Permission.COLLECTION_READ)
     public Response delegateLedger(@PathParam("supplierId") UUID supplierId,
                                    @QueryParam("campaignId") UUID campaignId) {
         return Response.ok(ApiResponse.ok(accountService.ledger(supplierId, campaignId))).build();
@@ -362,6 +371,7 @@ public class CollectorAdvanceResource {
 
     @GET
     @Path("/delegates/{supplierId}/ledger/export")
+    @RequiresPermission(Permission.COLLECTION_READ)
     @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/pdf" })
     public Response delegateLedgerExport(@PathParam("supplierId") UUID supplierId,
                                          @QueryParam("campaignId") UUID campaignId,
@@ -382,6 +392,7 @@ public class CollectorAdvanceResource {
      */
     @GET
     @Path("/delegates/ledger/export")
+    @RequiresPermission(Permission.COLLECTION_READ)
     @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             "application/pdf" })
     public Response delegateLedgerAllExport(@QueryParam("campaignId") UUID campaignId,
@@ -406,6 +417,7 @@ public class CollectorAdvanceResource {
     @POST
     @Path("/{id}/attachments")
     @Consumes(MediaType.MULTIPART_FORM_DATA)
+    @RequiresPermission(Permission.COLLECTION_ADVANCE_REQUEST)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response addAttachment(@PathParam("id") UUID id,
                                   @RestForm("file") FileUpload file,
@@ -417,6 +429,7 @@ public class CollectorAdvanceResource {
 
     @GET
     @Path("/{id}/attachments/{fileId}")
+    @RequiresPermission(Permission.COLLECTION_READ)
     @Produces({ "application/pdf", "image/png", "image/jpeg", "application/octet-stream" })
     public Response getAttachment(@PathParam("id") UUID id, @PathParam("fileId") UUID fileId) {
         return AttachmentEndpoints.download(service.openAttachment(id, fileId));
@@ -424,6 +437,7 @@ public class CollectorAdvanceResource {
 
     @DELETE
     @Path("/{id}/attachments/{fileId}")
+    @RequiresPermission(Permission.COLLECTION_ADVANCE_REQUEST)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response removeAttachment(@PathParam("id") UUID id, @PathParam("fileId") UUID fileId) {
         return Response.ok(ApiResponse.ok(service.detach(id, fileId))).build();

@@ -111,7 +111,7 @@ public class DelegateOpeningBalanceResource {
     @RequiresPermission(Permission.COLLECTION_ADVANCE_APPROVE)
     @Operation(summary = "Ce qu'un fichier de soldes produirait")
     public Response importPreview(@QueryParam("campaignId") UUID campaignId,
-                                  List<DelegateOpeningBalanceImportRowDto> rows) {
+                                  @jakarta.validation.constraints.Size(max = 10000) List<DelegateOpeningBalanceImportRowDto> rows) {
         return Response.ok(ApiResponse.ok(importService.preview(campaignId, rows))).build();
     }
 
@@ -120,7 +120,7 @@ public class DelegateOpeningBalanceResource {
     @RequiresPermission(Permission.COLLECTION_ADVANCE_APPROVE)
     @Operation(summary = "Applique un fichier de soldes de début de campagne")
     public Response importCommit(@QueryParam("campaignId") UUID campaignId,
-                                 List<DelegateOpeningBalanceImportRowDto> rows) {
+                                 @jakarta.validation.constraints.Size(max = 10000) List<DelegateOpeningBalanceImportRowDto> rows) {
         return Response.ok(ApiResponse.ok(importService.commit(campaignId, rows))).build();
     }
 

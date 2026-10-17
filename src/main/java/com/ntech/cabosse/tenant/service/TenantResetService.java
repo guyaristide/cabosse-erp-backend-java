@@ -7,6 +7,7 @@ import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.migration.TenantMigrationRunner;
+import com.ntech.cabosse.shared.persistence.ControlPlane;
 import com.ntech.cabosse.site.entity.SiteEntity;
 import com.ntech.cabosse.site.entity.SiteType;
 import com.ntech.cabosse.tenant.entity.TenantEntity;
@@ -91,6 +92,12 @@ public class TenantResetService {
         TenantEntity tenant = tenants.findById(tenantId);
         if (tenant == null) {
             throw new NotFoundException(Messages.msg("m.tnt-not-found", tenantId));
+        }
+        // Le tenant technique de la plateforme pointe sur la base du plan
+        // de contrôle : la supprimer emporterait toutes les structures, tous
+        // les comptes et tous les jetons. Aucune confirmation ne vaut cela.
+        if (ControlPlane.DATABASE.equals(tenant.databaseName)) {
+            throw new BusinessException(Messages.msg("m.tnt-reset-platform-tenant"));
         }
         // Recopier le nom est le seul geste qui distingue une remise à
         // plat voulue d'un clic malheureux. La comparaison ignore la casse

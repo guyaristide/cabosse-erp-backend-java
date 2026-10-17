@@ -1,6 +1,9 @@
 package com.ntech.cabosse.tenant;
 
 import com.mongodb.client.MongoDatabase;
+import com.ntech.cabosse.shared.exception.BusinessException;
+import com.ntech.cabosse.shared.migration.TenantMigrationRunner;
+import com.ntech.cabosse.shared.persistence.ControlPlane;
 import com.ntech.cabosse.tenant.entity.TenantEntity;
 import com.ntech.cabosse.tenant.service.TenantDataCategory;
 import com.ntech.cabosse.tenant.service.TenantResetService;
@@ -37,6 +40,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class TenantResetTest extends AbstractIntegrationTest {
 
     @Inject TenantResetService resetService;
+    @Inject TenantMigrationRunner migrationRunner;
 
     private TenantEntity tenant;
     private MongoDatabase db;
@@ -111,6 +115,35 @@ class TenantResetTest extends AbstractIntegrationTest {
         assertThat(db.getCollection("sites").countDocuments()).isEqualTo(1);
         // Le plan comptable est reconstruit par les migrations.
         assertThat(db.getCollection("chart_of_accounts").countDocuments()).isPositive();
+    }
+
+    @Test
+    void the_platform_tenant_cannot_be_reset_even_with_the_right_name() {
+        // Le tenant technique déclare la base du plan de contrôle comme la
+        // sienne. La remise à plat y verrait une base de structure à
+        // supprimer : toutes les structures et tous les comptes avec elle.
+        TenantEntity platform = fixtures.createActiveTenant(
+                "platform-" + TestFixtures.randomSlugSuffix(), "Platform");
+        platform.databaseName = ControlPlane.DATABASE;
+        tenants.update(platform);
+        long tenantsBefore = mongoClient.getDatabase(ControlPlane.DATABASE)
+                .getCollection("tenants").countDocuments();
+
+        assertThatThrownBy(() -> resetService.resetToInitialState(platform.id, "Platform", Set.of()))
+                .isInstanceOf(BusinessException.class);
+
+        assertThat(mongoClient.getDatabase(ControlPlane.DATABASE)
+                .getCollection("tenants").countDocuments()).isEqualTo(tenantsBefore);
+    }
+
+    @Test
+    void the_control_plane_is_never_migrated_as_a_tenant() {
+        // Les migrations de structure créent des collections homonymes de
+        // celles du plan de contrôle. Le passeur commun les refuse.
+        migrationRunner.runMigrationsFor(ControlPlane.DATABASE);
+
+        assertThat(mongoClient.getDatabase(ControlPlane.DATABASE).listCollectionNames()
+                .into(new java.util.ArrayList<>())).doesNotContain("mongockChangeLog");
     }
 
     /** Une nomenclature saisie par la structure, reconnaissable après coup. */

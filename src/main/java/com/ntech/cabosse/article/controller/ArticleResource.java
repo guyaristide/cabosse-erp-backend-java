@@ -197,7 +197,7 @@ public class ArticleResource {
     @RequiresPermission(Permission.REF_ARTICLE_WRITE)
     @Path("/import/preview")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
-    public Response importPreview(java.util.List<ArticleImportRowDto> rows) {
+    public Response importPreview(@jakarta.validation.constraints.Size(max = 10000) java.util.List<ArticleImportRowDto> rows) {
         ArticleImportPreviewDto preview = importService.preview(rows);
         return Response.ok(ApiResponse.ok(preview)).build();
     }
@@ -206,7 +206,7 @@ public class ArticleResource {
     @RequiresPermission(Permission.REF_ARTICLE_WRITE)
     @Path("/import/commit")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
-    public Response importCommit(java.util.List<ArticleImportRowDto> rows) {
+    public Response importCommit(@jakarta.validation.constraints.Size(max = 10000) java.util.List<ArticleImportRowDto> rows) {
         ArticleImportCommitResponseDto result = importService.commit(rows);
         return Response.ok(ApiResponse.ok(result)).build();
     }

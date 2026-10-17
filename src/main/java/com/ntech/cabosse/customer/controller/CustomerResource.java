@@ -136,7 +136,7 @@ public class CustomerResource {
     @RequiresPermission(Permission.REF_CUSTOMER_WRITE)
     @Path("/import/preview")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
-    public Response importPreview(java.util.List<CustomerImportRowDto> rows) {
+    public Response importPreview(@jakarta.validation.constraints.Size(max = 10000) java.util.List<CustomerImportRowDto> rows) {
         CustomerImportPreviewDto preview = importService.preview(rows);
         return Response.ok(ApiResponse.ok(preview)).build();
     }
@@ -145,7 +145,7 @@ public class CustomerResource {
     @RequiresPermission(Permission.REF_CUSTOMER_WRITE)
     @Path("/import/commit")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
-    public Response importCommit(java.util.List<CustomerImportRowDto> rows) {
+    public Response importCommit(@jakarta.validation.constraints.Size(max = 10000) java.util.List<CustomerImportRowDto> rows) {
         CustomerImportCommitResponseDto result = importService.commit(rows);
         return Response.ok(ApiResponse.ok(result)).build();
     }

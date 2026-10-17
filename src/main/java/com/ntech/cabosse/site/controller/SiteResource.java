@@ -119,7 +119,7 @@ public class SiteResource {
     @RequiresPermission(Permission.REF_SITE_WRITE)
     @Path("/import/preview")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
-    public Response importPreview(java.util.List<SiteImportRowDto> rows) {
+    public Response importPreview(@jakarta.validation.constraints.Size(max = 10000) java.util.List<SiteImportRowDto> rows) {
         SiteImportPreviewDto preview = importService.preview(rows);
         return Response.ok(ApiResponse.ok(preview)).build();
     }
@@ -128,7 +128,7 @@ public class SiteResource {
     @RequiresPermission(Permission.REF_SITE_WRITE)
     @Path("/import/commit")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
-    public Response importCommit(java.util.List<SiteImportRowDto> rows) {
+    public Response importCommit(@jakarta.validation.constraints.Size(max = 10000) java.util.List<SiteImportRowDto> rows) {
         SiteImportCommitResponseDto result = importService.commit(rows);
         return Response.ok(ApiResponse.ok(result)).build();
     }

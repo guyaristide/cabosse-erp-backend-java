@@ -116,7 +116,7 @@ public class ParcelResource {
     @RequiresPermission(Permission.PARCEL_WRITE)
     @Path("/import/preview")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
-    public Response importPreview(java.util.List<ParcelImportRowDto> rows) {
+    public Response importPreview(@jakarta.validation.constraints.Size(max = 10000) java.util.List<ParcelImportRowDto> rows) {
         ensureCapability();
         return Response.ok(ApiResponse.ok(importService.preview(rows))).build();
     }
@@ -130,7 +130,7 @@ public class ParcelResource {
     @RequiresPermission(Permission.PARCEL_WRITE)
     @Path("/import/commit")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
-    public Response importCommit(java.util.List<ParcelImportRowDto> rows,
+    public Response importCommit(@jakarta.validation.constraints.Size(max = 10000) java.util.List<ParcelImportRowDto> rows,
                                  @QueryParam("campaignId") UUID campaignId,
                                  @QueryParam("includeWarnings") boolean includeWarnings) {
         ensureCapability();

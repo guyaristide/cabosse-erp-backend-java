@@ -101,7 +101,7 @@ public class ExpenseTypeResource {
     @RequiresPermission(Permission.REF_EXPENSE_TYPE_WRITE)
     @Path("/import/preview")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
-    public Response importPreview(java.util.List<ExpenseTypeImportRowDto> rows) {
+    public Response importPreview(@jakarta.validation.constraints.Size(max = 10000) java.util.List<ExpenseTypeImportRowDto> rows) {
         ExpenseTypeImportPreviewDto preview = importService.preview(rows);
         return Response.ok(ApiResponse.ok(preview)).build();
     }
@@ -110,7 +110,7 @@ public class ExpenseTypeResource {
     @RequiresPermission(Permission.REF_EXPENSE_TYPE_WRITE)
     @Path("/import/commit")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
-    public Response importCommit(java.util.List<ExpenseTypeImportRowDto> rows) {
+    public Response importCommit(@jakarta.validation.constraints.Size(max = 10000) java.util.List<ExpenseTypeImportRowDto> rows) {
         ExpenseTypeImportCommitResponseDto result = importService.commit(rows);
         return Response.ok(ApiResponse.ok(result)).build();
     }

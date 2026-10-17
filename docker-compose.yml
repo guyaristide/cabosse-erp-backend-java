@@ -50,6 +50,12 @@ services:
       JWT_PRIVATE_KEY_LOCATION: file:/secrets/jwt-private.pem
       JWT_ISSUER: ${JWT_ISSUER}
 
+      # Secrets de plateforme, exigés au démarrage. Ils ne figuraient que
+      # dans la documentation : un déploiement conforme à ce fichier ne
+      # démarrait pas, ou démarrait avec une clé posée hors procédure.
+      PLATFORM_SETTINGS_ENCRYPTION_KEY: ${PLATFORM_SETTINGS_ENCRYPTION_KEY}
+      PLATFORM_RESTORE_SECRET: ${PLATFORM_RESTORE_SECRET}
+
       # Stockage fichiers — par défaut local (montage volume).
       # Bascule à `s3` quand prêt et renseigne les S3_* ci-dessous.
       FILE_STORAGE_BACKEND: ${FILE_STORAGE_BACKEND:-local}

@@ -44,6 +44,7 @@ public class ProducerPaymentResource {
     @Inject ProducerPaymentService service;
 
     @GET
+    @RequiresPermission({ Permission.COLLECTION_READ, Permission.COLLECTION_PAYMENT_WRITE })
     public Response list(@QueryParam("from") String from,
                          @QueryParam("to") String to,
                          @QueryParam("memberId") UUID memberId,
@@ -58,6 +59,7 @@ public class ProducerPaymentResource {
     /** Export de la liste, mêmes filtres qu'à l'écran. */
     @GET
     @Path("/export")
+    @RequiresPermission({ Permission.COLLECTION_READ, Permission.COLLECTION_PAYMENT_WRITE })
     @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/pdf" })
     public Response export(@QueryParam("from") String from,
                            @QueryParam("to") String to,
@@ -74,6 +76,7 @@ public class ProducerPaymentResource {
 
     @GET
     @Path("/outstanding")
+    @RequiresPermission({ Permission.COLLECTION_READ, Permission.COLLECTION_PAYMENT_WRITE })
     public Response outstanding(@QueryParam("memberId") UUID memberId,
                                 @QueryParam("delegateSupplierId") UUID delegateSupplierId,
                                 @QueryParam("supplierId") UUID supplierId) {
@@ -83,12 +86,14 @@ public class ProducerPaymentResource {
 
     @GET
     @Path("/by-purchase/{purchaseId}")
+    @RequiresPermission({ Permission.COLLECTION_READ, Permission.COLLECTION_PAYMENT_WRITE })
     public Response forPurchase(@PathParam("purchaseId") UUID purchaseId) {
         return Response.ok(ApiResponse.ok(service.forPurchase(purchaseId))).build();
     }
 
     @GET
     @Path("/{id}")
+    @RequiresPermission({ Permission.COLLECTION_READ, Permission.COLLECTION_PAYMENT_WRITE })
     public Response get(@PathParam("id") UUID id) {
         return Response.ok(ApiResponse.ok(service.getById(id))).build();
     }

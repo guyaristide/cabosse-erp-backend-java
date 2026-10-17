@@ -191,4 +191,40 @@ class MemberCapitalEntryTest extends AbstractIntegrationTest {
 
         journal(a).body("data.items.sourceType", hasItem("MEMBER_CAPITAL"));
     }
+
+    @Test
+    void une_adhesion_en_attente_ne_s_approuve_pas_par_la_fiche() {
+        UserEntity a = admin();
+
+        String id = givenAs(a).contentType("application/json")
+                .body("""
+                        { "lastName": "CONTOURNE", "firstName": "Aya", "gender": "FEMALE",
+                          "status": "PENDING", "partsSocialesAmount": 25000,
+                          "joinedAt": "%s" }
+                        """.formatted(LocalDate.now()))
+                .when().post("/api/v1/members").then().statusCode(201)
+                .extract().path("data.id");
+
+        // Modifier la fiche en y écrivant ACTIVE court-circuiterait
+        // l'approbation, fournisseur miroir et parts sociales compris.
+        givenAs(a).contentType("application/json")
+                .body("""
+                        { "lastName": "CONTOURNE", "firstName": "Aya", "gender": "FEMALE",
+                          "status": "ACTIVE", "partsSocialesAmount": 25000,
+                          "joinedAt": "%s" }
+                        """.formatted(LocalDate.now()))
+                .when().put("/api/v1/members/" + id)
+                .then().statusCode(422);
+        journal(a).body("data.items.sourceType", not(hasItem("MEMBER_CAPITAL")));
+
+        // Renvoyer le statut tel qu'il est lu reste une modification ordinaire.
+        givenAs(a).contentType("application/json")
+                .body("""
+                        { "lastName": "CONTOURNE", "firstName": "Aya Marie", "gender": "FEMALE",
+                          "status": "PENDING", "partsSocialesAmount": 25000,
+                          "joinedAt": "%s" }
+                        """.formatted(LocalDate.now()))
+                .when().put("/api/v1/members/" + id)
+                .then().statusCode(200).body("data.status", equalTo("PENDING"));
+    }
 }

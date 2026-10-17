@@ -77,7 +77,7 @@ public class OutflowNoteResource {
     @Path("/import/commit")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     @RequiresPermission({ Permission.STOCK_MOVE, Permission.COLLECTION_RECEIPT_WRITE })
-    public Response importCommit(List<OutflowNoteImportRowDto> rows,
+    public Response importCommit(@jakarta.validation.constraints.Size(max = 10000) List<OutflowNoteImportRowDto> rows,
                                  @QueryParam("siteId") UUID siteId) {
         ensureCapability();
         return Response.ok(ApiResponse.ok(service.importCommit(rows, siteId))).build();

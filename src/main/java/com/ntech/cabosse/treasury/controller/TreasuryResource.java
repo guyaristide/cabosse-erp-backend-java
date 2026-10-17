@@ -197,6 +197,7 @@ public class TreasuryResource {
 
     @GET
     @Path("/transfers")
+    @RequiresPermission({ Permission.ACCOUNTING_READ, Permission.TREASURY_WRITE })
     public Response listTransfers(@QueryParam("from") String from,
                                   @QueryParam("to") String to,
                                   @QueryParam("status") String status,
@@ -210,6 +211,7 @@ public class TreasuryResource {
 
     @GET
     @Path("/transfers/{id}")
+    @RequiresPermission({ Permission.ACCOUNTING_READ, Permission.TREASURY_WRITE })
     public Response getTransfer(@PathParam("id") UUID id) {
         return Response.ok(ApiResponse.ok(service.getTransfer(id))).build();
     }
@@ -245,6 +247,7 @@ public class TreasuryResource {
     /** Solde attendu d'un compte à une date, avec les mouvements. */
     @GET
     @Path("/cash-position")
+    @RequiresPermission({ Permission.ACCOUNTING_READ, Permission.TREASURY_WRITE })
     public Response position(@QueryParam("accountId") UUID accountId,
                              @QueryParam("from") String from,
                              @QueryParam("at") String at) {
@@ -263,6 +266,7 @@ public class TreasuryResource {
 
     @GET
     @Path("/cash-counts")
+    @RequiresPermission({ Permission.ACCOUNTING_READ, Permission.TREASURY_WRITE })
     public Response countHistory(@QueryParam("accountId") UUID accountId,
                                  @QueryParam("limit") @DefaultValue("20") int limit) {
         return Response.ok(ApiResponse.ok(service.countHistory(accountId, limit))).build();
@@ -272,6 +276,7 @@ public class TreasuryResource {
 
     @GET
     @Path("/reconciliation")
+    @RequiresPermission({ Permission.ACCOUNTING_READ, Permission.TREASURY_WRITE })
     public Response reconciliation(@QueryParam("from") String from,
                                    @QueryParam("to") String to) {
         return Response.ok(ApiResponse.ok(

@@ -67,6 +67,8 @@ public class MemberCreditResource {
     }
 
     @GET
+    @RequiresPermission({ Permission.MEMBER_READ, Permission.MEMBER_CREDIT_REQUEST,
+            Permission.MEMBER_CREDIT_APPROVE, Permission.MEMBER_CREDIT_DISBURSE })
     public Response list(@QueryParam("memberId") UUID memberId,
                          @QueryParam("status") String status,
                          @QueryParam("campaignId") UUID campaignId,
@@ -80,6 +82,8 @@ public class MemberCreditResource {
     /** Export de la liste, mêmes filtres qu'à l'écran. */
     @GET
     @Path("/export")
+    @RequiresPermission({ Permission.MEMBER_READ, Permission.MEMBER_CREDIT_REQUEST,
+            Permission.MEMBER_CREDIT_APPROVE, Permission.MEMBER_CREDIT_DISBURSE })
     @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/pdf" })
     public Response export(@QueryParam("memberId") UUID memberId,
                            @QueryParam("status") String status,
@@ -101,6 +105,8 @@ public class MemberCreditResource {
      */
     @GET
     @Path("/producers/statement")
+    @RequiresPermission({ Permission.MEMBER_READ, Permission.MEMBER_CREDIT_REQUEST,
+            Permission.MEMBER_CREDIT_APPROVE, Permission.MEMBER_CREDIT_DISBURSE })
     public Response producerStatement(@QueryParam("campaignId") java.util.List<UUID> campaignIds) {
         ensureCapability();
         return Response.ok(com.ntech.cabosse.shared.api.ApiResponse.ok(
@@ -109,6 +115,8 @@ public class MemberCreditResource {
 
     @GET
     @Path("/producers/statement/export")
+    @RequiresPermission({ Permission.MEMBER_READ, Permission.MEMBER_CREDIT_REQUEST,
+            Permission.MEMBER_CREDIT_APPROVE, Permission.MEMBER_CREDIT_DISBURSE })
     @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/pdf" })
     public Response producerStatementExport(@QueryParam("campaignId") java.util.List<UUID> campaignIds,
                                             @QueryParam("format") String formatRaw) {
@@ -124,6 +132,8 @@ public class MemberCreditResource {
 
     @GET
     @Path("/{id}")
+    @RequiresPermission({ Permission.MEMBER_READ, Permission.MEMBER_CREDIT_REQUEST,
+            Permission.MEMBER_CREDIT_APPROVE, Permission.MEMBER_CREDIT_DISBURSE })
     public Response getById(@PathParam("id") UUID id) {
         ensureCapability();
         return Response.ok(ApiResponse.ok(service.getById(id))).build();
@@ -132,6 +142,9 @@ public class MemberCreditResource {
     /** Ce qu'un producteur doit encore, à afficher avant de le payer. */
     @GET
     @Path("/members/{memberId}/debt")
+    @RequiresPermission({ Permission.MEMBER_READ, Permission.MEMBER_CREDIT_REQUEST,
+            Permission.MEMBER_CREDIT_APPROVE, Permission.MEMBER_CREDIT_DISBURSE,
+            Permission.COLLECTION_PAYMENT_WRITE })
     public Response debt(@PathParam("memberId") UUID memberId) {
         ensureCapability();
         return Response.ok(ApiResponse.ok(service.debtOf(memberId))).build();
@@ -215,6 +228,7 @@ public class MemberCreditResource {
     @POST
     @Path("/{id}/attachments")
     @Consumes(MediaType.MULTIPART_FORM_DATA)
+    @RequiresPermission(Permission.MEMBER_CREDIT_REQUEST)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response addAttachment(@PathParam("id") UUID id,
                                   @RestForm("file") FileUpload file,
@@ -226,6 +240,8 @@ public class MemberCreditResource {
 
     @GET
     @Path("/{id}/attachments/{fileId}")
+    @RequiresPermission({ Permission.MEMBER_READ, Permission.MEMBER_CREDIT_REQUEST,
+            Permission.MEMBER_CREDIT_APPROVE, Permission.MEMBER_CREDIT_DISBURSE })
     @Produces({ "application/pdf", "image/png", "image/jpeg", "application/octet-stream" })
     public Response getAttachment(@PathParam("id") UUID id, @PathParam("fileId") UUID fileId) {
         return AttachmentEndpoints.download(service.openAttachment(id, fileId));
@@ -233,6 +249,7 @@ public class MemberCreditResource {
 
     @DELETE
     @Path("/{id}/attachments/{fileId}")
+    @RequiresPermission(Permission.MEMBER_CREDIT_REQUEST)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response removeAttachment(@PathParam("id") UUID id, @PathParam("fileId") UUID fileId) {
         return Response.ok(ApiResponse.ok(service.detach(id, fileId))).build();

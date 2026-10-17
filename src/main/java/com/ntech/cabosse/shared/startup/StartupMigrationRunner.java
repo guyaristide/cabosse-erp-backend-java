@@ -46,6 +46,9 @@ public class StartupMigrationRunner {
      *   <li>{@code DELETED} : base droppée ; lancer Mongock la recréerait
      *       (lock + changelog), ressuscitant un tenant supprimé.</li>
      * </ul>
+     * <p>S'y ajoute le tenant technique de la plateforme, quel que soit son
+     * statut : sa base est le plan de contrôle, et le passeur de migrations
+     * la refuse aussi de son côté.</p>
      */
     private static final List<String> MIGRATABLE_STATUSES = List.of(
             TenantStatus.ACTIVE.name(),
@@ -69,6 +72,10 @@ public class StartupMigrationRunner {
         for (TenantEntity tenant : controlPlane
                 .collection(ControlPlane.Collections.TENANTS, TenantEntity.class)
                 .find(Filters.in("status", MIGRATABLE_STATUSES))) {
+            // Le tenant technique de la plateforme déclare la base du plan
+            // de contrôle comme la sienne : elle n'a rien d'une base de
+            // structure et ne se migre pas comme telle.
+            if (ControlPlane.DATABASE.equals(tenant.databaseName)) continue;
             try {
                 runner.runMigrationsFor(tenant.databaseName);
                 health.recordApplied();

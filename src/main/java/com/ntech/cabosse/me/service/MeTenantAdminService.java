@@ -45,6 +45,7 @@ public class MeTenantAdminService {
     @Inject JsonWebToken jwt;
     @Inject com.ntech.cabosse.site.repository.SiteRepository sites;
     @Inject PermissionResolver permissions;
+    @Inject com.ntech.cabosse.auth.service.RefreshTokenService refreshTokens;
 
     private String currentActor() {
         try { return jwt.getName(); } catch (Exception e) { return null; }
@@ -127,6 +128,10 @@ public class MeTenantAdminService {
         target.status = active ? UserStatus.ACTIVE : UserStatus.DISABLED;
         target.updatedAt = Instant.now();
         users.update(target);
+        // Désactiver coupe les sessions : les droits sont relus à chaque
+        // appel et tombent avec le statut, et les jetons de
+        // rafraîchissement sont révoqués pour que rien ne revienne.
+        if (!active) refreshTokens.revokeAllForUser(target.id, "user_disabled");
 
         TenantEntity tenant = tenants.findById(tenantId);
         AuditEventType evt = active ? AuditEventType.USER_REACTIVATED : AuditEventType.USER_DISABLED;

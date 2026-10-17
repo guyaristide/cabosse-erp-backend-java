@@ -448,6 +448,12 @@ public class TenantsResource {
                 .type(stream.mimeType())
                 .header("Content-Length", stream.sizeBytes())
                 .header("Cache-Control", "private, max-age=300")
+                // Un logo vectoriel déposé avant le 17/10/2026 peut porter
+                // du script : ouvert directement, il s'exécuterait sur
+                // l'origine de l'API. La politique ci-dessous ne lui
+                // laisse que ses styles, et ne gêne pas une balise <img>.
+                .header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'")
+                .header("Content-Disposition", "inline; filename=\"logo\"")
                 .build();
     }
 

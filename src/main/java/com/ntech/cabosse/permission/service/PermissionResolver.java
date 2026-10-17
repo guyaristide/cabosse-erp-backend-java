@@ -10,6 +10,7 @@ import com.ntech.cabosse.tenant.capability.TenantCapabilityService;
 import com.ntech.cabosse.user.entity.PermissionExceptionMode;
 import com.ntech.cabosse.user.entity.UserEntity;
 import com.ntech.cabosse.user.entity.UserPermissionException;
+import com.ntech.cabosse.user.entity.UserStatus;
 import com.ntech.cabosse.user.repository.UserRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -60,6 +61,10 @@ public class PermissionResolver {
     }
 
     public Set<Permission> of(UserEntity user, UUID tenantId) {
+        // Les droits sont relus à chaque appel pour qu'un retrait prenne
+        // effet tout de suite ; la désactivation du compte doit en faire
+        // autant, sans attendre l'expiration du jeton d'accès.
+        if (user.status != UserStatus.ACTIVE) return EnumSet.noneOf(Permission.class);
         Set<TenantCapability> caps = capabilities.capabilitiesOf(tenantId);
         Set<Permission> granted = EnumSet.noneOf(Permission.class);
 

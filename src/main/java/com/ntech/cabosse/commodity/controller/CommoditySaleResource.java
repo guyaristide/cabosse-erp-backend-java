@@ -153,7 +153,7 @@ public class CommoditySaleResource {
     @RequiresPermission(Permission.SALE_WRITE)
     @Path("/import/preview")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
-    public Response importPreview(java.util.List<CommoditySaleImportRowDto> rows) {
+    public Response importPreview(@jakarta.validation.constraints.Size(max = 10000) java.util.List<CommoditySaleImportRowDto> rows) {
         ensureCapability();
         return Response.ok(ApiResponse.ok(importService.preview(rows))).build();
     }
@@ -162,7 +162,7 @@ public class CommoditySaleResource {
     @RequiresPermission(Permission.SALE_WRITE)
     @Path("/import/commit")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
-    public Response importCommit(java.util.List<CommoditySaleImportRowDto> rows) {
+    public Response importCommit(@jakarta.validation.constraints.Size(max = 10000) java.util.List<CommoditySaleImportRowDto> rows) {
         ensureCapability();
         return Response.ok(ApiResponse.ok(importService.commit(rows))).build();
     }

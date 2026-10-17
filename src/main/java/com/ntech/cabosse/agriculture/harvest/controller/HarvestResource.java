@@ -93,7 +93,7 @@ public class HarvestResource {
     @RequiresPermission(Permission.HARVEST_WRITE)
     @Path("/import/preview")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
-    public Response importPreview(java.util.List<HarvestImportRowDto> rows,
+    public Response importPreview(@jakarta.validation.constraints.Size(max = 10000) java.util.List<HarvestImportRowDto> rows,
                                   @QueryParam("campaignId") UUID campaignId) {
         ensureCapability();
         return Response.ok(ApiResponse.ok(importService.preview(rows, campaignId))).build();
@@ -107,7 +107,7 @@ public class HarvestResource {
     @RequiresPermission(Permission.HARVEST_WRITE)
     @Path("/import/commit")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
-    public Response importCommit(java.util.List<HarvestImportRowDto> rows,
+    public Response importCommit(@jakarta.validation.constraints.Size(max = 10000) java.util.List<HarvestImportRowDto> rows,
                                  @QueryParam("campaignId") UUID campaignId,
                                  @QueryParam("includeWarnings") boolean includeWarnings) {
         ensureCapability();

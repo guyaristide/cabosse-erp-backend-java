@@ -306,7 +306,7 @@ public class ProducerPurchaseResource {
     // l'appliquer, sans quoi l'aperçu devient la porte dérobée.
     @RequiresPermission(Permission.COLLECTION_RECEIPT_WRITE)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
-    public Response importPreview(java.util.List<ProducerPurchaseImportRowDto> rows) {
+    public Response importPreview(@jakarta.validation.constraints.Size(max = 10000) java.util.List<ProducerPurchaseImportRowDto> rows) {
         ensureCapability();
         return Response.ok(ApiResponse.ok(importService.preview(rows))).build();
     }
@@ -315,7 +315,7 @@ public class ProducerPurchaseResource {
     @Path("/import/commit")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     @RequiresPermission(Permission.COLLECTION_RECEIPT_WRITE)
-    public Response importCommit(java.util.List<ProducerPurchaseImportRowDto> rows,
+    public Response importCommit(@jakarta.validation.constraints.Size(max = 10000) java.util.List<ProducerPurchaseImportRowDto> rows,
                                  @QueryParam("includeWarnings") @DefaultValue("false")
                                  boolean includeWarnings) {
         ensureCapability();

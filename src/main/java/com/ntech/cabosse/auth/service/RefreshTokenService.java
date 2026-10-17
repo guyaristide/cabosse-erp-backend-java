@@ -129,6 +129,16 @@ public class RefreshTokenService {
         repo.revokeByHash(hash(presentedSecret), Instant.now(), reason);
     }
 
+    /**
+     * Coupe toutes les sessions d'un compte, sur tous ses appareils.
+     * C'est le geste qui accompagne une désactivation : sans lui, le
+     * compte désactivé se rafraîchirait encore pendant trente jours.
+     */
+    public void revokeAllForUser(UUID userId, String reason) {
+        long n = repo.revokeAllForUser(userId, Instant.now(), reason);
+        if (n > 0) log.infof("Revoked %d refresh token(s) of user %s (%s)", n, userId, reason);
+    }
+
     // ─── Internals ───
 
     private IssuedRefreshToken persistNew(UUID userId, UUID tenantId, UUID familyId,

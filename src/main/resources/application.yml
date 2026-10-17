@@ -13,6 +13,13 @@ quarkus:
   application:
     name: cabosse-erp
 
+  security:
+    jaxrs:
+      # Un endpoint sans annotation de sécurité est refusé, pas servi à
+      # l'anonyme. Le parc est entièrement annoté : ce réglage ne change
+      # rien aujourd'hui, il garantit que le prochain oubli se voit.
+      deny-unannotated-endpoints: true
+
   # Catalogue de messages FR/EN : la langue d'une réponse suit l'en-tête
   # Accept-Language envoyé par le front (français par défaut). Vaut pour
   # les messages de validation Jakarta et pour le résolveur Messages.

@@ -330,7 +330,7 @@ class ExpenseApprovalTest extends AbstractIntegrationTest {
         // La charge attend le conseil : l'accord du premier échelon ne
         // vaut pas le sien.
         givenAs(a).contentType("application/json")
-                .when().post("/api/v1/direct-expenses/" + id + "/approve?governance=true")
+                .when().post("/api/v1/direct-expenses/" + id + "/approve-governance")
                 .then().statusCode(200)
                 .body("data.pieceRef", org.hamcrest.Matchers.notNullValue());
     }

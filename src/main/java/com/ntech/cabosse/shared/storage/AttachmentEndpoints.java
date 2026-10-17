@@ -42,7 +42,7 @@ public final class AttachmentEndpoints {
                 .type(s.mimeType() != null ? s.mimeType() : MediaType.APPLICATION_OCTET_STREAM)
                 .header("Content-Length", s.sizeBytes())
                 .header("Content-Disposition",
-                        "inline; filename=\"" + (s.fileName() != null ? s.fileName() : "piece") + "\"")
+                        com.ntech.cabosse.shared.storage.ContentDispositions.inline(s.fileName(), "piece"))
                 .header("Cache-Control", "private, max-age=300")
                 .build();
     }

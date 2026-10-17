@@ -56,7 +56,7 @@ public class FileUploadService {
     public CloudFileEntity upload(CloudFileScope scope,
                                   byte[] content, String mimeType, String originalFileName,
                                   String type, UUID ownerEntityId, String ownerEntityType) {
-        FileUploadLimits.enforce(type, content != null ? content.length : 0, mimeType);
+        FileUploadLimits.enforce(type, content, mimeType);
 
         UUID fileId = idGenerator.newId();
         String ext = MIME_TO_EXT.getOrDefault(mimeType.toLowerCase(Locale.ROOT), "bin");

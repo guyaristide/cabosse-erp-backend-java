@@ -257,6 +257,13 @@ public class MemberService {
         if (payload.status() == MemberStatus.RETIRED && e.status != MemberStatus.RETIRED) {
             throw new BusinessException(Messages.msg("m.mbr-retire-via-dedicated-action"));
         }
+        // Le statut ne se change jamais par la fiche. Une adhésion en
+        // attente se tranche par approuver ou refuser : la passer à ACTIVE
+        // ici contournerait le circuit, fournisseur miroir et parts
+        // sociales compris. Le formulaire renvoie toujours le statut lu.
+        if (payload.status() != null && payload.status() != e.status) {
+            throw new BusinessException(Messages.msg("m.mbr-status-via-dedicated-action"));
+        }
         String previousPaymentDetails = paymentDetails(e);
         applyPayload(e, payload);
         auditPaymentDetailsChange(e, previousPaymentDetails);

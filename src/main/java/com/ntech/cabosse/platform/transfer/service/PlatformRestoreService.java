@@ -81,6 +81,10 @@ public class PlatformRestoreService {
                 // ancienne peut le nommer aussi comme structure, et le
                 // supprimer ici effacerait ce qu'on s'apprête à rétablir.
                 if (ControlPlane.DATABASE.equals(slice.databaseName())) continue;
+                // Le nom vient du manifeste de l'archive : sans cette
+                // vérification, un fichier commandait la suppression de
+                // n'importe quelle base du serveur.
+                refuseIfNotATenantDatabase(slice.databaseName());
                 MongoDatabase target = mongoClient.getDatabase(slice.databaseName());
                 target.drop();
                 for (ZipEntry entry : entriesUnder(zip,
@@ -274,9 +278,29 @@ public class PlatformRestoreService {
         return out;
     }
 
+    /** Une base de structure : un préfixe, puis l'identifiant sans tirets. */
+    private static final java.util.regex.Pattern TENANT_DATABASE =
+            java.util.regex.Pattern.compile("[A-Za-z][A-Za-z0-9_]{0,30}[0-9a-f]{32}");
+
+    /** Un nom de collection ordinaire : ni espace de noms système, ni chemin. */
+    private static final java.util.regex.Pattern COLLECTION_NAME =
+            java.util.regex.Pattern.compile("[A-Za-z][A-Za-z0-9_]{0,119}");
+
+    private static void refuseIfNotATenantDatabase(String databaseName) {
+        if (databaseName == null
+                || !TENANT_DATABASE.matcher(databaseName).matches()
+                || java.util.Set.of("admin", "local", "config", ControlPlane.DATABASE).contains(databaseName)) {
+            throw new ValidationException(Messages.msg("m.plt-archive-bad-database", databaseName));
+        }
+    }
+
     private String collectionNameOf(ZipEntry entry, String prefix) {
         String name = entry.getName().substring(prefix.length());
-        return name.endsWith(".jsonl") ? name.substring(0, name.length() - 6) : name;
+        String collection = name.endsWith(".jsonl") ? name.substring(0, name.length() - 6) : name;
+        if (!COLLECTION_NAME.matcher(collection).matches()) {
+            throw new ValidationException(Messages.msg("m.plt-archive-bad-collection", collection));
+        }
+        return collection;
     }
 
     private String actor() {

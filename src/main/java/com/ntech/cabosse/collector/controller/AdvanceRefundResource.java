@@ -10,6 +10,7 @@ import com.ntech.cabosse.permission.service.RequiresPermission;
 import com.ntech.cabosse.shared.api.ApiResponse;
 import com.ntech.cabosse.shared.api.PageRequest;
 import com.ntech.cabosse.shared.idempotency.RequiresIdempotencyKey;
+import io.quarkus.security.Authenticated;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DefaultValue;
@@ -34,6 +35,7 @@ import java.util.UUID;
 @Path("/api/v1/advance-refunds")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
+@Authenticated
 @RequiresPermission(Permission.COLLECTION_READ)
 public class AdvanceRefundResource {
 

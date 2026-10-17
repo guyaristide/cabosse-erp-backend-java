@@ -43,6 +43,25 @@ public class RefreshTokenRepository implements PanacheMongoRepositoryBase<Refres
     }
 
     /**
+     * Révoque tous les tokens encore vivants d'un compte, toutes familles
+     * confondues : c'est ce qui fait qu'une désactivation coupe les
+     * sessions au lieu d'attendre leur expiration.
+     */
+    public long revokeAllForUser(UUID userId, Instant revokedAt, String reason) {
+        UpdateResult result = mongoCollection().updateMany(
+                Filters.and(
+                        Filters.eq("userId", userId),
+                        Filters.eq("revokedAt", null)
+                ),
+                Updates.combine(
+                        Updates.set("revokedAt", revokedAt),
+                        Updates.set("revokedReason", reason)
+                )
+        );
+        return result.getModifiedCount();
+    }
+
+    /**
      * Révocation atomique d'un token par hash, seulement s'il n'est pas
      * déjà révoqué. Mono-document et conditionnelle : deux appels
      * concurrents (double logout, logout pendant un refresh) se

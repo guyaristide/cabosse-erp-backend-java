@@ -175,7 +175,7 @@ public class SupplierResource {
     @RequiresPermission(Permission.REF_SUPPLIER_WRITE)
     @Path("/import/preview")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
-    public Response importPreview(java.util.List<SupplierImportRowDto> rows) {
+    public Response importPreview(@jakarta.validation.constraints.Size(max = 10000) java.util.List<SupplierImportRowDto> rows) {
         SupplierImportPreviewDto preview = importService.preview(rows);
         return Response.ok(ApiResponse.ok(preview)).build();
     }
@@ -184,7 +184,7 @@ public class SupplierResource {
     @RequiresPermission(Permission.REF_SUPPLIER_WRITE)
     @Path("/import/commit")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
-    public Response importCommit(java.util.List<SupplierImportRowDto> rows) {
+    public Response importCommit(@jakarta.validation.constraints.Size(max = 10000) java.util.List<SupplierImportRowDto> rows) {
         SupplierImportCommitResponseDto result = importService.commit(rows);
         return Response.ok(ApiResponse.ok(result)).build();
     }

@@ -87,9 +87,14 @@ public class BankStatementImportService {
         int inserted = 0;
         int skipped = 0;
         List<BankStatementLineEntity> toInsert = new ArrayList<>();
+        // Une seule requête pour les doublons : à une par ligne, un extrait
+        // de quelques mois faisait des milliers d'aller-retours.
+        java.util.Set<String> known = lines.existingHashes(bankAccountId,
+                parsed.stream().map(p -> hash(bankAccountId, p))
+                        .collect(java.util.stream.Collectors.toSet()));
         for (ParsedLine p : parsed) {
             String hash = hash(bankAccountId, p);
-            if (lines.hashExists(bankAccountId, hash)) {
+            if (known.contains(hash)) {
                 skipped++;
                 continue;
             }
@@ -128,6 +133,9 @@ public class BankStatementImportService {
 
     private record ParsedLine(LocalDate date, String label, BigDecimal amount, String direction) {}
 
+    /** Au-delà, ce n'est plus un extrait bancaire : rien n'est accumulé en mémoire sans borne. */
+    static final int MAX_LINES = 20_000;
+
     private List<ParsedLine> parse(InputStream in) {
         List<ParsedLine> out = new ArrayList<>();
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
@@ -135,6 +143,10 @@ public class BankStatementImportService {
             int lineNo = 0;
             while ((line = reader.readLine()) != null) {
                 lineNo++;
+                if (lineNo > MAX_LINES) {
+                    throw new BusinessException(
+                            Messages.msg("m.acc-import-too-many-lines", String.valueOf(MAX_LINES)));
+                }
                 if (line.isBlank()) continue;
                 // Skip ligne d'en-tête détectée par mot-clé "date"
                 if (lineNo == 1 && line.toLowerCase(Locale.ROOT).contains("date")) continue;
@@ -151,6 +163,8 @@ public class BankStatementImportService {
                         : (amount.signum() < 0 ? "DEBIT" : "CREDIT");
                 out.add(new ParsedLine(date, label, amount, direction));
             }
+        } catch (BusinessException e) {
+            throw e;
         } catch (Exception e) {
             throw new BusinessException(Messages.msg("m.acc-csv-read-failed"), e);
         }

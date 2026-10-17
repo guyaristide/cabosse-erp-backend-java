@@ -130,9 +130,36 @@ public final class Exporters {
         return v;
     }
 
-    /** Échappe une cellule CSV (guillemets autour si , " ou \n présents). */
-    private static String csvCell(String value) {
+    /** Un nombre négatif tel que nos exports l'écrivent : il n'est pas une formule. */
+    private static final java.util.regex.Pattern NEGATIVE_NUMBER =
+            java.util.regex.Pattern.compile("-\\d[\\d\\s\\p{Zs}.,]*%?");
+
+    /**
+     * Une cellule qu'un tableur lirait comme une formule.
+     *
+     * <p>Les cellules viennent de champs libres, saisis ou importés : un
+     * nom de membre commençant par un signe égal s'exécute à l'ouverture
+     * du fichier dans Excel ou LibreOffice, et le marqueur d'encodage
+     * écrit en tête garantit même que le fichier s'ouvre comme un
+     * classeur. Le tiret n'est neutralisé que s'il ne commence pas un
+     * nombre, sinon les montants négatifs cesseraient d'être relus comme
+     * des nombres.</p>
+     */
+    static boolean looksLikeFormula(String value) {
+        if (value == null || value.isEmpty()) return false;
+        char c = value.charAt(0);
+        if (c == '=' || c == '+' || c == '@' || c == '\t' || c == '\r') return true;
+        return c == '-' && !NEGATIVE_NUMBER.matcher(value).matches();
+    }
+
+    /**
+     * Échappe une cellule CSV (guillemets autour si , " ou \n présents),
+     * après avoir désamorcé une formule par une apostrophe en tête, ce
+     * que les tableurs lisent comme « texte, tel quel ».
+     */
+    static String csvCell(String value) {
         if (value == null) return "";
+        if (looksLikeFormula(value)) value = "'" + value;
         boolean needsQuote = value.indexOf(',') >= 0
                 || value.indexOf('"') >= 0
                 || value.indexOf('\n') >= 0

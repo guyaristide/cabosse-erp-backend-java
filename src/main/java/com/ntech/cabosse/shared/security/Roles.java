@@ -31,9 +31,17 @@ public final class Roles {
             PLATFORM_ADMIN, TENANT_ADMIN, USER, SYSTEM
     );
 
-    /** Rôles assignables à un utilisateur humain (exclut SYSTEM). */
+    /**
+     * Rôles qu'une structure peut donner à un collaborateur.
+     *
+     * <p>Le rôle de plateforme n'en fait pas partie : il naît au premier
+     * démarrage et nulle part ailleurs. Il y figurait, et seule une
+     * expression régulière sur la charge utile d'invitation empêchait
+     * alors un administrateur de structure de se promouvoir (audit du
+     * 17/10/2026) ; la seconde ligne de défense ne défendait rien.</p>
+     */
     public static final Set<String> HUMAN_ASSIGNABLE = Set.of(
-            PLATFORM_ADMIN, TENANT_ADMIN, USER
+            TENANT_ADMIN, USER
     );
 
     public static boolean isKnown(String role) {

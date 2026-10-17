@@ -201,9 +201,14 @@ ClaimValue<Long> userID;
 - Ne jamais lire les claims via un autre mécanisme dans la couche métier.
 
 ### 4.2 Authentification par défaut
-- Tout endpoint est `@Authenticated` par défaut.
+- Tout endpoint est `@Authenticated` par défaut, et `quarkus.security.jaxrs.deny-unannotated-endpoints` est actif : une méthode sans annotation de sécurité standard (`@Authenticated`, `@RolesAllowed`, `@PermitAll`) est refusée, pas servie à l'anonyme. `@RequiresPermission` seul n'authentifie pas : c'est un intercepteur CDI, il doit être doublé d'une annotation standard.
 - `@PermitAll` doit être explicite et justifié par un commentaire.
 - `@RolesAllowed` sur tout endpoint à accès restreint par rôle.
+
+### 4.3 Lire de l'argent demande un droit
+- Toute lecture d'un solde, d'un état de compte, d'un relevé, d'un échéancier ou d'un règlement porte un `@RequiresPermission` de lecture du domaine, comme les écritures voisines portent le leur. `@Authenticated` seul ouvre la lecture à tout compte de la structure, profil vide compris (audit du 17/10/2026 : trente lectures financières l'étaient).
+- Un statut ne se change jamais par le formulaire de modification d'une fiche : il passe par l'action dédiée, qui porte son propre rôle (approuver, refuser, radier).
+- `PermissionResolver` relit le compte à chaque appel et ne rend aucun droit à un compte qui n'est pas `ACTIVE` ; désactiver un compte révoque ses jetons de rafraîchissement.
 
 ---
 
