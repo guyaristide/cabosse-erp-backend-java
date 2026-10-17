@@ -133,14 +133,15 @@ public class PurchaseOrderService {
     public Pagination<PurchaseOrderResponseDto> page(BcStatus status, String q, PageRequest pr) {
         boolean tenantDefault = tenantVatRecoverable();
         long total = orders.countSearch(status, q);
-        List<PurchaseOrderResponseDto> items = orders.search(status, q, pr.skip(), pr.perPage())
+        var sort = com.ntech.cabosse.achats.repository.PurchaseOrderRepository.SORTABLE.resolve(pr);
+        List<PurchaseOrderResponseDto> items = orders.search(status, q, pr.skip(), pr.perPage(), sort)
                 .stream()
                 .map(e -> PurchaseOrderResponseDto.from(e, tenantDefault))
                 .toList();
         Map<String, String> filters = new HashMap<>();
         if (status != null) filters.put("status", status.name());
         if (q != null && !q.isBlank()) filters.put("q", q.trim());
-        return Pagination.of(total, pr, new String[]{"createdAt"}, "desc", filters, items);
+        return Pagination.of(total, pr, sort.names(), sort.order(), filters, items);
     }
 
     public PurchaseOrderResponseDto getById(UUID id) {

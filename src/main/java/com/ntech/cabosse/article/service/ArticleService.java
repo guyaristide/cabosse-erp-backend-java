@@ -47,12 +47,13 @@ public class ArticleService {
 
     public Pagination<ArticleResponseDto> page(ArticleType type, String q, PageRequest pr) {
         long total = articles.countSearch(type, q);
-        List<ArticleResponseDto> items = articles.search(type, q, pr.skip(), pr.perPage())
+        var sort = com.ntech.cabosse.article.repository.ArticleRepository.SORTABLE.resolve(pr);
+        List<ArticleResponseDto> items = articles.search(type, q, pr.skip(), pr.perPage(), sort)
                 .stream().map(ArticleResponseDto::from).toList();
         Map<String, String> filters = new HashMap<>();
         if (type != null) filters.put("type", type.name());
         if (q != null && !q.isBlank()) filters.put("q", q.trim());
-        return Pagination.of(total, pr, new String[]{"type", "name"}, "asc", filters, items);
+        return Pagination.of(total, pr, sort.names(), sort.order(), filters, items);
     }
 
     public ArticleResponseDto getById(UUID id) {

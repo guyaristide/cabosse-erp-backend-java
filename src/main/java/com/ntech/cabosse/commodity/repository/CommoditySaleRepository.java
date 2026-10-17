@@ -46,9 +46,24 @@ public class CommoditySaleRepository {
         return coll().countDocuments(searchFilter(q, campaignId, customerId));
     }
 
+        /** Les colonnes sur lesquelles la liste accepte d'être triée. */
+    public static final com.ntech.cabosse.shared.api.SortFields SORTABLE =
+            com.ntech.cabosse.shared.api.SortFields.defaultSort("date", false)
+                    .on("date")
+                    .on("ref")
+                    .on("customer", "customerName")
+                    .build();
+
     public List<CommoditySaleEntity> search(String q, UUID campaignId, UUID customerId, int skip, int limit) {
+        return search(q, campaignId, customerId, skip, limit, SORTABLE.resolve(null));
+    }
+
+    public List<CommoditySaleEntity> search(String q, UUID campaignId, UUID customerId, int skip, int limit,
+                                     com.ntech.cabosse.shared.api.SortFields.Sort sort) {
+        Document order = sort.toDocument();
+        if (!order.containsKey("ref")) order.append("ref", sort.ascending() ? 1 : -1);
         return coll().find(searchFilter(q, campaignId, customerId))
-                .sort(new Document("date", -1).append("ref", -1))
+                .sort(order)
                 .skip(skip).limit(limit).into(new ArrayList<>());
     }
 

@@ -65,10 +65,12 @@ public class ArticleResource {
     public Response list(@QueryParam("type") String typeRaw,
                          @QueryParam("q") String q,
                          @QueryParam("page") @DefaultValue("0") int page,
-                         @QueryParam("perPage") @DefaultValue("20") int perPage) {
+                         @QueryParam("perPage") @DefaultValue("20") int perPage,
+                         @QueryParam("sort") String sort,
+                         @QueryParam("sortDir") String sortDir) {
         ArticleType type = parseType(typeRaw);
         return Response.ok(ApiResponse.ok(
-                service.page(type, q, PageRequest.of(page, perPage)))).build();
+                service.page(type, q, PageRequest.of(page, perPage, sort, sortDir)))).build();
     }
 
     @POST

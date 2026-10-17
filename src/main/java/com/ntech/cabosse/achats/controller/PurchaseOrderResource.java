@@ -72,10 +72,12 @@ public class PurchaseOrderResource {
     public Response list(@QueryParam("status") String statusRaw,
                          @QueryParam("q") String q,
                          @QueryParam("page") @DefaultValue("0") int page,
-                         @QueryParam("perPage") @DefaultValue("20") int perPage) {
+                         @QueryParam("perPage") @DefaultValue("20") int perPage,
+                         @QueryParam("sort") String sort,
+                         @QueryParam("sortDir") String sortDir) {
         BcStatus status = parseStatus(statusRaw);
         return Response.ok(ApiResponse.ok(
-                service.page(status, q, PageRequest.of(page, perPage)))).build();
+                service.page(status, q, PageRequest.of(page, perPage, sort, sortDir)))).build();
     }
 
     @GET

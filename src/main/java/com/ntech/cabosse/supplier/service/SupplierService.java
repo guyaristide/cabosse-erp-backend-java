@@ -67,14 +67,15 @@ public class SupplierService {
     public Pagination<SupplierResponseDto> page(String q, Boolean collector, PageRequest pr) {
         long total = repo.countSearch(q, collector);
         var refs = categories.byId();
-        List<SupplierResponseDto> items = repo.search(q, collector, pr.skip(), pr.perPage())
+        var sort = com.ntech.cabosse.supplier.repository.SupplierRepository.SORTABLE.resolve(pr);
+        List<SupplierResponseDto> items = repo.search(q, collector, pr.skip(), pr.perPage(), sort)
                 .stream()
                 .map(e -> SupplierResponseDto.from(e, categoryName(refs, e)))
                 .toList();
         java.util.Map<String, String> filters = new java.util.HashMap<>();
         if (q != null && !q.isBlank()) filters.put("q", q.trim());
         if (collector != null) filters.put("collector", String.valueOf(collector));
-        return Pagination.of(total, pr, new String[]{"name"}, "asc", filters, items);
+        return Pagination.of(total, pr, sort.names(), sort.order(), filters, items);
     }
 
     public SupplierResponseDto getById(UUID id) {

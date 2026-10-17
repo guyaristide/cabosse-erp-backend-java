@@ -47,9 +47,26 @@ public class PurchaseOrderRepository {
         return coll().countDocuments(searchFilter(status, q));
     }
 
+        /** Les colonnes sur lesquelles la liste accepte d'être triée. */
+    public static final com.ntech.cabosse.shared.api.SortFields SORTABLE =
+            com.ntech.cabosse.shared.api.SortFields.defaultSort("createdAt", false)
+                    .on("createdAt")
+                    .on("ref")
+                    .on("supplier", "supplierName")
+                    .on("status")
+                    .on("total", "totalTtc")
+                    .build();
+
     public List<PurchaseOrderEntity> search(BcStatus status, String q, int skip, int limit) {
+        return search(status, q, skip, limit, SORTABLE.resolve(null));
+    }
+
+    public List<PurchaseOrderEntity> search(BcStatus status, String q, int skip, int limit,
+                                     com.ntech.cabosse.shared.api.SortFields.Sort sort) {
+        Document order = sort.toDocument();
+        if (!order.containsKey("ref")) order.append("ref", sort.ascending() ? 1 : -1);
         return coll().find(searchFilter(status, q))
-                .sort(new Document("createdAt", -1))
+                .sort(order)
                 .skip(skip)
                 .limit(limit)
                 .into(new ArrayList<>());

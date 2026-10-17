@@ -5,6 +5,7 @@ import com.mongodb.client.model.Filters;
 import com.ntech.cabosse.customer.entity.CustomerEntity;
 import com.ntech.cabosse.shared.persistence.TenantMongoDatabaseProvider;
 import jakarta.enterprise.context.ApplicationScoped;
+import org.bson.Document;
 import jakarta.inject.Inject;
 
 import java.time.Instant;
@@ -32,9 +33,24 @@ public class CustomerRepository {
         return coll().countDocuments(searchFilter(q, type));
     }
 
+        /** Les colonnes sur lesquelles la liste accepte d'être triée. */
+    public static final com.ntech.cabosse.shared.api.SortFields SORTABLE =
+            com.ntech.cabosse.shared.api.SortFields.defaultSort("name", true)
+                    .on("name")
+                    .on("code")
+                    .on("type")
+                    .build();
+
     public List<CustomerEntity> search(String q, String type, int skip, int limit) {
+        return search(q, type, skip, limit, SORTABLE.resolve(null));
+    }
+
+    public List<CustomerEntity> search(String q, String type, int skip, int limit,
+                                     com.ntech.cabosse.shared.api.SortFields.Sort sort) {
+        Document order = sort.toDocument();
+        if (!order.containsKey("name")) order.append("name", 1);
         return coll().find(searchFilter(q, type))
-                .sort(new org.bson.Document("name", 1))
+                .sort(order)
                 .skip(skip)
                 .limit(limit)
                 .into(new ArrayList<>());

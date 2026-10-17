@@ -68,10 +68,12 @@ public class CommoditySaleResource {
                          @QueryParam("campaignId") UUID campaignId,
                          @QueryParam("customerId") UUID customerId,
                          @QueryParam("page") @DefaultValue("0") int page,
-                         @QueryParam("perPage") @DefaultValue("20") int perPage) {
+                         @QueryParam("perPage") @DefaultValue("20") int perPage,
+                         @QueryParam("sort") String sort,
+                         @QueryParam("sortDir") String sortDir) {
         ensureCapability();
         return Response.ok(ApiResponse.ok(
-                service.page(q, campaignId, customerId, PageRequest.of(page, perPage)))).build();
+                service.page(q, campaignId, customerId, PageRequest.of(page, perPage, sort, sortDir)))).build();
     }
 
     @GET

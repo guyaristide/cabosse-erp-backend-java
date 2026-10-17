@@ -309,6 +309,38 @@ Un moteur d'envoi se déclare lui-même (`ProviderEnginePort`) : code stable, ca
 
 ---
 
+## Tri d'une liste
+
+Une liste paginée accepte `?sort=<colonne>&sortDir=asc|desc`. Le nom de
+colonne **ne devient jamais une clé de tri Mongo sans passer par la
+liste d'autorisation** que l'endpoint déclare : trier sur un champ sans
+index revient à parcourir toute la collection à chaque clic d'en-tête,
+et accepter n'importe quel nom expose la forme interne des documents.
+
+Recette, trois fichiers :
+
+1. **Repository** — déclarer les colonnes triables et une surcharge de
+   `search` qui prend le tri :
+   ```java
+   public static final SortFields SORTABLE = SortFields.defaultSort("date", false)
+           .on("date").on("ref").on("counterparty", "delegateName").build();
+   ```
+   Le `Document` de tri reçoit toujours un **second critère** qui
+   départage à valeur égale, sinon deux lignes identiques changent de
+   place entre deux pages et l'une se voit deux fois.
+2. **Service** — `var sort = XxxRepository.SORTABLE.resolve(pr);` puis
+   `Pagination.of(total, pr, sort.names(), sort.order(), filters, items)`.
+   On renvoie le tri **appliqué**, pas le tri demandé : un écran plus
+   ancien que le serveur doit afficher la vérité.
+3. **Contrôleur** — `@QueryParam("sort")` et `@QueryParam("sortDir")`,
+   passés à `PageRequest.of(page, perPage, sort, sortDir)`. Le paramètre
+   s'appelle `sortDir` et non `direction`, qui désigne déjà le sens d'un
+   mouvement de trésorerie.
+
+Une colonne inconnue ne fait pas échouer la requête : elle retombe sur
+le tri par défaut, direction comprise. Refuser casserait l'écran entier
+pour une colonne disparue.
+
 ## 10. Contrat d'API
 
 ### 10.1 Versionning

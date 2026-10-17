@@ -52,9 +52,11 @@ public class SupplierResource {
     public Response list(@QueryParam("q") String q,
                          @QueryParam("collector") String collectorRaw,
                          @QueryParam("page") @DefaultValue("0") int page,
-                         @QueryParam("perPage") @DefaultValue("20") int perPage) {
+                         @QueryParam("perPage") @DefaultValue("20") int perPage,
+                         @QueryParam("sort") String sort,
+                         @QueryParam("sortDir") String sortDir) {
         return Response.ok(ApiResponse.ok(
-                service.page(q, parseCollector(collectorRaw), PageRequest.of(page, perPage))))
+                service.page(q, parseCollector(collectorRaw), PageRequest.of(page, perPage, sort, sortDir))))
                 .build();
     }
 

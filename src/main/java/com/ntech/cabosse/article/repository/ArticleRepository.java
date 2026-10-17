@@ -6,6 +6,7 @@ import com.ntech.cabosse.article.entity.ArticleEntity;
 import com.ntech.cabosse.article.entity.ArticleType;
 import com.ntech.cabosse.shared.persistence.TenantMongoDatabaseProvider;
 import jakarta.enterprise.context.ApplicationScoped;
+import org.bson.Document;
 import jakarta.inject.Inject;
 
 import java.time.Instant;
@@ -41,9 +42,24 @@ public class ArticleRepository {
         return coll().countDocuments(searchFilter(type, q));
     }
 
+        /** Les colonnes sur lesquelles la liste accepte d'être triée. */
+    public static final com.ntech.cabosse.shared.api.SortFields SORTABLE =
+            com.ntech.cabosse.shared.api.SortFields.defaultSort("name", true)
+                    .on("name")
+                    .on("code")
+                    .on("type")
+                    .build();
+
     public List<ArticleEntity> search(ArticleType type, String q, int skip, int limit) {
+        return search(type, q, skip, limit, SORTABLE.resolve(null));
+    }
+
+    public List<ArticleEntity> search(ArticleType type, String q, int skip, int limit,
+                                     com.ntech.cabosse.shared.api.SortFields.Sort sort) {
+        Document order = sort.toDocument();
+        if (!order.containsKey("name")) order.append("name", 1);
         return coll().find(searchFilter(type, q))
-                .sort(new org.bson.Document("type", 1).append("name", 1))
+                .sort(order)
                 .skip(skip)
                 .limit(limit)
                 .into(new ArrayList<>());

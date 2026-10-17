@@ -76,9 +76,10 @@ public class CommoditySaleService {
 
     public Pagination<CommoditySaleResponseDto> page(String q, UUID campaignId, UUID customerId, PageRequest pr) {
         long total = repo.countSearch(q, campaignId, customerId);
-        List<CommoditySaleResponseDto> items = repo.search(q, campaignId, customerId, pr.skip(), pr.perPage())
+        var sort = com.ntech.cabosse.commodity.repository.CommoditySaleRepository.SORTABLE.resolve(pr);
+        List<CommoditySaleResponseDto> items = repo.search(q, campaignId, customerId, pr.skip(), pr.perPage(), sort)
                 .stream().map(CommoditySaleResponseDto::from).toList();
-        return Pagination.of(total, pr, new String[]{"date"}, "desc", new java.util.HashMap<>(), items);
+        return Pagination.of(total, pr, sort.names(), sort.order(), new java.util.HashMap<>(), items);
     }
 
     public CommoditySaleResponseDto getById(UUID id) {

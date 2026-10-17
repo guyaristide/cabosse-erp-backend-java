@@ -43,13 +43,14 @@ public class CustomerService {
 
     public Pagination<CustomerResponseDto> page(String q, String type, PageRequest pr) {
         long total = repo.countSearch(q, type);
-        List<CustomerResponseDto> items = repo.search(q, type, pr.skip(), pr.perPage()).stream()
+        var sort = com.ntech.cabosse.customer.repository.CustomerRepository.SORTABLE.resolve(pr);
+        List<CustomerResponseDto> items = repo.search(q, type, pr.skip(), pr.perPage(), sort).stream()
                 .map(CustomerResponseDto::from)
                 .toList();
         java.util.Map<String, String> filters = new java.util.HashMap<>();
         if (q != null && !q.isBlank()) filters.put("q", q.trim());
         if (type != null && !type.isBlank()) filters.put("type", type.trim());
-        return Pagination.of(total, pr, new String[]{"name"}, "asc", filters, items);
+        return Pagination.of(total, pr, sort.names(), sort.order(), filters, items);
     }
 
     public CustomerResponseDto getById(UUID id) {
