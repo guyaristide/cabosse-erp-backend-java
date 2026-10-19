@@ -158,6 +158,38 @@ public class AccountingResource {
                 .build();
     }
 
+    /**
+     * Le numéro qu'aurait le prochain sous-compte d'une racine, pour que
+     * l'écran le montre avant d'ouvrir.
+     *
+     * <p>Ouvert à qui tient le registre des fournisseurs ou des
+     * sociétaires : c'est au moment de créer le tiers que son compte
+     * nominatif s'ouvre, et le geste est borné à une racine qui existe.</p>
+     */
+    @GET
+    @Path("/chart/sub-accounts/next")
+    @RequiresPermission({ Permission.ACCOUNTING_WRITE, Permission.REF_SUPPLIER_WRITE,
+            Permission.MEMBER_WRITE })
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    public Response nextSubAccount(@QueryParam("root") String root) {
+        String number = chartService.nextSubAccountNumber(root);
+        return Response.ok(ApiResponse.ok(Map.of("root", root.trim(), "number", number))).build();
+    }
+
+    /** Ouvre le prochain sous-compte d'une racine, avec son intitulé (demandé le 19/10/2026). */
+    @POST
+    @Path("/chart/sub-accounts")
+    @RequiresPermission({ Permission.ACCOUNTING_WRITE, Permission.REF_SUPPLIER_WRITE,
+            Permission.MEMBER_WRITE })
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    public Response createSubAccount(@Valid com.ntech.cabosse.accounting.dto.SubAccountCreateDto payload) {
+        var created = chartService.createSubAccount(payload.root(), payload.label().trim());
+        return Response.status(Response.Status.CREATED)
+                .entity(ApiResponse.created(ChartOfAccountsResponseDto.from(
+                        created, java.math.BigDecimal.ZERO, 0)))
+                .build();
+    }
+
     /** Renomme un compte ou change sa famille. Le numéro, lui, ne bouge pas. */
     @PUT
     @Path("/chart/{id}")

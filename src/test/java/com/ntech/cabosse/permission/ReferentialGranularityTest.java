@@ -188,7 +188,7 @@ class ReferentialGranularityTest extends AbstractIntegrationTest {
                 if (!source.contains("Permission.REF_")) continue;
                 String classGuard = null;
                 for (String l : lines) {
-                    if (!l.startsWith(" ") && l.contains("@RequiresPermission(Permission.")) {
+                    if (!l.startsWith(" ") && l.contains("@RequiresPermission(")) {
                         classGuard = l;
                     }
                 }
@@ -198,7 +198,7 @@ class ReferentialGranularityTest extends AbstractIntegrationTest {
                     String verb = null;
                     for (int j = Math.max(0, i - 12); j < Math.min(lines.size(), i + 4); j++) {
                         String l = lines.get(j);
-                        if (l.contains("@RequiresPermission(Permission.")) guard = l;
+                        if (l.contains("@RequiresPermission(")) guard = l;
                         if (l.contains("@POST") || l.contains("@PUT")
                                 || l.contains("@PATCH") || l.contains("@DELETE")) {
                             verb = l.trim();

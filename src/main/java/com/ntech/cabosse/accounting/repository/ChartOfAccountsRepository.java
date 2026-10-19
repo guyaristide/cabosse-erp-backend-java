@@ -44,6 +44,16 @@ public class ChartOfAccountsRepository {
                 .into(new ArrayList<>());
     }
 
+    /** Les numéros qui commencent par ce préfixe, dans l'ordre du plan. */
+    public List<String> numbersStartingWith(String prefix) {
+        List<String> out = new ArrayList<>();
+        coll().find(Filters.regex("number", "^" + java.util.regex.Pattern.quote(prefix)))
+                .projection(new Document("number", 1))
+                .sort(new Document("number", 1))
+                .forEach(a -> out.add(a.number));
+        return out;
+    }
+
     public boolean numberExists(String number) {
         return coll().countDocuments(Filters.eq("number", number)) > 0;
     }

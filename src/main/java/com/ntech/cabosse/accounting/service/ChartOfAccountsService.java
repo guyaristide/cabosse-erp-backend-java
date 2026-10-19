@@ -17,6 +17,7 @@ import jakarta.inject.Inject;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -43,6 +44,66 @@ public class ChartOfAccountsService {
     @Inject TenantContext tenantContext;
     @Inject AuditService audit;
     @Inject JsonWebToken jwt;
+
+    /**
+     * Le numéro qu'aurait le prochain sous-compte d'une racine.
+     *
+     * <p>Le comptable ouvrait le compte nominatif d'un délégué ou d'un
+     * producteur en allant chercher au plan le dernier numéro posé sous
+     * la racine pour taper le suivant (demandé le 19/10/2026). La racine
+     * dit où l'on est, le plan dit où l'on en est.</p>
+     *
+     * <p>La racine se lit comme le reste du plan : sa partie significative
+     * est le numéro sans ses zéros de fin, et les positions libérées par
+     * ces zéros portent le rang. Sous {@code 409100} les sous-comptes vont
+     * de {@code 409101} à {@code 409199} ; sous {@code 4091100000}, de
+     * {@code 4091100001} à {@code 4091199999}. Le rang suivant est le plus
+     * grand déjà posé plus un, un numéro ouvert à la main et laissé entre
+     * deux n'est jamais repris. Quand les positions sont toutes prises, le
+     * numéro s'allonge d'un rang.</p>
+     */
+    public String nextSubAccountNumber(String rootNumber) {
+        String root = rootNumber == null ? "" : rootNumber.trim();
+        if (!chart.numberExists(root)) {
+            throw new BusinessException(Messages.msg("m.acc-chart-account-not-found", root));
+        }
+        String prefix = root.replaceFirst("0+$", "");
+        if (prefix.isEmpty()) prefix = root.substring(0, 1);
+        int width = Math.max(1, root.length() - prefix.length());
+        List<String> taken = chart.numbersStartingWith(prefix);
+        for (int w = width; prefix.length() + w <= 20; w++) {
+            int length = prefix.length() + w;
+            final String p = prefix;
+            long max = taken.stream()
+                    .filter(n -> n.length() == length && !n.equals(root))
+                    .map(n -> n.substring(p.length()))
+                    .filter(rank -> rank.chars().allMatch(Character::isDigit))
+                    .mapToLong(Long::parseLong)
+                    .max().orElse(0);
+            long next = max + 1;
+            if (String.valueOf(next).length() > w) continue;
+            return prefix + String.format("%0" + w + "d", next);
+        }
+        throw new BusinessException(Messages.msg("m.acc-chart-sub-account-exhausted", root));
+    }
+
+    /**
+     * Ouvre le prochain sous-compte d'une racine, avec l'intitulé donné.
+     *
+     * <p>Deux saisies en même temps peuvent viser le même numéro : l'index
+     * unique en refuse une, qui recommence avec le numéro recalculé.</p>
+     */
+    public ChartOfAccountsEntity createSubAccount(String rootNumber, String label) {
+        for (int attempt = 0; attempt < 3; attempt++) {
+            String number = nextSubAccountNumber(rootNumber);
+            try {
+                return create(new ChartAccountUpsertDto(number, label));
+            } catch (com.mongodb.MongoWriteException e) {
+                if (e.getError().getCategory() != com.mongodb.ErrorCategory.DUPLICATE_KEY) throw e;
+            }
+        }
+        throw new BusinessException(Messages.msg("m.acc-chart-number-taken", rootNumber));
+    }
 
     public ChartOfAccountsEntity create(ChartAccountUpsertDto p) {
         String number = p.number().trim();
