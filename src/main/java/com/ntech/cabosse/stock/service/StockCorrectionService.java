@@ -78,8 +78,11 @@ public class StockCorrectionService {
                 .orElseThrow(() -> new NotFoundException(
                         Messages.msg("m.stk-site-not-found", payload.siteId())));
 
-        BigDecimal weight = payload.weightKg();
-        if (weight == null || weight.signum() <= 0) {
+        BigDecimal weight = payload.weightKg() == null ? BigDecimal.ZERO : payload.weightKg();
+        BigDecimal gain = payload.gainKg() == null ? BigDecimal.ZERO : payload.gainKg();
+        // Une correction retire, ajoute, ou les deux : ce qu'elle ne peut
+        // pas, c'est ne rien faire.
+        if (weight.signum() <= 0 && gain.signum() <= 0) {
             throw new BusinessException(Messages.msg("m.stk-correction-weight-required"));
         }
         int bags = payload.bags() != null ? payload.bags() : 0;
@@ -94,6 +97,11 @@ public class StockCorrectionService {
         // correction saisie après coup coûte ce que la matière valait ce
         // jour-là.
         BigDecimal cmup = stockService.snapshotAt(article.id, site.id, effectiveAt).cmup();
+        // Un gain entre au coût moyen du jour, pour ne pas le déplacer :
+        // sans coût moyen, la matière ajoutée n'aurait pas de valeur.
+        if (gain.signum() > 0 && cmup == null) {
+            throw new BusinessException(Messages.msg("m.stk-correction-gain-no-cost"));
+        }
 
         StockCorrectionEntity e = new StockCorrectionEntity();
         e.id = idGenerator.newId();
@@ -109,8 +117,12 @@ public class StockCorrectionService {
         e.bags = bags;
         e.weightKg = weight;
         e.unitPrice = cmup;
-        e.value = cmup != null
+        e.value = cmup != null && weight.signum() > 0
                 ? weight.multiply(cmup).setScale(2, RoundingMode.HALF_UP)
+                : null;
+        e.gainKg = gain.signum() > 0 ? gain : null;
+        e.gainValue = cmup != null && gain.signum() > 0
+                ? gain.multiply(cmup).setScale(2, RoundingMode.HALF_UP)
                 : null;
         e.notes = payload.notes();
         e.createdBy = actor();
@@ -124,32 +136,54 @@ public class StockCorrectionService {
         // pour une raison que l'opérateur comprend, faute de matière, et
         // sa garde est atomique. Une correction enregistrée sans son
         // mouvement ferait mentir la fiche du jour sur un stock intact.
-        stockService.applyMovement(new MovementInput(
-                article.id, site.id,
-                MovementKind.OUT,
-                weight, null,
-                MovementSource.STOCK_CORRECTION, e.ref, e.id, null,
-                e.reason, e.notes, effectiveAt));
-
-        try {
-            if (e.value != null && e.value.signum() > 0) {
-                accounting.postFromStockCorrection(e.id, e.ref, e.date, typeOf(article), e.value)
-                        .map(p -> p.ref)
-                        .ifPresent(ref -> e.pieceRef = ref);
-            }
-            corrections.insert(e);
-        } catch (RuntimeException ex) {
-            // Période close, pièce refusée, insertion impossible : la
-            // matière est déjà sortie. On la remet, au coût auquel elle
-            // est sortie, sinon le stock porterait une perte dont aucun
-            // document ne rend compte.
+        if (weight.signum() > 0) {
+            stockService.applyMovement(new MovementInput(
+                    article.id, site.id,
+                    MovementKind.OUT,
+                    weight, null,
+                    MovementSource.STOCK_CORRECTION, e.ref, e.id, null,
+                    e.reason, e.notes, effectiveAt));
+        }
+        // Le gain entre après la perte, au coût moyen du jour : le coût
+        // moyen ne bouge pas, seule la quantité.
+        if (gain.signum() > 0) {
             stockService.applyMovement(new MovementInput(
                     article.id, site.id,
                     MovementKind.IN,
-                    weight, cmup,
+                    gain, cmup,
                     MovementSource.STOCK_CORRECTION, e.ref, e.id, null,
-                    Messages.msg("m.stk-correction-rolled-back", e.ref), null, effectiveAt,
-                    true));
+                    e.reason, e.notes, effectiveAt));
+        }
+
+        try {
+            accounting.postFromStockCorrection(e.id, e.ref, e.date, typeOf(article),
+                            e.value, e.gainValue)
+                    .map(p -> p.ref)
+                    .ifPresent(ref -> e.pieceRef = ref);
+            corrections.insert(e);
+        } catch (RuntimeException ex) {
+            // Période close, pièce refusée, insertion impossible : la
+            // matière a déjà bougé. On la remet dans l'état d'avant, au
+            // coût auquel elle a bougé, sinon le stock porterait un écart
+            // dont aucun document ne rend compte.
+            if (weight.signum() > 0) {
+                stockService.applyMovement(new MovementInput(
+                        article.id, site.id,
+                        MovementKind.IN,
+                        weight, cmup,
+                        MovementSource.STOCK_CORRECTION, e.ref, e.id, null,
+                        Messages.msg("m.stk-correction-rolled-back", e.ref), null, effectiveAt,
+                        true));
+            }
+            if (gain.signum() > 0) {
+                stockService.applyMovement(new MovementInput(
+                        article.id, site.id,
+                        MovementKind.OUT,
+                        gain, null,
+                        MovementSource.STOCK_CORRECTION, e.ref, e.id, null,
+                        Messages.msg("m.stk-correction-rolled-back", e.ref), null, effectiveAt,
+                        true));
+            }
             throw ex;
         }
 
@@ -158,7 +192,9 @@ public class StockCorrectionService {
                 .target("stock_correction", e.id.toString(), e.ref)
                 .tenant(tenantContext.tenantId(), null)
                 .description("Correction de stock " + e.ref + " : " + e.reason
-                        + ", " + weight + " " + article.unit + " et " + bags + " sac(s) retirés"
+                        + (weight.signum() > 0 ? ", " + weight + " " + article.unit + " retirés" : "")
+                        + (gain.signum() > 0 ? ", " + gain + " " + article.unit + " ajoutés" : "")
+                        + (bags > 0 ? ", " + bags + " sac(s) retirés" : "")
                         + (e.pieceRef != null ? ", pièce " + e.pieceRef : ""))
                 .record();
 

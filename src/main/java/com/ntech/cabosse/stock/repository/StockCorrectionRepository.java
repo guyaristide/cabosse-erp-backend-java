@@ -102,7 +102,9 @@ public class StockCorrectionRepository {
         int bags = 0;
         for (StockCorrectionEntity c : coll().find(
                 filters.isEmpty() ? Filters.empty() : Filters.and(filters))) {
-            weight = weight.add(c.weightKg == null ? java.math.BigDecimal.ZERO : c.weightKg);
+            // Net : un gain de poids rend au stock ce qu'une perte lui prend.
+            weight = weight.add(c.weightKg == null ? java.math.BigDecimal.ZERO : c.weightKg)
+                    .subtract(c.gainKg == null ? java.math.BigDecimal.ZERO : c.gainKg);
             bags += c.bags == null ? 0 : c.bags;
         }
         return new Shrinkage(weight, bags);

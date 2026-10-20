@@ -50,6 +50,12 @@ public class StockCorrectionEntity {
 
     /** Poids retiré, toujours positif. */
     public BigDecimal weightKg;
+    /** Poids ajouté, en kg : un gain constaté, entré au coût moyen du jour. */
+    public BigDecimal gainKg;
+    /** Valeur du gain, au même coût moyen que la perte. */
+    public BigDecimal gainValue;
+    /** Le mouvement entrant du gain, quand il y en a un. */
+    public UUID gainMovementId;
 
     /** Coût moyen de l'article à la date d'effet, figé au constat. */
     public BigDecimal unitPrice;

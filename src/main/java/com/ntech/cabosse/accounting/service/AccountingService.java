@@ -1390,16 +1390,38 @@ public class AccountingService {
                                                                 LocalDate date,
                                                                 ArticleType articleType,
                                                                 BigDecimal value) {
-        BigDecimal amount = nz(value).setScale(MONEY_SCALE, RoundingMode.HALF_UP);
-        if (amount.signum() <= 0) return Optional.empty();
+        return postFromStockCorrection(correctionId, correctionRef, date, articleType, value, null);
+    }
+
+    /**
+     * La perte passe en variation de stock, comme un manquant
+     * d'inventaire ; le gain fait le chemin inverse, le stock se
+     * regarnit au coût moyen et la variation l'enregistre en moins
+     * (demandé le 20/10/2026). Les deux tiennent sur une pièce.
+     */
+    public Optional<JournalPieceEntity> postFromStockCorrection(UUID correctionId,
+                                                                String correctionRef,
+                                                                LocalDate date,
+                                                                ArticleType articleType,
+                                                                BigDecimal lossValue,
+                                                                BigDecimal gainValue) {
+        BigDecimal loss = nz(lossValue).setScale(MONEY_SCALE, RoundingMode.HALF_UP);
+        BigDecimal gain = nz(gainValue).setScale(MONEY_SCALE, RoundingMode.HALF_UP);
+        if (loss.signum() <= 0 && gain.signum() <= 0) return Optional.empty();
         String stockAccount = SyscohadaAccounts.stockAccountFor(articleType);
         String variationAccount = SyscohadaAccounts.stockVariationAccountFor(articleType);
         if (stockAccount == null || variationAccount == null) return Optional.empty();
 
         String label = "Correction de stock " + correctionRef;
-        List<JournalEntry> entries = List.of(
-                JournalEntry.debit(variationAccount, label, amount),
-                JournalEntry.credit(stockAccount, label, amount));
+        List<JournalEntry> entries = new ArrayList<>();
+        if (loss.signum() > 0) {
+            entries.add(JournalEntry.debit(variationAccount, label, loss));
+            entries.add(JournalEntry.credit(stockAccount, label, loss));
+        }
+        if (gain.signum() > 0) {
+            entries.add(JournalEntry.debit(stockAccount, label + " (gain)", gain));
+            entries.add(JournalEntry.credit(variationAccount, label + " (gain)", gain));
+        }
         return postPiece(new PostingRequest(
                 date != null ? date : LocalDate.now(),
                 PostingSourceType.STOCK_CORRECTION,

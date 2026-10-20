@@ -195,7 +195,9 @@ public class DayIntakeSheetService {
         BigDecimal correctedWeight = BigDecimal.ZERO;
         int correctedBags = 0;
         for (StockCorrectionEntity c : corrections.listForDay(date, siteId, sheetArticleId)) {
-            BigDecimal removed = nz(c.weightKg);
+            // Net de la perte et du gain : le carnet lit un seul chiffre
+            // par correction, signé.
+            BigDecimal removed = nz(c.weightKg).subtract(nz(c.gainKg));
             int bags = c.bags != null ? c.bags : 0;
             runningQty = runningQty.subtract(removed);
             runningBags -= bags;

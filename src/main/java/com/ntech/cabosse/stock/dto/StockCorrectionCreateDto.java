@@ -25,6 +25,13 @@ public record StockCorrectionCreateDto(
         @NotBlank @Size(max = 160) String reason,
         /** Sacs retirés. Zéro ou absent quand le brassage n'en retire pas. */
         @Min(0) Integer bags,
-        @NotNull @DecimalMin(value = "0", inclusive = false) BigDecimal weightKg,
+        /** Ce qui sort, en kg. Nul ou zéro quand la correction n'est qu'un gain. */
+        @DecimalMin(value = "0") BigDecimal weightKg,
+        /**
+         * Ce qui entre, en kg : un gain de poids constaté, le soleil ayant
+         * joué dans l'autre sens (demandé le 20/10/2026). Pas de sacs
+         * ajoutés : on peut en retirer, jamais en ajouter.
+         */
+        @DecimalMin(value = "0") BigDecimal gainKg,
         @Size(max = 500) String notes
 ) {}

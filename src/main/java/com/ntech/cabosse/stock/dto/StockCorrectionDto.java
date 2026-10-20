@@ -22,6 +22,8 @@ public record StockCorrectionDto(
         BigDecimal weightKg,
         BigDecimal unitPrice,
         BigDecimal value,
+        BigDecimal gainKg,
+        BigDecimal gainValue,
         String notes,
         String pieceRef,
         String createdBy,
@@ -32,6 +34,7 @@ public record StockCorrectionDto(
                 e.id, e.ref, e.date, e.siteId, e.siteName,
                 e.articleId, e.articleName, e.articleUnit,
                 e.reason, e.bags, e.weightKg, e.unitPrice, e.value,
+                e.gainKg, e.gainValue,
                 e.notes, e.pieceRef, e.createdBy, e.createdAt);
     }
 }
