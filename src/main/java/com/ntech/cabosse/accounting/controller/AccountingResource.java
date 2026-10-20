@@ -89,6 +89,7 @@ public class AccountingResource {
     @Inject AccountingExportService exports;
     @Inject ExportAudit exportAudit;
     @Inject com.ntech.cabosse.accounting.service.ChartOfAccountsService chartService;
+    @Inject com.ntech.cabosse.members.service.MemberSupplierAccountService memberAccounts;
     @Inject com.ntech.cabosse.accounting.service.TvaDeclarationService tvaService;
     @Inject BankStatementImportService statementImport;
     @Inject BankReconciliationService reconciliation;
@@ -188,6 +189,29 @@ public class AccountingResource {
                 .entity(ApiResponse.created(ChartOfAccountsResponseDto.from(
                         created, java.math.BigDecimal.ZERO, 0)))
                 .build();
+    }
+
+    /** Les sociétaires dont le fournisseur miroir n'a pas encore de compte auxiliaire. */
+    @GET
+    @Path("/chart/sub-accounts/members/pending")
+    @RequiresPermission({ Permission.ACCOUNTING_WRITE, Permission.MEMBER_WRITE })
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    public Response membersPendingAccounts() {
+        return Response.ok(ApiResponse.ok(memberAccounts.pending())).build();
+    }
+
+    /**
+     * Ouvre un compte fournisseur à chaque sociétaire qui n'en a pas, sous
+     * la racine donnée, et rattache son fournisseur miroir (demandé le
+     * 20/10/2026). Rejouable : les fiches déjà pourvues sont laissées.
+     */
+    @POST
+    @Path("/chart/sub-accounts/members")
+    @RequiresPermission({ Permission.ACCOUNTING_WRITE, Permission.MEMBER_WRITE })
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    public Response openMembersAccounts(
+            @Valid com.ntech.cabosse.accounting.dto.MembersSubAccountsDto payload) {
+        return Response.ok(ApiResponse.ok(memberAccounts.openForMembers(payload.root()))).build();
     }
 
     /** Renomme un compte ou change sa famille. Le numéro, lui, ne bouge pas. */

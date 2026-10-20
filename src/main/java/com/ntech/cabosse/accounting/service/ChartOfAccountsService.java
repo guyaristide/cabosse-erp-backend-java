@@ -67,24 +67,10 @@ public class ChartOfAccountsService {
         if (!chart.numberExists(root)) {
             throw new BusinessException(Messages.msg("m.acc-chart-account-not-found", root));
         }
-        String prefix = root.replaceFirst("0+$", "");
-        if (prefix.isEmpty()) prefix = root.substring(0, 1);
-        int width = Math.max(1, root.length() - prefix.length());
-        List<String> taken = chart.numbersStartingWith(prefix);
-        for (int w = width; prefix.length() + w <= 20; w++) {
-            int length = prefix.length() + w;
-            final String p = prefix;
-            long max = taken.stream()
-                    .filter(n -> n.length() == length && !n.equals(root))
-                    .map(n -> n.substring(p.length()))
-                    .filter(rank -> rank.chars().allMatch(Character::isDigit))
-                    .mapToLong(Long::parseLong)
-                    .max().orElse(0);
-            long next = max + 1;
-            if (String.valueOf(next).length() > w) continue;
-            return prefix + String.format("%0" + w + "d", next);
-        }
-        throw new BusinessException(Messages.msg("m.acc-chart-sub-account-exhausted", root));
+        return SubAccountNumbering.next(root,
+                new java.util.HashSet<>(chart.numbersStartingWith(SubAccountNumbering.prefixOf(root))))
+                .orElseThrow(() -> new BusinessException(
+                        Messages.msg("m.acc-chart-sub-account-exhausted", root)));
     }
 
     /**

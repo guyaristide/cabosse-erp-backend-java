@@ -140,4 +140,53 @@ class SubAccountNumberingTest extends AbstractIntegrationTest {
                 .body("data.find { it.number == '" + number + "' }.label", equalTo("Délégué TUO Serge"))
                 .body("data.find { it.number == '" + number + "' }.system", equalTo(false));
     }
+
+    /** Un sociétaire avec son fournisseur miroir, créé par la voie ordinaire. */
+    private String member(UserEntity who, String lastName, String firstName) {
+        return givenAs(who).contentType("application/json")
+                .body("""
+                        { "lastName": "%s", "firstName": "%s", "gender": "MALE", "status": "ACTIVE" }
+                        """.formatted(lastName, firstName))
+                .when().post("/api/v1/members").then().statusCode(201)
+                .extract().path("data.id");
+    }
+
+    @Test
+    void every_member_gets_a_supplier_account_in_one_go_and_the_pass_is_replayable() {
+        UserEntity a = admin();
+        // Les sociétaires suivent la capacité du modèle coopératif.
+        TenantEntity tenant = tenants.findById(a.tenantId);
+        tenant.organizationModel = com.ntech.cabosse.tenant.entity.TenantOrganizationModel.COOPERATIVE;
+        tenants.update(tenant);
+        create(a, "401110", "Fournisseurs : producteurs membres");
+        String first = member(a, "KONAN", "Yao");
+        member(a, "DIABY", "Jean");
+
+        givenAs(a).when().get("/api/v1/accounting/chart/sub-accounts/members/pending")
+                .then().statusCode(200).body("data.withoutAccount", equalTo(2));
+
+        givenAs(a).contentType("application/json").body("{ \"root\": \"401110\" }")
+                .when().post("/api/v1/accounting/chart/sub-accounts/members")
+                .then().statusCode(200)
+                .body("data.opened", equalTo(2)).body("data.alreadyOpen", equalTo(0));
+
+        // Chaque miroir porte son compte, intitulé « Producteur » suivi du nom.
+        givenAs(a).when().get("/api/v1/members/" + first)
+                .then().statusCode(200).body("data.supplierId", org.hamcrest.Matchers.notNullValue());
+        // Les deux miroirs portent 401111 et 401112, dans l'ordre où le
+        // registre les a rendus.
+        givenAs(a).when().get("/api/v1/suppliers?q=KONAN")
+                .then().statusCode(200)
+                .body("data.items[0].subsidiaryAccount", org.hamcrest.Matchers.matchesPattern("40111[12]"));
+        givenAs(a).when().get("/api/v1/accounting/chart?withBalances=false")
+                .then().statusCode(200)
+                .body("data.findAll { it.number ==~ /40111[12]/ }.label",
+                        org.hamcrest.Matchers.containsInAnyOrder("Producteur KONAN Yao", "Producteur DIABY Jean"));
+
+        // Rejouer n'ouvre rien de plus.
+        givenAs(a).contentType("application/json").body("{ \"root\": \"401110\" }")
+                .when().post("/api/v1/accounting/chart/sub-accounts/members")
+                .then().statusCode(200)
+                .body("data.opened", equalTo(0)).body("data.alreadyOpen", equalTo(2));
+    }
 }
