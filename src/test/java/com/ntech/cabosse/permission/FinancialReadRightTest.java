@@ -129,4 +129,43 @@ class FinancialReadRightTest extends AbstractIntegrationTest {
                 .delete("/api/v1/member-credits/" + any + "/attachments/" + any)
                 .then().statusCode(404);
     }
+
+    @Test
+    void attaching_or_opening_a_party_account_follows_the_registry_right() {
+        UserEntity admin = tenantAdmin();
+        UserEntity nobody = user(Roles.USER, "nobody");
+        UserEntity registre = withRights(admin, "registre", "REF_SUPPLIER_WRITE");
+        givenAs(admin).contentType("application/json")
+                .body("{ \"number\": \"409100\", \"label\": \"Avances aux délégués\" }")
+                .when().post("/api/v1/accounting/chart");
+        String supplierId = givenAs(admin).contentType("application/json")
+                .body("{ \"name\": \"SORO Moussa\", \"collector\": true }")
+                .when().post("/api/v1/suppliers").then().statusCode(201).extract().path("data.id");
+
+        // Sans droit : rien, ni le numéro suivant, ni l'ouverture, ni le rattachement.
+        givenAs(nobody).when().get("/api/v1/accounting/chart/sub-accounts/next?root=409100")
+                .then().statusCode(403);
+        givenAs(nobody).contentType("application/json")
+                .body("{ \"root\": \"409100\", \"label\": \"Délégué SORO Moussa\" }")
+                .when().post("/api/v1/accounting/chart/sub-accounts").then().statusCode(403);
+        givenAs(nobody).contentType("application/json").body("{ \"advanceAccount\": \"409100\" }")
+                .when().patch("/api/v1/suppliers/" + supplierId + "/accounts").then().statusCode(403);
+
+        // Qui tient le registre ouvre le sous-compte, borné à une racine, et le rattache.
+        String number = givenAs(registre).contentType("application/json")
+                .body("{ \"root\": \"409100\", \"label\": \"Délégué SORO Moussa\" }")
+                .when().post("/api/v1/accounting/chart/sub-accounts").then().statusCode(201)
+                .extract().path("data.number");
+        givenAs(registre).contentType("application/json")
+                .body("{ \"advanceAccount\": \"%s\" }".formatted(number))
+                .when().patch("/api/v1/suppliers/" + supplierId + "/accounts").then().statusCode(200);
+
+        // Mais pas un compte quelconque au plan, ni les comptes de tous les
+        // sociétaires d'un coup : ces deux gestes restent comptables.
+        givenAs(registre).contentType("application/json")
+                .body("{ \"number\": \"471100\", \"label\": \"Débiteurs divers\" }")
+                .when().post("/api/v1/accounting/chart").then().statusCode(403);
+        givenAs(registre).contentType("application/json").body("{ \"root\": \"409100\" }")
+                .when().post("/api/v1/accounting/chart/sub-accounts/members").then().statusCode(403);
+    }
 }

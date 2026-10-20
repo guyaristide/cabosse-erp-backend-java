@@ -140,6 +140,16 @@ public class SupplierResource {
         return Response.ok(ApiResponse.ok(service.setCollectorMargins(id, payload))).build();
     }
 
+    /** Les comptes du tiers, depuis sa fiche : un champ absent ne bouge pas, vide détache. */
+    @PATCH
+    @RequiresPermission(Permission.REF_SUPPLIER_WRITE)
+    @Path("/{id}/accounts")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN, Roles.USER })
+    public Response setAccounts(@PathParam("id") UUID id,
+                                @Valid com.ntech.cabosse.supplier.dto.SupplierAccountsDto payload) {
+        return Response.ok(ApiResponse.ok(service.setAccounts(id, payload))).build();
+    }
+
     @PATCH
     @RequiresPermission(Permission.REF_SUPPLIER_WRITE)
     @Path("/{id}/active")

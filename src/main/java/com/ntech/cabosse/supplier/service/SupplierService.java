@@ -261,6 +261,26 @@ public class SupplierService {
         return SupplierResponseDto.from(e);
     }
 
+    /**
+     * Rattache les comptes depuis la fiche, sans repasser par le
+     * formulaire entier (demandé le 20/10/2026). Un champ absent ne
+     * bouge pas ; une chaîne vide détache.
+     */
+    public SupplierResponseDto setAccounts(UUID id, com.ntech.cabosse.supplier.dto.SupplierAccountsDto p) {
+        SupplierEntity e = repo.findById(id).orElseThrow(
+                () -> new NotFoundException(com.ntech.cabosse.shared.i18n.Messages.msg("m.sup-not-found", id)));
+        if (p.advanceAccount() != null) {
+            assertAdvanceAccountUsable(p.advanceAccount(), e.id);
+            e.advanceAccount = blank(p.advanceAccount());
+        }
+        if (p.subsidiaryAccount() != null) e.subsidiaryAccount = blank(p.subsidiaryAccount());
+        if (p.collectiveAccount() != null) e.collectiveAccount = blank(p.collectiveAccount());
+        e.updatedAt = Instant.now();
+        repo.replace(e);
+        auditEvt(e, "Comptes rattachés");
+        return SupplierResponseDto.from(e);
+    }
+
     private void apply(SupplierEntity e, SupplierUpsertDto p) {
         e.name = p.name().trim();
         e.legalName = blank(p.legalName());

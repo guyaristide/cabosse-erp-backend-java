@@ -230,6 +230,17 @@ public class MemberResource {
 
     // ─── Radiation (MEM-05) ─────────────────────────────────────────
 
+    /** Le compte d'avance du sociétaire, depuis sa fiche ; vide détache. */
+    @jakarta.ws.rs.PATCH
+    @RequiresPermission(Permission.MEMBER_WRITE)
+    @Path("/{id}/advance-account")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    public Response setAdvanceAccount(@PathParam("id") UUID id,
+                                      @Valid com.ntech.cabosse.members.dto.MemberAdvanceAccountDto payload) {
+        ensureCapability();
+        return Response.ok(ApiResponse.ok(service.setAdvanceAccount(id, payload.advanceAccount()))).build();
+    }
+
     public record RetirePayload(String reason) {}
 
     @POST

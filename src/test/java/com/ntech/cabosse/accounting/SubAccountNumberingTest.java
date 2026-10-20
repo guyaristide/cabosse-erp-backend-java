@@ -189,4 +189,52 @@ class SubAccountNumberingTest extends AbstractIntegrationTest {
                 .then().statusCode(200)
                 .body("data.opened", equalTo(0)).body("data.alreadyOpen", equalTo(2));
     }
+
+    @Test
+    void a_party_attaches_an_account_from_its_record_without_the_whole_form() {
+        UserEntity a = admin();
+        roots(a);
+        String supplierId = givenAs(a).contentType("application/json")
+                .body("{ \"name\": \"KONE Adama\", \"collector\": true }")
+                .when().post("/api/v1/suppliers").then().statusCode(201)
+                .extract().path("data.id");
+        String number = open(a, "409100", "Délégué KONE Adama");
+
+        givenAs(a).contentType("application/json")
+                .body("{ \"advanceAccount\": \"%s\" }".formatted(number))
+                .when().patch("/api/v1/suppliers/" + supplierId + "/accounts")
+                .then().statusCode(200)
+                .body("data.advanceAccount", equalTo(number));
+
+        // Un compte absent du plan est refusé, comme par le formulaire.
+        givenAs(a).contentType("application/json")
+                .body("{ \"advanceAccount\": \"409999\" }")
+                .when().patch("/api/v1/suppliers/" + supplierId + "/accounts")
+                .then().statusCode(422);
+
+        // Le compte auxiliaire se rattache de même, sans toucher au reste.
+        givenAs(a).contentType("application/json")
+                .body("{ \"subsidiaryAccount\": \"401200\" }")
+                .when().patch("/api/v1/suppliers/" + supplierId + "/accounts")
+                .then().statusCode(200)
+                .body("data.subsidiaryAccount", equalTo("401200"))
+                .body("data.advanceAccount", equalTo(number));
+    }
+
+    @Test
+    void a_member_attaches_its_advance_account_from_its_record() {
+        UserEntity a = admin();
+        TenantEntity tenant = tenants.findById(a.tenantId);
+        tenant.organizationModel = com.ntech.cabosse.tenant.entity.TenantOrganizationModel.COOPERATIVE;
+        tenants.update(tenant);
+        roots(a);
+        String memberId = member(a, "YAO", "Akissi");
+        String number = open(a, "409200", "Producteur YAO Akissi");
+
+        givenAs(a).contentType("application/json")
+                .body("{ \"advanceAccount\": \"%s\" }".formatted(number))
+                .when().patch("/api/v1/members/" + memberId + "/advance-account")
+                .then().statusCode(200)
+                .body("data.advanceAccount", equalTo(number));
+    }
 }

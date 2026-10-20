@@ -207,7 +207,9 @@ public class AccountingResource {
      */
     @POST
     @Path("/chart/sub-accounts/members")
-    @RequiresPermission({ Permission.ACCOUNTING_WRITE, Permission.MEMBER_WRITE })
+    // Ouvrir des milliers de comptes au plan est un acte comptable, pas
+    // un geste du registre : le droit d'écriture comptable, et lui seul.
+    @RequiresPermission(Permission.ACCOUNTING_WRITE)
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
     public Response openMembersAccounts(
             @Valid com.ntech.cabosse.accounting.dto.MembersSubAccountsDto payload) {

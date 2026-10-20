@@ -250,6 +250,17 @@ public class MemberService {
         return MemberResponseDto.from(e, fileValidityMonths(), producerRefKeys.identityProofTypeNames());
     }
 
+    /** Le compte d'avance, rattaché depuis la fiche ; vide détache (demandé le 20/10/2026). */
+    public MemberResponseDto setAdvanceAccount(UUID id, String account) {
+        MemberEntity e = loadOrFail(id);
+        assertAdvanceAccountUsable(account, e.id);
+        e.advanceAccount = account == null || account.isBlank() ? null : account.trim();
+        e.updatedAt = Instant.now();
+        members.replace(e);
+        syncMirrorSupplier(e);
+        return MemberResponseDto.from(e, fileValidityMonths(), producerRefKeys.identityProofTypeNames());
+    }
+
     // ─── Update ─────────────────────────────────────────────────────
 
     public MemberResponseDto update(UUID id, MemberUpsertDto payload) {
