@@ -41,6 +41,7 @@ import org.eclipse.microprofile.jwt.JsonWebToken;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -242,6 +243,51 @@ public class CommoditySaleService {
                 quantityByGrade, overall.toDto(), qByGrade, qByLabel);
     }
 
+    /** Les bordereaux appelés, dans l'ordre et sans doublon : la liste, puis l'ancien champ unique. */
+    private List<com.ntech.cabosse.dispatch.entity.DispatchNoteEntity> loadNotes(CommoditySaleUpsertDto p) {
+        java.util.LinkedHashSet<UUID> ids = new java.util.LinkedHashSet<>();
+        if (p.dispatchNoteIds() != null) p.dispatchNoteIds().stream().filter(java.util.Objects::nonNull).forEach(ids::add);
+        if (p.dispatchNoteId() != null) ids.add(p.dispatchNoteId());
+        List<com.ntech.cabosse.dispatch.entity.DispatchNoteEntity> notes = new ArrayList<>();
+        for (UUID id : ids) {
+            notes.add(dispatchNotes.findById(id).orElseThrow(
+                    () -> new NotFoundException(Messages.msg("m.dsp-note-not-found", id))));
+        }
+        return notes;
+    }
+
+    /**
+     * Chaque chargement appelé, avec son site, et ce que le carnet en dit
+     * quand l'import le porte ligne à ligne : sinon le numéro du bordereau
+     * tient lieu de numéro de carnet.
+     */
+    private static List<CommoditySaleEntity.Load> loadsOf(
+            List<com.ntech.cabosse.dispatch.entity.DispatchNoteEntity> notes, CommoditySaleUpsertDto p) {
+        java.util.Map<UUID, CommoditySaleUpsertDto.LoadDto> given = new java.util.HashMap<>();
+        if (p.loads() != null) {
+            for (var l : p.loads()) if (l != null && l.dispatchNoteId() != null) given.put(l.dispatchNoteId(), l);
+        }
+        List<CommoditySaleEntity.Load> out = new ArrayList<>();
+        for (var note : notes) {
+            CommoditySaleEntity.Load load = new CommoditySaleEntity.Load();
+            load.dispatchNoteId = note.id;
+            load.dispatchNoteRef = note.ref;
+            load.siteId = note.siteId;
+            load.siteName = note.siteName;
+            load.declaredKg = note.totalNetKg;
+            load.bags = note.totalBags;
+            var g = given.get(note.id);
+            load.dispatchNoteNumber = g != null && g.dispatchNoteNumber() != null ? g.dispatchNoteNumber()
+                    : (p.logistics() != null && notes.size() == 1 ? p.logistics().dispatchNoteNumber() : note.ref);
+            load.loadingNumber = g != null ? g.loadingNumber()
+                    : (p.logistics() != null && notes.size() == 1 ? p.logistics().loadingNumber() : null);
+            load.departureLocation = g != null && g.departureLocation() != null ? g.departureLocation()
+                    : (p.logistics() != null && notes.size() == 1 ? p.logistics().departureLocation() : note.siteName);
+            out.add(load);
+        }
+        return out;
+    }
+
     public CommoditySaleResponseDto create(CommoditySaleUpsertDto p) {
         TenantPreferences prefs = preferences.current();
 
@@ -267,24 +313,25 @@ public class CommoditySaleService {
         // La zone A de l'expert : la vente appelle un bordereau de sortie,
         // dont le poids déclaré et la sortie de stock font foi. Sans
         // bordereau (reprise, vente directe), l'ancien chemin demeure.
-        com.ntech.cabosse.dispatch.entity.DispatchNoteEntity dispatchNote = null;
-        if (p.dispatchNoteId() != null) {
-            dispatchNote = dispatchNotes.findById(p.dispatchNoteId()).orElseThrow(
-                    () -> new NotFoundException(Messages.msg("m.dsp-note-not-found", p.dispatchNoteId())));
-            if (dispatchNote.status != com.ntech.cabosse.dispatch.entity.DispatchNoteStatus.OPEN) {
+        // Un ou plusieurs bordereaux : le cacao vendu se constitue à
+        // partir de plusieurs magasins de la coopérative (demandé le
+        // 21/10/2026, VTE-16). Chacun apporte son poids et son coût ; le
+        // site de la vente est celui qui facture, pas celui d'où tout
+        // part, et le contrôle de site est tombé avec cette lecture.
+        List<com.ntech.cabosse.dispatch.entity.DispatchNoteEntity> notes = loadNotes(p);
+        for (var note : notes) {
+            if (note.status != com.ntech.cabosse.dispatch.entity.DispatchNoteStatus.OPEN) {
                 throw new BusinessException(Messages.msg("m.cco-dispatch-not-open",
-                        dispatchNote.ref, dispatchNote.saleRef != null ? dispatchNote.saleRef : ""));
+                        note.ref, note.saleRef != null ? note.saleRef : ""));
             }
-            if (!dispatchNote.articleId.equals(p.articleId())) {
+            if (!note.articleId.equals(p.articleId())) {
                 throw new BusinessException(Messages.msg("m.cco-dispatch-other-article",
-                        dispatchNote.ref, dispatchNote.articleName));
-            }
-            if (!dispatchNote.siteId.equals(p.siteId())) {
-                throw new BusinessException(Messages.msg("m.cco-dispatch-other-site", dispatchNote.ref));
+                        note.ref, note.articleName));
             }
         }
+        com.ntech.cabosse.dispatch.entity.DispatchNoteEntity dispatchNote = notes.isEmpty() ? null : notes.get(0);
         BigDecimal declaredKg = dispatchNote != null
-                ? dispatchNote.totalNetKg
+                ? notes.stream().map(n -> nz(n.totalNetKg)).reduce(BigDecimal.ZERO, BigDecimal::add)
                 : required(p.weights() != null ? p.weights().declaredKg() : null, "Poids déclaré (départ)");
         BigDecimal acceptedKg = required(p.weights() != null ? p.weights().acceptedKg() : null, "Poids accepté");
 
@@ -311,10 +358,13 @@ public class CommoditySaleService {
         BigDecimal cogs;
         if (dispatchNote != null) {
             // Le coût des ventes est celui des lignes réellement chargées,
-            // au CMUP photographié à leur sortie : l'exact, pas l'actuel.
+            // au CMUP photographié à leur sortie : l'exact, pas l'actuel,
+            // chaque site apportant le sien.
             BigDecimal value = BigDecimal.ZERO;
-            for (com.ntech.cabosse.dispatch.entity.DispatchLine line : dispatchNote.lines) {
-                value = value.add(nz(line.netKg).multiply(nz(line.cmupAtDispatch)));
+            for (var note : notes) {
+                for (com.ntech.cabosse.dispatch.entity.DispatchLine line : note.lines) {
+                    value = value.add(nz(line.netKg).multiply(nz(line.cmupAtDispatch)));
+                }
             }
             cogs = value;
             cmup = declaredKg.signum() > 0
@@ -345,6 +395,9 @@ public class CommoditySaleService {
         if (dispatchNote != null) {
             e.dispatchNoteId = dispatchNote.id;
             e.dispatchNoteRef = dispatchNote.ref;
+            e.dispatchNoteIds = notes.stream().map(n -> n.id).toList();
+            e.dispatchNoteRefs = notes.stream().map(n -> n.ref).toList();
+            e.loads = loadsOf(notes, p);
         }
         mapLogistics(e, p);
         mapWeights(e, p);
@@ -378,11 +431,17 @@ public class CommoditySaleService {
         //    chargement. Sans bordereau, l'ancien chemin sort le poids
         //    déclaré au CMUP.
         if (dispatchNote != null) {
-            if (!dispatchNotes.tryMarkSold(dispatchNote.id, e.id, e.ref)) {
-                throw new BusinessException(Messages.msg("m.cco-dispatch-not-open",
-                        dispatchNote.ref, ""));
+            // Tous vendus, ou aucun : un bordereau pris entre-temps par une
+            // autre vente rend ceux déjà marqués.
+            List<UUID> marked = new ArrayList<>();
+            for (var note : notes) {
+                if (!dispatchNotes.tryMarkSold(note.id, e.id, e.ref)) {
+                    marked.forEach(dispatchNotes::unmarkSold);
+                    throw new BusinessException(Messages.msg("m.cco-dispatch-not-open", note.ref, ""));
+                }
+                marked.add(note.id);
             }
-            e.movementRef = dispatchNote.ref;
+            e.movementRef = String.join(" + ", e.dispatchNoteRefs);
         } else {
             // Les sacs partent avec le poids : le registre du magasin les
             // compte, et une sortie sans sacs y laissait un compte qui ne
@@ -404,7 +463,7 @@ public class CommoditySaleService {
                     .ifPresent(piece -> e.pieceRef = piece.ref);
         } catch (RuntimeException ex) {
             if (dispatchNote != null) {
-                dispatchNotes.unmarkSold(dispatchNote.id);
+                notes.forEach(n -> dispatchNotes.unmarkSold(n.id));
             } else {
                 stockService.applyMovement(new MovementInput(
                         article.id, p.siteId(), MovementKind.IN, declaredKg, nz(cmup),

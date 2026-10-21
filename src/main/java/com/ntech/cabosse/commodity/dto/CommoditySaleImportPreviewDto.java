@@ -14,7 +14,12 @@ public record CommoditySaleImportPreviewDto(
         int invalidRows,
         List<Row> rows
 ) {
-    public enum Status { READY, INVALID }
+    /**
+     * {@code ATTACHED} : la ligne n'est pas une vente mais un chargement de
+     * plus sur la vente d'une autre ligne (vente multisites, VTE-16). Elle
+     * ne compte ni prête ni refusée : elle part avec sa vente.
+     */
+    public enum Status { READY, INVALID, ATTACHED }
 
     /**
      * Une ligne, ce qui l'empêche, et ce qui se fera pour elle.

@@ -35,6 +35,17 @@ public record CommoditySaleUpsertDto(
          */
         UUID dispatchNoteId,
 
+        /**
+         * Les bordereaux appelés, quand la vente réunit le cacao de
+         * plusieurs sites (VTE-16). Le poids déclaré est leur somme, le
+         * coût des ventes celui de toutes leurs lignes, et chacun passe
+         * « vendu » ou aucun.
+         */
+        java.util.List<UUID> dispatchNoteIds,
+
+        /** Ce que le carnet dit de chaque chargement, quand l'import le porte ligne à ligne. */
+        @Valid java.util.List<LoadDto> loads,
+
         @Valid LogisticsDto logistics,
         @Valid @NotNull WeightsDto weights,
         @Valid RefactionsDto refactions,
@@ -74,6 +85,13 @@ public record CommoditySaleUpsertDto(
             BigDecimal totalDeductions,
             BigDecimal netAmount
     ) {}
+    public record LoadDto(
+            UUID dispatchNoteId,
+            @Size(max = 40) String dispatchNoteNumber,
+            @Size(max = 40) String loadingNumber,
+            @Size(max = 120) String departureLocation
+    ) {}
+
     public record LogisticsDto(
             @Size(max = 40) String dispatchNoteNumber,
             @Size(max = 40) String loadingNumber,

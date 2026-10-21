@@ -51,7 +51,11 @@ public record CommoditySaleResponseDto(
         /** Solde client = TTC moins encaissé. */
         BigDecimal remainingDue,
         Instant createdAt,
-        Instant updatedAt
+        Instant updatedAt,
+        /** Tous les bordereaux appelés, dans l'ordre, et chaque chargement avec son site. */
+        java.util.List<UUID> dispatchNoteIds,
+        java.util.List<String> dispatchNoteRefs,
+        java.util.List<CommoditySaleEntity.Load> loads
 ) {
     public static CommoditySaleResponseDto from(CommoditySaleEntity e) {
         return new CommoditySaleResponseDto(
@@ -69,6 +73,9 @@ public record CommoditySaleResponseDto(
                 e.totalPaid == null ? BigDecimal.ZERO : e.totalPaid,
                 (e.amountInvoicedTtc == null ? BigDecimal.ZERO : e.amountInvoicedTtc)
                         .subtract(e.totalPaid == null ? BigDecimal.ZERO : e.totalPaid),
-                e.createdAt, e.updatedAt);
+                e.createdAt, e.updatedAt,
+                e.dispatchNoteIds == null ? java.util.List.of() : e.dispatchNoteIds,
+                e.dispatchNoteRefs == null ? java.util.List.of() : e.dispatchNoteRefs,
+                e.loads == null ? java.util.List.of() : e.loads);
     }
 }

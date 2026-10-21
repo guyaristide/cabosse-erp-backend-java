@@ -13,6 +13,7 @@ import com.ntech.cabosse.article.repository.ArticleRepository;
 import com.ntech.cabosse.customer.entity.CustomerEntity;
 import com.ntech.cabosse.customer.repository.CustomerRepository;
 import com.ntech.cabosse.shared.i18n.Messages;
+import com.ntech.cabosse.shared.imports.ImportFields;
 import com.ntech.cabosse.shared.imports.NameAliases;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -22,9 +23,11 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -68,10 +71,37 @@ public class CommoditySaleImportService {
             for (String key : NameAliases.of(a.name)) target.putIfAbsent(key, a);
         }
 
+        Grouping grouping = group(input);
+
         List<Row> rows = new ArrayList<>();
         int ready = 0, invalid = 0;
         for (CommoditySaleImportRowDto raw : input) {
             List<FieldIssue> issues = new ArrayList<>();
+
+            // Un chargement de plus sur la vente d'une autre ligne : il ne
+            // se juge que sur son bordereau, le reste appartient à la vente.
+            LoadRow attached = grouping.loads.get(raw.rowNumber());
+            if (attached != null) {
+                Normalized loadOnly = new Normalized(null, null, null, null, null,
+                        parseDecimal(raw.declaredKg()), null, null);
+                if (attached.error() != null) {
+                    invalid++;
+                    rows.add(new Row(raw.rowNumber(), Status.INVALID, loadOnly,
+                            List.of(new FieldIssue("dispatchNoteNumber", attached.error()))));
+                } else {
+                    rows.add(new Row(raw.rowNumber(), Status.ATTACHED, loadOnly, List.of(),
+                            List.of(new FieldIssue("dispatchNoteNumber", Messages.msg(
+                                    "m.imp-load-attached", attached.headRowNumber(), attached.note().ref)))));
+                }
+                continue;
+            }
+            if (grouping.orphans.contains(raw.rowNumber())) {
+                invalid++;
+                rows.add(new Row(raw.rowNumber(), Status.INVALID,
+                        new Normalized(null, null, null, null, null, parseDecimal(raw.declaredKg()), null, null),
+                        List.of(new FieldIssue("dispatchNoteNumber", Messages.msg("m.imp-load-row-orphan")))));
+                continue;
+            }
 
             CustomerEntity customer = null;
             boolean ambiguousCustomer = false;
@@ -135,15 +165,41 @@ public class CommoditySaleImportService {
             // l'appelle alors au lieu de redemander du stock. Le dire ici
             // évite le « stock insuffisant » sur une marchandise partie.
             String noteRef = blankToNull(raw.dispatchNoteNumber());
+            boolean headNoteOpen = false;
             if (noteRef != null) {
                 var note = dispatchNotes.findByRef(noteRef);
                 if (note.isPresent() && note.get().status
                         == com.ntech.cabosse.dispatch.entity.DispatchNoteStatus.OPEN) {
+                    headNoteOpen = true;
                     notices.add(new FieldIssue("dispatchNoteNumber",
                             Messages.msg("m.imp-dispatch-note-called", note.get().ref)));
                 } else {
                     notices.add(new FieldIssue("dispatchNoteNumber",
                             Messages.msg("m.imp-dispatch-note-unknown", noteRef)));
+                }
+            }
+
+            // Les chargements que d'autres lignes joignent à cette vente :
+            // le poids déclaré les additionne, et la vente ne se fait pas
+            // sans eux, ni sans un bordereau ouvert pour elle-même.
+            List<LoadRow> loads = grouping.loadsByHead.getOrDefault(raw.rowNumber(), List.of());
+            if (!loads.isEmpty()) {
+                String loadRows = loads.stream().map(l -> String.valueOf(l.raw().rowNumber()))
+                        .collect(java.util.stream.Collectors.joining(", "));
+                if (!headNoteOpen) {
+                    issues.add(new FieldIssue("dispatchNoteNumber",
+                            Messages.msg("m.imp-head-note-required", loadRows)));
+                }
+                for (LoadRow l : loads) {
+                    if (l.error() != null) {
+                        issues.add(new FieldIssue("dispatchNoteNumber",
+                                Messages.msg("m.imp-load-row-invalid", l.raw().rowNumber())));
+                    } else {
+                        notices.add(new FieldIssue("dispatchNoteNumber",
+                                Messages.msg("m.imp-dispatch-note-called", l.note().ref)));
+                        BigDecimal more = parseDecimal(l.raw().declaredKg());
+                        if (declared != null && more != null) declared = declared.add(more);
+                    }
                 }
             }
 
@@ -170,10 +226,33 @@ public class CommoditySaleImportService {
 
         List<String> createdRefs = new ArrayList<>();
         List<Row> skipped = new ArrayList<>();
+        Grouping grouping = group(input);
         for (Row row : preview.rows()) {
+            // Un chargement joint part avec sa vente : ni créé, ni écarté.
+            if (row.status() == Status.ATTACHED) continue;
             if (row.status() != Status.READY || row.normalized() == null) { skipped.add(row); continue; }
             CommoditySaleImportRowDto raw = byRow.get(row.rowNumber());
             Normalized nrm = row.normalized();
+            // Le bordereau de la ligne, puis ceux des chargements joints,
+            // chacun avec ce que le carnet en dit.
+            UUID headNoteId = dispatchNotes.findByRef(blankToNull(raw.dispatchNoteNumber()))
+                    .filter(n -> n.status == com.ntech.cabosse.dispatch.entity.DispatchNoteStatus.OPEN)
+                    .map(n -> n.id).orElse(null);
+            List<UUID> noteIds = new ArrayList<>();
+            List<CommoditySaleUpsertDto.LoadDto> loadDtos = new ArrayList<>();
+            if (headNoteId != null) {
+                noteIds.add(headNoteId);
+                loadDtos.add(new CommoditySaleUpsertDto.LoadDto(headNoteId,
+                        blankToNull(raw.dispatchNoteNumber()), blankToNull(raw.loadingNumber()),
+                        blankToNull(raw.departureLocation())));
+            }
+            for (LoadRow l : grouping.loadsByHead.getOrDefault(row.rowNumber(), List.of())) {
+                if (l.note() == null) continue;
+                noteIds.add(l.note().id);
+                loadDtos.add(new CommoditySaleUpsertDto.LoadDto(l.note().id,
+                        blankToNull(l.raw().dispatchNoteNumber()), blankToNull(l.raw().loadingNumber()),
+                        blankToNull(l.raw().departureLocation())));
+            }
             // Le grade annoncé « à créer » par l'aperçu s'ouvre ici, avant
             // l'écriture de la vente : sans lui, la création la refuserait
             // et la ligne repartirait écartée, ce que l'aperçu venait de
@@ -197,10 +276,9 @@ public class CommoditySaleImportService {
                         // sortie de stock pour des kilos déjà sortis avec le
                         // chargement : « stock insuffisant, 0 disponible »
                         // pour une marchandise qui était bien partie.
-                        dispatchNotes.findByRef(blankToNull(raw.dispatchNoteNumber()))
-                                .filter(n -> n.status == com.ntech.cabosse.dispatch.entity
-                                        .DispatchNoteStatus.OPEN)
-                                .map(n -> n.id).orElse(null),
+                        headNoteId,
+                        noteIds,
+                        loadDtos,
                         new CommoditySaleUpsertDto.LogisticsDto(
                                 blankToNull(raw.dispatchNoteNumber()), blankToNull(raw.loadingNumber()),
                                 blankToNull(raw.departureLocation()), blankToNull(raw.destination()),
@@ -246,6 +324,85 @@ public class CommoditySaleImportService {
         }
         return new CommoditySaleImportCommitResponseDto(
                 preview.totalRows(), createdRefs.size(), skipped.size(), createdRefs, skipped);
+    }
+
+    /** Un chargement de plus, lu sur sa ligne, et le bordereau qu'il appelle. */
+    private record LoadRow(CommoditySaleImportRowDto raw, int headRowNumber,
+                           com.ntech.cabosse.dispatch.entity.DispatchNoteEntity note, String error) {}
+
+    /** Les chargements rangés sous leur vente, et ceux qui n'en ont trouvé aucune. */
+    private record Grouping(Map<Integer, LoadRow> loads, Map<Integer, List<LoadRow>> loadsByHead,
+                            Set<Integer> orphans) {}
+
+    /**
+     * Une vente qui réunit le cacao de plusieurs magasins s'écrit sur
+     * plusieurs lignes : une par bordereau de sortie (N° BS, N° chargement,
+     * lieu de départ, poids déclaré), et une seule qui porte le reste
+     * (poids déchargé et accepté, sacs, réfactions, montants), la vente
+     * elle-même. Une ligne qui n'a qu'un chargement rejoint la vente la
+     * plus proche du même client, du même produit et du même jour, qu'elle
+     * la précède ou la suive ; sans vente à rejoindre, elle est refusée.
+     */
+    private Grouping group(List<CommoditySaleImportRowDto> input) {
+        Map<Integer, LoadRow> loads = new HashMap<>();
+        Map<Integer, List<LoadRow>> loadsByHead = new HashMap<>();
+        Set<Integer> orphans = new HashSet<>();
+        List<CommoditySaleImportRowDto> pending = new ArrayList<>();
+        CommoditySaleImportRowDto lastHead = null;
+        for (CommoditySaleImportRowDto raw : input) {
+            if (isLoadOnly(raw)) {
+                if (lastHead != null && sameSale(raw, lastHead)) {
+                    attach(raw, lastHead, loads, loadsByHead);
+                } else {
+                    if (!pending.isEmpty() && !sameSale(raw, pending.get(0))) {
+                        pending.forEach(p -> orphans.add(p.rowNumber()));
+                        pending.clear();
+                    }
+                    pending.add(raw);
+                }
+                continue;
+            }
+            for (CommoditySaleImportRowDto p : pending) {
+                if (sameSale(p, raw)) attach(p, raw, loads, loadsByHead);
+                else orphans.add(p.rowNumber());
+            }
+            pending.clear();
+            lastHead = raw;
+        }
+        pending.forEach(p -> orphans.add(p.rowNumber()));
+        return new Grouping(loads, loadsByHead, orphans);
+    }
+
+    private void attach(CommoditySaleImportRowDto load, CommoditySaleImportRowDto head,
+                        Map<Integer, LoadRow> loads, Map<Integer, List<LoadRow>> loadsByHead) {
+        String ref = blankToNull(load.dispatchNoteNumber());
+        var note = dispatchNotes.findByRef(ref)
+                .filter(n -> n.status == com.ntech.cabosse.dispatch.entity.DispatchNoteStatus.OPEN);
+        LoadRow row = new LoadRow(load, head.rowNumber(), note.orElse(null),
+                note.isPresent() ? null : Messages.msg("m.imp-load-note-missing", ref));
+        loads.put(load.rowNumber(), row);
+        loadsByHead.computeIfAbsent(head.rowNumber(), k -> new ArrayList<>()).add(row);
+    }
+
+    /** Un bordereau et un poids déclaré, et rien de ce qui fait la vente. */
+    private static boolean isLoadOnly(CommoditySaleImportRowDto r) {
+        return blankToNull(r.dispatchNoteNumber()) != null
+                && blankToNull(r.declaredKg()) != null
+                && blankToNull(r.acceptedKg()) == null
+                && blankToNull(r.dischargedKg()) == null
+                && blankToNull(r.montantFacture()) == null;
+    }
+
+    /** Même client, même produit et même jour ; une case vide sur le chargement hérite de la vente. */
+    private static boolean sameSale(CommoditySaleImportRowDto load, CommoditySaleImportRowDto head) {
+        return inherits(load.customerName(), head.customerName())
+                && inherits(load.productCode(), head.productCode())
+                && inherits(load.date(), head.date());
+    }
+
+    private static boolean inherits(String value, String reference) {
+        return blankToNull(value) == null
+                || ImportFields.normalize(value).equals(ImportFields.normalize(reference));
     }
 
     private static LocalDate parseDate(String s) {

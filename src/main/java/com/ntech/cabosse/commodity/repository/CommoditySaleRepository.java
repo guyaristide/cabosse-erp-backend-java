@@ -72,9 +72,12 @@ public class CommoditySaleRepository {
      * la base du rapprochement des sorties magasin (épic CE-218).
      */
     public List<CommoditySaleEntity> listWithDispatchNumbers() {
-        return coll().find(Filters.and(
-                        Filters.exists("logistics.dispatchNoteNumber", true),
-                        Filters.ne("logistics.dispatchNoteNumber", null)))
+        // Une vente multisites porte aussi ses chargements un à un.
+        return coll().find(Filters.or(
+                        Filters.and(
+                                Filters.exists("logistics.dispatchNoteNumber", true),
+                                Filters.ne("logistics.dispatchNoteNumber", null)),
+                        Filters.exists("loads.0", true)))
                 .into(new ArrayList<>());
     }
 

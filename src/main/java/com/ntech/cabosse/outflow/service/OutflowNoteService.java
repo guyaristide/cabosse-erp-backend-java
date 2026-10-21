@@ -62,8 +62,16 @@ public class OutflowNoteService {
         }
         Map<String, CommoditySaleEntity> saleByNumbers = new HashMap<>();
         for (CommoditySaleEntity s : sales.listWithDispatchNumbers()) {
-            String key = loadKey(s.logistics.dispatchNoteNumber, s.logistics.loadingNumber);
+            String key = s.logistics == null ? null
+                    : loadKey(s.logistics.dispatchNoteNumber, s.logistics.loadingNumber);
             if (key != null) saleByNumbers.putIfAbsent(key, s);
+            // Chaque chargement d'une vente multisites se rapproche aussi.
+            if (s.loads != null) {
+                for (CommoditySaleEntity.Load l : s.loads) {
+                    String k = loadKey(l.dispatchNoteNumber, l.loadingNumber);
+                    if (k != null) saleByNumbers.putIfAbsent(k, s);
+                }
+            }
         }
 
         List<OutflowNoteDto> out = new ArrayList<>(notes.size());

@@ -50,6 +50,33 @@ public class CommoditySaleEntity {
     public UUID dispatchNoteId;
     public String dispatchNoteRef;
 
+    /**
+     * Les bordereaux appelés, quand la vente en réunit plusieurs : le
+     * cacao vendu est constitué à partir de plusieurs magasins de la
+     * coopérative (demandé le 21/10/2026, VTE-16). Le premier reste
+     * aussi dans {@code dispatchNoteId}, ce que lisent les comptes de
+     * sacs et le rapprochement des sorties.
+     */
+    public java.util.List<UUID> dispatchNoteIds = new java.util.ArrayList<>();
+    public java.util.List<String> dispatchNoteRefs = new java.util.ArrayList<>();
+    /** Chaque chargement appelé, avec son site et ce que le carnet en dit. */
+    public java.util.List<Load> loads = new java.util.ArrayList<>();
+
+    /** Un chargement appelé par la vente : un bordereau, un site, un poids. */
+    public static class Load {
+        public UUID dispatchNoteId;
+        public String dispatchNoteRef;
+        public UUID siteId;
+        public String siteName;
+        /** N° du bordereau et du chargement tels que le carnet les porte. */
+        public String dispatchNoteNumber;
+        public String loadingNumber;
+        public String departureLocation;
+        public java.math.BigDecimal declaredKg;
+        public Integer bags;
+        public Load() {}
+    }
+
     // ─── Article vendu (matière première négociée / produit fini) ───
     public UUID articleId;
     public String articleCode;
