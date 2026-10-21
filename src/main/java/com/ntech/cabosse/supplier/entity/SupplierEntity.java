@@ -162,6 +162,16 @@ public class SupplierEntity {
      */
     public UUID categoryId;
 
+    /**
+     * Le sociétaire dont cette fiche est le miroir, quand c'en est un.
+     *
+     * <p>Rien ne distinguait un planteur d'un garagiste dans une liste de
+     * fournisseurs : les miroirs portaient seulement une note en texte
+     * libre (signalé le 21/10/2026). Le rattachement est désormais un
+     * champ, posé à la création du miroir et repris par migration.</p>
+     */
+    public UUID memberId;
+
     public boolean active = true;
 
     public Instant createdAt;

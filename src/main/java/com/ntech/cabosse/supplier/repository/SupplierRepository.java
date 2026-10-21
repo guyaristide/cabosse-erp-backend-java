@@ -34,7 +34,11 @@ public class SupplierRepository {
     }
 
     public long countSearch(String q, Boolean collector) {
-        return coll().countDocuments(searchFilter(q, collector));
+        return countSearch(q, collector, null);
+    }
+
+    public long countSearch(String q, Boolean collector, String kind) {
+        return coll().countDocuments(searchFilter(q, collector, kind));
     }
 
     public List<SupplierEntity> search(String q, int skip, int limit) {
@@ -50,21 +54,21 @@ public class SupplierRepository {
                     .build();
 
     public List<SupplierEntity> search(String q, Boolean collector, int skip, int limit) {
-        return search(q, collector, skip, limit, SORTABLE.resolve(null));
+        return search(q, collector, null, skip, limit, SORTABLE.resolve(null));
     }
 
-    public List<SupplierEntity> search(String q, Boolean collector, int skip, int limit,
+    public List<SupplierEntity> search(String q, Boolean collector, String kind, int skip, int limit,
                                      com.ntech.cabosse.shared.api.SortFields.Sort sort) {
         Document order = sort.toDocument();
         if (!order.containsKey("name")) order.append("name", 1);
-        return coll().find(searchFilter(q, collector))
+        return coll().find(searchFilter(q, collector, kind))
                 .sort(order)
                 .skip(skip)
                 .limit(limit)
                 .into(new ArrayList<>());
     }
 
-    private static org.bson.conversions.Bson searchFilter(String q, Boolean collector) {
+    private static org.bson.conversions.Bson searchFilter(String q, Boolean collector, String kind) {
         List<org.bson.conversions.Bson> filters = new ArrayList<>();
         if (q != null && !q.isBlank()) {
             String escaped = java.util.regex.Pattern.quote(q.trim());
@@ -81,6 +85,18 @@ public class SupplierRepository {
             filters.add(Filters.or(
                     Filters.eq("collector", false),
                     Filters.exists("collector", false)));
+        }
+        // Ce qu'on est : délégué, producteur (miroir d'un sociétaire) ou
+        // prestataire et fournisseur ordinaire. Un délégué reste un délégué
+        // même s'il est sociétaire.
+        if ("DELEGATE".equals(kind)) {
+            filters.add(Filters.eq("collector", true));
+        } else if ("PRODUCER".equals(kind)) {
+            filters.add(Filters.exists("memberId", true));
+            filters.add(Filters.ne("collector", true));
+        } else if ("SUPPLIER".equals(kind)) {
+            filters.add(Filters.exists("memberId", false));
+            filters.add(Filters.ne("collector", true));
         }
         return filters.isEmpty() ? new org.bson.Document() : Filters.and(filters);
     }

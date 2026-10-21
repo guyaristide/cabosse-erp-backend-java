@@ -21,8 +21,18 @@ public record SupplierResponseDto(
         java.util.List<CampaignMarginView> collectorMarginByCampaign,
         java.math.BigDecimal collectorRetentionPerKg,
         UUID categoryId, String categoryName,
-        boolean active, Instant createdAt, Instant updatedAt
+        boolean active, Instant createdAt, Instant updatedAt,
+        /** Le sociétaire dont la fiche est le miroir, s'il y en a un. */
+        UUID memberId,
+        /** DELEGATE, PRODUCER ou SUPPLIER : ce qu'un œil doit voir d'un coup dans une liste. */
+        String kind
 ) {
+    public static String kindOf(SupplierEntity e) {
+        if (e.collector) return "DELEGATE";
+        if (e.memberId != null) return "PRODUCER";
+        return "SUPPLIER";
+    }
+
 
     public record CampaignMarginView(java.util.UUID campaignId, java.math.BigDecimal rate) {}
     public static SupplierResponseDto from(SupplierEntity e) {
@@ -45,7 +55,8 @@ public record SupplierResponseDto(
                                 .map(m -> new CampaignMarginView(m.campaignId, m.rate)).toList(),
                 e.collectorRetentionPerKg,
                 e.categoryId, categoryName,
-                e.active, e.createdAt, e.updatedAt
+                e.active, e.createdAt, e.updatedAt,
+                e.memberId, kindOf(e)
         );
     }
 }

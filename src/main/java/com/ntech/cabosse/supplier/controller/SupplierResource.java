@@ -51,16 +51,25 @@ public class SupplierResource {
     @GET
     public Response list(@QueryParam("q") String q,
                          @QueryParam("collector") String collectorRaw,
+                         @QueryParam("kind") String kind,
                          @QueryParam("page") @DefaultValue("0") int page,
                          @QueryParam("perPage") @DefaultValue("20") int perPage,
                          @QueryParam("sort") String sort,
                          @QueryParam("sortDir") String sortDir) {
         return Response.ok(ApiResponse.ok(
-                service.page(q, parseCollector(collectorRaw), PageRequest.of(page, perPage, sort, sortDir))))
+                service.page(q, parseCollector(collectorRaw), parseKind(kind),
+                        PageRequest.of(page, perPage, sort, sortDir))))
                 .build();
     }
 
     /** Vrai, faux, ou rien du tout : l'absence ne restreint pas. */
+    /** DELEGATE, PRODUCER ou SUPPLIER ; tout autre mot ne filtre pas. */
+    private static String parseKind(String raw) {
+        if (raw == null) return null;
+        String v = raw.trim().toUpperCase(java.util.Locale.ROOT);
+        return java.util.Set.of("DELEGATE", "PRODUCER", "SUPPLIER").contains(v) ? v : null;
+    }
+
     private static Boolean parseCollector(String raw) {
         if (raw == null || raw.isBlank()) return null;
         String v = raw.trim().toLowerCase();

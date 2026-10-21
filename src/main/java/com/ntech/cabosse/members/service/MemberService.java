@@ -666,6 +666,7 @@ public class MemberService {
         s.cityName = m.village;
         s.contactName = m.name;
         s.notes = "Miroir membre " + m.code + " (auto-créé)";
+        s.memberId = m.id;
         // Un producteur déclaré délégué avant la validation de son dossier
         // doit l'être aussi sur le miroir, sinon la case cochée sur sa
         // fiche resterait sans effet.
