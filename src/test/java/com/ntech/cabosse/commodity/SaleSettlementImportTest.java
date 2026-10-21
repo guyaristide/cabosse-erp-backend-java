@@ -161,7 +161,7 @@ class SaleSettlementImportTest extends AbstractIntegrationTest {
 
         for (String header : java.util.List.of(
                 "Péréquation transport", "Différentiel ramassage", "Valeur totale",
-                "BIC", "Timbre fiscal", "Commission commercial",
+                "BIC", "Timbre fiscal", "Commission commerciale",
                 "Remboursement mandat", "Remboursement revolving", "Mise en compte",
                 "Total retenues", "Montant net")) {
             org.assertj.core.api.Assertions.assertThat(csv)
