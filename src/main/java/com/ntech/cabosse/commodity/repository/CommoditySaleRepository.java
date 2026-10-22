@@ -1,5 +1,6 @@
 package com.ntech.cabosse.commodity.repository;
 
+import com.mongodb.client.model.Updates;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.Filters;
 import com.ntech.cabosse.commodity.entity.CommoditySaleEntity;
@@ -149,4 +150,17 @@ public class CommoditySaleRepository {
     public void insert(CommoditySaleEntity e) { coll().insertOne(e); }
 
     public void replace(CommoditySaleEntity e) { coll().replaceOne(Filters.eq("_id", e.id), e); }
+    /** Ajoute une pièce jointe à la liste, sans relire le document. */
+    public void pushAttachment(UUID id, com.ntech.cabosse.shared.storage.AttachmentRef ref) {
+        coll().updateOne(Filters.eq("_id", id), Updates.combine(
+                Updates.push("attachments", ref),
+                Updates.set("updatedAt", java.time.Instant.now())));
+    }
+
+    /** Retire une pièce jointe de la liste. */
+    public void pullAttachment(UUID id, UUID fileId) {
+        coll().updateOne(Filters.eq("_id", id), Updates.combine(
+                Updates.pull("attachments", new org.bson.Document("fileId", fileId)),
+                Updates.set("updatedAt", java.time.Instant.now())));
+    }
 }

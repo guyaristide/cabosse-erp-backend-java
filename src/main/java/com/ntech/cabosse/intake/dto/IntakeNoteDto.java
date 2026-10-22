@@ -40,7 +40,8 @@ public record IntakeNoteDto(
         /** Les lignes du fichier qu'aucun reçu ne porte, avec leur raison. */
         List<com.ntech.cabosse.intake.entity.IntakeSkippedRow> skippedRows,
         UUID siteId,
-        Instant createdAt
+        Instant createdAt,
+        java.util.List<com.ntech.cabosse.shared.storage.AttachmentDto> attachments
 ) {
     public static IntakeNoteDto from(IntakeNoteEntity e) {
         BigDecimal gap = e.netWeightKg != null && e.accountedWeightKg != null
@@ -52,6 +53,7 @@ public record IntakeNoteDto(
                 e.grossWeightKg, e.bagCount, e.netWeightKg,
                 e.status, e.accountedAt, e.accountedByEmail,
                 e.accountedWeightKg, e.accountedAmount, gap,
-                e.receiptRefs, e.skippedRows, e.siteId, e.createdAt);
+                e.receiptRefs, e.skippedRows, e.siteId, e.createdAt,
+                com.ntech.cabosse.shared.storage.AttachmentDto.fromAll(e.attachments));
     }
 }

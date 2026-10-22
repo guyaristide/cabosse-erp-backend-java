@@ -62,6 +62,14 @@ public class CommoditySaleEntity {
     /** Chaque chargement appelé, avec son site et ce que le carnet en dit. */
     public java.util.List<Load> loads = new java.util.ArrayList<>();
 
+    /**
+     * Pièces justificatives : le contrat, la facture, le décompte de l'acheteur, le connaissement. Déposées à la saisie ou plus tard,
+     * quand le papier remonte (demandé le 22/10/2026).
+     */
+    public java.util.List<com.ntech.cabosse.shared.storage.AttachmentRef> attachments =
+            new java.util.ArrayList<>();
+
+
     /** Un chargement appelé par la vente : un bordereau, un site, un poids. */
     public static class Load {
         public UUID dispatchNoteId;

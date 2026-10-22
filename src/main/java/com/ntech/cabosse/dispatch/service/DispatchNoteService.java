@@ -1,5 +1,6 @@
 package com.ntech.cabosse.dispatch.service;
 
+import com.ntech.cabosse.shared.storage.AttachmentService;
 import com.ntech.cabosse.campaign.entity.CampaignEntity;
 import com.ntech.cabosse.campaign.service.CampaignResolver;
 import com.ntech.cabosse.customer.repository.CustomerRepository;
@@ -69,6 +70,7 @@ public class DispatchNoteService {
     @Inject AuditService audit;
     @Inject IdGenerator idGenerator;
     @Inject JsonWebToken jwt;
+    @Inject AttachmentService attachments;
 
     // ─── Lecture ────────────────────────────────────────────────────
 
@@ -363,5 +365,43 @@ public class DispatchNoteService {
                     m.ref, m.lotRef != null ? m.lotRef : m.ref,
                     nz(available.availableKg()), reserved);
         }
+    }
+    // ─── Pièces jointes ─────────────────────────────────────────────
+
+    /** Dépose une pièce justificative sur dispatch note (demandé le 22/10/2026). */
+    public DispatchNoteResponseDto attach(UUID id, byte[] bytes, String mimeType, String fileName, String label) {
+        DispatchNoteEntity e = loadOrFail(id);
+        var ref = attachments.store(bytes, mimeType, fileName, label, e.id, "dispatch_note");
+        repo.pushAttachment(e.id, ref);
+        audit.event(AuditEventType.DISPATCH_NOTE_ATTACHMENT)
+                .actorEmail(actor())
+                .target("dispatch_note", e.id.toString(), e.ref)
+                .tenant(tenantContext.tenantId(), null)
+                .description("Pièce jointe « " + (ref.label != null ? ref.label : ref.fileName)
+                        + " » ajoutée sur " + e.ref)
+                .record();
+        return DispatchNoteResponseDto.from(loadOrFail(id));
+    }
+
+    /** Retire une pièce et archive son binaire. */
+    public DispatchNoteResponseDto detach(UUID id, UUID fileId) {
+        DispatchNoteEntity e = loadOrFail(id);
+        var ref = attachments.find(e.attachments, fileId);
+        repo.pullAttachment(e.id, fileId);
+        attachments.discard(ref);
+        audit.event(AuditEventType.DISPATCH_NOTE_ATTACHMENT)
+                .actorEmail(actor())
+                .target("dispatch_note", e.id.toString(), e.ref)
+                .tenant(tenantContext.tenantId(), null)
+                .description("Pièce jointe « " + (ref.label != null ? ref.label : ref.fileName)
+                        + " » retirée de " + e.ref)
+                .record();
+        return DispatchNoteResponseDto.from(loadOrFail(id));
+    }
+
+    /** Contenu d'une pièce, servi en téléchargement. */
+    public com.ntech.cabosse.shared.storage.AttachmentService.AttachmentStream openAttachment(
+            UUID id, UUID fileId) {
+        return attachments.open(loadOrFail(id).attachments, fileId);
     }
 }

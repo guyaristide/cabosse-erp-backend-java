@@ -75,6 +75,14 @@ public class DispatchNoteEntity {
     public Instant cancelledAt;
     public String cancelledByEmail;
 
+
+    /**
+     * Pièces justificatives : le bordereau signé, la lettre de voiture, la photo du chargement. Déposées à la saisie ou plus tard,
+     * quand le papier remonte (demandé le 22/10/2026).
+     */
+    public java.util.List<com.ntech.cabosse.shared.storage.AttachmentRef> attachments =
+            new java.util.ArrayList<>();
+
     public Instant createdAt;
     public Instant updatedAt;
     public String createdByEmail;

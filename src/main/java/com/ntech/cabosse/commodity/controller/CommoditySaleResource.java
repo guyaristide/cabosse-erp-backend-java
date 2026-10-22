@@ -1,5 +1,9 @@
 package com.ntech.cabosse.commodity.controller;
 
+import jakarta.ws.rs.DELETE;
+import org.jboss.resteasy.reactive.RestForm;
+import org.jboss.resteasy.reactive.multipart.FileUpload;
+import com.ntech.cabosse.shared.storage.AttachmentEndpoints;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.tenant.TenantContext;
@@ -165,5 +169,34 @@ public class CommoditySaleResource {
     public Response importCommit(@jakarta.validation.constraints.Size(max = 10000) java.util.List<CommoditySaleImportRowDto> rows) {
         ensureCapability();
         return Response.ok(ApiResponse.ok(importService.commit(rows))).build();
+    }
+    // ─── Pièces jointes ─────────────────────────────────────────────
+
+    /** Ajoute une pièce justificative : le formulaire envoie un fichier, jamais un identifiant. */
+    @POST
+    @Path("/{id}/attachments")
+    @Consumes(MediaType.MULTIPART_FORM_DATA)
+    @RequiresPermission(Permission.SALE_WRITE)
+    public Response addAttachment(@PathParam("id") UUID id,
+                                  @RestForm("file") FileUpload file,
+                                  @RestForm("label") String label) {
+        return Response.ok(ApiResponse.ok(service.attach(
+                id, AttachmentEndpoints.readBytes(file),
+                file.contentType(), file.fileName(), label))).build();
+    }
+
+    @GET
+    @Path("/{id}/attachments/{fileId}")
+    @RequiresPermission(Permission.SALE_READ)
+    @Produces({ "application/pdf", "image/png", "image/jpeg", "application/octet-stream" })
+    public Response getAttachment(@PathParam("id") UUID id, @PathParam("fileId") UUID fileId) {
+        return AttachmentEndpoints.download(service.openAttachment(id, fileId));
+    }
+
+    @DELETE
+    @Path("/{id}/attachments/{fileId}")
+    @RequiresPermission(Permission.SALE_WRITE)
+    public Response removeAttachment(@PathParam("id") UUID id, @PathParam("fileId") UUID fileId) {
+        return Response.ok(ApiResponse.ok(service.detach(id, fileId))).build();
     }
 }

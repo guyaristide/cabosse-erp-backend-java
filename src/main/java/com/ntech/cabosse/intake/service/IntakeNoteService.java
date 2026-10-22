@@ -1,5 +1,9 @@
 package com.ntech.cabosse.intake.service;
 
+import com.ntech.cabosse.shared.storage.AttachmentService;
+import com.ntech.cabosse.shared.tenant.TenantContext;
+import com.ntech.cabosse.shared.audit.AuditService;
+import com.ntech.cabosse.shared.audit.AuditEventType;
 import com.ntech.cabosse.campaign.entity.CampaignEntity;
 import com.ntech.cabosse.campaign.repository.CampaignRepository;
 import com.ntech.cabosse.intake.dto.IntakeImportResultDto;
@@ -37,6 +41,9 @@ public class IntakeNoteService {
     @Inject IdGenerator idGenerator;
     @Inject com.ntech.cabosse.importjournal.service.ImportJournal journal;
     @Inject JsonWebToken jwt;
+    @Inject AttachmentService attachments;
+    @Inject AuditService audit;
+    @Inject TenantContext tenantContext;
 
     public List<IntakeNoteDto> list(String status) {
         return repo.list(status).stream().map(IntakeNoteDto::from).toList();
@@ -439,4 +446,42 @@ public class IntakeNoteService {
     static Integer parseInt(String raw) { return ImportFields.parseInt(raw); }
 
     static String phoneKey(String raw) { return ImportFields.phoneKey(raw); }
+    // ─── Pièces jointes ─────────────────────────────────────────────
+
+    /** Dépose une pièce justificative sur intake note (demandé le 22/10/2026). */
+    public IntakeNoteDto attach(UUID id, byte[] bytes, String mimeType, String fileName, String label) {
+        IntakeNoteEntity e = loadOrFail(id);
+        var ref = attachments.store(bytes, mimeType, fileName, label, e.id, "intake_note");
+        repo.pushAttachment(e.id, ref);
+        audit.event(AuditEventType.INTAKE_NOTE_ATTACHMENT)
+                .actorEmail(actor())
+                .target("intake_note", e.id.toString(), e.ref)
+                .tenant(tenantContext.tenantId(), null)
+                .description("Pièce jointe « " + (ref.label != null ? ref.label : ref.fileName)
+                        + " » ajoutée sur " + e.ref)
+                .record();
+        return IntakeNoteDto.from(loadOrFail(id));
+    }
+
+    /** Retire une pièce et archive son binaire. */
+    public IntakeNoteDto detach(UUID id, UUID fileId) {
+        IntakeNoteEntity e = loadOrFail(id);
+        var ref = attachments.find(e.attachments, fileId);
+        repo.pullAttachment(e.id, fileId);
+        attachments.discard(ref);
+        audit.event(AuditEventType.INTAKE_NOTE_ATTACHMENT)
+                .actorEmail(actor())
+                .target("intake_note", e.id.toString(), e.ref)
+                .tenant(tenantContext.tenantId(), null)
+                .description("Pièce jointe « " + (ref.label != null ? ref.label : ref.fileName)
+                        + " » retirée de " + e.ref)
+                .record();
+        return IntakeNoteDto.from(loadOrFail(id));
+    }
+
+    /** Contenu d'une pièce, servi en téléchargement. */
+    public com.ntech.cabosse.shared.storage.AttachmentService.AttachmentStream openAttachment(
+            UUID id, UUID fileId) {
+        return attachments.open(loadOrFail(id).attachments, fileId);
+    }
 }

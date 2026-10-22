@@ -164,4 +164,17 @@ public class IntakeNoteRepository {
                         Updates.set("skippedRows", skipped),
                         Updates.set("updatedAt", Instant.now())));
     }
+    /** Ajoute une pièce jointe à la liste, sans relire le document. */
+    public void pushAttachment(UUID id, com.ntech.cabosse.shared.storage.AttachmentRef ref) {
+        coll().updateOne(Filters.eq("_id", id), Updates.combine(
+                Updates.push("attachments", ref),
+                Updates.set("updatedAt", java.time.Instant.now())));
+    }
+
+    /** Retire une pièce jointe de la liste. */
+    public void pullAttachment(UUID id, UUID fileId) {
+        coll().updateOne(Filters.eq("_id", id), Updates.combine(
+                Updates.pull("attachments", new org.bson.Document("fileId", fileId)),
+                Updates.set("updatedAt", java.time.Instant.now())));
+    }
 }

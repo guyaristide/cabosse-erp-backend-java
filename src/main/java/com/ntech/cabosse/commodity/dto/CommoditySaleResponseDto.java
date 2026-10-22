@@ -55,7 +55,8 @@ public record CommoditySaleResponseDto(
         /** Tous les bordereaux appelés, dans l'ordre, et chaque chargement avec son site. */
         java.util.List<UUID> dispatchNoteIds,
         java.util.List<String> dispatchNoteRefs,
-        java.util.List<CommoditySaleEntity.Load> loads
+        java.util.List<CommoditySaleEntity.Load> loads,
+        java.util.List<com.ntech.cabosse.shared.storage.AttachmentDto> attachments
 ) {
     public static CommoditySaleResponseDto from(CommoditySaleEntity e) {
         return new CommoditySaleResponseDto(
@@ -76,6 +77,7 @@ public record CommoditySaleResponseDto(
                 e.createdAt, e.updatedAt,
                 e.dispatchNoteIds == null ? java.util.List.of() : e.dispatchNoteIds,
                 e.dispatchNoteRefs == null ? java.util.List.of() : e.dispatchNoteRefs,
-                e.loads == null ? java.util.List.of() : e.loads);
+                e.loads == null ? java.util.List.of() : e.loads,
+                com.ntech.cabosse.shared.storage.AttachmentDto.fromAll(e.attachments));
     }
 }

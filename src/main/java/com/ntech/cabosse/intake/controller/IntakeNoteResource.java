@@ -1,5 +1,8 @@
 package com.ntech.cabosse.intake.controller;
 
+import org.jboss.resteasy.reactive.RestForm;
+import org.jboss.resteasy.reactive.multipart.FileUpload;
+import com.ntech.cabosse.shared.storage.AttachmentEndpoints;
 import com.ntech.cabosse.intake.dto.IntakeNoteImportRowDto;
 import com.ntech.cabosse.intake.dto.SntAccountingRequestDto;
 import com.ntech.cabosse.intake.dto.SntDispatchRequestDto;
@@ -221,5 +224,35 @@ public class IntakeNoteResource {
                                        @Valid SntAccountingRequestDto request) {
         ensureCapability();
         return Response.ok(ApiResponse.ok(accounting.complete(id, request))).build();
+    }
+    // ─── Pièces jointes ─────────────────────────────────────────────
+
+    /** Ajoute une pièce justificative : le formulaire envoie un fichier, jamais un identifiant. */
+    @POST
+    @Path("/{id}/attachments")
+    @Consumes(MediaType.MULTIPART_FORM_DATA)
+    @RequiresPermission({ Permission.STOCK_MOVE, Permission.COLLECTION_RECEIPT_WRITE })
+    public Response addAttachment(@PathParam("id") UUID id,
+                                  @RestForm("file") FileUpload file,
+                                  @RestForm("label") String label) {
+        return Response.ok(ApiResponse.ok(service.attach(
+                id, AttachmentEndpoints.readBytes(file),
+                file.contentType(), file.fileName(), label))).build();
+    }
+
+    @GET
+    @Path("/{id}/attachments/{fileId}")
+    @RequiresPermission({ Permission.STOCK_READ, Permission.COLLECTION_READ,
+            Permission.PURCHASE_READ, Permission.ACCOUNTING_READ })
+    @Produces({ "application/pdf", "image/png", "image/jpeg", "application/octet-stream" })
+    public Response getAttachment(@PathParam("id") UUID id, @PathParam("fileId") UUID fileId) {
+        return AttachmentEndpoints.download(service.openAttachment(id, fileId));
+    }
+
+    @DELETE
+    @Path("/{id}/attachments/{fileId}")
+    @RequiresPermission({ Permission.STOCK_MOVE, Permission.COLLECTION_RECEIPT_WRITE })
+    public Response removeAttachment(@PathParam("id") UUID id, @PathParam("fileId") UUID fileId) {
+        return Response.ok(ApiResponse.ok(service.detach(id, fileId))).build();
     }
 }

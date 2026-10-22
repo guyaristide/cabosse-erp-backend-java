@@ -1,5 +1,6 @@
 package com.ntech.cabosse.commodity.service;
 
+import com.ntech.cabosse.shared.storage.AttachmentService;
 import com.ntech.cabosse.accounting.service.AccountingService;
 import com.ntech.cabosse.article.entity.ArticleEntity;
 import com.ntech.cabosse.article.repository.ArticleRepository;
@@ -74,6 +75,7 @@ public class CommoditySaleService {
     @Inject TenantContext tenantContext;
     @Inject AuditService audit;
     @Inject JsonWebToken jwt;
+    @Inject AttachmentService attachments;
 
     public Pagination<CommoditySaleResponseDto> page(String q, UUID campaignId, UUID customerId, PageRequest pr) {
         long total = repo.countSearch(q, campaignId, customerId);
@@ -676,4 +678,42 @@ public class CommoditySaleService {
 
     private String actor() { try { return jwt.getName(); } catch (Exception e) { return null; } }
     private UUID safeUserId() { try { return tenantContext.userId(); } catch (Exception e) { return null; } }
+    // ─── Pièces jointes ─────────────────────────────────────────────
+
+    /** Dépose une pièce justificative sur commodity sale (demandé le 22/10/2026). */
+    public CommoditySaleResponseDto attach(UUID id, byte[] bytes, String mimeType, String fileName, String label) {
+        CommoditySaleEntity e = loadOrFail(id);
+        var ref = attachments.store(bytes, mimeType, fileName, label, e.id, "commodity_sale");
+        repo.pushAttachment(e.id, ref);
+        audit.event(AuditEventType.COMMODITY_SALE_ATTACHMENT)
+                .actorEmail(actor())
+                .target("commodity_sale", e.id.toString(), e.ref)
+                .tenant(tenantContext.tenantId(), null)
+                .description("Pièce jointe « " + (ref.label != null ? ref.label : ref.fileName)
+                        + " » ajoutée sur " + e.ref)
+                .record();
+        return CommoditySaleResponseDto.from(loadOrFail(id));
+    }
+
+    /** Retire une pièce et archive son binaire. */
+    public CommoditySaleResponseDto detach(UUID id, UUID fileId) {
+        CommoditySaleEntity e = loadOrFail(id);
+        var ref = attachments.find(e.attachments, fileId);
+        repo.pullAttachment(e.id, fileId);
+        attachments.discard(ref);
+        audit.event(AuditEventType.COMMODITY_SALE_ATTACHMENT)
+                .actorEmail(actor())
+                .target("commodity_sale", e.id.toString(), e.ref)
+                .tenant(tenantContext.tenantId(), null)
+                .description("Pièce jointe « " + (ref.label != null ? ref.label : ref.fileName)
+                        + " » retirée de " + e.ref)
+                .record();
+        return CommoditySaleResponseDto.from(loadOrFail(id));
+    }
+
+    /** Contenu d'une pièce, servi en téléchargement. */
+    public com.ntech.cabosse.shared.storage.AttachmentService.AttachmentStream openAttachment(
+            UUID id, UUID fileId) {
+        return attachments.open(loadOrFail(id).attachments, fileId);
+    }
 }

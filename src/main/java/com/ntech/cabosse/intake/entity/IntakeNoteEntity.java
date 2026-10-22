@@ -89,6 +89,14 @@ public class IntakeNoteEntity {
      */
     public List<IntakeSkippedRow> skippedRows;
 
+
+    /**
+     * Pièces justificatives : le bordereau papier, la pesée, le ticket de bascule. Déposées à la saisie ou plus tard,
+     * quand le papier remonte (demandé le 22/10/2026).
+     */
+    public java.util.List<com.ntech.cabosse.shared.storage.AttachmentRef> attachments =
+            new java.util.ArrayList<>();
+
     public Instant createdAt;
     public String createdByEmail;
     public Instant updatedAt;

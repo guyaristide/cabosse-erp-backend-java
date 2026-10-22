@@ -34,7 +34,8 @@ public record DispatchNoteResponseDto(
         String saleRef,
         String notes,
         String cancellationReason,
-        Instant createdAt
+        Instant createdAt,
+        List<com.ntech.cabosse.shared.storage.AttachmentDto> attachments
 ) {
     public static DispatchNoteResponseDto from(DispatchNoteEntity e) {
         return new DispatchNoteResponseDto(
@@ -45,6 +46,7 @@ public record DispatchNoteResponseDto(
                 e.lines == null ? List.of() : e.lines.stream().map(DispatchLineView::from).toList(),
                 e.totalGrossKg, e.totalBags, e.totalNetKg,
                 e.status, e.saleId, e.saleRef, e.notes,
-                e.cancellationReason, e.createdAt);
+                e.cancellationReason, e.createdAt,
+                com.ntech.cabosse.shared.storage.AttachmentDto.fromAll(e.attachments));
     }
 }
