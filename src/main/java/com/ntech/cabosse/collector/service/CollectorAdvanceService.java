@@ -427,6 +427,35 @@ public class CollectorAdvanceService {
     }
 
     /**
+     * Retire une demande que personne n'a encore examinée.
+     *
+     * <p>« On se trompe souvent dans les demandes d'avances » (demandé le
+     * 21/10/2026). Une demande saisie par erreur n'avait d'autre issue que
+     * le refus, qui restait au dossier avec un motif qu'elle n'avait pas
+     * mérité et attendait une main qui n'est pas celle du demandeur. Tant
+     * que rien n'est approuvé, rien n'est sorti ni écrit : la demande se
+     * retire, par le droit de la demande, et la raison reste au dossier.</p>
+     */
+    public CollectorAdvanceResponseDto cancel(UUID id, String reason) {
+        CollectorAdvanceEntity e = loadOrFail(id);
+        requireStatus(e, CollectorAdvanceStatus.PENDING_APPROVAL);
+        if (reason == null || reason.isBlank()) {
+            throw new BusinessException(Messages.msg("m.col-cancel-reason-required"));
+        }
+        Instant now = Instant.now();
+        e.status = CollectorAdvanceStatus.CANCELLED;
+        e.cancellationReason = reason.trim();
+        e.cancelledAt = now;
+        e.cancelledBy = safeUserId();
+        e.cancelledByEmail = actor();
+        e.updatedAt = now;
+        repo.replace(e);
+        audit(e, AuditEventType.COLLECTOR_ADVANCE_CANCELLED,
+                "Annulation de la demande " + e.ref + " : " + e.cancellationReason);
+        return CollectorAdvanceResponseDto.from(e);
+    }
+
+    /**
      * Décaisse une avance approuvée : les fonds partent, l'écriture passe.
      *
      * <p>C'est ici, et seulement ici, que l'avance devient imputable : les

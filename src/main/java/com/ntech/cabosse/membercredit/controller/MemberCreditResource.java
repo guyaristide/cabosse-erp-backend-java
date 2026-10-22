@@ -29,6 +29,7 @@ import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
+import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
@@ -159,6 +160,19 @@ public class MemberCreditResource {
                 .entity(ApiResponse.created(service.create(payload))).build();
     }
 
+    /**
+     * Corrige une demande non encore approuvée. Même droit que la demande :
+     * reprendre sa propre erreur relève du même geste que la déposer.
+     */
+    @PUT
+    @Path("/{id}")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    @RequiresPermission(Permission.MEMBER_CREDIT_REQUEST)
+    public Response update(@PathParam("id") UUID id, @Valid CreateMemberCreditDto payload) {
+        ensureCapability();
+        return Response.ok(ApiResponse.ok(service.update(id, payload))).build();
+    }
+
     @POST
     @Path("/{id}/approve")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
@@ -198,10 +212,14 @@ public class MemberCreditResource {
         return Response.ok(ApiResponse.ok(service.disburse(id, payload))).build();
     }
 
+    /**
+     * Annule. Le droit de la demande suffit tant que rien n'est approuvé :
+     * le service le vérifie, et exige celui de la décision au-delà.
+     */
     @POST
     @Path("/{id}/cancel")
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
-    @RequiresPermission(Permission.MEMBER_CREDIT_APPROVE)
+    @RequiresPermission({ Permission.MEMBER_CREDIT_REQUEST, Permission.MEMBER_CREDIT_APPROVE })
     public Response cancel(@PathParam("id") UUID id, DecisionPayload payload) {
         ensureCapability();
         return Response.ok(ApiResponse.ok(

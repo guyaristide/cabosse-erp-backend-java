@@ -45,7 +45,9 @@ public record CollectorAdvanceResponseDto(
         LocalDate disbursementDate,
         String disbursedByEmail, String disbursedByName,
         Instant executionRequestedAt, String executionRequestedByEmail,
-        java.util.List<com.ntech.cabosse.shared.storage.AttachmentDto> attachments
+        java.util.List<com.ntech.cabosse.shared.storage.AttachmentDto> attachments,
+        /** Retrait d'une demande par son auteur, avant toute décision. */
+        String cancellationReason, Instant cancelledAt, String cancelledByEmail
 ) {
     public record DeliveryView(UUID id, LocalDate date, UUID articleId, String articleCode,
                                String articleName, String articleUnit, BigDecimal quantity,
@@ -70,6 +72,7 @@ public record CollectorAdvanceResponseDto(
                 e.rejectionReason, e.rejectedAt, e.rejectedByEmail,
                 e.disbursedAt, e.disbursementDate, e.disbursedByEmail, e.disbursedByName,
                 e.executionRequestedAt, e.executionRequestedByEmail,
-                com.ntech.cabosse.shared.storage.AttachmentDto.fromAll(e.attachments));
+                com.ntech.cabosse.shared.storage.AttachmentDto.fromAll(e.attachments),
+                e.cancellationReason, e.cancelledAt, e.cancelledByEmail);
     }
 }

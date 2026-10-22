@@ -383,4 +383,69 @@ class MemberCreditTest extends AbstractIntegrationTest {
         givenAs(admin).when().get("/api/v1/member-credits/" + creditId)
                 .then().statusCode(200).body("data.status", equalTo("DISBURSED"));
     }
+    /**
+     * Correction et retrait d'une demande non encore approuvée (demandé le
+     * 21/10/2026). Le droit de la demande suffit tant que rien n'est
+     * approuvé : c'est la sienne, et rien n'est sorti.
+     */
+    @Test
+    void a_pending_request_is_corrected_or_withdrawn_by_its_requester() {
+        UserEntity admin = tenantAdmin();
+        UserEntity requester = operator(admin, "req", "MEMBER_CREDIT_REQUEST");
+        String memberId = createProducer(admin, "Sanogo");
+
+        // Un crédit reste en attente quel que soit le déposant.
+        String id = givenAs(requester).contentType("application/json")
+                .body("""
+                        { "memberId": "%s", "kind": "CREDIT", "amount": 120000, "purpose": "Toiture" }
+                        """.formatted(memberId))
+                .when().post("/api/v1/member-credits").then().statusCode(201)
+                .extract().path("data.id");
+
+        givenAs(requester).contentType("application/json")
+                .body("""
+                        { "memberId": "%s", "kind": "ADVANCE", "amount": 90000, "purpose": "Intrants" }
+                        """.formatted(memberId))
+                .when().put("/api/v1/member-credits/" + id)
+                .then().statusCode(200)
+                .body("data.amount", equalTo(90000))
+                .body("data.remaining", equalTo(90000))
+                .body("data.kind", equalTo("ADVANCE"))
+                .body("data.purpose", equalTo("Intrants"))
+                .body("data.status", equalTo("PENDING_APPROVAL"));
+
+        givenAs(requester).contentType("application/json")
+                .body("{ \"note\": \"Saisie en double\" }")
+                .when().post("/api/v1/member-credits/" + id + "/cancel")
+                .then().statusCode(200)
+                .body("data.status", equalTo("CANCELLED"));
+    }
+
+    @Test
+    void an_approved_request_is_neither_corrected_nor_withdrawn_by_its_requester() {
+        UserEntity admin = tenantAdmin();
+        UserEntity requester = operator(admin, "req", "MEMBER_CREDIT_REQUEST");
+        String memberId = createProducer(admin, "Sanogo");
+        String id = givenAs(requester).contentType("application/json")
+                .body("""
+                        { "memberId": "%s", "kind": "CREDIT", "amount": 120000, "purpose": "Toiture" }
+                        """.formatted(memberId))
+                .when().post("/api/v1/member-credits").then().statusCode(201)
+                .extract().path("data.id");
+        givenAs(admin).contentType("application/json").body("{\"note\":\"Accord\"}")
+                .when().post("/api/v1/member-credits/" + id + "/approve")
+                .then().statusCode(200);
+
+        givenAs(requester).contentType("application/json")
+                .body("""
+                        { "memberId": "%s", "kind": "CREDIT", "amount": 90000 }
+                        """.formatted(memberId))
+                .when().put("/api/v1/member-credits/" + id)
+                .then().statusCode(422);
+        // De l'argent est engagé : l'abandon revient à celui qui décide.
+        givenAs(requester).contentType("application/json")
+                .body("{ \"note\": \"Erreur\" }")
+                .when().post("/api/v1/member-credits/" + id + "/cancel")
+                .then().statusCode(403);
+    }
 }

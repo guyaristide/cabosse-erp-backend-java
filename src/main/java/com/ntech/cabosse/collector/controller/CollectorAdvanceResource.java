@@ -287,6 +287,22 @@ public class CollectorAdvanceResource {
     public record RejectPayload(String reason) {}
 
     /**
+     * Retire une demande non encore examinée.
+     *
+     * <p>Même droit que la demande, ou celui de la décision : reprendre sa
+     * propre erreur relève du même geste que la déposer, et celui qui
+     * tranche peut aussi classer sans refuser (demandé le 21/10/2026).</p>
+     */
+    @POST
+    @Path("/{id}/cancel")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    @RequiresPermission({ Permission.COLLECTION_ADVANCE_REQUEST, Permission.COLLECTION_ADVANCE_APPROVE })
+    public Response cancel(@PathParam("id") UUID id, RejectPayload payload) {
+        return Response.ok(ApiResponse.ok(
+                service.cancel(id, payload != null ? payload.reason() : null))).build();
+    }
+
+    /**
      * Clôture au décompte de campagne : le solde résiduel est arrêté.
      * C'est une décision financière, donc le droit d'approbation.
      */

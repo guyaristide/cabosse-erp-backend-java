@@ -341,6 +341,65 @@ public class MemberCreditService {
         return MemberCreditResponseDto.from(e);
     }
 
+    /**
+     * Corrige une demande que personne n'a encore approuvée.
+     *
+     * <p>« On se trompe souvent dans les demandes d'avances » (demandé le
+     * 21/10/2026). Tant que rien n'est approuvé, rien n'est sorti ni
+     * écrit : la demande se corrige comme un brouillon, et tout ce que le
+     * dépôt dérive se redérive : le producteur et sa section, la campagne
+     * de la nouvelle date, le seuil de gouvernance du nouveau montant, la
+     * contrepartie proposée. La référence et l'auteur ne bougent pas :
+     * c'est la même demande, corrigée. Le geste unique du directeur ne
+     * joue pas ici : une correction ne vaut pas une décision.</p>
+     */
+    public MemberCreditResponseDto update(UUID id, CreateMemberCreditDto p) {
+        MemberCreditEntity e = loadOrFail(id);
+        if (e.status != MemberCreditStatus.PENDING_APPROVAL) {
+            throw new BusinessException(Messages.msg("m.mcr-only-pending-editable", e.status.name()));
+        }
+        MemberEntity m = members.findById(p.memberId()).orElseThrow(
+                () -> new NotFoundException(Messages.msg("m.mcr-producer-not-found", p.memberId())));
+        if (m.status == MemberStatus.RETIRED) {
+            throw new BusinessException(Messages.msg("m.mcr-member-retired", m.name));
+        }
+        BigDecimal threshold = preferences.current().memberCreditApprovalThreshold();
+        BigDecimal before = e.amount;
+
+        e.kind = p.kind();
+        e.memberId = m.id;
+        e.memberName = m.name;
+        e.memberCode = m.code;
+        e.sectionId = m.sectionId;
+        e.sectionName = m.sectionId != null
+                ? sections.findById(m.sectionId).map(s -> s.name).orElse(null) : null;
+        CampaignEntity campaign =
+                campaignResolver.resolveOptionalForDate(p.requestedAt(), p.campaignId());
+        e.campaignId = campaign != null ? campaign.id : null;
+        e.campaignLabel = campaign != null ? campaign.label : null;
+        e.purpose = blankToNull(p.purpose());
+        e.amount = p.amount();
+        BigDecimal basePrice = campaign != null ? campaign.basePricePerKg : null;
+        e.counterpartUnitPrice = basePrice != null && basePrice.signum() > 0 ? basePrice : null;
+        BigDecimal proposed = e.counterpartUnitPrice != null
+                ? p.amount().divide(e.counterpartUnitPrice, 3, java.math.RoundingMode.HALF_UP)
+                : null;
+        e.expectedQuantity = p.expectedQuantity() != null ? p.expectedQuantity() : proposed;
+        e.expectedQuantityUnit = e.expectedQuantity != null ? COUNTERPART_UNIT : null;
+        if (p.requestedAt() != null) e.requestedAt = p.requestedAt();
+        e.notes = blankToNull(p.notes());
+        e.governanceApprovalRequired = threshold.signum() > 0
+                && p.amount().compareTo(threshold) >= 0;
+        // Rien n'a encore été retenu : le reste suit le nouveau montant.
+        e.remaining = p.amount();
+        e.updatedAt = Instant.now();
+        repo.replace(e);
+        audit(e, AuditEventType.MEMBER_CREDIT_REQUESTED,
+                "Demande " + e.ref + " corrigée : " + before + " devient " + e.amount
+                        + " pour " + e.memberName);
+        return MemberCreditResponseDto.from(e);
+    }
+
     public MemberCreditResponseDto approve(UUID id, String note) {
         return approve(id, note, null);
     }
@@ -499,8 +558,17 @@ public class MemberCreditService {
                 || e.status == MemberCreditStatus.REJECTED) {
             throw new BusinessException(Messages.msg("m.mcr-already-closed", e.status));
         }
+        // Avant toute décision, le retrait relève du droit de la demande :
+        // c'est la sienne, et rien n'est sorti (demandé le 21/10/2026).
+        // Au-delà, de l'argent est engagé et seul celui qui tranche abandonne.
+        boolean pending = e.status == MemberCreditStatus.PENDING_APPROVAL;
+        if (!pending && !permissions.currentIsTenantAdmin()
+                && !permissions.can(Permission.MEMBER_CREDIT_APPROVE)) {
+            throw new ForbiddenException(Messages.msg("m.mcr-cancel-needs-approver", e.ref));
+        }
         e.status = MemberCreditStatus.CANCELLED;
-        e.notes = (e.notes == null ? "" : e.notes + " | ") + "Abandon : " + reason.trim();
+        e.notes = (e.notes == null ? "" : e.notes + " | ")
+                + (pending ? "Annulation : " : "Abandon : ") + reason.trim();
         e.updatedAt = Instant.now();
         repo.replace(e);
         audit(e, AuditEventType.MEMBER_CREDIT_CANCELLED, "Abandon " + e.ref + " : " + reason.trim());

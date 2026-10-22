@@ -38,5 +38,12 @@ public enum CollectorAdvanceStatus {
     OPEN,
 
     /** Clôturée — le solde résiduel reste une créance sur le délégué. */
-    CLOSED
+    CLOSED,
+
+    /**
+     * Annulée par le demandeur avant toute décision : une demande saisie
+     * par erreur se retire, elle ne se fait pas refuser (demandé le
+     * 21/10/2026). Rien n'était sorti. Terminal.
+     */
+    CANCELLED
 }

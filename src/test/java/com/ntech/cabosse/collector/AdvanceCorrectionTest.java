@@ -199,4 +199,48 @@ class AdvanceCorrectionTest extends AbstractIntegrationTest {
                 .when().put("/api/v1/collector-advances/" + id)
                 .then().statusCode(422);
     }
+    @Test
+    void une_demande_en_attente_se_retire_par_son_auteur() {
+        UserEntity admin = tenantAdmin();
+        String sectionId = createSection(admin, "MEAGUI", "Section Méagui");
+        String delegateId = createDelegate(admin, "KONE Adama", sectionId);
+        String siteId = createSite(admin);
+        String id = request(admin, delegateId, siteId, 1_200_000);
+
+        // Sans motif, rien : il reste au dossier.
+        givenAs(admin).contentType("application/json").body("{}")
+                .when().post("/api/v1/collector-advances/" + id + "/cancel")
+                .then().statusCode(422);
+
+        givenAs(admin).contentType("application/json")
+                .body("{ \"reason\": \"Mauvais délégué saisi\" }")
+                .when().post("/api/v1/collector-advances/" + id + "/cancel")
+                .then().statusCode(200)
+                .body("data.status", equalTo("CANCELLED"))
+                .body("data.cancellationReason", equalTo("Mauvais délégué saisi"))
+                .body("data.cancelledByEmail", equalTo(admin.email));
+
+        // Retirée, la demande n'attend plus personne.
+        givenAs(admin).when().get("/api/v1/collector-advances?status=PENDING_APPROVAL")
+                .then().statusCode(200)
+                .body("data.items.find { it.id == '" + id + "' }", org.hamcrest.Matchers.nullValue());
+    }
+
+    @Test
+    void une_demande_approuvee_ne_se_retire_plus() {
+        UserEntity admin = tenantAdmin();
+        String sectionId = createSection(admin, "MEAGUI", "Section Méagui");
+        String delegateId = createDelegate(admin, "KONE Adama", sectionId);
+        String siteId = createSite(admin);
+        String id = request(admin, delegateId, siteId, 1_200_000);
+        givenAs(admin).contentType("application/json").body("{}")
+                .when().post("/api/v1/collector-advances/" + id + "/approve")
+                .then().statusCode(200);
+
+        // De l'argent est engagé : c'est un refus ou une clôture, plus un retrait.
+        givenAs(admin).contentType("application/json")
+                .body("{ \"reason\": \"Erreur\" }")
+                .when().post("/api/v1/collector-advances/" + id + "/cancel")
+                .then().statusCode(422);
+    }
 }

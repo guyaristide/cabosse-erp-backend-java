@@ -128,6 +128,12 @@ public class CollectorAdvanceEntity {
     public UUID rejectedBy;
     public String rejectedByEmail;
 
+    /** Retrait d'une demande non encore examinée, par celui qui l'a déposée. */
+    public String cancellationReason;
+    public Instant cancelledAt;
+    public UUID cancelledBy;
+    public String cancelledByEmail;
+
     /**
      * Transmission à l'exécution (matrice expert du 07/09/2026) : le
      * comptable constate l'approbation et passe la main à la caissière.
