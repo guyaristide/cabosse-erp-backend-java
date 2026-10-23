@@ -105,4 +105,29 @@ public final class ExportEnumLabels {
             default -> code;
         };
     }
+    /** Nature d'un engagement à payer, telle que la file la nomme. */
+    public static String payableKind(String code) {
+        if (code == null || code.isBlank()) return code;
+        return switch (code) {
+            case "COLLECTOR_ADVANCE" -> Messages.msg("m.paykind-collector-advance");
+            case "MEMBER_CREDIT" -> Messages.msg("m.paykind-member-credit");
+            case "SUPPLIER_RECEIPT" -> Messages.msg("m.paykind-supplier-receipt");
+            case "PRODUCER_PURCHASE" -> Messages.msg("m.paykind-producer-purchase");
+            case "DELEGATE_PURCHASE" -> Messages.msg("m.paykind-delegate-purchase");
+            case "SUPPLIER_PURCHASE" -> Messages.msg("m.paykind-supplier-purchase");
+            case "SUBSCRIPTION" -> Messages.msg("m.paykind-subscription");
+            case "PETTY_CASH" -> Messages.msg("m.paykind-petty-cash");
+            default -> code;
+        };
+    }
+
+    /** Nature d'une créance à encaisser. */
+    public static String receivableKind(String code) {
+        if (code == null || code.isBlank()) return code;
+        return switch (code) {
+            case "SALE" -> Messages.msg("m.rcvkind-sale");
+            case "COMMODITY_SALE" -> Messages.msg("m.rcvkind-commodity-sale");
+            default -> code;
+        };
+    }
 }

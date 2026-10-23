@@ -95,6 +95,14 @@ public class PayableService {
         return new PayableQueueDto(total, beneficiaries.size(), oldest, page);
     }
 
+    /** Tout ce qui est dû après filtrage, du plus ancien au plus récent : la matière d'un export. */
+    public List<PayableDto> listForExport(String kind, UUID siteId) {
+        List<PayableDto> all = collect(kind, siteId);
+        all.sort(Comparator.comparing(PayableDto::since)
+                .thenComparing(p -> p.sourceRef() == null ? "" : p.sourceRef()));
+        return all;
+    }
+
     private List<PayableDto> collect(String kind, UUID siteId) {
         List<PayableDto> out = new ArrayList<>();
         if (wants(kind, PayableKind.COLLECTOR_ADVANCE)) collectAdvances(out);

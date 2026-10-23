@@ -100,6 +100,40 @@ public class TreasuryResource {
                 receivableService.queue(kind, siteId, PageRequest.of(page, perPage)))).build();
     }
 
+    /** La file à payer, en fichier, sous le même filtre que l'écran (demandé le 23/10/2026). */
+    @GET
+    @Path("/payables/export")
+    @RequiresPermission({ Permission.ACCOUNTING_READ, Permission.TREASURY_WRITE,
+            Permission.COLLECTION_ADVANCE_DISBURSE, Permission.MEMBER_CREDIT_DISBURSE,
+            Permission.COLLECTION_PAYMENT_WRITE })
+    @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/pdf" })
+    public Response payablesExport(@QueryParam("kind") String kind,
+                                   @QueryParam("siteId") UUID siteId,
+                                   @QueryParam("format") String formatRaw) {
+        ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
+        var rows = payableService.listForExport(kind, siteId);
+        var dataset = new ExportDataset<>(Messages.msg("m.exp-t-a-payer"),
+                PayableExportColumns.all(com.ntech.cabosse.shared.export.ExportEnumLabels::payableKind), rows);
+        exportAudit.record("a-payer", "À payer", format, rows.size());
+        return ExportResponses.build("a-payer", format, dataset);
+    }
+
+    /** La file à encaisser, en fichier, sous le même filtre que l'écran. */
+    @GET
+    @Path("/receivables/export")
+    @RequiresPermission({ Permission.ACCOUNTING_READ, Permission.TREASURY_WRITE })
+    @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/pdf" })
+    public Response receivablesExport(@QueryParam("kind") String kind,
+                                      @QueryParam("siteId") UUID siteId,
+                                      @QueryParam("format") String formatRaw) {
+        ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
+        var rows = receivableService.listForExport(kind, siteId);
+        var dataset = new ExportDataset<>(Messages.msg("m.exp-t-a-encaisser"),
+                PayableExportColumns.all(com.ntech.cabosse.shared.export.ExportEnumLabels::receivableKind), rows);
+        exportAudit.record("a-encaisser", "À encaisser", format, rows.size());
+        return ExportResponses.build("a-encaisser", format, dataset);
+    }
+
     // ─── Le relevé d'un compte ──────────────────────────────────────
 
     /**
