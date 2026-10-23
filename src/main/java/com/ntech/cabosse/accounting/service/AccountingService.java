@@ -970,17 +970,22 @@ public class AccountingService {
      */
     public Optional<JournalPieceEntity> postFromDirectExpensePayment(
             UUID expenseId, String ref, LocalDate date, String payableAccount,
-            String beneficiary, BigDecimal amount, PaymentMethod method, UUID bankAccountId) {
+            String beneficiary, BigDecimal amount, PaymentMethod method, UUID bankAccountId,
+            String paymentRef) {
         if (amount == null || amount.signum() <= 0) return Optional.empty();
+        // La référence de la pièce de caisse ou de banque sur l'écriture,
+        // comme sur les autres règlements : c'est elle qu'on cherche au
+        // rapprochement.
+        String settlement = paymentRef != null ? " (" + paymentRef + ")" : "";
         List<JournalEntry> entries = new ArrayList<>();
         entries.add(JournalEntry.debit(payableAccount,
-                "Règlement " + ref + (beneficiary == null ? "" : " " + beneficiary), amount));
+                "Règlement " + ref + (beneficiary == null ? "" : " " + beneficiary) + settlement, amount));
         entries.add(JournalEntry.credit(treasuryAccountFor(method, bankAccountId),
-                "Règlement " + ref, amount));
+                "Règlement " + ref + settlement, amount));
         return postPiece(new PostingRequest(
                 date != null ? date : LocalDate.now(),
                 PostingSourceType.DIRECT_EXPENSE_PAYMENT, expenseId, ref,
-                "Règlement dépense " + ref, entries));
+                "Règlement dépense " + ref + settlement, entries));
     }
 
     public Optional<JournalPieceEntity> postFromDirectExpense(

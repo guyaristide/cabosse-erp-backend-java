@@ -49,13 +49,15 @@ public class DirectExpenseResource {
 
     @GET
     public Response list(@QueryParam("kind") String kind,
+                         @QueryParam("status") String status,
                          @QueryParam("page") @DefaultValue("0") int page,
                          @QueryParam("perPage") @DefaultValue("20") int perPage) {
         PageRequest pr = PageRequest.of(page, perPage);
-        long total = service.countSearch(kind);
-        List<DirectExpenseResponseDto> items = service.search(kind, pr.skip(), pr.perPage());
+        long total = service.countSearch(kind, status);
+        List<DirectExpenseResponseDto> items = service.search(kind, status, pr.skip(), pr.perPage());
         Map<String, String> filters = new HashMap<>();
         if (kind != null && !kind.isBlank()) filters.put("kind", kind);
+        if (status != null && !status.isBlank()) filters.put("status", status);
         return Response.ok(ApiResponse.ok(Pagination.of(
                 total, pr, new String[]{"createdAt"}, "desc", filters, items))).build();
     }
@@ -65,9 +67,10 @@ public class DirectExpenseResource {
     @Path("/export")
     @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/pdf" })
     public Response export(@QueryParam("kind") String kind,
+                           @QueryParam("status") String status,
                            @QueryParam("format") String formatRaw) {
         ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
-        java.util.List<com.ntech.cabosse.expense.dto.DirectExpenseResponseDto> rows = service.search(kind, 0, Integer.MAX_VALUE);
+        java.util.List<com.ntech.cabosse.expense.dto.DirectExpenseResponseDto> rows = service.search(kind, status, 0, Integer.MAX_VALUE);
         ExportDataset<com.ntech.cabosse.expense.dto.DirectExpenseResponseDto> dataset =
                 new ExportDataset<>(Messages.msg("m.exp-t-depenses-directes"), DirectExpenseExportColumns.all(), rows);
         exportAudit.record("depenses-directes", "Dépenses directes", format, rows.size());

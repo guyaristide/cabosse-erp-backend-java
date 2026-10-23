@@ -28,6 +28,8 @@ final class DirectExpenseExportColumns {
                 ExportColumn.of(Messages.msg("m.imp-h-montant-ttc-amount"), DirectExpenseResponseDto::amountTtc),
                 ExportColumn.of(Messages.msg("m.imp-h-purchase-payment-method"),   d ->
                         ExportEnumLabels.paymentMethod(d.paymentMethod())),
+                ExportColumn.of(Messages.msg("m.imp-h-status"), dto ->
+                        com.ntech.cabosse.shared.export.ExportEnumLabels.expenseStatus(dto.status())),
                 ExportColumn.of(Messages.msg("m.imp-h-piece-comptable"),    DirectExpenseResponseDto::pieceRef));
     }
 }

@@ -44,7 +44,11 @@ public record DirectExpenseResponseDto(
         String rejectionReason,
         String pieceRef,
         String notes,
-        Instant createdAt
+        Instant createdAt,
+        /** Où en est la dépense : TO_APPROVE, TO_PAY, PARTIALLY_PAID, SETTLED, REJECTED. */
+        String status,
+        /** Référence de la pièce de caisse ou de banque du dernier règlement. */
+        String paymentRef
 ) {
     public static DirectExpenseResponseDto from(DirectExpenseEntity e) {
         return new DirectExpenseResponseDto(
@@ -57,6 +61,6 @@ public record DirectExpenseResponseDto(
                 e.amountPaid, e.remaining(), e.settledAt,
                 e.approvalStatus, e.governanceApprovalRequired, e.approvedAt,
                 e.approvedByEmail, e.governanceApprovedAt, e.rejectionReason,
-                e.pieceRef, e.notes, e.createdAt);
+                e.pieceRef, e.notes, e.createdAt, e.status(), e.paymentRef);
     }
 }

@@ -148,10 +148,13 @@ public class DirectExpenseService {
             throw new com.ntech.cabosse.shared.exception.ConflictException(
                     Messages.msg("m.dep-paid-meanwhile", e.ref));
         }
+        String paymentRef = p.paymentRef() == null || p.paymentRef().isBlank()
+                ? null : p.paymentRef().trim();
+        if (paymentRef != null) repo.setPaymentRef(e.id, paymentRef);
         try {
             accounting.postFromDirectExpensePayment(
                     e.id, e.ref, p.paidOn() != null ? p.paidOn() : LocalDate.now(),
-                    e.payableAccount, e.supplierName, amount, method, p.bankAccountId());
+                    e.payableAccount, e.supplierName, amount, method, p.bankAccountId(), paymentRef);
         } catch (RuntimeException ex) {
             // L'écriture refusée, le règlement n'a pas eu lieu : la
             // dépense redevient due, sans quoi elle disparaîtrait de la
@@ -164,7 +167,8 @@ public class DirectExpenseService {
                 .actorEmail(actor())
                 .target("direct_expense", e.id.toString(), e.ref)
                 .tenant(tenantContext.tenantId(), null)
-                .description("Règlement " + amount + " sur la dépense " + e.ref)
+                .description("Règlement " + amount + " sur la dépense " + e.ref
+                        + (paymentRef != null ? " (" + paymentRef + ")" : ""))
                 .record();
 
         return DirectExpenseResponseDto.from(repo.findById(id).orElseThrow());
@@ -178,10 +182,10 @@ public class DirectExpenseService {
         return DirectExpenseResponseDto.from(loadOrFail(id));
     }
 
-    public long countSearch(String kind) { return repo.countSearch(kind); }
+    public long countSearch(String kind, String status) { return repo.countSearch(kind, status); }
 
-    public List<DirectExpenseResponseDto> search(String kind, int skip, int limit) {
-        return repo.search(kind, skip, limit).stream()
+    public List<DirectExpenseResponseDto> search(String kind, String status, int skip, int limit) {
+        return repo.search(kind, status, skip, limit).stream()
                 .map(DirectExpenseResponseDto::from).toList();
     }
 

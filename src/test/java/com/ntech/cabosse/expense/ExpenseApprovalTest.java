@@ -83,8 +83,15 @@ class ExpenseApprovalTest extends AbstractIntegrationTest {
 
         // Le circuit ne s'impose pas tout seul : une structure qui n'a
         // rien posé continue de payer comme avant.
-        givenAs(a).contentType("application/json").body("{\"paymentMethod\":\"CASH\"}")
+        // La référence de la pièce de caisse suit le règlement jusqu'à
+        // l'écriture (demandé le 23/10/2026).
+        givenAs(a).contentType("application/json")
+                .body("{\"paymentMethod\":\"CASH\", \"paymentRef\": \"PC-2026-0417\"}")
                 .when().post("/api/v1/direct-expenses/" + id + "/pay")
+                .then().statusCode(200)
+                .body("data.paymentRef", equalTo("PC-2026-0417"))
+                .body("data.status", equalTo("SETTLED"));
+        givenAs(a).when().get("/api/v1/accounting/journal?q=PC-2026-0417")
                 .then().statusCode(200);
     }
 
@@ -333,5 +340,28 @@ class ExpenseApprovalTest extends AbstractIntegrationTest {
                 .when().post("/api/v1/direct-expenses/" + id + "/approve-governance")
                 .then().statusCode(200)
                 .body("data.pieceRef", org.hamcrest.Matchers.notNullValue());
+    }
+    /** Le statut se lit sur la liste, et l'onglet le filtre (demandé le 23/10/2026). */
+    @Test
+    void la_liste_dit_ou_en_est_chaque_depense() {
+        UserEntity a = admin();
+        setPrefs(a, "{ \"expenseApprovalScope\": \"ALL\", \"expenseApprovalThreshold\": 0 }");
+        String id = expense(a, "PETTY_CASH", 60_000);
+
+        givenAs(a).when().get("/api/v1/direct-expenses/" + id)
+                .then().statusCode(200).body("data.status", equalTo("TO_APPROVE"));
+        givenAs(a).when().get("/api/v1/direct-expenses?status=TO_APPROVE")
+                .then().statusCode(200)
+                .body("data.items.find { it.id == '" + id + "' }.status", equalTo("TO_APPROVE"));
+        givenAs(a).when().get("/api/v1/direct-expenses?status=TO_PAY")
+                .then().statusCode(200)
+                .body("data.items.find { it.id == '" + id + "' }", org.hamcrest.Matchers.nullValue());
+
+        givenAs(a).contentType("application/json").body("{}")
+                .when().post("/api/v1/direct-expenses/" + id + "/approve")
+                .then().statusCode(200).body("data.status", equalTo("TO_PAY"));
+        givenAs(a).when().get("/api/v1/direct-expenses?status=TO_PAY")
+                .then().statusCode(200)
+                .body("data.items.find { it.id == '" + id + "' }.status", equalTo("TO_PAY"));
     }
 }

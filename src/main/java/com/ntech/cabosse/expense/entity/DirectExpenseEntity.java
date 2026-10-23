@@ -107,6 +107,13 @@ public class DirectExpenseEntity {
     /** Ce qui a déjà été payé sur cette dépense. */
     public BigDecimal amountPaid = BigDecimal.ZERO;
 
+    /**
+     * Référence de la pièce de caisse ou de banque du dernier règlement
+     * (demandé le 23/10/2026) : c'est elle qui permet de retrouver
+     * l'opération au rapprochement, comme sur les autres règlements.
+     */
+    public String paymentRef;
+
     /** Quand elle a été soldée. Null tant qu'il reste à payer. */
     public java.time.Instant settledAt;
 
@@ -127,6 +134,31 @@ public class DirectExpenseEntity {
         if (!"APPROVED".equals(approvalStatus)) return false;
         return !governanceApprovalRequired || governanceApprovedAt != null;
     }
+
+    /** Un état qui attend une décision, le premier échelon ou le second. */
+    public boolean awaitingDecision() {
+        if ("PENDING".equals(approvalStatus)) return true;
+        return "APPROVED".equals(approvalStatus) && governanceApprovalRequired && governanceApprovedAt == null;
+    }
+
+    /**
+     * Où en est la dépense, en un mot (demandé le 23/10/2026) : la liste
+     * ne disait rien d'une dépense qui attendait son approbation, alors
+     * que la demande d'achat voisine affiche la sienne.
+     */
+    public String status() {
+        if ("REJECTED".equals(approvalStatus)) return STATUS_REJECTED;
+        if (awaitingDecision()) return STATUS_TO_APPROVE;
+        if (settledAt != null) return STATUS_SETTLED;
+        if (amountPaid != null && amountPaid.signum() > 0) return STATUS_PARTIALLY_PAID;
+        return STATUS_TO_PAY;
+    }
+
+    public static final String STATUS_TO_APPROVE = "TO_APPROVE";
+    public static final String STATUS_TO_PAY = "TO_PAY";
+    public static final String STATUS_PARTIALLY_PAID = "PARTIALLY_PAID";
+    public static final String STATUS_SETTLED = "SETTLED";
+    public static final String STATUS_REJECTED = "REJECTED";
 
     public BigDecimal remaining() {
         if (payableAccount == null) return BigDecimal.ZERO;

@@ -29,17 +29,45 @@ public class DirectExpenseRepository {
         return Optional.ofNullable(coll().find(Filters.eq("_id", id)).first());
     }
 
-    private Bson searchFilter(String kind) {
-        return (kind == null || kind.isBlank())
-                ? new org.bson.Document() : Filters.eq("kind", kind);
+    private Bson searchFilter(String kind, String status) {
+        List<Bson> parts = new ArrayList<>();
+        if (kind != null && !kind.isBlank()) parts.add(Filters.eq("kind", kind));
+        Bson byStatus = statusFilter(status);
+        if (byStatus != null) parts.add(byStatus);
+        return parts.isEmpty() ? new org.bson.Document() : Filters.and(parts);
     }
 
-    public long countSearch(String kind) {
-        return coll().countDocuments(searchFilter(kind));
+    /**
+     * Le même état que {@link DirectExpenseEntity#status()}, écrit en
+     * filtre : la liste et l'onglet doivent dire la même chose.
+     */
+    private static Bson statusFilter(String status) {
+        if (status == null || status.isBlank()) return null;
+        Bson awaiting = Filters.or(
+                Filters.eq("approvalStatus", "PENDING"),
+                Filters.and(Filters.eq("approvalStatus", "APPROVED"),
+                        Filters.eq("governanceApprovalRequired", true),
+                        Filters.eq("governanceApprovedAt", null)));
+        Bson decided = Filters.and(Filters.ne("approvalStatus", "REJECTED"), Filters.nor(awaiting));
+        return switch (status) {
+            case DirectExpenseEntity.STATUS_REJECTED -> Filters.eq("approvalStatus", "REJECTED");
+            case DirectExpenseEntity.STATUS_TO_APPROVE -> awaiting;
+            case DirectExpenseEntity.STATUS_SETTLED -> Filters.and(decided, Filters.ne("settledAt", null));
+            case DirectExpenseEntity.STATUS_PARTIALLY_PAID -> Filters.and(decided,
+                    Filters.eq("settledAt", null), Filters.gt("amountPaid", 0));
+            case DirectExpenseEntity.STATUS_TO_PAY -> Filters.and(decided,
+                    Filters.eq("settledAt", null),
+                    Filters.or(Filters.eq("amountPaid", null), Filters.lte("amountPaid", 0)));
+            default -> null;
+        };
     }
 
-    public List<DirectExpenseEntity> search(String kind, int skip, int limit) {
-        return coll().find(searchFilter(kind))
+    public long countSearch(String kind, String status) {
+        return coll().countDocuments(searchFilter(kind, status));
+    }
+
+    public List<DirectExpenseEntity> search(String kind, String status, int skip, int limit) {
+        return coll().find(searchFilter(kind, status))
                 .sort(new org.bson.Document("createdAt", -1))
                 .skip(skip).limit(limit).into(new ArrayList<>());
     }
@@ -85,6 +113,12 @@ public class DirectExpenseRepository {
      * caissiers qui règlent la même dépense au même instant ne peuvent
      * pas la payer deux fois.</p>
      */
+    /** La référence du règlement, posée une fois le paiement acquis. */
+    public void setPaymentRef(UUID id, String paymentRef) {
+        coll().updateOne(Filters.eq("_id", id),
+                com.mongodb.client.model.Updates.set("paymentRef", paymentRef));
+    }
+
     public boolean tryPay(UUID id, java.math.BigDecimal alreadyPaid,
                           java.math.BigDecimal amount, java.time.Instant settledAt) {
         var update = settledAt == null

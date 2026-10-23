@@ -29,6 +29,9 @@ public record PayDirectExpenseDto(
         UUID bankAccountId,
 
         @Schema(description = "Montant réglé. Si omis, tout ce qui reste dû.")
-        BigDecimal amount
+        BigDecimal amount,
+
+        @Schema(description = "Référence de la pièce de caisse ou de banque")
+        @jakarta.validation.constraints.Size(max = 80) String paymentRef
 
 ) {}

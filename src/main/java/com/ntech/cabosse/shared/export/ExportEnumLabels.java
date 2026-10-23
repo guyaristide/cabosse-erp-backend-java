@@ -130,4 +130,17 @@ public final class ExportEnumLabels {
             default -> code;
         };
     }
+
+    /** Où en est une dépense directe. */
+    public static String expenseStatus(String code) {
+        if (code == null || code.isBlank()) return code;
+        return switch (code) {
+            case "TO_APPROVE" -> Messages.msg("m.expst-to-approve");
+            case "TO_PAY" -> Messages.msg("m.expst-to-pay");
+            case "PARTIALLY_PAID" -> Messages.msg("m.expst-partially-paid");
+            case "SETTLED" -> Messages.msg("m.expst-settled");
+            case "REJECTED" -> Messages.msg("m.expst-rejected");
+            default -> code;
+        };
+    }
 }
