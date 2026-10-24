@@ -249,4 +249,53 @@ class SupportTicketTest extends AbstractIntegrationTest {
         givenAs(operator).when().get("/api/v1/admin/support/tickets")
                 .then().statusCode(403);
     }
+    @Inject com.ntech.cabosse.settings.service.PlatformSettingsService platformSettings;
+
+    /**
+     * Un ticket qui s'ouvre remonte dans le Slack de l'éditeur (demandé
+     * le 23/10/2026) : le webhook est un secret des paramètres, et l'avis
+     * porte la référence, la structure et le sujet.
+     */
+    @Test
+    void a_new_ticket_is_posted_to_the_editor_slack() throws Exception {
+        java.util.concurrent.CompletableFuture<String> received = new java.util.concurrent.CompletableFuture<>();
+        com.sun.net.httpserver.HttpServer server = com.sun.net.httpserver.HttpServer.create(
+                new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/hook", exchange -> {
+            String body = new String(exchange.getRequestBody().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            received.complete(body);
+            exchange.sendResponseHeaders(200, 2);
+            try (var out = exchange.getResponseBody()) { out.write("ok".getBytes()); }
+        });
+        server.start();
+        String webhook = "http://127.0.0.1:" + server.getAddress().getPort() + "/hook";
+        try {
+            platformSettings.writeSection("email",
+                    java.util.Map.of("supportSlackWebhook", webhook),
+                    java.util.Set.of("password", "supportSlackWebhook"), "test");
+            platformSettings.invalidateAll();
+
+            String ticketId = openTicket(operator, "Slack doit sonner");
+            String ref = givenAs(operator).when().get("/api/v1/me/support/tickets/" + ticketId)
+                    .then().statusCode(200).extract().path("data.ref");
+
+            String body = received.get(10, java.util.concurrent.TimeUnit.SECONDS);
+            org.junit.jupiter.api.Assertions.assertTrue(body.contains(ref), body);
+            org.junit.jupiter.api.Assertions.assertTrue(body.contains("Slack doit sonner"), body);
+            org.junit.jupiter.api.Assertions.assertTrue(body.contains("Structure Assistance"), body);
+            org.junit.jupiter.api.Assertions.assertTrue(body.contains("/backoffice/support/" + ticketId), body);
+
+            // L'adresse du webhook ne ressort jamais en clair : seul « posé » se lit.
+            givenAs(staff).when().get("/api/v1/admin/settings/email")
+                    .then().statusCode(200)
+                    .body("data.supportSlackWebhookSet", org.hamcrest.Matchers.equalTo(true))
+                    .body(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("127.0.0.1")));
+        } finally {
+            platformSettings.writeSection("email",
+                    java.util.Map.of("supportSlackWebhook", "<<clear>>"),
+                    java.util.Set.of("password", "supportSlackWebhook"), "test");
+            platformSettings.invalidateAll();
+            server.stop(0);
+        }
+    }
 }

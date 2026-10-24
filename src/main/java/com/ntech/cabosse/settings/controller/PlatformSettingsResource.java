@@ -120,10 +120,13 @@ public class PlatformSettingsResource {
         EmailSettingsDto.Source overallSource = sourceOf(dbValues, raw);
 
         String supportInbox = dbValues.get("supportInbox");
+        String slackWebhook = settings.readFromDb(EMAIL).get("supportSlackWebhook");
+        boolean slackSet = slackWebhook != null && !slackWebhook.isBlank();
 
         EmailSettingsDto dto = new EmailSettingsDto(
                 from, host, port, username,
                 supportInbox != null ? supportInbox : "",
+                slackSet,
                 passwordMasked, passwordSet,
                 startTls != null ? startTls : "NONE",
                 mockMode,
@@ -144,9 +147,10 @@ public class PlatformSettingsResource {
         values.put("username", body.username());
         values.put("supportInbox", body.supportInbox() != null ? body.supportInbox() : "");
         values.put("password", body.password()); // service gère patch sensible
+        values.put("supportSlackWebhook", body.supportSlackWebhook()); // même convention de secret
         values.put("startTls", body.startTls() != null ? body.startTls() : "NONE");
         values.put("mockMode", String.valueOf(body.mockMode()));
-        settings.writeSection(EMAIL, values, Set.of("password"), currentAdmin());
+        settings.writeSection(EMAIL, values, Set.of("password", "supportSlackWebhook"), currentAdmin());
         auditSettingsChange(EMAIL, "Serveur SMTP");
         return getEmail();
     }

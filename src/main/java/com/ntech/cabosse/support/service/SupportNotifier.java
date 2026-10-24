@@ -39,6 +39,7 @@ import java.util.Map;
 public class SupportNotifier {
 
     @Inject PlatformMailerService mailer;
+    @Inject SupportSlackNotifier slack;
     @Inject PlatformSettingsService settings;
     @Inject ApplicationConfig appConfig;
     @Inject TenantRepository tenants;
@@ -51,6 +52,9 @@ public class SupportNotifier {
     // ─── Vers l'éditeur ───
 
     public void ticketOpened(SupportTicketEntity t) {
+        // Slack d'abord : c'est là que l'équipe lit, et il ne dépend pas
+        // d'une boîte configurée.
+        slack.ticketOpened(t);
         String inbox = editorInbox();
         if (inbox == null) return;
         Locale locale = Locale.FRENCH;
@@ -67,6 +71,7 @@ public class SupportNotifier {
     }
 
     public void tenantReplied(SupportTicketEntity t, TicketMessageEntity m) {
+        slack.tenantReplied(t, m);
         String inbox = editorInbox();
         if (inbox == null) return;
         Locale locale = Locale.FRENCH;
