@@ -251,51 +251,117 @@ class SupportTicketTest extends AbstractIntegrationTest {
     }
     @Inject com.ntech.cabosse.settings.service.PlatformSettingsService platformSettings;
 
+    /** Un serveur local qui joue Slack ou n'importe quel webhook. */
+    private record Hook(com.sun.net.httpserver.HttpServer server,
+                        java.util.Map<String, java.util.List<String>> received) {
+        String url(String path) { return "http://127.0.0.1:" + server.getAddress().getPort() + path; }
+        java.util.List<String> at(String path) { return received.getOrDefault(path, java.util.List.of()); }
+    }
+
+    private static Hook hook(String... paths) throws java.io.IOException {
+        java.util.Map<String, java.util.List<String>> received = new java.util.concurrent.ConcurrentHashMap<>();
+        var server = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+        for (String path : paths) {
+            server.createContext(path, exchange -> {
+                String body = new String(exchange.getRequestBody().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                received.computeIfAbsent(path, k -> new java.util.concurrent.CopyOnWriteArrayList<>()).add(body);
+                exchange.sendResponseHeaders(200, 2);
+                try (var out = exchange.getResponseBody()) { out.write("ok".getBytes()); }
+            });
+        }
+        server.start();
+        return new Hook(server, received);
+    }
+
+    private void clearAlertSections() {
+        platformSettings.writeSection("editorAlerts", java.util.Map.of(), java.util.Set.of(), "test");
+        platformSettings.writeSection("email", java.util.Map.of("supportSlackWebhook", "<<clear>>"),
+                java.util.Set.of("password", "supportSlackWebhook"), "test");
+        platformSettings.invalidateAll();
+    }
+
     /**
-     * Un ticket qui s'ouvre remonte dans le Slack de l'éditeur (demandé
-     * le 23/10/2026) : le webhook est un secret des paramètres, et l'avis
-     * porte la référence, la structure et le sujet.
+     * Les canaux d'alerte de l'éditeur, à volonté (demandé le 24/10/2026) :
+     * un Slack et un webhook générique reçoivent le ticket ouvert, un
+     * troisième abonné aux seules réponses ne reçoit rien ; les adresses ne
+     * ressortent jamais, et une cible laissée vide garde la sienne.
      */
     @Test
-    void a_new_ticket_is_posted_to_the_editor_slack() throws Exception {
-        java.util.concurrent.CompletableFuture<String> received = new java.util.concurrent.CompletableFuture<>();
-        com.sun.net.httpserver.HttpServer server = com.sun.net.httpserver.HttpServer.create(
-                new java.net.InetSocketAddress("127.0.0.1", 0), 0);
-        server.createContext("/hook", exchange -> {
-            String body = new String(exchange.getRequestBody().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
-            received.complete(body);
-            exchange.sendResponseHeaders(200, 2);
-            try (var out = exchange.getResponseBody()) { out.write("ok".getBytes()); }
-        });
-        server.start();
-        String webhook = "http://127.0.0.1:" + server.getAddress().getPort() + "/hook";
+    void every_subscribed_channel_hears_a_new_ticket_and_the_others_stay_quiet() throws Exception {
+        Hook hook = hook("/slack", "/teams", "/replies-only");
         try {
-            platformSettings.writeSection("email",
-                    java.util.Map.of("supportSlackWebhook", webhook),
-                    java.util.Set.of("password", "supportSlackWebhook"), "test");
-            platformSettings.invalidateAll();
+            String channels = """
+                    { "channels": [
+                      { "id": "slack", "type": "SLACK", "label": "Slack équipe", "target": "%s",
+                        "enabled": true, "events": ["TICKET_OPENED", "TENANT_REPLIED"] },
+                      { "id": "teams", "type": "WEBHOOK", "label": "Teams", "target": "%s",
+                        "enabled": true, "events": ["TICKET_OPENED", "TICKET_RESOLVED"] },
+                      { "id": "late", "type": "WEBHOOK", "label": "Réponses seulement", "target": "%s",
+                        "enabled": true, "events": ["TENANT_REPLIED"] },
+                      { "id": "mail", "type": "EMAIL", "label": "Boîte", "target": "assistance@editeur.ci",
+                        "enabled": true, "events": ["TICKET_OPENED"] }
+                    ] }
+                    """.formatted(hook.url("/slack"), hook.url("/teams"), hook.url("/replies-only"));
+            givenAs(staff).contentType("application/json").body(channels)
+                    .when().put("/api/v1/admin/settings/editor-alerts")
+                    .then().statusCode(200)
+                    .body("data.channels.size()", org.hamcrest.Matchers.equalTo(4))
+                    .body("data.channels.find { it.id == 'slack' }.targetSet", org.hamcrest.Matchers.equalTo(true))
+                    .body("data.channels.find { it.id == 'slack' }.target", org.hamcrest.Matchers.nullValue())
+                    .body("data.channels.find { it.id == 'mail' }.target", org.hamcrest.Matchers.equalTo("assistance@editeur.ci"))
+                    .body(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("127.0.0.1")));
 
-            String ticketId = openTicket(operator, "Slack doit sonner");
+            String ticketId = openTicket(operator, "Tous les canaux sonnent");
             String ref = givenAs(operator).when().get("/api/v1/me/support/tickets/" + ticketId)
                     .then().statusCode(200).extract().path("data.ref");
 
-            String body = received.get(10, java.util.concurrent.TimeUnit.SECONDS);
-            org.junit.jupiter.api.Assertions.assertTrue(body.contains(ref), body);
-            org.junit.jupiter.api.Assertions.assertTrue(body.contains("Slack doit sonner"), body);
-            org.junit.jupiter.api.Assertions.assertTrue(body.contains("Structure Assistance"), body);
-            org.junit.jupiter.api.Assertions.assertTrue(body.contains("/backoffice/support/" + ticketId), body);
+            assertThat(hook.at("/slack")).hasSize(1);
+            assertThat(hook.at("/slack").get(0)).contains(ref).contains("Structure Assistance")
+                    .contains("/backoffice/support/" + ticketId);
+            assertThat(hook.at("/teams")).hasSize(1);
+            assertThat(hook.at("/teams").get(0)).contains("\"event\":\"TICKET_OPENED\"").contains(ref);
+            assertThat(hook.at("/replies-only")).isEmpty();
 
-            // L'adresse du webhook ne ressort jamais en clair : seul « posé » se lit.
-            givenAs(staff).when().get("/api/v1/admin/settings/email")
+            // Réenregistrer sans retaper les adresses les conserve.
+            String kept = channels.replace(hook.url("/slack"), "").replace(hook.url("/teams"), "")
+                    .replace(hook.url("/replies-only"), "");
+            givenAs(staff).contentType("application/json").body(kept)
+                    .when().put("/api/v1/admin/settings/editor-alerts")
                     .then().statusCode(200)
-                    .body("data.supportSlackWebhookSet", org.hamcrest.Matchers.equalTo(true))
-                    .body(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("127.0.0.1")));
+                    .body("data.channels.find { it.id == 'teams' }.targetSet", org.hamcrest.Matchers.equalTo(true));
+
+            givenAs(operator).contentType("application/json")
+                    .body("{ \"body\": \"Toujours bloqué.\" }")
+                    .when().post("/api/v1/me/support/tickets/" + ticketId + "/messages")
+                    .then().statusCode(200);
+            assertThat(hook.at("/replies-only")).hasSize(1);
+            assertThat(hook.at("/slack")).hasSize(2);
+            assertThat(hook.at("/teams")).hasSize(1);
         } finally {
+            clearAlertSections();
+            hook.server().stop(0);
+        }
+    }
+
+    /** Les anciens champs continuent de sonner tant que la liste n'a jamais été enregistrée. */
+    @Test
+    void the_legacy_slack_field_still_rings_until_the_list_is_saved() throws Exception {
+        Hook hook = hook("/legacy");
+        try {
             platformSettings.writeSection("email",
-                    java.util.Map.of("supportSlackWebhook", "<<clear>>"),
+                    java.util.Map.of("supportSlackWebhook", hook.url("/legacy")),
                     java.util.Set.of("password", "supportSlackWebhook"), "test");
             platformSettings.invalidateAll();
-            server.stop(0);
+
+            givenAs(staff).when().get("/api/v1/admin/settings/editor-alerts")
+                    .then().statusCode(200)
+                    .body("data.channels.find { it.id == 'legacy-slack' }.targetSet", org.hamcrest.Matchers.equalTo(true));
+
+            openTicket(operator, "Le Slack hérité sonne");
+            assertThat(hook.at("/legacy")).hasSize(1);
+        } finally {
+            clearAlertSections();
+            hook.server().stop(0);
         }
     }
 }

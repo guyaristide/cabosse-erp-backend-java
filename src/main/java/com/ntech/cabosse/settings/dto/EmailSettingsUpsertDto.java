@@ -48,9 +48,6 @@ public record EmailSettingsUpsertDto(
         @Email(message = "{v.adresse-e-mail-invalide}")
         String supportInbox,
 
-        /** Vide : conserver ; « <<clear>> » : effacer ; sinon la nouvelle adresse du webhook. */
-        @Size(max = 500) String supportSlackWebhook,
-
         @Pattern(regexp = "NONE|REQUIRED|OPTIONAL",
                 message = "{v.valeur-autorisee-none-required-optional}")
         String startTls,

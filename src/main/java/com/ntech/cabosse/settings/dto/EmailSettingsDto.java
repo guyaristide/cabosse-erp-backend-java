@@ -19,8 +19,6 @@ public record EmailSettingsDto(
         String username,
         /** Boîte qui reçoit les avis d'assistance. Vide → {@code from}. */
         String supportInbox,
-        /** Un webhook Slack d'assistance est-il posé ? Jamais sa valeur. */
-        boolean supportSlackWebhookSet,
         /** Toujours masqué. Vide si non configuré. */
         String passwordMasked,
         /** {@code true} si un mot de passe est configuré (BD ou YAML). */

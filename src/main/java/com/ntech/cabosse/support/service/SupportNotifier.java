@@ -39,7 +39,8 @@ import java.util.Map;
 public class SupportNotifier {
 
     @Inject PlatformMailerService mailer;
-    @Inject SupportSlackNotifier slack;
+    @Inject EditorAlertChannels channels;
+    @Inject EditorAlertDispatcher dispatcher;
     @Inject PlatformSettingsService settings;
     @Inject ApplicationConfig appConfig;
     @Inject TenantRepository tenants;
@@ -52,13 +53,12 @@ public class SupportNotifier {
     // ─── Vers l'éditeur ───
 
     public void ticketOpened(SupportTicketEntity t) {
-        // Slack d'abord : c'est là que l'équipe lit, et il ne dépend pas
-        // d'une boîte configurée.
-        slack.ticketOpened(t);
-        String inbox = editorInbox();
-        if (inbox == null) return;
+        var event = EditorAlertChannels.Event.TICKET_OPENED;
+        dispatcher.dispatch(new EditorAlertDispatcher.Notice(event, t,
+                ":inbox_tray: Nouveau ticket *" + t.ref + "* · " + t.tenantName,
+                t.reportedBy, t.description));
         Locale locale = Locale.FRENCH;
-        send(inbox, locale,
+        for (String inbox : editorInboxes(event)) send(inbox, locale,
                 Messages.msg(locale, "m.mail-ticket-opened-subject", t.ref, t.tenantName),
                 MailTexts.in(locale)
                         .put("title", "m.mail-ticket-opened-title")
@@ -71,11 +71,12 @@ public class SupportNotifier {
     }
 
     public void tenantReplied(SupportTicketEntity t, TicketMessageEntity m) {
-        slack.tenantReplied(t, m);
-        String inbox = editorInbox();
-        if (inbox == null) return;
+        var event = EditorAlertChannels.Event.TENANT_REPLIED;
+        dispatcher.dispatch(new EditorAlertDispatcher.Notice(event, t,
+                ":speech_balloon: Réponse sur *" + t.ref + "* · " + t.tenantName,
+                m.authorName, m.body));
         Locale locale = Locale.FRENCH;
-        send(inbox, locale,
+        for (String inbox : editorInboxes(event)) send(inbox, locale,
                 Messages.msg(locale, "m.mail-ticket-reply-subject", t.ref, t.subject),
                 MailTexts.in(locale)
                         .put("title", "m.mail-ticket-reply-title")
@@ -116,8 +117,27 @@ public class SupportNotifier {
      * qu'il appelle une vérification côté structure.</p>
      */
     public void statusChanged(SupportTicketEntity t, TicketStatus previous) {
-        if (t.reportedByEmail == null) return;
         if (t.status != TicketStatus.RESOLVED && t.status != TicketStatus.CLOSED) return;
+        // L'éditeur aussi, sur les canaux qui s'y sont abonnés : une
+        // résolution se lit dans le fil de l'équipe.
+        var event = EditorAlertChannels.Event.TICKET_RESOLVED;
+        String staffStatus = Messages.msg(Locale.FRENCH, t.status.messageKey());
+        dispatcher.dispatch(new EditorAlertDispatcher.Notice(event, t,
+                ":white_check_mark: Ticket *" + t.ref + "* " + staffStatus + " · " + t.tenantName,
+                null, lastPublicBody(t)));
+        for (String inbox : editorInboxes(event)) {
+            send(inbox, Locale.FRENCH,
+                    Messages.msg(Locale.FRENCH, "m.mail-ticket-status-subject", t.ref, staffStatus),
+                    MailTexts.in(Locale.FRENCH)
+                            .put("title", "m.mail-ticket-status-title")
+                            .put("heading", "m.mail-ticket-status-heading")
+                            .put("intro", "m.mail-ticket-status-intro", t.ref, staffStatus)
+                            .put("cta", "m.mail-ticket-cta-staff")
+                            .put("fallbackHint", "m.mail-fallback-hint")
+                            .put("noReply", "m.mail-ticket-no-reply"),
+                    t, t.subject, lastPublicBody(t), staffUrl(t));
+        }
+        if (t.reportedByEmail == null) return;
         Locale locale = tenantLocale(t);
         String statusLabel = Messages.msg(locale, t.status.messageKey());
         send(t.reportedByEmail, locale,
@@ -151,22 +171,12 @@ public class SupportNotifier {
         }
     }
 
-    /**
-     * La boîte de l'éditeur.
-     *
-     * <p>À défaut d'adresse dédiée, l'adresse d'expédition configurée fait
-     * l'affaire : c'est la boîte de l'éditeur, et un avis qui revient à
-     * l'expéditeur vaut mieux qu'un avis qui n'existe pas.</p>
-     */
-    private String editorInbox() {
-        Map<String, String> email = settings.readFromDb("email");
-        String inbox = email.get("supportInbox");
-        if (inbox == null || inbox.isBlank()) inbox = email.get("from");
-        if (inbox == null || inbox.isBlank()) {
-            log.warnf("Aucune adresse d'assistance configurée : avis de ticket non envoyé");
-            return null;
-        }
-        return inbox.trim();
+    /** Les boîtes de l'éditeur abonnées à cet événement. */
+    private java.util.List<String> editorInboxes(EditorAlertChannels.Event event) {
+        return channels.enabledFor(event).stream()
+                .filter(c -> c.type() == EditorAlertChannels.Type.EMAIL)
+                .map(EditorAlertChannels.Channel::target)
+                .toList();
     }
 
     private Locale tenantLocale(SupportTicketEntity t) {
