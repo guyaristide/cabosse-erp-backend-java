@@ -32,8 +32,11 @@ public class TreasuryTransferRepository {
         return Optional.ofNullable(coll().find(Filters.eq("_id", id)).first());
     }
 
-    private Bson filter(LocalDate from, LocalDate to, String status, UUID accountId) {
+    private Bson filter(LocalDate from, LocalDate to, String status, UUID accountId, String q) {
         List<Bson> filters = new ArrayList<>();
+        Bson text = com.ntech.cabosse.shared.api.TextSearch.anyOf(q,
+                "ref", "carrierName", "fromAccountLabel", "toAccountLabel", "notes");
+        if (text != null) filters.add(text);
         if (from != null) filters.add(Filters.gte("sentAt", from));
         if (to != null) filters.add(Filters.lte("sentAt", to));
         if (status != null && !status.isBlank()) filters.add(Filters.eq("status", status));
@@ -45,13 +48,13 @@ public class TreasuryTransferRepository {
         return filters.isEmpty() ? new Document() : Filters.and(filters);
     }
 
-    public long countSearch(LocalDate from, LocalDate to, String status, UUID accountId) {
-        return coll().countDocuments(filter(from, to, status, accountId));
+    public long countSearch(LocalDate from, LocalDate to, String status, UUID accountId, String q) {
+        return coll().countDocuments(filter(from, to, status, accountId, q));
     }
 
     public List<TreasuryTransferEntity> search(LocalDate from, LocalDate to, String status,
-                                               UUID accountId, int skip, int limit) {
-        return coll().find(filter(from, to, status, accountId))
+                                               UUID accountId, String q, int skip, int limit) {
+        return coll().find(filter(from, to, status, accountId, q))
                 .sort(new Document("sentAt", -1).append("ref", -1))
                 .skip(skip).limit(limit)
                 .into(new ArrayList<>());
@@ -59,7 +62,7 @@ public class TreasuryTransferRepository {
 
     /** Tous les transferts d'une période, pour le rapprochement. */
     public List<TreasuryTransferEntity> listForPeriod(LocalDate from, LocalDate to) {
-        return coll().find(filter(from, to, null, null))
+        return coll().find(filter(from, to, null, null, null))
                 .sort(new Document("sentAt", 1))
                 .into(new ArrayList<>());
     }

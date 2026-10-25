@@ -216,33 +216,48 @@ class TreasuryTest extends AbstractIntegrationTest {
                 .when().post("/api/v1/treasury/transfers").then();
     }
 
+    /**
+     * Une caisse s'approvisionne depuis la banque ou depuis une autre
+     * caisse qui a plus de liquidités (demandé le 24/10/2026) : le verrou
+     * « banque seulement » bloquait le réapprovisionnement courant de la
+     * caisse d'achat par la caisse de fonctionnement. Ce qui tient
+     * toujours : une caisse ne verse jamais ce qu'elle n'a pas.
+     */
     @Test
-    void a_cash_box_is_only_ever_topped_up_from_a_bank() {
+    void a_cash_box_is_topped_up_from_a_bank_or_from_another_cash_box() {
         UserEntity admin = tenantAdmin();
         String bank = createAccount(admin, "BANQUE", "Banque Abidjan", "521000");
-        String cash = createAccount(admin, "CAISSE", "Caisse centrale", "571000");
-        String other = createAccount(admin, "CAISSE", "Caisse Méagui", "571000");
-
-        // Des espèces sans origine bancaire ne se rapprochent d'aucun
-        // relevé : un manquant y deviendrait indétectable.
-        trySend(admin, cash, other, 100000).statusCode(422)
-                .body("statusMessage", containsString("compte bancaire"));
-
-        // Depuis la banque, oui.
-        String topUp = send(admin, bank, cash, 100000, "Chauffeur Koffi");
-
-        // Le versement inverse est libre — mais tant que les fonds sont en
-        // route, la caisse est vide et n'a rien à verser.
-        trySend(admin, cash, bank, 50000).statusCode(422);
-
+        String cash = createAccount(admin, "CAISSE", "Caisse fonctionnement", "571000");
+        // Un compte du plan à part : deux caisses sur le même compte
+        // rendraient leurs soldes indiscernables.
         givenAs(admin).contentType("application/json")
-                .body("{\"receivedAt\":\"%s\",\"amountReceived\":100000}"
-                        .formatted(LocalDate.now()))
+                .body("{ \"number\": \"571100\", \"label\": \"Caisse achat\", \"family\": \"TRESORERIE\" }")
+                .when().post("/api/v1/accounting/chart").then().statusCode(201);
+        String other = createAccount(admin, "CAISSE", "Caisse achat", "571100");
+
+        // Vide, la caisse n'a rien à transférer, vers une caisse comme vers la banque.
+        trySend(admin, cash, other, 100000).statusCode(422);
+
+        String topUp = send(admin, bank, cash, 100000, "Chauffeur Koffi");
+        givenAs(admin).contentType("application/json")
+                .body("{\"receivedAt\":\"%s\",\"amountReceived\":100000}".formatted(LocalDate.now()))
                 .when().post("/api/v1/treasury/transfers/" + topUp + "/receive")
                 .then().statusCode(200);
 
-        // Reçus, ils peuvent repartir : c'est la recette du jour.
-        trySend(admin, cash, bank, 50000).statusCode(201);
+        // De caisse à caisse, maintenant : la somme part, reste en route, arrive.
+        String between = send(admin, cash, other, 60000, "Caissière Badje");
+        givenAs(admin).contentType("application/json")
+                .body("{\"receivedAt\":\"%s\",\"amountReceived\":60000}".formatted(LocalDate.now()))
+                .when().post("/api/v1/treasury/transfers/" + between + "/receive")
+                .then().statusCode(200);
+        givenAs(admin).when().get("/api/v1/treasury/transfers/" + between)
+                .then().statusCode(200)
+                .body("data.status", equalTo("RECEIVED"))
+                .body("data.amountReceived", equalTo(60000));
+
+        // Il reste 40 000 : en verser 50 000 à la banque est refusé, 40 000 passe.
+        trySend(admin, cash, bank, 50000).statusCode(422);
+        trySend(admin, cash, bank, 40000).statusCode(201);
     }
 
     @Test

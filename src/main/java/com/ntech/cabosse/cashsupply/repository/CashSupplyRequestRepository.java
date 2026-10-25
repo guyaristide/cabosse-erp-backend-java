@@ -32,21 +32,24 @@ public class CashSupplyRequestRepository {
         return Optional.ofNullable(coll().find(Filters.eq("_id", id)).first());
     }
 
-    private Bson filter(String status, UUID cashAccountId) {
+    private Bson filter(String status, UUID cashAccountId, String q) {
         List<Bson> filters = new ArrayList<>();
+        Bson text = com.ntech.cabosse.shared.api.TextSearch.anyOf(q,
+                "ref", "cashAccountLabel", "bankAccountLabel", "reason", "chequeNumber");
+        if (text != null) filters.add(text);
         if (status != null && !status.isBlank()) filters.add(Filters.eq("status", status));
         if (cashAccountId != null) filters.add(Filters.eq("cashAccountId", cashAccountId));
         return filters.isEmpty() ? new Document() : Filters.and(filters);
     }
 
-    public long countSearch(String status, UUID cashAccountId) {
-        return coll().countDocuments(filter(status, cashAccountId));
+    public long countSearch(String status, UUID cashAccountId, String q) {
+        return coll().countDocuments(filter(status, cashAccountId, q));
     }
 
     /** La plus récente d'abord : c'est celle du jour qu'on cherche. */
-    public List<CashSupplyRequestEntity> search(String status, UUID cashAccountId,
+    public List<CashSupplyRequestEntity> search(String status, UUID cashAccountId, String q,
                                                 int skip, int limit) {
-        return coll().find(filter(status, cashAccountId))
+        return coll().find(filter(status, cashAccountId, q))
                 .sort(new Document("requestedOn", -1).append("ref", -1))
                 .skip(skip).limit(limit)
                 .into(new ArrayList<>());

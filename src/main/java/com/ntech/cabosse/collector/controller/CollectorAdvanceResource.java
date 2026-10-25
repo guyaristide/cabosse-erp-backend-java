@@ -61,12 +61,13 @@ public class CollectorAdvanceResource {
     @GET
     @RequiresPermission(Permission.COLLECTION_READ)
     public Response list(@QueryParam("status") String status,
+                         @QueryParam("q") String q,
                          @QueryParam("page") @DefaultValue("0") int page,
                          @QueryParam("perPage") @DefaultValue("20") int perPage,
                          @QueryParam("sort") String sort,
                          @QueryParam("sortDir") String sortDir) {
         return Response.ok(ApiResponse.ok(
-                service.page(status, PageRequest.of(page, perPage, sort, sortDir)))).build();
+                service.page(status, q, PageRequest.of(page, perPage, sort, sortDir)))).build();
     }
 
     /**
@@ -90,9 +91,10 @@ public class CollectorAdvanceResource {
     @RequiresPermission(Permission.COLLECTION_READ)
     @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/pdf" })
     public Response export(@QueryParam("status") String status,
+                           @QueryParam("q") String q,
                            @QueryParam("format") String formatRaw) {
         ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
-        java.util.List<com.ntech.cabosse.collector.dto.CollectorAdvanceResponseDto> rows = service.search(status, 0, Integer.MAX_VALUE);
+        java.util.List<com.ntech.cabosse.collector.dto.CollectorAdvanceResponseDto> rows = service.search(status, q, 0, Integer.MAX_VALUE);
         ExportDataset<com.ntech.cabosse.collector.dto.CollectorAdvanceResponseDto> dataset =
                 new ExportDataset<>(Messages.msg("m.exp-t-avances-aux-delegues"),
                         CollectorAdvanceExportColumns.all(service.campaignLabelsByYear()), rows);

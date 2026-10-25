@@ -142,8 +142,17 @@ public class AccountingQueryService {
                                                       java.util.UUID campaignId,
                                                       List<String> sourceTypes,
                                                       int page, int perPage) {
+        return listJournal(from, to, syscohadaAccount, campaignId, sourceTypes, null, page, perPage);
+    }
+
+    /** @param q libellé ou référence, pour chercher une écriture à l'œil. */
+    public List<JournalPieceResponseDto> listJournal(LocalDate from, LocalDate to,
+                                                      String syscohadaAccount,
+                                                      java.util.UUID campaignId,
+                                                      List<String> sourceTypes, String q,
+                                                      int page, int perPage) {
         int skip = Math.max(0, page) * Math.max(1, perPage);
-        return pieces.list(from, to, syscohadaAccount, campaignId, sourceTypes, skip, perPage)
+        return pieces.list(from, to, syscohadaAccount, campaignId, sourceTypes, q, skip, perPage)
                 .stream()
                 .map(JournalPieceResponseDto::from)
                 .toList();
@@ -157,6 +166,11 @@ public class AccountingQueryService {
     public long countJournal(LocalDate from, LocalDate to, String syscohadaAccount,
                              java.util.UUID campaignId, List<String> sourceTypes) {
         return pieces.count(from, to, syscohadaAccount, campaignId, sourceTypes);
+    }
+
+    public long countJournal(LocalDate from, LocalDate to, String syscohadaAccount,
+                             java.util.UUID campaignId, List<String> sourceTypes, String q) {
+        return pieces.count(from, to, syscohadaAccount, campaignId, sourceTypes, q);
     }
 
     // ════════════════════════════════════════════════════════════════

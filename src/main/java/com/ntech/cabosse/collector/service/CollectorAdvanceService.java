@@ -88,7 +88,8 @@ public class CollectorAdvanceService {
 
     // ─── Lecture ────────────────────────────────────────────────────
 
-    public long countSearch(String status) { return repo.countSearch(status); }
+    public long countSearch(String status) { return repo.countSearch(status, null); }
+    public long countSearch(String status, String q) { return repo.countSearch(status, q); }
 
     /** Combien d'avances dans chaque file, pour les onglets. */
     public java.util.Map<String, Long> countByStatus() { return repo.countByStatus(); }
@@ -111,7 +112,11 @@ public class CollectorAdvanceService {
     }
 
     public List<CollectorAdvanceResponseDto> search(String status, int skip, int limit) {
-        return repo.search(status, skip, limit).stream()
+        return search(status, null, skip, limit);
+    }
+
+    public List<CollectorAdvanceResponseDto> search(String status, String q, int skip, int limit) {
+        return repo.search(status, q, skip, limit).stream()
                 .map(CollectorAdvanceResponseDto::from).toList();
     }
 
@@ -124,15 +129,16 @@ public class CollectorAdvanceService {
      * couche.</p>
      */
     public com.ntech.cabosse.shared.api.Pagination<CollectorAdvanceResponseDto> page(
-            String status, com.ntech.cabosse.shared.api.PageRequest pr) {
+            String status, String q, com.ntech.cabosse.shared.api.PageRequest pr) {
         var sort = com.ntech.cabosse.collector.repository.CollectorAdvanceRepository
                 .SORTABLE.resolve(pr);
-        long total = countSearch(status);
+        long total = countSearch(status, q);
         List<CollectorAdvanceResponseDto> items =
-                repo.search(status, pr.skip(), pr.perPage(), sort).stream()
+                repo.search(status, q, pr.skip(), pr.perPage(), sort).stream()
                         .map(CollectorAdvanceResponseDto::from).toList();
         java.util.Map<String, String> filters = new java.util.HashMap<>();
         if (status != null && !status.isBlank()) filters.put("status", status);
+        if (!com.ntech.cabosse.shared.api.TextSearch.blank(q)) filters.put("q", q.trim());
         return com.ntech.cabosse.shared.api.Pagination.of(
                 total, pr, sort.names(), sort.order(), filters, items);
     }

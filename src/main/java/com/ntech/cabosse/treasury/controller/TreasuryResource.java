@@ -76,10 +76,11 @@ public class TreasuryResource {
             Permission.COLLECTION_PAYMENT_WRITE })
     public Response payables(@QueryParam("kind") String kind,
                              @QueryParam("siteId") UUID siteId,
+                             @QueryParam("q") String q,
                              @QueryParam("page") @DefaultValue("0") int page,
                              @QueryParam("perPage") @DefaultValue("20") int perPage) {
         return Response.ok(ApiResponse.ok(
-                payableService.queue(kind, siteId, PageRequest.of(page, perPage)))).build();
+                payableService.queue(kind, siteId, q, PageRequest.of(page, perPage)))).build();
     }
 
     /**
@@ -94,10 +95,11 @@ public class TreasuryResource {
     @RequiresPermission({ Permission.ACCOUNTING_READ, Permission.TREASURY_WRITE })
     public Response receivables(@QueryParam("kind") String kind,
                                 @QueryParam("siteId") UUID siteId,
+                                @QueryParam("q") String q,
                                 @QueryParam("page") @DefaultValue("0") int page,
                                 @QueryParam("perPage") @DefaultValue("20") int perPage) {
         return Response.ok(ApiResponse.ok(
-                receivableService.queue(kind, siteId, PageRequest.of(page, perPage)))).build();
+                receivableService.queue(kind, siteId, q, PageRequest.of(page, perPage)))).build();
     }
 
     /** La file à payer, en fichier, sous le même filtre que l'écran (demandé le 23/10/2026). */
@@ -109,9 +111,10 @@ public class TreasuryResource {
     @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/pdf" })
     public Response payablesExport(@QueryParam("kind") String kind,
                                    @QueryParam("siteId") UUID siteId,
+                                   @QueryParam("q") String q,
                                    @QueryParam("format") String formatRaw) {
         ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
-        var rows = payableService.listForExport(kind, siteId);
+        var rows = payableService.listForExport(kind, siteId, q);
         var dataset = new ExportDataset<>(Messages.msg("m.exp-t-a-payer"),
                 PayableExportColumns.all(com.ntech.cabosse.shared.export.ExportEnumLabels::payableKind), rows);
         exportAudit.record("a-payer", "À payer", format, rows.size());
@@ -125,9 +128,10 @@ public class TreasuryResource {
     @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/pdf" })
     public Response receivablesExport(@QueryParam("kind") String kind,
                                       @QueryParam("siteId") UUID siteId,
+                                      @QueryParam("q") String q,
                                       @QueryParam("format") String formatRaw) {
         ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
-        var rows = receivableService.listForExport(kind, siteId);
+        var rows = receivableService.listForExport(kind, siteId, q);
         var dataset = new ExportDataset<>(Messages.msg("m.exp-t-a-encaisser"),
                 PayableExportColumns.all(com.ntech.cabosse.shared.export.ExportEnumLabels::receivableKind), rows);
         exportAudit.record("a-encaisser", "À encaisser", format, rows.size());
@@ -151,10 +155,11 @@ public class TreasuryResource {
                               @QueryParam("from") String from,
                               @QueryParam("to") String to,
                               @QueryParam("direction") String direction,
+                              @QueryParam("q") String q,
                               @QueryParam("page") @DefaultValue("0") int page,
                               @QueryParam("perPage") @DefaultValue("20") int perPage) {
         return Response.ok(ApiResponse.ok(statementService.statement(
-                id, parseDate(from), parseDate(to), direction,
+                id, parseDate(from), parseDate(to), direction, q,
                 PageRequest.of(page, perPage)))).build();
     }
 
@@ -169,9 +174,10 @@ public class TreasuryResource {
                                     @QueryParam("from") String from,
                                     @QueryParam("to") String to,
                                     @QueryParam("direction") String direction,
+                                    @QueryParam("q") String q,
                                     @QueryParam("format") String formatRaw) {
         ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
-        var rows = statementService.allMovements(id, parseDate(from), parseDate(to), direction);
+        var rows = statementService.allMovements(id, parseDate(from), parseDate(to), direction, q);
         var dataset = new ExportDataset<>(
                 Messages.msg("m.exp-t-releve-de-compte"),
                 AccountStatementExportColumns.all(), rows);
@@ -199,10 +205,11 @@ public class TreasuryResource {
                                 @QueryParam("from") String from,
                                 @QueryParam("to") String to,
                                 @QueryParam("beneficiaryId") UUID beneficiaryId,
+                                @QueryParam("q") String q,
                                 @QueryParam("page") @DefaultValue("0") int page,
                                 @QueryParam("perPage") @DefaultValue("20") int perPage) {
         return Response.ok(ApiResponse.ok(settlementService.report(
-                kind, parseDate(from), parseDate(to), beneficiaryId,
+                kind, parseDate(from), parseDate(to), beneficiaryId, q,
                 PageRequest.of(page, perPage)))).build();
     }
 
@@ -217,9 +224,10 @@ public class TreasuryResource {
                                       @QueryParam("from") String from,
                                       @QueryParam("to") String to,
                                       @QueryParam("beneficiaryId") UUID beneficiaryId,
+                                      @QueryParam("q") String q,
                                       @QueryParam("format") String formatRaw) {
         ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
-        var rows = settlementService.all(kind, parseDate(from), parseDate(to), beneficiaryId);
+        var rows = settlementService.all(kind, parseDate(from), parseDate(to), beneficiaryId, q);
         var dataset = new ExportDataset<>(
                 Messages.msg("m.exp-t-reglements-executes"),
                 SettlementExportColumns.all(), rows);
@@ -236,10 +244,11 @@ public class TreasuryResource {
                                   @QueryParam("to") String to,
                                   @QueryParam("status") String status,
                                   @QueryParam("accountId") UUID accountId,
+                                  @QueryParam("q") String q,
                                   @QueryParam("page") @DefaultValue("0") int page,
                                   @QueryParam("perPage") @DefaultValue("20") int perPage) {
         return Response.ok(ApiResponse.ok(service.page(
-                parseDate(from), parseDate(to), status, accountId,
+                parseDate(from), parseDate(to), status, accountId, q,
                 PageRequest.of(page, perPage)))).build();
     }
 

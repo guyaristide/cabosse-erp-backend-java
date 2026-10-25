@@ -95,22 +95,23 @@ public class MemberCreditService {
     // ─── Lecture ────────────────────────────────────────────────────
 
     public Pagination<MemberCreditResponseDto> page(UUID memberId, String status, UUID campaignId,
-                                                    PageRequest pr) {
-        long total = repo.countSearch(memberId, status, campaignId);
+                                                    String q, PageRequest pr) {
+        long total = repo.countSearch(memberId, status, campaignId, q);
         List<MemberCreditResponseDto> items = repo
-                .search(memberId, status, campaignId, pr.skip(), pr.perPage())
+                .search(memberId, status, campaignId, q, pr.skip(), pr.perPage())
                 .stream().map(MemberCreditResponseDto::from).toList();
         Map<String, String> filters = new HashMap<>();
         if (memberId != null) filters.put("memberId", memberId.toString());
         if (status != null && !status.isBlank()) filters.put("status", status);
         if (campaignId != null) filters.put("campaignId", campaignId.toString());
+        if (!com.ntech.cabosse.shared.api.TextSearch.blank(q)) filters.put("q", q.trim());
         return Pagination.of(total, pr, new String[]{"requestedAt"}, "desc", filters, items);
     }
 
 
     /** Toutes les lignes du filtre courant, pour l'export. */
-    public List<MemberCreditResponseDto> listForExport(UUID memberId, String status, UUID campaignId) {
-        return repo.search(memberId, status, campaignId, 0, Integer.MAX_VALUE)
+    public List<MemberCreditResponseDto> listForExport(UUID memberId, String status, UUID campaignId, String q) {
+        return repo.search(memberId, status, campaignId, q, 0, Integer.MAX_VALUE)
                 .stream().map(MemberCreditResponseDto::from).toList();
     }
 

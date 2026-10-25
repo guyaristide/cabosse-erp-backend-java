@@ -86,7 +86,18 @@ public class JournalPieceRepository {
                                          UUID campaignId,
                                          java.util.List<String> sourceTypes,
                                          int skip, int limit) {
+        return list(from, to, syscohadaAccount, campaignId, sourceTypes, null, skip, limit);
+    }
+
+    public List<JournalPieceEntity> list(LocalDate from, LocalDate to,
+                                         String syscohadaAccount,
+                                         UUID campaignId,
+                                         java.util.List<String> sourceTypes,
+                                         String q,
+                                         int skip, int limit) {
         List<Bson> filters = journalFilters(from, to, syscohadaAccount, campaignId, sourceTypes);
+        Bson text = com.ntech.cabosse.shared.api.TextSearch.anyOf(q, "ref", "libelle", "entries.libelle");
+        if (text != null) filters.add(text);
         Bson filter = filters.isEmpty() ? new Document() : Filters.and(filters);
         return coll().find(filter)
                 .sort(new Document("date", -1).append("createdAt", -1))
@@ -101,7 +112,14 @@ public class JournalPieceRepository {
 
     public long count(LocalDate from, LocalDate to, String syscohadaAccount, UUID campaignId,
                       java.util.List<String> sourceTypes) {
+        return count(from, to, syscohadaAccount, campaignId, sourceTypes, null);
+    }
+
+    public long count(LocalDate from, LocalDate to, String syscohadaAccount, UUID campaignId,
+                      java.util.List<String> sourceTypes, String q) {
         List<Bson> filters = journalFilters(from, to, syscohadaAccount, campaignId, sourceTypes);
+        Bson text = com.ntech.cabosse.shared.api.TextSearch.anyOf(q, "ref", "libelle", "entries.libelle");
+        if (text != null) filters.add(text);
         return coll().countDocuments(filters.isEmpty() ? new Document() : Filters.and(filters));
     }
 
@@ -185,8 +203,13 @@ public class JournalPieceRepository {
      */
     public List<Document> movements(String syscohadaAccount, LocalDate from, LocalDate to,
                                     String direction, int skip, int limit) {
+        return movements(syscohadaAccount, from, to, direction, null, skip, limit);
+    }
+
+    public List<Document> movements(String syscohadaAccount, LocalDate from, LocalDate to,
+                                    String direction, String q, int skip, int limit) {
         if (syscohadaAccount == null || syscohadaAccount.isBlank()) return List.of();
-        List<Bson> stages = movementStages(syscohadaAccount, from, to, direction);
+        List<Bson> stages = movementStages(syscohadaAccount, from, to, direction, q);
         // Du plus ancien au plus récent, comme un relevé bancaire. La
         // référence départage à date égale, sans quoi deux lectures
         // successives pourraient rendre deux ordres.
@@ -200,8 +223,13 @@ public class JournalPieceRepository {
     /** Nombre de lignes du relevé, pour la pagination. */
     public long countMovements(String syscohadaAccount, LocalDate from, LocalDate to,
                                String direction) {
+        return countMovements(syscohadaAccount, from, to, direction, null);
+    }
+
+    public long countMovements(String syscohadaAccount, LocalDate from, LocalDate to,
+                               String direction, String q) {
         if (syscohadaAccount == null || syscohadaAccount.isBlank()) return 0;
-        List<Bson> stages = movementStages(syscohadaAccount, from, to, direction);
+        List<Bson> stages = movementStages(syscohadaAccount, from, to, direction, q);
         stages.add(Aggregates.count("n"));
         Document row = coll().withDocumentClass(Document.class).aggregate(stages).first();
         return row == null ? 0 : ((Number) row.get("n")).longValue();
@@ -214,10 +242,15 @@ public class JournalPieceRepository {
      */
     public BigDecimal[] movementTotals(String syscohadaAccount, LocalDate from, LocalDate to,
                                        String direction) {
+        return movementTotals(syscohadaAccount, from, to, direction, null);
+    }
+
+    public BigDecimal[] movementTotals(String syscohadaAccount, LocalDate from, LocalDate to,
+                                       String direction, String q) {
         if (syscohadaAccount == null || syscohadaAccount.isBlank()) {
             return new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO};
         }
-        List<Bson> stages = movementStages(syscohadaAccount, from, to, direction);
+        List<Bson> stages = movementStages(syscohadaAccount, from, to, direction, q);
         stages.add(Aggregates.group(null,
                 Accumulators.sum("debit", "$entries.debit"),
                 Accumulators.sum("credit", "$entries.credit")));
@@ -227,7 +260,7 @@ public class JournalPieceRepository {
     }
 
     private List<Bson> movementStages(String syscohadaAccount, LocalDate from, LocalDate to,
-                                      String direction) {
+                                      String direction, String q) {
         List<Bson> stages = new ArrayList<>();
         List<Bson> match = new ArrayList<>();
         if (from != null) match.add(Filters.gte("date", from));
@@ -242,6 +275,10 @@ public class JournalPieceRepository {
         onAccount.add(Filters.eq("entries.syscohadaAccount", syscohadaAccount));
         if ("IN".equals(direction)) onAccount.add(Filters.gt("entries.debit", 0));
         if ("OUT".equals(direction)) onAccount.add(Filters.gt("entries.credit", 0));
+        // Le libellé de la ligne ou de la pièce, ou sa référence : ce
+        // qu'on cherche à l'œil sur un relevé (demandé le 24/10/2026).
+        Bson text = com.ntech.cabosse.shared.api.TextSearch.anyOf(q, "entries.libelle", "libelle", "ref");
+        if (text != null) onAccount.add(text);
         stages.add(Aggregates.match(Filters.and(onAccount)));
         return stages;
     }

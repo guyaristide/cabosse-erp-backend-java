@@ -66,15 +66,16 @@ public class CashSupplyRequestService {
     @Inject IdGenerator idGenerator;
     @Inject JsonWebToken jwt;
 
-    public Pagination<CashSupplyResponseDto> page(String status, UUID cashAccountId,
+    public Pagination<CashSupplyResponseDto> page(String status, UUID cashAccountId, String q,
                                                   PageRequest pr) {
-        long total = repo.countSearch(status, cashAccountId);
+        long total = repo.countSearch(status, cashAccountId, q);
         List<CashSupplyResponseDto> items =
-                repo.search(status, cashAccountId, pr.skip(), pr.perPage())
+                repo.search(status, cashAccountId, q, pr.skip(), pr.perPage())
                         .stream().map(CashSupplyResponseDto::from).toList();
         Map<String, String> filters = new HashMap<>();
         if (status != null && !status.isBlank()) filters.put("status", status);
         if (cashAccountId != null) filters.put("cashAccountId", cashAccountId.toString());
+        if (!com.ntech.cabosse.shared.api.TextSearch.blank(q)) filters.put("q", q.trim());
         return Pagination.of(total, pr, new String[]{"requestedOn"}, "desc", filters, items);
     }
 

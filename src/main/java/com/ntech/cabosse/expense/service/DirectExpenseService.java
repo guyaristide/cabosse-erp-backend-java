@@ -182,10 +182,10 @@ public class DirectExpenseService {
         return DirectExpenseResponseDto.from(loadOrFail(id));
     }
 
-    public long countSearch(String kind, String status) { return repo.countSearch(kind, status); }
+    public long countSearch(String kind, String status, String q) { return repo.countSearch(kind, status, q); }
 
-    public List<DirectExpenseResponseDto> search(String kind, String status, int skip, int limit) {
-        return repo.search(kind, status, skip, limit).stream()
+    public List<DirectExpenseResponseDto> search(String kind, String status, String q, int skip, int limit) {
+        return repo.search(kind, status, q, skip, limit).stream()
                 .map(DirectExpenseResponseDto::from).toList();
     }
 

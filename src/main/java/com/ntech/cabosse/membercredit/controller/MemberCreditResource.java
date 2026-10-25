@@ -73,11 +73,12 @@ public class MemberCreditResource {
     public Response list(@QueryParam("memberId") UUID memberId,
                          @QueryParam("status") String status,
                          @QueryParam("campaignId") UUID campaignId,
+                         @QueryParam("q") String q,
                          @QueryParam("page") @DefaultValue("0") int page,
                          @QueryParam("perPage") @DefaultValue("20") int perPage) {
         ensureCapability();
         return Response.ok(ApiResponse.ok(
-                service.page(memberId, status, campaignId, PageRequest.of(page, perPage)))).build();
+                service.page(memberId, status, campaignId, q, PageRequest.of(page, perPage)))).build();
     }
 
     /** Export de la liste, mêmes filtres qu'à l'écran. */
@@ -89,10 +90,11 @@ public class MemberCreditResource {
     public Response export(@QueryParam("memberId") UUID memberId,
                            @QueryParam("status") String status,
                            @QueryParam("campaignId") UUID campaignId,
+                           @QueryParam("q") String q,
                            @QueryParam("format") String formatRaw) {
         ensureCapability();
         ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
-        java.util.List<com.ntech.cabosse.membercredit.dto.MemberCreditResponseDto> rows = service.listForExport(memberId, status, campaignId);
+        java.util.List<com.ntech.cabosse.membercredit.dto.MemberCreditResponseDto> rows = service.listForExport(memberId, status, campaignId, q);
         ExportDataset<com.ntech.cabosse.membercredit.dto.MemberCreditResponseDto> dataset =
                 new ExportDataset<>(Messages.msg("m.exp-t-credits-et-avances-producteurs"), MemberCreditExportColumns.all(), rows);
         exportAudit.record("credits-producteurs", "Crédits et avances producteurs", format, rows.size());

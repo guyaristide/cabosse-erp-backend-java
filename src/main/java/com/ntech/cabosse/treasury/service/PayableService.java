@@ -58,8 +58,8 @@ public class PayableService {
      * @param kind   restreint à une nature d'engagement, {@code null} pour tout
      * @param siteId restreint à un site, {@code null} pour tous
      */
-    public PayableQueueDto queue(String kind, UUID siteId, PageRequest pr) {
-        List<PayableDto> all = collect(kind, siteId);
+    public PayableQueueDto queue(String kind, UUID siteId, String q, PageRequest pr) {
+        List<PayableDto> all = searched(collect(kind, siteId), q);
 
         // Le plus ancien d'abord. À date égale, la référence départage,
         // sans quoi deux rechargements successifs pourraient rendre deux
@@ -87,6 +87,7 @@ public class PayableService {
         Map<String, String> filters = new HashMap<>();
         if (kind != null && !kind.isBlank()) filters.put("kind", kind);
         if (siteId != null) filters.put("siteId", siteId.toString());
+        if (!com.ntech.cabosse.shared.api.TextSearch.blank(q)) filters.put("q", q.trim());
 
         long oldest = all.isEmpty() ? 0 : all.get(0).ageDays();
 
@@ -96,11 +97,19 @@ public class PayableService {
     }
 
     /** Tout ce qui est dû après filtrage, du plus ancien au plus récent : la matière d'un export. */
-    public List<PayableDto> listForExport(String kind, UUID siteId) {
-        List<PayableDto> all = collect(kind, siteId);
+    public List<PayableDto> listForExport(String kind, UUID siteId, String q) {
+        List<PayableDto> all = searched(collect(kind, siteId), q);
         all.sort(Comparator.comparing(PayableDto::since)
                 .thenComparing(p -> p.sourceRef() == null ? "" : p.sourceRef()));
         return all;
+    }
+
+    /** Le nom du tiers ou la pièce : ce qu'on cherche à l'œil dans la file. */
+    private static List<PayableDto> searched(List<PayableDto> all, String q) {
+        if (com.ntech.cabosse.shared.api.TextSearch.blank(q)) return all;
+        return all.stream()
+                .filter(p -> com.ntech.cabosse.shared.api.TextSearch.matches(q, p.beneficiaryName(), p.sourceRef()))
+                .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
     }
 
     private List<PayableDto> collect(String kind, UUID siteId) {

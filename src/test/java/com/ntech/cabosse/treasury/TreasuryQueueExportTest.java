@@ -106,4 +106,49 @@ class TreasuryQueueExportTest extends AbstractIntegrationTest {
                 .extract().asString();
         org.junit.jupiter.api.Assertions.assertTrue(csv.contains("Tiers"), csv);
     }
+    /** La file se cherche par tiers ou par pièce, et l'export suit le même filtre (demandé le 24/10/2026). */
+    @Test
+    void la_file_a_payer_se_cherche_par_tiers_ou_par_piece() {
+        UserEntity admin = admin();
+        String sectionId = givenAs(admin).contentType("application/json")
+                .body("{\"code\":\"MEAGUI\",\"name\":\"Section Méagui\"}")
+                .when().post("/api/v1/sections").then().statusCode(201).extract().path("data.id");
+        String delegateId = givenAs(admin).contentType("application/json")
+                .body("{\"name\":\"KONE Adama\",\"collector\":true,\"sectionId\":\"" + sectionId + "\"}")
+                .when().post("/api/v1/suppliers").then().statusCode(201).extract().path("data.id");
+        String code = "s-" + java.util.UUID.randomUUID().toString().substring(0, 8);
+        String siteId = givenAs(admin).contentType("application/json")
+                .body("{\"name\":\"Magasin\",\"type\":\"TRANSFORMATION\",\"code\":\"" + code + "\"}")
+                .when().post("/api/v1/sites").then().statusCode(201).extract().path("data.id");
+        String advanceId = givenAs(admin).contentType("application/json")
+                .body("""
+                        { "delegateSupplierId": "%s", "advanceDate": "%s",
+                          "advanceAmount": 800000, "paymentMethod": "CASH" }
+                        """.formatted(delegateId, LocalDate.now()))
+                .when().post("/api/v1/collector-advances?siteId=" + siteId)
+                .then().statusCode(201).extract().path("data.id");
+        givenAs(admin).contentType("application/json").body("{}")
+                .when().post("/api/v1/collector-advances/" + advanceId + "/approve")
+                .then().statusCode(200);
+
+        // Le nom, sans casse et par morceau.
+        givenAs(admin).when().get("/api/v1/treasury/payables?q=kone")
+                .then().statusCode(200)
+                .body("data.page.total", org.hamcrest.Matchers.equalTo(1))
+                .body("data.page.filters.q", org.hamcrest.Matchers.equalTo("kone"));
+        // Un nom qui n'existe pas vide la file, et son total avec.
+        givenAs(admin).when().get("/api/v1/treasury/payables?q=zoukou")
+                .then().statusCode(200)
+                .body("data.page.total", org.hamcrest.Matchers.equalTo(0))
+                .body("data.totalRemaining", org.hamcrest.Matchers.equalTo(0));
+        String filtered = givenAs(admin).when().get("/api/v1/treasury/payables/export?format=csv&q=zoukou")
+                .then().statusCode(200).extract().asString();
+        org.junit.jupiter.api.Assertions.assertFalse(filtered.contains("KONE Adama"), filtered);
+
+        // La même recherche sert la liste des avances elle-même.
+        givenAs(admin).when().get("/api/v1/collector-advances?q=méagui")
+                .then().statusCode(200).body("data.total", org.hamcrest.Matchers.equalTo(1));
+        givenAs(admin).when().get("/api/v1/collector-advances?q=autre")
+                .then().statusCode(200).body("data.total", org.hamcrest.Matchers.equalTo(0));
+    }
 }

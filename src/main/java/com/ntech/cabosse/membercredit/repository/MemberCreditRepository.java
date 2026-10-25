@@ -34,8 +34,10 @@ public class MemberCreditRepository {
         return Optional.ofNullable(coll().find(Filters.eq("_id", id)).first());
     }
 
-    private Bson searchFilter(UUID memberId, String status, UUID campaignId) {
+    private Bson searchFilter(UUID memberId, String status, UUID campaignId, String q) {
         List<Bson> filters = new ArrayList<>();
+        Bson text = com.ntech.cabosse.shared.api.TextSearch.anyOf(q, "ref", "memberName", "memberCode", "purpose");
+        if (text != null) filters.add(text);
         if (memberId != null) filters.add(Filters.eq("memberId", memberId));
         if (status != null && !status.isBlank()) filters.add(Filters.eq("status", status));
         if (campaignId != null) filters.add(Filters.eq("campaignId", campaignId));
@@ -60,8 +62,8 @@ public class MemberCreditRepository {
                 .into(new ArrayList<>());
     }
 
-    public long countSearch(UUID memberId, String status, UUID campaignId) {
-        return coll().countDocuments(searchFilter(memberId, status, campaignId));
+    public long countSearch(UUID memberId, String status, UUID campaignId, String q) {
+        return coll().countDocuments(searchFilter(memberId, status, campaignId, q));
     }
 
     /**
@@ -79,9 +81,9 @@ public class MemberCreditRepository {
                 .into(new java.util.ArrayList<>());
     }
 
-    public List<MemberCreditEntity> search(UUID memberId, String status, UUID campaignId,
+    public List<MemberCreditEntity> search(UUID memberId, String status, UUID campaignId, String q,
                                            int skip, int limit) {
-        return coll().find(searchFilter(memberId, status, campaignId))
+        return coll().find(searchFilter(memberId, status, campaignId, q))
                 .sort(new Document("requestedAt", -1).append("ref", -1))
                 .skip(skip).limit(limit)
                 .into(new ArrayList<>());

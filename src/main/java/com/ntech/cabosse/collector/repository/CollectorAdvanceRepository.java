@@ -33,9 +33,12 @@ public class CollectorAdvanceRepository {
         return Optional.ofNullable(coll().find(Filters.eq("_id", id)).first());
     }
 
-    private Bson searchFilter(String status) {
-        return (status == null || status.isBlank())
-                ? new org.bson.Document() : Filters.eq("status", status);
+    private Bson searchFilter(String status, String q) {
+        List<Bson> parts = new ArrayList<>();
+        if (status != null && !status.isBlank()) parts.add(Filters.eq("status", status));
+        Bson text = com.ntech.cabosse.shared.api.TextSearch.anyOf(q, "ref", "delegateName", "sectionName");
+        if (text != null) parts.add(text);
+        return parts.isEmpty() ? new org.bson.Document() : Filters.and(parts);
     }
 
     /**
@@ -70,8 +73,8 @@ public class CollectorAdvanceRepository {
                 .into(new ArrayList<>());
     }
 
-    public long countSearch(String status) {
-        return coll().countDocuments(searchFilter(status));
+    public long countSearch(String status, String q) {
+        return coll().countDocuments(searchFilter(status, q));
     }
 
     /**
@@ -102,15 +105,15 @@ public class CollectorAdvanceRepository {
                     .on("amount", "advanceAmount")
                     .build();
 
-    public List<CollectorAdvanceEntity> search(String status, int skip, int limit) {
-        return search(status, skip, limit, SORTABLE.resolve(null));
+    public List<CollectorAdvanceEntity> search(String status, String q, int skip, int limit) {
+        return search(status, q, skip, limit, SORTABLE.resolve(null));
     }
 
-    public List<CollectorAdvanceEntity> search(String status, int skip, int limit,
+    public List<CollectorAdvanceEntity> search(String status, String q, int skip, int limit,
                                                com.ntech.cabosse.shared.api.SortFields.Sort sort) {
         org.bson.Document order = sort.toDocument();
         if (!order.containsKey("ref")) order.append("ref", sort.ascending() ? 1 : -1);
-        return coll().find(searchFilter(status))
+        return coll().find(searchFilter(status, q))
                 .sort(order)
                 .skip(skip).limit(limit).into(new ArrayList<>());
     }

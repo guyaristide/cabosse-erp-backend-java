@@ -55,11 +55,11 @@ public class SettlementService {
      * @param to   fin de période, aujourd'hui par défaut
      */
     public SettlementReportDto report(String kind, LocalDate from, LocalDate to,
-                                      UUID beneficiaryId, PageRequest pr) {
+                                      UUID beneficiaryId, String q, PageRequest pr) {
         LocalDate end = to != null ? to : LocalDate.now();
         LocalDate start = from != null ? from : end.withDayOfMonth(1);
 
-        List<SettlementDto> all = collect(kind, start, end, beneficiaryId);
+        List<SettlementDto> all = searched(collect(kind, start, end, beneficiaryId), q);
 
         // Le plus récent d'abord : un tableau de suivi se relit par le
         // haut. À date égale la référence départage, sans quoi deux
@@ -85,6 +85,7 @@ public class SettlementService {
         Map<String, String> filters = new HashMap<>();
         if (kind != null && !kind.isBlank()) filters.put("kind", kind);
         if (beneficiaryId != null) filters.put("beneficiaryId", beneficiaryId.toString());
+        if (!com.ntech.cabosse.shared.api.TextSearch.blank(q)) filters.put("q", q.trim());
         filters.put("from", start.toString());
         filters.put("to", end.toString());
 
@@ -94,13 +95,21 @@ public class SettlementService {
     }
 
     /** L'état complet, sans pagination : ce que sert l'export. */
-    public List<SettlementDto> all(String kind, LocalDate from, LocalDate to, UUID beneficiaryId) {
+    public List<SettlementDto> all(String kind, LocalDate from, LocalDate to, UUID beneficiaryId, String q) {
         LocalDate end = to != null ? to : LocalDate.now();
         LocalDate start = from != null ? from : end.withDayOfMonth(1);
-        List<SettlementDto> all = collect(kind, start, end, beneficiaryId);
+        List<SettlementDto> all = searched(collect(kind, start, end, beneficiaryId), q);
         all.sort(Comparator.comparing(SettlementDto::settledAt).reversed()
                 .thenComparing(s -> s.sourceRef() == null ? "" : s.sourceRef()));
         return all;
+    }
+
+    /** Le bénéficiaire, la référence du règlement ou celle de l'opération. */
+    private static List<SettlementDto> searched(List<SettlementDto> all, String q) {
+        if (com.ntech.cabosse.shared.api.TextSearch.blank(q)) return all;
+        return all.stream()
+                .filter(s -> com.ntech.cabosse.shared.api.TextSearch.matches(q, s.beneficiaryName(), s.paymentRef(), s.sourceRef()))
+                .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
     }
 
     private List<SettlementDto> collect(String kind, LocalDate from, LocalDate to,

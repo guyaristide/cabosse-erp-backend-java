@@ -274,19 +274,21 @@ public class AccountingResource {
                                 @QueryParam("account") String account,
                                 @QueryParam("campaignId") UUID campaignId,
                                 @QueryParam("sourceType") List<String> sourceTypes,
+                                @QueryParam("q") String q,
                                 @QueryParam("page") @DefaultValue("0") int page,
                                 @QueryParam("perPage") @DefaultValue("50") int perPage) {
         LocalDate from = parseDate(fromRaw);
         LocalDate to = parseDate(toRaw);
         PageRequest pr = PageRequest.of(page, perPage);
         List<JournalPieceResponseDto> pieces = query.listJournal(
-                from, to, account, campaignId, sourceTypes, pr.page(), pr.perPage());
-        long total = query.countJournal(from, to, account, campaignId, sourceTypes);
+                from, to, account, campaignId, sourceTypes, q, pr.page(), pr.perPage());
+        long total = query.countJournal(from, to, account, campaignId, sourceTypes, q);
         Map<String, String> filters = new java.util.HashMap<>();
         if (fromRaw != null && !fromRaw.isBlank()) filters.put("from", fromRaw);
         if (toRaw != null && !toRaw.isBlank()) filters.put("to", toRaw);
         if (account != null && !account.isBlank()) filters.put("account", account);
         if (campaignId != null) filters.put("campaignId", campaignId.toString());
+        if (q != null && !q.isBlank()) filters.put("q", q.trim());
         // Enveloppe standard comme toutes les autres listes : le journal
         // rendait auparavant une carte maison sans totalOfPages ni bornes de
         // navigation, ce qui interdisait d'y brancher les contrôles communs.

@@ -51,10 +51,11 @@ public class CashSupplyResource {
     @Operation(summary = "Les demandes d'approvisionnement, de la plus récente à la plus ancienne")
     public Response list(@QueryParam("status") String status,
                          @QueryParam("cashAccountId") UUID cashAccountId,
+                         @QueryParam("q") String q,
                          @QueryParam("page") @DefaultValue("0") int page,
                          @QueryParam("perPage") @DefaultValue("20") int perPage) {
         return Response.ok(ApiResponse.ok(
-                service.page(status, cashAccountId, PageRequest.of(page, perPage)))).build();
+                service.page(status, cashAccountId, q, PageRequest.of(page, perPage)))).build();
     }
 
     @GET

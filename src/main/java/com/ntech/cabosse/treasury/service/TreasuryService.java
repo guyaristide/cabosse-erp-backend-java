@@ -91,14 +91,15 @@ public class TreasuryService {
 
     public Pagination<TransferResponseDto> page(LocalDate from, LocalDate to,
                                                              String status, UUID accountId,
-                                                             PageRequest pr) {
-        long total = transfers.countSearch(from, to, status, accountId);
+                                                             String q, PageRequest pr) {
+        long total = transfers.countSearch(from, to, status, accountId, q);
         List<TransferResponseDto> items = transfers
-                .search(from, to, status, accountId, pr.skip(), pr.perPage())
+                .search(from, to, status, accountId, q, pr.skip(), pr.perPage())
                 .stream().map(TransferResponseDto::from).toList();
         Map<String, String> filters = new HashMap<>();
         if (status != null && !status.isBlank()) filters.put("status", status);
         if (accountId != null) filters.put("accountId", accountId.toString());
+        if (!com.ntech.cabosse.shared.api.TextSearch.blank(q)) filters.put("q", q.trim());
         return Pagination.of(total, pr, new String[]{"sentAt"}, "desc", filters, items);
     }
 
@@ -112,7 +113,10 @@ public class TreasuryService {
         }
         BankAccountEntity from = loadAccount(p.fromAccountId());
         BankAccountEntity to = loadAccount(p.toAccountId());
-        ensureCashComesFromBank(from, to);
+        // Une caisse s'approvisionne depuis la banque ou depuis une autre
+        // caisse qui a plus de liquidités : le verrou « banque seulement »
+        // bloquait le réapprovisionnement courant entre caisses (demandé le
+        // 24/10/2026). Le transfert reste tracé des deux côtés.
 
         TreasuryTransferEntity e = new TreasuryTransferEntity();
         e.id = idGenerator.newId();
@@ -344,26 +348,6 @@ public class TreasuryService {
                 count, withGap.size(), withGap, pending);
     }
 
-
-    /**
-     * Une caisse ne s'approvisionne que depuis une banque (spécification
-     * Trésorerie).
-     *
-     * <p>L'argent liquide a une origine bancaire : c'est ce qui rend la
-     * caisse rapprochable. Alimenter une caisse depuis une autre caisse
-     * ferait circuler des espèces sans qu'aucun relevé ne les atteste, et
-     * un manquant deviendrait indétectable, chaque tiroir pouvant renvoyer
-     * au précédent.</p>
-     *
-     * <p>Le versement inverse, de la caisse vers la banque, reste libre :
-     * c'est la recette du jour qu'on dépose.</p>
-     */
-    private void ensureCashComesFromBank(BankAccountEntity from, BankAccountEntity to) {
-        if (to.kind == BankAccountKind.CAISSE && from.kind != BankAccountKind.BANQUE) {
-            throw new BusinessException(Messages.msg(
-                    "m.trs-cash-must-come-from-bank", label(to), label(from)));
-        }
-    }
 
     // ─── Helpers ────────────────────────────────────────────────────
 

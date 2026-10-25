@@ -38,7 +38,7 @@ public class AccountStatementService {
     @Inject JournalPieceRepository journal;
 
     public AccountStatementDto statement(UUID accountId, LocalDate from, LocalDate to,
-                                         String direction, PageRequest pr) {
+                                         String direction, String q, PageRequest pr) {
         BankAccountEntity account = accounts.findById(accountId)
                 .orElseThrow(() -> new NotFoundException(Messages.msg("m.acc-bank-account-not-found-2")));
         String chart = account.syscohadaAccount;
@@ -51,21 +51,22 @@ public class AccountStatementService {
                 ? BigDecimal.ZERO
                 : journal.balance(chart, from.minusDays(1));
 
-        BigDecimal[] totals = journal.movementTotals(chart, from, to, dir);
+        BigDecimal[] totals = journal.movementTotals(chart, from, to, dir, q);
         BigDecimal in = totals[0];
         BigDecimal out = totals[1];
 
-        long total = journal.countMovements(chart, from, to, dir);
-        List<Document> rows = journal.movements(chart, from, to, dir, pr.skip(), pr.perPage());
+        long total = journal.countMovements(chart, from, to, dir, q);
+        List<Document> rows = journal.movements(chart, from, to, dir, q, pr.skip(), pr.perPage());
 
         Map<String, String> filters = new HashMap<>();
         if (dir != null) filters.put("direction", dir);
         if (from != null) filters.put("from", from.toString());
         if (to != null) filters.put("to", to.toString());
+        if (!com.ntech.cabosse.shared.api.TextSearch.blank(q)) filters.put("q", q.trim());
 
         Pagination<MovementDto> page = Pagination.of(
                 total, pr, new String[]{"date"}, "asc", filters,
-                withRunningBalance(rows, openingOfPage(chart, from, to, dir, pr, opening)));
+                withRunningBalance(rows, openingOfPage(chart, from, to, dir, q, pr, opening)));
 
         return new AccountStatementDto(
                 account.id, label(account), chart, from, to,
@@ -81,7 +82,7 @@ public class AccountStatementService {
      * c'est elle qui rend l'opération tenable.</p>
      */
     public List<MovementDto> allMovements(UUID accountId, LocalDate from, LocalDate to,
-                                          String direction) {
+                                          String direction, String q) {
         BankAccountEntity account = accounts.findById(accountId)
                 .orElseThrow(() -> new NotFoundException(
                         Messages.msg("m.acc-bank-account-not-found-2")));
@@ -90,9 +91,9 @@ public class AccountStatementService {
         BigDecimal opening = from == null
                 ? BigDecimal.ZERO
                 : journal.balance(chart, from.minusDays(1));
-        long count = journal.countMovements(chart, from, to, dir);
+        long count = journal.countMovements(chart, from, to, dir, q);
         return withRunningBalance(
-                journal.movements(chart, from, to, dir, 0, (int) Math.min(count, Integer.MAX_VALUE)),
+                journal.movements(chart, from, to, dir, q, 0, (int) Math.min(count, Integer.MAX_VALUE)),
                 opening);
     }
 
@@ -102,9 +103,9 @@ public class AccountStatementService {
      * repartirait du même solde et les colonnes ne se suivraient pas.
      */
     private BigDecimal openingOfPage(String chart, LocalDate from, LocalDate to, String dir,
-                                     PageRequest pr, BigDecimal periodOpening) {
+                                     String q, PageRequest pr, BigDecimal periodOpening) {
         if (pr.skip() == 0) return periodOpening;
-        List<Document> before = journal.movements(chart, from, to, dir, 0, pr.skip());
+        List<Document> before = journal.movements(chart, from, to, dir, q, 0, pr.skip());
         BigDecimal balance = periodOpening;
         for (Document row : before) {
             balance = balance.add(debitOf(row)).subtract(creditOf(row));

@@ -29,9 +29,11 @@ public class DirectExpenseRepository {
         return Optional.ofNullable(coll().find(Filters.eq("_id", id)).first());
     }
 
-    private Bson searchFilter(String kind, String status) {
+    private Bson searchFilter(String kind, String status, String q) {
         List<Bson> parts = new ArrayList<>();
         if (kind != null && !kind.isBlank()) parts.add(Filters.eq("kind", kind));
+        Bson text = com.ntech.cabosse.shared.api.TextSearch.anyOf(q, "ref", "label", "supplierName", "expenseTypeName");
+        if (text != null) parts.add(text);
         Bson byStatus = statusFilter(status);
         if (byStatus != null) parts.add(byStatus);
         return parts.isEmpty() ? new org.bson.Document() : Filters.and(parts);
@@ -62,12 +64,12 @@ public class DirectExpenseRepository {
         };
     }
 
-    public long countSearch(String kind, String status) {
-        return coll().countDocuments(searchFilter(kind, status));
+    public long countSearch(String kind, String status, String q) {
+        return coll().countDocuments(searchFilter(kind, status, q));
     }
 
-    public List<DirectExpenseEntity> search(String kind, String status, int skip, int limit) {
-        return coll().find(searchFilter(kind, status))
+    public List<DirectExpenseEntity> search(String kind, String status, String q, int skip, int limit) {
+        return coll().find(searchFilter(kind, status, q))
                 .sort(new org.bson.Document("createdAt", -1))
                 .skip(skip).limit(limit).into(new ArrayList<>());
     }

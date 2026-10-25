@@ -142,7 +142,7 @@ public class ImportUndoService {
         if (purchases.countSearch(null, null, memberId) > 0) {
             return Messages.msg("m.imr-undo-kept-delivered");
         }
-        if (credits.countSearch(memberId, null, null) > 0) {
+        if (credits.countSearch(memberId, null, null, null) > 0) {
             return Messages.msg("m.imr-undo-kept-credit");
         }
         return null;
