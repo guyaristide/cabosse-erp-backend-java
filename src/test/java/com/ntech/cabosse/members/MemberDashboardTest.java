@@ -152,4 +152,32 @@ class MemberDashboardTest extends AbstractIntegrationTest {
                 .body("data.averagePlantationAgeYears", nullValue())
                 .body("data.sectionCount", notNullValue());
     }
+    /**
+     * Le total se lit et les fiches sans genre se retrouvent (ticket du
+     * 24/10/2026) : le portrait dit ce qu'il compte par statut, et la liste
+     * sait filtrer les fiches muettes sur le genre pour les compléter.
+     */
+    @Test
+    void the_records_without_gender_can_be_found_and_the_total_explains_itself() {
+        UserEntity admin = admin();
+        member(admin, "YAO", "MALE", null);
+        member(admin, "AMENAN", "FEMALE", null);
+        member(admin, "TRAORE", "UNKNOWN", null);
+
+        givenAs(admin).when().get("/api/v1/members/dashboard")
+                .then().statusCode(200)
+                .body("data.totalMembers", equalTo(3))
+                .body("data.unknownGenderCount", equalTo(1))
+                .body("data.activeCount", equalTo(3))
+                .body("data.retiredExcludedCount", equalTo(0));
+
+        // Le filtre « genre non renseigné » rend la fiche à compléter, et elle seule.
+        givenAs(admin).when().get("/api/v1/members?gender=UNKNOWN")
+                .then().statusCode(200)
+                .body("data.total", equalTo(1))
+                .body("data.items[0].name", org.hamcrest.Matchers.containsString("TRAORE"));
+        givenAs(admin).when().get("/api/v1/members?gender=FEMALE")
+                .then().statusCode(200)
+                .body("data.total", equalTo(1));
+    }
 }

@@ -45,11 +45,11 @@ public class MemberRepository {
     }
 
     public long countSearch(String q, MemberStatus statusFilter) {
-        return countSearch(new MemberSearchCriteria(q, statusFilter, null, null, null, null));
+        return countSearch(new MemberSearchCriteria(q, statusFilter, null, null, null, null, null));
     }
 
     public List<MemberEntity> search(String q, MemberStatus statusFilter, int skip, int limit) {
-        return search(new MemberSearchCriteria(q, statusFilter, null, null, null, null),
+        return search(new MemberSearchCriteria(q, statusFilter, null, null, null, null, null),
                 skip, limit);
     }
 
@@ -119,6 +119,15 @@ public class MemberRepository {
                     "^" + java.util.regex.Pattern.quote(c.village().trim()) + "$", "i"));
         }
         if (c.gender() != null) filters.add(Filters.eq("gender", c.gender().name()));
+        // Les fiches muettes sur le genre : c'est ce que le portrait
+        // compte à part, et ce qu'on veut retrouver pour les compléter
+        // (ticket du 24/10/2026). Absent ou nul, selon l'âge de la fiche.
+        if (Boolean.TRUE.equals(c.genderMissing())) {
+            filters.add(Filters.or(
+                    Filters.eq("gender", com.ntech.cabosse.members.entity.MemberGender.UNKNOWN.name()),
+                    Filters.exists("gender", false),
+                    Filters.eq("gender", null)));
+        }
         if (c.q() != null && !c.q().isBlank()) {
             String escaped = java.util.regex.Pattern.quote(c.q().trim());
             filters.add(Filters.or(

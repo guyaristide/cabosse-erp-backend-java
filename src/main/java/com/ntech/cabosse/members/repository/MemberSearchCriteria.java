@@ -24,9 +24,11 @@ public record MemberSearchCriteria(
         Boolean collector,
         UUID sectionId,
         String village,
-        MemberGender gender) {
+        MemberGender gender,
+        /** Vrai : les fiches sans genre seulement. Nul : sans effet. */
+        Boolean genderMissing) {
 
     public static MemberSearchCriteria none() {
-        return new MemberSearchCriteria(null, null, null, null, null, null);
+        return new MemberSearchCriteria(null, null, null, null, null, null, null);
     }
 }

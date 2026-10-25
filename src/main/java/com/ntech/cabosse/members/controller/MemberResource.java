@@ -108,7 +108,7 @@ public class MemberResource {
         return Response.ok(ApiResponse.ok(service.page(
                 new com.ntech.cabosse.members.repository.MemberSearchCriteria(
                         q, parseStatus(statusRaw), parseCollector(collectorRaw),
-                        sectionId, village, parseGender(genderRaw)),
+                        sectionId, village, parseGender(genderRaw), parseGenderMissing(genderRaw)),
                 PageRequest.of(page, perPage, sort, direction)))).build();
     }
 
@@ -134,9 +134,17 @@ public class MemberResource {
         return null;
     }
 
+    /** « UNKNOWN » : les fiches sans genre, pour les retrouver et les compléter. */
+    private static Boolean parseGenderMissing(String raw) {
+        return raw != null && "UNKNOWN".equalsIgnoreCase(raw.trim()) ? Boolean.TRUE : null;
+    }
+
     /** Un genre inconnu ne restreint pas : il ne vide pas la liste non plus. */
     private static com.ntech.cabosse.members.entity.MemberGender parseGender(String raw) {
         if (raw == null || raw.isBlank()) return null;
+        // « UNKNOWN » est traité à part : il réunit les fiches marquées
+        // inconnues et celles, plus anciennes, qui n'ont pas le champ.
+        if ("UNKNOWN".equalsIgnoreCase(raw.trim())) return null;
         try {
             return com.ntech.cabosse.members.entity.MemberGender.valueOf(
                     raw.trim().toUpperCase());

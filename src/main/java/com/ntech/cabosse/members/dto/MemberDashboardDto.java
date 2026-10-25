@@ -43,5 +43,16 @@ public record MemberDashboardDto(
         BigDecimal totalPotentialKg,
         BigDecimal yieldKgPerHa,
 
-        int sectionCount
+        int sectionCount,
+
+        /**
+         * Les effectifs par statut, pour que le total se lise : le portrait
+         * compte toutes les fiches sauf les retraités, et dit combien il en
+         * écarte (ticket du 24/10/2026).
+         */
+        int activeCount,
+        int pendingCount,
+        int suspendedCount,
+        int inactiveCount,
+        int retiredExcludedCount
 ) {}

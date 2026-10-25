@@ -42,9 +42,18 @@ public class MemberDashboardService {
     @Inject ProductionPotentialService potential;
 
     public MemberDashboardDto compute(UUID campaignId, String cropCode) {
-        List<MemberEntity> all = members.listAll().stream()
+        List<MemberEntity> everyone = members.listAll();
+        List<MemberEntity> all = everyone.stream()
                 .filter(m -> m.status != MemberStatus.RETIRED)
                 .toList();
+        int active = 0, pending = 0, suspended = 0, inactive = 0, retired = 0;
+        for (MemberEntity m : everyone) {
+            if (m.status == MemberStatus.ACTIVE) active++;
+            else if (m.status == MemberStatus.PENDING) pending++;
+            else if (m.status == MemberStatus.SUSPENDED) suspended++;
+            else if (m.status == MemberStatus.INACTIVE) inactive++;
+            else if (m.status == MemberStatus.RETIRED) retired++;
+        }
 
         int men = 0;
         int women = 0;
@@ -110,7 +119,8 @@ public class MemberDashboardService {
                 average(plantationAgeSum, withPlantingYear), youngest, oldest, withPlantingYear,
                 surface, perMember(surface, all.size()), activeParcels.size(),
                 potentialKg, yield,
-                sections.listAll().size());
+                sections.listAll().size(),
+                active, pending, suspended, inactive, retired);
     }
 
     /** L'année de naissance, qu'elle vienne d'une date complète ou d'elle seule. */
