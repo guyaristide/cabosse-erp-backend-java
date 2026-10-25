@@ -10,6 +10,7 @@ package com.ntech.cabosse.governance.dto;
 public enum ApprovalKind {
     /** Avance à un délégué collecteur. Se décide depuis cet écran. */
     COLLECTOR_ADVANCE,
+    COLLECTOR_LOAN,
     /** Crédit à un producteur membre. Consultation seule ici. */
     MEMBER_CREDIT,
     /**

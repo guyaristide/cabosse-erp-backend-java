@@ -19,6 +19,9 @@ public record CreateAdvanceDto(
         BigDecimal advanceAmount,
         @NotNull(message = "{v.mode-de-paiement-requis}") PaymentMethod paymentMethod,
         UUID campaignId,
+        /** COLLECTION (défaut) ou LOAN : un prêt n'attend pas de contrepartie en kilos. */
+        com.ntech.cabosse.collector.entity.CollectorAdvanceKind kind,
+        @Size(max = 200) String purpose,
         /**
          * Contrepartie attendue du délégué, saisie par la coopérative.
          *

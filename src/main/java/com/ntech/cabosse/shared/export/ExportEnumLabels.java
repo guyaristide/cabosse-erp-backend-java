@@ -110,6 +110,7 @@ public final class ExportEnumLabels {
         if (code == null || code.isBlank()) return code;
         return switch (code) {
             case "COLLECTOR_ADVANCE" -> Messages.msg("m.paykind-collector-advance");
+            case "COLLECTOR_LOAN" -> Messages.msg("m.paykind-collector-loan");
             case "MEMBER_CREDIT" -> Messages.msg("m.paykind-member-credit");
             case "SUPPLIER_RECEIPT" -> Messages.msg("m.paykind-supplier-receipt");
             case "PRODUCER_PURCHASE" -> Messages.msg("m.paykind-producer-purchase");
@@ -117,6 +118,16 @@ public final class ExportEnumLabels {
             case "SUPPLIER_PURCHASE" -> Messages.msg("m.paykind-supplier-purchase");
             case "SUBSCRIPTION" -> Messages.msg("m.paykind-subscription");
             case "PETTY_CASH" -> Messages.msg("m.paykind-petty-cash");
+            default -> code;
+        };
+    }
+
+    /** Avance de collecte ou prêt à un délégué. */
+    public static String advanceKind(String code) {
+        if (code == null || code.isBlank()) return code;
+        return switch (code) {
+            case "COLLECTION" -> Messages.msg("m.advkind-collection");
+            case "LOAN" -> Messages.msg("m.advkind-loan");
             default -> code;
         };
     }

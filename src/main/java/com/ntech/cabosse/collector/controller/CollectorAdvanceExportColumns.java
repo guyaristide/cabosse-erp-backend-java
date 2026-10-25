@@ -16,6 +16,9 @@ final class CollectorAdvanceExportColumns {
     static List<ExportColumn<CollectorAdvanceResponseDto>> all(Map<Integer, String> campaignLabels) {
         return List.of(
                 ExportColumn.of(Messages.msg("m.imp-h-avance"),           CollectorAdvanceResponseDto::ref),
+                ExportColumn.of(Messages.msg("m.imp-h-nature"), dto ->
+                        com.ntech.cabosse.shared.export.ExportEnumLabels.advanceKind(dto.kind())),
+                ExportColumn.of(Messages.msg("m.imp-h-objet"),            CollectorAdvanceResponseDto::purpose),
                 ExportColumn.of(Messages.msg("m.imp-h-delegue"),          CollectorAdvanceResponseDto::delegateName),
                 ExportColumn.of(Messages.msg("m.imp-h-section"),          CollectorAdvanceResponseDto::sectionName),
                 // Le libellé saisi à la création de la campagne, l'année

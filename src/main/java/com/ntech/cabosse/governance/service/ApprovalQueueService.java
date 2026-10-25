@@ -89,7 +89,7 @@ public class ApprovalQueueService {
 
     private List<PendingApprovalDto> collect(String kind, UUID siteId) {
         List<PendingApprovalDto> out = new ArrayList<>();
-        if (wants(kind, ApprovalKind.COLLECTOR_ADVANCE)) collectAdvances(out);
+        if (wants(kind, ApprovalKind.COLLECTOR_ADVANCE) || wants(kind, ApprovalKind.COLLECTOR_LOAN)) collectAdvances(out, kind);
         if (wants(kind, ApprovalKind.MEMBER_CREDIT)) collectCredits(out);
         if (wants(kind, ApprovalKind.SETTLEMENT_REQUEST)) collectSettlements(out);
         if (wants(kind, ApprovalKind.PURCHASE_REQUEST)) collectPurchaseRequests(out);
@@ -108,7 +108,7 @@ public class ApprovalQueueService {
     }
 
     /** Les avances aux délégués : c'est ici qu'elles se décident. */
-    private void collectAdvances(List<PendingApprovalDto> out) {
+    private void collectAdvances(List<PendingApprovalDto> out, String kind) {
         boolean canApprove = permissions.currentIsTenantAdmin()
                 || permissions.can(Permission.COLLECTION_ADVANCE_APPROVE);
         boolean canApproveGovernance = permissions.currentIsTenantAdmin()
@@ -122,8 +122,11 @@ public class ApprovalQueueService {
             BigDecimal balance = a.delegateSupplierId != null
                     ? delegateAccount.outstanding(a.delegateSupplierId, a.campaignId)
                     : null;
+            ApprovalKind ak = a.kindOrDefault() == com.ntech.cabosse.collector.entity.CollectorAdvanceKind.LOAN
+                    ? ApprovalKind.COLLECTOR_LOAN : ApprovalKind.COLLECTOR_ADVANCE;
+            if (!wants(kind, ak)) return;
             out.add(new PendingApprovalDto(
-                    ApprovalKind.COLLECTOR_ADVANCE.name(), a.id, a.ref,
+                    ak.name(), a.id, a.ref,
                     a.delegateSupplierId, a.delegateName,
                     a.advanceAmount, a.advanceDate, ageOf(a.advanceDate),
                     balance, a.expectedQuantity, a.expectedQuantityUnit,

@@ -10,6 +10,7 @@ package com.ntech.cabosse.treasury.dto;
 public enum PayableKind {
     /** Avance approuvée à un délégué collecteur, en attente de décaissement. */
     COLLECTOR_ADVANCE,
+    COLLECTOR_LOAN,
     /** Crédit approuvé à un producteur membre, en attente de décaissement. */
     MEMBER_CREDIT,
     /** Ligne de réception fournisseur non réglée. */

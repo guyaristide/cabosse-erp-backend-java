@@ -10,6 +10,7 @@ package com.ntech.cabosse.treasury.dto;
 public enum SettlementKind {
     /** Avance décaissée à un délégué collecteur. */
     COLLECTOR_ADVANCE,
+    COLLECTOR_LOAN,
     /** Crédit décaissé à un producteur membre. */
     MEMBER_CREDIT,
     /** Règlement de livraisons à un producteur ou à un délégué. */

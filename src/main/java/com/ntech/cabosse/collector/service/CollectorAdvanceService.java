@@ -149,6 +149,27 @@ public class CollectorAdvanceService {
 
     // ─── Cycle ──────────────────────────────────────────────────────
 
+    /**
+     * La contrepartie attendue : le barème la propose, la coopérative la
+     * saisit. Un prêt n'en a pas : il répond à un besoin propre du
+     * délégué et ne se mesure pas en kilos.
+     */
+    private void applyCounterpart(CollectorAdvanceEntity e, UUID delegateId, CreateAdvanceDto p) {
+        if (e.kindOrDefault() == com.ntech.cabosse.collector.entity.CollectorAdvanceKind.LOAN) {
+            e.counterpartUnitPrice = null;
+            e.expectedQuantity = null;
+            e.expectedQuantityUnit = null;
+            return;
+        }
+        DelegateTermsDto terms = delegateAccount.terms(delegateId, e.campaignId, null, p.advanceAmount());
+        e.counterpartUnitPrice = terms.scalePricePerKg();
+        e.expectedQuantity = p.expectedQuantity() != null
+                ? p.expectedQuantity() : terms.suggestedVolumeKg();
+        e.expectedQuantityUnit = e.expectedQuantity != null ? COUNTERPART_UNIT : null;
+    }
+
+    private static String blankToNull(String s) { return s == null || s.isBlank() ? null : s.trim(); }
+
     public CollectorAdvanceResponseDto create(CreateAdvanceDto p, UUID siteId) {
         SupplierEntity delegate = suppliers.findById(p.delegateSupplierId()).orElseThrow(
                 () -> new NotFoundException(Messages.msg("m.col-delegate-not-found", p.delegateSupplierId())));
@@ -180,6 +201,8 @@ public class CollectorAdvanceService {
         e.advanceDate = p.advanceDate();
         e.advanceAmount = p.advanceAmount();
         e.paymentMethod = p.paymentMethod();
+        e.kind = p.kind() == null ? com.ntech.cabosse.collector.entity.CollectorAdvanceKind.COLLECTION : p.kind();
+        e.purpose = blankToNull(p.purpose());
         e.consumedAmount = BigDecimal.ZERO;
         e.remaining = p.advanceAmount();
         // Une demande, pas un versement : rien n'est sorti tant qu'elle
@@ -218,12 +241,7 @@ public class CollectorAdvanceService {
         // deux divisions écrites deux fois finissant par diverger. Le prix
         // qui l'a produite est conservé à côté, pour qu'on sache d'où
         // venait le chiffre proposé.
-        DelegateTermsDto terms = delegateAccount.terms(
-                delegate.id, e.campaignId, null, p.advanceAmount());
-        e.counterpartUnitPrice = terms.scalePricePerKg();
-        e.expectedQuantity = p.expectedQuantity() != null
-                ? p.expectedQuantity() : terms.suggestedVolumeKg();
-        e.expectedQuantityUnit = e.expectedQuantity != null ? COUNTERPART_UNIT : null;
+        applyCounterpart(e, delegate.id, p);
 
         e.notes = (p.notes() == null || p.notes().isBlank()) ? null : p.notes().trim();
         e.createdAt = Instant.now();
@@ -292,6 +310,8 @@ public class CollectorAdvanceService {
         e.advanceDate = p.advanceDate();
         e.advanceAmount = p.advanceAmount();
         e.paymentMethod = p.paymentMethod();
+        e.kind = p.kind() == null ? com.ntech.cabosse.collector.entity.CollectorAdvanceKind.COLLECTION : p.kind();
+        e.purpose = blankToNull(p.purpose());
         // Rien n'a encore été consommé à ce stade : le reste disponible
         // suit le nouveau montant.
         e.remaining = p.advanceAmount();
@@ -302,12 +322,7 @@ public class CollectorAdvanceService {
         e.governanceApprovalRequired = threshold != null
                 && p.advanceAmount().compareTo(threshold) >= 0;
 
-        DelegateTermsDto terms = delegateAccount.terms(
-                delegate.id, e.campaignId, null, p.advanceAmount());
-        e.counterpartUnitPrice = terms.scalePricePerKg();
-        e.expectedQuantity = p.expectedQuantity() != null
-                ? p.expectedQuantity() : terms.suggestedVolumeKg();
-        e.expectedQuantityUnit = e.expectedQuantity != null ? COUNTERPART_UNIT : null;
+        applyCounterpart(e, delegate.id, p);
 
         e.notes = (p.notes() == null || p.notes().isBlank()) ? null : p.notes().trim();
         e.updatedAt = Instant.now();

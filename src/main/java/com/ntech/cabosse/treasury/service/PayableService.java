@@ -114,7 +114,7 @@ public class PayableService {
 
     private List<PayableDto> collect(String kind, UUID siteId) {
         List<PayableDto> out = new ArrayList<>();
-        if (wants(kind, PayableKind.COLLECTOR_ADVANCE)) collectAdvances(out);
+        if (wants(kind, PayableKind.COLLECTOR_ADVANCE) || wants(kind, PayableKind.COLLECTOR_LOAN)) collectAdvances(out, kind);
         if (wants(kind, PayableKind.MEMBER_CREDIT)) collectCredits(out);
         if (wants(kind, PayableKind.SUPPLIER_RECEIPT)) collectReceipts(out);
         // Les deux natures de dépense sortent du même calcul : le
@@ -142,15 +142,20 @@ public class PayableService {
     }
 
     /** Approuvée et pas encore décaissée : les fonds n'ont pas bougé. */
-    private void collectAdvances(List<PayableDto> out) {
-        advances.findByStatus(CollectorAdvanceStatus.APPROVED.name()).forEach(a -> out.add(
+    private void collectAdvances(List<PayableDto> out, String kind) {
+        advances.findByStatus(CollectorAdvanceStatus.APPROVED.name()).forEach(a -> {
+            PayableKind pk = a.kindOrDefault() == com.ntech.cabosse.collector.entity.CollectorAdvanceKind.LOAN
+                    ? PayableKind.COLLECTOR_LOAN : PayableKind.COLLECTOR_ADVANCE;
+            if (!wants(kind, pk)) return;
+            out.add(
                 new PayableDto(
-                        PayableKind.COLLECTOR_ADVANCE.name(), a.id, null, a.ref,
+                        pk.name(), a.id, null, a.ref,
                         BeneficiaryKind.DELEGATE.name(), a.delegateSupplierId, a.delegateName,
                         // La file à payer annonce ce que la caisse va
                         // sortir : le montant accordé, pas celui sollicité.
                         nz(a.effectiveAmount()), a.advanceDate, ageOf(a.advanceDate),
-                        a.siteId, a.campaignId, a.executionRequestedAt, null, null)));
+                        a.siteId, a.campaignId, a.executionRequestedAt, null, null));
+        });
     }
 
     private void collectCredits(List<PayableDto> out) {

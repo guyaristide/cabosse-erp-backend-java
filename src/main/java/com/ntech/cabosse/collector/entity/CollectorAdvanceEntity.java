@@ -54,6 +54,15 @@ public class CollectorAdvanceEntity {
     public BigDecimal advanceAmount;
     public PaymentMethod paymentMethod;
 
+    /** Avance de collecte ou prêt ; absent sur les avances d'avant le 25/10/2026. */
+    public CollectorAdvanceKind kind;
+    /** Ce qui justifie un prêt : moto, toiture, santé… */
+    public String purpose;
+
+    public CollectorAdvanceKind kindOrDefault() {
+        return kind == null ? CollectorAdvanceKind.COLLECTION : kind;
+    }
+
     /** Cumul consommé par les livraisons. */
     public BigDecimal consumedAmount = BigDecimal.ZERO;
     /** Reste à livrer = avance − consommé. */

@@ -146,7 +146,11 @@ public class CollectorAdvanceRepository {
         return coll().find(Filters.and(
                         Filters.eq("delegateSupplierId", delegateSupplierId),
                         Filters.eq("status", "OPEN")))
-                .sort(new org.bson.Document("advanceDate", 1).append("createdAt", 1))
+                // Les avances de collecte d'abord, les prêts ensuite : une
+                // livraison solde ce qui l'a financée avant de rembourser
+                // un besoin personnel. Les avances d'avant la nature n'en
+                // portent pas et passent en tête.
+                .sort(new org.bson.Document("kind", 1).append("advanceDate", 1).append("createdAt", 1))
                 .into(new ArrayList<>());
     }
 

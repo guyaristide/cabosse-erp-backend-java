@@ -115,7 +115,7 @@ public class SettlementService {
     private List<SettlementDto> collect(String kind, LocalDate from, LocalDate to,
                                         UUID beneficiaryId) {
         List<SettlementDto> out = new ArrayList<>();
-        if (wants(kind, SettlementKind.COLLECTOR_ADVANCE)) collectAdvances(out, from, to);
+        if (wants(kind, SettlementKind.COLLECTOR_ADVANCE) || wants(kind, SettlementKind.COLLECTOR_LOAN)) collectAdvances(out, from, to, kind);
         if (wants(kind, SettlementKind.MEMBER_CREDIT)) collectCredits(out, from, to);
         if (wants(kind, SettlementKind.PRODUCER_PAYMENT)) collectPayments(out, from, to);
         if (beneficiaryId == null) return out;
@@ -128,16 +128,21 @@ public class SettlementService {
         return kind == null || kind.isBlank() || kind.equals(candidate.name());
     }
 
-    private void collectAdvances(List<SettlementDto> out, LocalDate from, LocalDate to) {
-        advances.findDisbursedBetween(from, to).forEach(a -> out.add(new SettlementDto(
-                SettlementKind.COLLECTOR_ADVANCE.name(), a.id, a.ref,
+    private void collectAdvances(List<SettlementDto> out, LocalDate from, LocalDate to, String kind) {
+        advances.findDisbursedBetween(from, to).forEach(a -> {
+            SettlementKind sk = a.kindOrDefault() == com.ntech.cabosse.collector.entity.CollectorAdvanceKind.LOAN
+                    ? SettlementKind.COLLECTOR_LOAN : SettlementKind.COLLECTOR_ADVANCE;
+            if (!wants(kind, sk)) return;
+            out.add(new SettlementDto(
+                sk.name(), a.id, a.ref,
                 BeneficiaryKind.DELEGATE.name(), a.delegateSupplierId, a.delegateName,
                 a.advanceDate,
                 // Le montant approuvé : c'est lui qui a été remis.
                 a.effectiveAmount(), a.bankFees,
                 a.paymentMethod != null ? a.paymentMethod.name() : null,
                 a.paymentRef, a.bankAccountId, a.pieceRef,
-                a.disbursedByName, a.disbursedByEmail, a.campaignId)));
+                a.disbursedByName, a.disbursedByEmail, a.campaignId));
+        });
     }
 
     private void collectCredits(List<SettlementDto> out, LocalDate from, LocalDate to) {
