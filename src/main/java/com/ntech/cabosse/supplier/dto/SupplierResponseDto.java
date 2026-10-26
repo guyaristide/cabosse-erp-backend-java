@@ -25,7 +25,9 @@ public record SupplierResponseDto(
         /** Le sociétaire dont la fiche est le miroir, s'il y en a un. */
         UUID memberId,
         /** DELEGATE, PRODUCER ou SUPPLIER : ce qu'un œil doit voir d'un coup dans une liste. */
-        String kind
+        String kind,
+        /** L'ancienne fiche sociétaire, quand ce tiers a été converti en non membre. */
+        UUID formerMemberId
 ) {
     public static String kindOf(SupplierEntity e) {
         if (e.collector) return "DELEGATE";
@@ -56,7 +58,7 @@ public record SupplierResponseDto(
                 e.collectorRetentionPerKg,
                 e.categoryId, categoryName,
                 e.active, e.createdAt, e.updatedAt,
-                e.memberId, kindOf(e)
+                e.memberId, kindOf(e), e.formerMemberId
         );
     }
 }

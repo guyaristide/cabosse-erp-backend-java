@@ -35,6 +35,16 @@ public class ParcelRepository {
         return coll().countDocuments(Filters.eq("code", code)) > 0;
     }
 
+    /** Les membres qui ont au moins une parcelle non abandonnée. */
+    public java.util.Set<UUID> memberIdsWithParcels() {
+        java.util.Set<UUID> out = new java.util.HashSet<>();
+        coll().withDocumentClass(Document.class)
+                .find(Filters.ne("status", ParcelStatus.ABANDONED.name()))
+                .projection(new Document("memberId", 1))
+                .forEach(d -> { Object id = d.get("memberId"); if (id instanceof UUID u) out.add(u); });
+        return out;
+    }
+
     public List<ParcelEntity> listByMember(UUID memberId) {
         return coll().find(Filters.eq("memberId", memberId))
                 .sort(new Document("name", 1))

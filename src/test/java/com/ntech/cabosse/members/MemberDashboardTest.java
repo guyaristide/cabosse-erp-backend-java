@@ -180,4 +180,52 @@ class MemberDashboardTest extends AbstractIntegrationTest {
                 .then().statusCode(200)
                 .body("data.total", equalTo(1));
     }
+    /**
+     * Un fournisseur pris pour un sociétaire se retrouve et se convertit
+     * (demandé le 26/10/2026) : un membre = une parcelle, le filtre « sans
+     * parcelle » cerne les fiches douteuses ; la conversion sort la fiche
+     * du sociétariat et du portrait, et laisse le tiers continuer seul.
+     */
+    @Test
+    void a_supplier_taken_for_a_member_is_found_by_its_missing_parcel_and_converted() {
+        UserEntity admin = admin();
+        String yao = member(admin, "YAO", "MALE", null);
+        String stranger = member(admin, "ETRANGER", "MALE", null);
+        parcel(admin, yao, "2.0", null);
+
+        givenAs(admin).when().get("/api/v1/members?parcels=without")
+                .then().statusCode(200)
+                .body("data.total", equalTo(1))
+                .body("data.items[0].id", equalTo(stranger));
+        givenAs(admin).when().get("/api/v1/members?parcels=with")
+                .then().statusCode(200).body("data.total", equalTo(1));
+
+        String supplierId = givenAs(admin).when().get("/api/v1/members/" + stranger)
+                .then().statusCode(200).extract().path("data.supplierId");
+        org.junit.jupiter.api.Assertions.assertNotNull(supplierId);
+
+        // Depuis la fiche du tiers : « pas sociétaire ».
+        givenAs(admin).contentType("application/json")
+                .body("{\"reason\":\"Planteur livreur pris pour un membre à la comptabilisation\"}")
+                .when().post("/api/v1/suppliers/" + supplierId + "/detach-member")
+                .then().statusCode(200)
+                .body("data.memberId", nullValue())
+                .body("data.kind", equalTo("SUPPLIER"))
+                .body("data.formerMemberId", equalTo(stranger));
+
+        // Plus un sociétaire : ni dans la liste, ni dans le portrait, mais lisible.
+        givenAs(admin).when().get("/api/v1/members")
+                .then().statusCode(200).body("data.total", equalTo(1));
+        givenAs(admin).when().get("/api/v1/members?converted=true")
+                .then().statusCode(200).body("data.total", equalTo(1));
+        givenAs(admin).when().get("/api/v1/members/dashboard")
+                .then().statusCode(200).body("data.totalMembers", equalTo(1));
+        givenAs(admin).when().get("/api/v1/members/" + stranger)
+                .then().statusCode(200).body("data.convertedToSupplier", equalTo(true));
+
+        // Une seule fois.
+        givenAs(admin).contentType("application/json").body("{\"reason\":\"encore\"}")
+                .when().post("/api/v1/members/" + stranger + "/convert-to-supplier")
+                .then().statusCode(422);
+    }
 }

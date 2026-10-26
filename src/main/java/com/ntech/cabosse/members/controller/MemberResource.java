@@ -100,6 +100,8 @@ public class MemberResource {
                          @QueryParam("sectionId") UUID sectionId,
                          @QueryParam("village") String village,
                          @QueryParam("gender") String genderRaw,
+                         @QueryParam("parcels") String parcelsRaw,
+                         @QueryParam("converted") String convertedRaw,
                          @QueryParam("page") @DefaultValue("0") int page,
                          @QueryParam("perPage") @DefaultValue("20") int perPage,
                          @QueryParam("sort") String sort,
@@ -108,7 +110,8 @@ public class MemberResource {
         return Response.ok(ApiResponse.ok(service.page(
                 new com.ntech.cabosse.members.repository.MemberSearchCriteria(
                         q, parseStatus(statusRaw), parseCollector(collectorRaw),
-                        sectionId, village, parseGender(genderRaw), parseGenderMissing(genderRaw)),
+                        sectionId, village, parseGender(genderRaw), parseGenderMissing(genderRaw),
+                        parseParcels(parcelsRaw), "true".equalsIgnoreCase(convertedRaw) ? Boolean.TRUE : null),
                 PageRequest.of(page, perPage, sort, direction)))).build();
     }
 
@@ -132,6 +135,16 @@ public class MemberResource {
         if ("true".equals(v)) return Boolean.TRUE;
         if ("false".equals(v)) return Boolean.FALSE;
         return null;
+    }
+
+    /** « with » ou « without » : les fiches avec ou sans parcelle ; le reste ne restreint pas. */
+    private static Boolean parseParcels(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        return switch (raw.trim().toLowerCase()) {
+            case "with" -> Boolean.TRUE;
+            case "without" -> Boolean.FALSE;
+            default -> null;
+        };
     }
 
     /** « UNKNOWN » : les fiches sans genre, pour les retrouver et les compléter. */
@@ -250,6 +263,19 @@ public class MemberResource {
     }
 
     public record RetirePayload(String reason) {}
+
+    public record ConvertPayload(String reason) {}
+
+    /** Cette fiche n'était pas un sociétaire : convertie en fournisseur non membre (26/10/2026). */
+    @POST
+    @RequiresPermission(Permission.MEMBER_WRITE)
+    @Path("/{id}/convert-to-supplier")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN, Roles.USER })
+    public Response convertToSupplier(@PathParam("id") UUID id, ConvertPayload payload) {
+        ensureCapability();
+        return Response.ok(ApiResponse.ok(
+                service.convertToSupplier(id, payload != null ? payload.reason() : null))).build();
+    }
 
     @POST
     @RequiresPermission(Permission.MEMBER_WRITE)

@@ -91,7 +91,7 @@ public class MemberService {
                                               com.ntech.cabosse.members.entity.MemberStatus statusFilter,
                                               PageRequest pr) {
         return page(new com.ntech.cabosse.members.repository.MemberSearchCriteria(
-                q, statusFilter, null, null, null, null, null), pr);
+                q, statusFilter, null, null, null, null, null, null, null), pr);
     }
 
     public Pagination<MemberResponseDto> page(
@@ -331,6 +331,57 @@ public class MemberService {
                 .target("member", e.id.toString(), e.name)
                 .tenant(tenantContext.tenantId(), null)
                 .description("Radiation : " + e.name + " (" + e.code + ") : " + e.statusReason)
+                .record();
+        return MemberResponseDto.from(e, fileValidityMonths(), producerRefKeys.identityProofTypeNames());
+    }
+
+    /**
+     * Sort une fiche du sociétariat : c'était un fournisseur, pas un membre
+     * (demandé le 26/10/2026).
+     *
+     * <p>Un planteur livreur ou un délégué non membre entre parfois comme
+     * sociétaire, à la comptabilisation d'un bordereau qui ne le connaît
+     * pas. Supprimer la fiche est impossible, des reçus la portent ; la
+     * radier la laisserait compter parmi les anciens membres. Elle est
+     * donc convertie : hors du sociétariat et du portrait, et son
+     * fournisseur miroir continue seul, non sociétaire, sous le même code.
+     * Les parts sociales éventuellement passées sont contre-passées.</p>
+     */
+    public MemberResponseDto convertToSupplier(UUID id, String reason) {
+        if (reason == null || reason.isBlank()) {
+            throw new BusinessException(Messages.msg("m.mbr-conversion-reason-required"));
+        }
+        MemberEntity e = loadOrFail(id);
+        if (e.convertedToSupplier) {
+            throw new BusinessException(Messages.msg("m.mbr-already-converted", e.name));
+        }
+        accounting.reverseFrom(
+                com.ntech.cabosse.accounting.entity.PostingSourceType.MEMBER_CAPITAL_LIBERATION,
+                e.id, "Conversion en fournisseur " + e.name);
+        accounting.reverseFrom(
+                com.ntech.cabosse.accounting.entity.PostingSourceType.MEMBER_CAPITAL,
+                e.id, "Conversion en fournisseur " + e.name);
+        if (e.supplierId != null) {
+            suppliers.findById(e.supplierId).ifPresent(s -> {
+                s.memberId = null;
+                s.formerMemberId = e.id;
+                s.active = true;
+                s.updatedAt = Instant.now();
+                suppliers.replace(s);
+            });
+        }
+        e.convertedToSupplier = true;
+        e.convertedAt = Instant.now();
+        e.convertedByEmail = actor();
+        e.conversionReason = reason.trim();
+        e.updatedAt = Instant.now();
+        members.replace(e);
+        audit.event(AuditEventType.MEMBER_CONVERTED_TO_SUPPLIER)
+                .actorEmail(actor())
+                .target("member", e.id.toString(), e.name)
+                .tenant(tenantContext.tenantId(), null)
+                .description("Converti en fournisseur non sociétaire : " + e.name
+                        + " (" + e.code + ") : " + e.conversionReason)
                 .record();
         return MemberResponseDto.from(e, fileValidityMonths(), producerRefKeys.identityProofTypeNames());
     }

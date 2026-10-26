@@ -172,6 +172,9 @@ public class SupplierEntity {
      */
     public UUID memberId;
 
+    /** L'ancienne fiche sociétaire, quand ce tiers a été converti en non membre. */
+    public UUID formerMemberId;
+
     public boolean active = true;
 
     public Instant createdAt;

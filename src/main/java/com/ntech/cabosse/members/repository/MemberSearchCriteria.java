@@ -26,9 +26,13 @@ public record MemberSearchCriteria(
         String village,
         MemberGender gender,
         /** Vrai : les fiches sans genre seulement. Nul : sans effet. */
-        Boolean genderMissing) {
+        Boolean genderMissing,
+        /** Vrai : avec au moins une parcelle ; faux : sans ; nul : sans effet. */
+        Boolean hasParcels,
+        /** Vrai : les fiches converties en fournisseur seulement ; nul : jamais elles. */
+        Boolean converted) {
 
     public static MemberSearchCriteria none() {
-        return new MemberSearchCriteria(null, null, null, null, null, null, null);
+        return new MemberSearchCriteria(null, null, null, null, null, null, null, null, null);
     }
 }

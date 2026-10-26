@@ -230,6 +230,20 @@ public class MemberEntity {
     public MemberStatus status = MemberStatus.ACTIVE;
 
     /**
+     * Fiche convertie en fournisseur non sociétaire (demandé le 26/10/2026).
+     *
+     * <p>Un planteur livreur ou un délégué non membre, pris par erreur
+     * pour un sociétaire, par exemple à la comptabilisation d'un
+     * bordereau. La fiche reste, parce que des reçus la portent ; elle
+     * ne compte plus parmi les membres, et son fournisseur miroir vit
+     * désormais seul.</p>
+     */
+    public boolean convertedToSupplier;
+    public Instant convertedAt;
+    public String convertedByEmail;
+    public String conversionReason;
+
+    /**
      * UUID du {@code SupplierEntity} miroir auto-créé pour ce membre.
      * Sert aux flux d'achat (BC fèves, RD) qui référencent un supplier.
      */

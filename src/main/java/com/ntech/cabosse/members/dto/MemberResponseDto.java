@@ -67,6 +67,8 @@ public record MemberResponseDto(
         boolean mobileMoneyMandateOnFile,
         String notes,
         String statusReason,
+        /** Fiche convertie en fournisseur non sociétaire : hors du sociétariat. */
+        boolean convertedToSupplier, java.time.Instant convertedAt, String conversionReason,
         Instant approvedAt,
         List<DocumentView> documents,
         Instant createdAt,
@@ -128,7 +130,7 @@ public record MemberResponseDto(
                 e.parcels != null ? List.copyOf(e.parcels) : List.of(),
                 e.preferredPaymentMethod, e.mobileMoneyNumber,
                 e.mobileMoneyHolderName, e.mobileMoneyMandateOnFile, e.notes,
-                e.statusReason, e.approvedAt,
+                e.statusReason, e.convertedToSupplier, e.convertedAt, e.conversionReason, e.approvedAt,
                 e.documents == null ? List.of() : e.documents.stream()
                         .map(d -> new DocumentView(d.id, d.label, d.fileName,
                                 d.mimeType, d.sizeBytes, d.uploadedAt))

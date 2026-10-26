@@ -22,6 +22,7 @@ public class MemberRepository {
     public static final String COLLECTION = "members";
 
     @Inject TenantMongoDatabaseProvider tenantDb;
+    @Inject com.ntech.cabosse.agriculture.parcel.repository.ParcelRepository parcels;
 
     private MongoCollection<MemberEntity> coll() {
         return tenantDb.collection(COLLECTION, MemberEntity.class);
@@ -45,11 +46,11 @@ public class MemberRepository {
     }
 
     public long countSearch(String q, MemberStatus statusFilter) {
-        return countSearch(new MemberSearchCriteria(q, statusFilter, null, null, null, null, null));
+        return countSearch(new MemberSearchCriteria(q, statusFilter, null, null, null, null, null, null, null));
     }
 
     public List<MemberEntity> search(String q, MemberStatus statusFilter, int skip, int limit) {
-        return search(new MemberSearchCriteria(q, statusFilter, null, null, null, null, null),
+        return search(new MemberSearchCriteria(q, statusFilter, null, null, null, null, null, null, null),
                 skip, limit);
     }
 
@@ -100,8 +101,21 @@ public class MemberRepository {
         return out;
     }
 
-    private static Bson searchFilter(MemberSearchCriteria c) {
+    private Bson searchFilter(MemberSearchCriteria c) {
         List<Bson> filters = new ArrayList<>();
+        // Une fiche convertie en fournisseur n'est plus un sociétaire :
+        // elle ne figure que si on la demande (demandé le 26/10/2026).
+        if (Boolean.TRUE.equals(c.converted())) {
+            filters.add(Filters.eq("convertedToSupplier", true));
+        } else {
+            filters.add(Filters.ne("convertedToSupplier", true));
+        }
+        // Un membre = une parcelle : les fiches sans parcelle sont celles
+        // qu'on vérifie, un fournisseur pris pour un sociétaire n'en a pas.
+        if (c.hasParcels() != null) {
+            java.util.Set<UUID> owners = parcels.memberIdsWithParcels();
+            filters.add(c.hasParcels() ? Filters.in("_id", owners) : Filters.nin("_id", owners));
+        }
         if (c.status() != null) filters.add(Filters.eq("status", c.status().name()));
         // Faux se dit aussi des fiches anciennes où le champ n'existe
         // pas : sans ce « ou absent », les producteurs d'avant la

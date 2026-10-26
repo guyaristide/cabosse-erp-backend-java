@@ -42,7 +42,9 @@ public class MemberDashboardService {
     @Inject ProductionPotentialService potential;
 
     public MemberDashboardDto compute(UUID campaignId, String cropCode) {
-        List<MemberEntity> everyone = members.listAll();
+        // Une fiche convertie en fournisseur n'est plus un sociétaire.
+        List<MemberEntity> everyone = members.listAll().stream()
+                .filter(m -> !m.convertedToSupplier).toList();
         List<MemberEntity> all = everyone.stream()
                 .filter(m -> m.status != MemberStatus.RETIRED)
                 .toList();

@@ -159,6 +159,18 @@ public class SupplierResource {
         return Response.ok(ApiResponse.ok(service.setAccounts(id, payload))).build();
     }
 
+    public record DetachMemberPayload(String reason) {}
+
+    /** Pas sociétaire : la fiche membre miroir est convertie, le tiers continue seul (26/10/2026). */
+    @POST
+    @RequiresPermission({ Permission.REF_SUPPLIER_WRITE, Permission.MEMBER_WRITE })
+    @Path("/{id}/detach-member")
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN, Roles.USER })
+    public Response detachMember(@PathParam("id") UUID id, DetachMemberPayload payload) {
+        return Response.ok(ApiResponse.ok(
+                service.detachMember(id, payload != null ? payload.reason() : null))).build();
+    }
+
     @PATCH
     @RequiresPermission(Permission.REF_SUPPLIER_WRITE)
     @Path("/{id}/active")

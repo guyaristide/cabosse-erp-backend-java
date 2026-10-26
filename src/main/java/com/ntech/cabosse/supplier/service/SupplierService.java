@@ -35,6 +35,7 @@ public class SupplierService {
     @Inject com.ntech.cabosse.members.repository.MemberRepository members;
 
     @Inject SupplierRepository repo;
+    @Inject com.ntech.cabosse.members.service.MemberService memberService;
     @Inject CampaignMarginValidator marginValidator;
     @Inject com.ntech.cabosse.locality.repository.LocalityRepository localities;
     @Inject TenantContext tenantContext;
@@ -272,6 +273,19 @@ public class SupplierService {
      * formulaire entier (demandé le 20/10/2026). Un champ absent ne
      * bouge pas ; une chaîne vide détache.
      */
+    /** Ce tiers n'est pas sociétaire : sa fiche membre est convertie, lui continue seul. */
+    public SupplierResponseDto detachMember(UUID id, String reason) {
+        SupplierEntity s = repo.findById(id).orElseThrow(
+                () -> new NotFoundException(Messages.msg("m.sup-not-found", id)));
+        if (s.memberId == null) {
+            throw new com.ntech.cabosse.shared.exception.BusinessException(
+                    Messages.msg("m.sup-not-a-member-mirror", s.name));
+        }
+        memberService.convertToSupplier(s.memberId, reason);
+        SupplierEntity after = repo.findById(id).orElseThrow();
+        return SupplierResponseDto.from(after, categoryName(categories.byId(), after));
+    }
+
     public SupplierResponseDto setAccounts(UUID id, com.ntech.cabosse.supplier.dto.SupplierAccountsDto p) {
         SupplierEntity e = repo.findById(id).orElseThrow(
                 () -> new NotFoundException(com.ntech.cabosse.shared.i18n.Messages.msg("m.sup-not-found", id)));
