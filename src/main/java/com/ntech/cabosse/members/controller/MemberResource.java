@@ -7,6 +7,7 @@ import com.ntech.cabosse.members.dto.MemberResponseDto;
 import com.ntech.cabosse.members.dto.MemberUpsertDto;
 import com.ntech.cabosse.members.entity.MemberStatus;
 import com.ntech.cabosse.members.service.MemberContributionsService;
+import com.ntech.cabosse.members.service.MemberStatementService;
 import com.ntech.cabosse.members.service.MemberCardService;
 import com.ntech.cabosse.members.service.MemberDocumentService;
 import com.ntech.cabosse.members.service.MemberImportService;
@@ -62,6 +63,7 @@ public class MemberResource {
     @Inject MemberService service;
     @Inject com.ntech.cabosse.members.service.MemberDashboardService dashboardService;
     @Inject MemberContributionsService contributionsService;
+    @Inject MemberStatementService statementService;
     @Inject MemberDocumentService documents;
     @Inject MemberCardService card;
     @Inject MemberProfileSheetService profileSheet;
@@ -381,6 +383,32 @@ public class MemberResource {
     }
 
     // ─── Apports par campagne ───────────────────────────────────────
+
+    /** L'état du membre : agrégats et fil des opérations, sur une campagne ou tout l'historique (26/10/2026). */
+    @GET
+    @Path("/{id}/statement")
+    public Response statement(@PathParam("id") UUID id, @QueryParam("campaignId") UUID campaignId) {
+        ensureCapability();
+        return Response.ok(ApiResponse.ok(statementService.compute(id, campaignId))).build();
+    }
+
+    /** Le fil des opérations du membre, en fichier. */
+    @GET
+    @Path("/{id}/statement/export")
+    @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/pdf" })
+    public Response statementExport(@PathParam("id") UUID id,
+                                    @QueryParam("campaignId") UUID campaignId,
+                                    @QueryParam("format") String formatRaw) {
+        ensureCapability();
+        ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
+        var rows = statementService.operationsForExport(id, campaignId);
+        var member = service.getById(id);
+        var dataset = new ExportDataset<>(
+                Messages.msg("m.exp-t-etat-membre") + " · " + member.name(),
+                MemberStatementExportColumns.all(), rows);
+        exportAudit.record("etat-membre", "État du membre", format, rows.size());
+        return ExportResponses.build("etat-membre", format, dataset);
+    }
 
     @GET
     @Path("/{id}/contributions")
