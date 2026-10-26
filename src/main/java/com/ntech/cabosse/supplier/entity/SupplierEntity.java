@@ -175,6 +175,13 @@ public class SupplierEntity {
     /** L'ancienne fiche sociétaire, quand ce tiers a été converti en non membre. */
     public UUID formerMemberId;
 
+    /**
+     * Planteur qui livre sans être sociétaire (26/10/2026). Posé à la
+     * conversion d'une fiche membre ; le délégué non membre, lui, se dit
+     * par {@link #collector}. Ni l'un ni l'autre n'est un prestataire.
+     */
+    public boolean nonMemberProducer = false;
+
     public boolean active = true;
 
     public Instant createdAt;

@@ -32,6 +32,7 @@ public record SupplierResponseDto(
     public static String kindOf(SupplierEntity e) {
         if (e.collector) return "DELEGATE";
         if (e.memberId != null) return "PRODUCER";
+        if (e.nonMemberProducer) return "NON_MEMBER_PRODUCER";
         return "SUPPLIER";
     }
 

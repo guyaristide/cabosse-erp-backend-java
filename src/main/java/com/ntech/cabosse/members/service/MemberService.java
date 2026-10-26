@@ -347,9 +347,13 @@ public class MemberService {
      * fournisseur miroir continue seul, non sociétaire, sous le même code.
      * Les parts sociales éventuellement passées sont contre-passées.</p>
      */
-    public MemberResponseDto convertToSupplier(UUID id, String reason) {
+    public MemberResponseDto convertToSupplier(UUID id, String reason,
+                                               com.ntech.cabosse.supplier.entity.NonMemberRole role) {
         if (reason == null || reason.isBlank()) {
             throw new BusinessException(Messages.msg("m.mbr-conversion-reason-required"));
+        }
+        if (role == null) {
+            throw new BusinessException(Messages.msg("m.mbr-conversion-role-required"));
         }
         MemberEntity e = loadOrFail(id);
         if (e.convertedToSupplier) {
@@ -366,6 +370,14 @@ public class MemberService {
                 s.memberId = null;
                 s.formerMemberId = e.id;
                 s.active = true;
+                // Ce qu'il reste : un délégué se dit par le drapeau collecteur
+                // (et garde ses avances) ; un planteur livreur par le sien.
+                if (role == com.ntech.cabosse.supplier.entity.NonMemberRole.DELEGATE) {
+                    s.collector = true;
+                    s.nonMemberProducer = false;
+                } else {
+                    s.nonMemberProducer = !s.collector;
+                }
                 s.updatedAt = Instant.now();
                 suppliers.replace(s);
             });
@@ -380,8 +392,10 @@ public class MemberService {
                 .actorEmail(actor())
                 .target("member", e.id.toString(), e.name)
                 .tenant(tenantContext.tenantId(), null)
-                .description("Converti en fournisseur non sociétaire : " + e.name
-                        + " (" + e.code + ") : " + e.conversionReason)
+                .description("Converti en "
+                        + (role == com.ntech.cabosse.supplier.entity.NonMemberRole.DELEGATE
+                                ? "délégué non sociétaire" : "planteur livreur non sociétaire")
+                        + " : " + e.name + " (" + e.code + ") : " + e.conversionReason)
                 .record();
         return MemberResponseDto.from(e, fileValidityMonths(), producerRefKeys.identityProofTypeNames());
     }

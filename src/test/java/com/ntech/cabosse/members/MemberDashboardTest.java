@@ -204,14 +204,26 @@ class MemberDashboardTest extends AbstractIntegrationTest {
                 .then().statusCode(200).extract().path("data.supplierId");
         org.junit.jupiter.api.Assertions.assertNotNull(supplierId);
 
-        // Depuis la fiche du tiers : « pas sociétaire ».
+        // Depuis la fiche du tiers : « pas sociétaire ». Sans dire ce qu'il
+        // reste, rien ne bouge.
         givenAs(admin).contentType("application/json")
                 .body("{\"reason\":\"Planteur livreur pris pour un membre à la comptabilisation\"}")
                 .when().post("/api/v1/suppliers/" + supplierId + "/detach-member")
+                .then().statusCode(422);
+        givenAs(admin).contentType("application/json")
+                .body("{\"reason\":\"Planteur livreur pris pour un membre à la comptabilisation\",\"role\":\"PRODUCER\"}")
+                .when().post("/api/v1/suppliers/" + supplierId + "/detach-member")
                 .then().statusCode(200)
                 .body("data.memberId", nullValue())
-                .body("data.kind", equalTo("SUPPLIER"))
+                .body("data.kind", equalTo("NON_MEMBER_PRODUCER"))
                 .body("data.formerMemberId", equalTo(stranger));
+
+        // Un planteur non membre, pas un prestataire : le genre le dit et le filtre le trouve.
+        givenAs(admin).when().get("/api/v1/suppliers?kind=NON_MEMBER_PRODUCER")
+                .then().statusCode(200).body("data.total", equalTo(1))
+                .body("data.items[0].id", equalTo(supplierId));
+        givenAs(admin).when().get("/api/v1/suppliers?kind=SUPPLIER")
+                .then().statusCode(200).body("data.total", equalTo(0));
 
         // Plus un sociétaire : ni dans la liste, ni dans le portrait, mais lisible.
         givenAs(admin).when().get("/api/v1/members")
@@ -224,8 +236,31 @@ class MemberDashboardTest extends AbstractIntegrationTest {
                 .then().statusCode(200).body("data.convertedToSupplier", equalTo(true));
 
         // Une seule fois.
-        givenAs(admin).contentType("application/json").body("{\"reason\":\"encore\"}")
+        givenAs(admin).contentType("application/json").body("{\"reason\":\"encore\",\"role\":\"PRODUCER\"}")
                 .when().post("/api/v1/members/" + stranger + "/convert-to-supplier")
                 .then().statusCode(422);
+    }
+
+    /** Converti en délégué : le tiers devient collecteur, donc éligible aux avances. */
+    @Test
+    void a_member_converted_as_delegate_becomes_a_collector() {
+        UserEntity admin = admin();
+        String stranger = member(admin, "KONE", "MALE", null);
+        String supplierId = givenAs(admin).when().get("/api/v1/members/" + stranger)
+                .then().statusCode(200).extract().path("data.supplierId");
+
+        givenAs(admin).contentType("application/json")
+                .body("{\"reason\":\"Délégué de section, jamais sociétaire\",\"role\":\"DELEGATE\"}")
+                .when().post("/api/v1/members/" + stranger + "/convert-to-supplier")
+                .then().statusCode(200).body("data.convertedToSupplier", equalTo(true));
+
+        givenAs(admin).when().get("/api/v1/suppliers?kind=DELEGATE")
+                .then().statusCode(200)
+                .body("data.total", equalTo(1))
+                .body("data.items[0].id", equalTo(supplierId))
+                .body("data.items[0].collector", equalTo(true))
+                .body("data.items[0].memberId", nullValue());
+        givenAs(admin).when().get("/api/v1/suppliers?kind=NON_MEMBER_PRODUCER")
+                .then().statusCode(200).body("data.total", equalTo(0));
     }
 }

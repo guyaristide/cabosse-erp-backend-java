@@ -94,9 +94,14 @@ public class SupplierRepository {
         } else if ("PRODUCER".equals(kind)) {
             filters.add(Filters.exists("memberId", true));
             filters.add(Filters.ne("collector", true));
+        } else if ("NON_MEMBER_PRODUCER".equals(kind)) {
+            filters.add(Filters.exists("memberId", false));
+            filters.add(Filters.ne("collector", true));
+            filters.add(Filters.eq("nonMemberProducer", true));
         } else if ("SUPPLIER".equals(kind)) {
             filters.add(Filters.exists("memberId", false));
             filters.add(Filters.ne("collector", true));
+            filters.add(Filters.ne("nonMemberProducer", true));
         }
         return filters.isEmpty() ? new org.bson.Document() : Filters.and(filters);
     }

@@ -63,11 +63,11 @@ public class SupplierResource {
     }
 
     /** Vrai, faux, ou rien du tout : l'absence ne restreint pas. */
-    /** DELEGATE, PRODUCER ou SUPPLIER ; tout autre mot ne filtre pas. */
+    /** DELEGATE, PRODUCER, NON_MEMBER_PRODUCER ou SUPPLIER ; tout autre mot ne filtre pas. */
     private static String parseKind(String raw) {
         if (raw == null) return null;
         String v = raw.trim().toUpperCase(java.util.Locale.ROOT);
-        return java.util.Set.of("DELEGATE", "PRODUCER", "SUPPLIER").contains(v) ? v : null;
+        return java.util.Set.of("DELEGATE", "PRODUCER", "NON_MEMBER_PRODUCER", "SUPPLIER").contains(v) ? v : null;
     }
 
     private static Boolean parseCollector(String raw) {
@@ -159,7 +159,8 @@ public class SupplierResource {
         return Response.ok(ApiResponse.ok(service.setAccounts(id, payload))).build();
     }
 
-    public record DetachMemberPayload(String reason) {}
+    /** Le motif, et ce que le tiers reste : PRODUCER (planteur livreur) ou DELEGATE. */
+    public record DetachMemberPayload(String reason, String role) {}
 
     /** Pas sociétaire : la fiche membre miroir est convertie, le tiers continue seul (26/10/2026). */
     @POST
@@ -168,7 +169,8 @@ public class SupplierResource {
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN, Roles.USER })
     public Response detachMember(@PathParam("id") UUID id, DetachMemberPayload payload) {
         return Response.ok(ApiResponse.ok(
-                service.detachMember(id, payload != null ? payload.reason() : null))).build();
+                service.detachMember(id, payload != null ? payload.reason() : null,
+                        com.ntech.cabosse.supplier.entity.NonMemberRole.parse(payload != null ? payload.role() : null)))).build();
     }
 
     @PATCH

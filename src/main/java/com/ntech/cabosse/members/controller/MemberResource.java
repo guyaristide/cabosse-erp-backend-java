@@ -266,7 +266,8 @@ public class MemberResource {
 
     public record RetirePayload(String reason) {}
 
-    public record ConvertPayload(String reason) {}
+    /** Le motif, et ce que le tiers reste : PRODUCER (planteur livreur) ou DELEGATE. */
+    public record ConvertPayload(String reason, String role) {}
 
     /** Cette fiche n'était pas un sociétaire : convertie en fournisseur non membre (26/10/2026). */
     @POST
@@ -276,7 +277,8 @@ public class MemberResource {
     public Response convertToSupplier(@PathParam("id") UUID id, ConvertPayload payload) {
         ensureCapability();
         return Response.ok(ApiResponse.ok(
-                service.convertToSupplier(id, payload != null ? payload.reason() : null))).build();
+                service.convertToSupplier(id, payload != null ? payload.reason() : null,
+                        com.ntech.cabosse.supplier.entity.NonMemberRole.parse(payload != null ? payload.role() : null)))).build();
     }
 
     @POST
