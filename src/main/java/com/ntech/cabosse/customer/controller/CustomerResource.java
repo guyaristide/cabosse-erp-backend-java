@@ -9,12 +9,14 @@ import com.ntech.cabosse.customer.dto.CustomerResponseDto;
 import com.ntech.cabosse.customer.dto.CustomerUpsertDto;
 import com.ntech.cabosse.customer.service.CustomerImportService;
 import com.ntech.cabosse.customer.service.CustomerService;
+import com.ntech.cabosse.customer.service.CustomerStatementService;
 import com.ntech.cabosse.shared.api.ApiResponse;
 import com.ntech.cabosse.shared.api.PageRequest;
 import com.ntech.cabosse.shared.export.ExportAudit;
 import com.ntech.cabosse.shared.export.ExportDataset;
 import com.ntech.cabosse.shared.export.ExportFormat;
 import com.ntech.cabosse.shared.export.ExportResponses;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.security.Roles;
 import io.quarkus.security.Authenticated;
 import jakarta.annotation.security.RolesAllowed;
@@ -46,6 +48,7 @@ public class CustomerResource {
 
     @Inject CustomerService service;
     @Inject CustomerImportService importService;
+    @Inject CustomerStatementService statementService;
     @Inject ExportAudit exportAudit;
 
     // Nommer le client d'un chargement n'est pas lire le référentiel
@@ -107,6 +110,38 @@ public class CustomerResource {
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN, Roles.USER })
     public Response setActive(@PathParam("id") UUID id, @QueryParam("value") boolean value) {
         return Response.ok(ApiResponse.ok(service.setActive(id, value))).build();
+    }
+
+    /**
+     * L'état du client : agrégats et fil des opérations, sur une campagne
+     * ou tout l'historique (27/10/2026). Ouvert à qui suit les ventes, la
+     * comptabilité ou la direction, pas seulement au référentiel.
+     */
+    @GET
+    @Path("/{id}/statement")
+    @RequiresPermission({ Permission.SALE_READ, Permission.ACCOUNTING_READ, Permission.EXECUTIVE_READ })
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN, Roles.USER })
+    public Response statement(@PathParam("id") UUID id, @QueryParam("campaignId") UUID campaignId) {
+        return Response.ok(ApiResponse.ok(statementService.compute(id, campaignId))).build();
+    }
+
+    /** Le fil des opérations du client, en fichier. */
+    @GET
+    @Path("/{id}/statement/export")
+    @RequiresPermission({ Permission.SALE_READ, Permission.ACCOUNTING_READ, Permission.EXECUTIVE_READ })
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN, Roles.USER })
+    @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/pdf" })
+    public Response statementExport(@PathParam("id") UUID id,
+                                    @QueryParam("campaignId") UUID campaignId,
+                                    @QueryParam("format") String formatRaw) {
+        ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
+        var rows = statementService.operationsForExport(id, campaignId);
+        var customer = service.getById(id);
+        var dataset = new ExportDataset<>(
+                Messages.msg("m.exp-t-etat-client") + " · " + customer.name(),
+                CustomerStatementExportColumns.all(), rows);
+        exportAudit.record("etat-client", "État du client", format, rows.size());
+        return ExportResponses.build("etat-client", format, dataset);
     }
 
     @GET

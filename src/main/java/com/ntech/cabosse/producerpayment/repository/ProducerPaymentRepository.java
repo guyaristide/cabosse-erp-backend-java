@@ -80,5 +80,14 @@ public class ProducerPaymentRepository {
                 .into(new ArrayList<>());
     }
 
+    /** Règlements versés à un fournisseur apporteur, pour son état. */
+    public List<ProducerPaymentEntity> listForSupplier(UUID supplierId) {
+        return coll().find(Filters.and(
+                        Filters.eq("supplierId", supplierId),
+                        Filters.eq("beneficiaryKind", "SUPPLIER")))
+                .sort(new Document("date", 1))
+                .into(new ArrayList<>());
+    }
+
     public void insert(ProducerPaymentEntity e) { coll().insertOne(e); }
 }

@@ -88,6 +88,15 @@ public class PurchaseOrderRepository {
         return filters.isEmpty() ? new Document() : Filters.and(filters);
     }
 
+    /** Les bons de commande d'un fournisseur, annulés exclus, pour son état. */
+    public List<PurchaseOrderEntity> listBySupplier(UUID supplierId) {
+        return coll().find(Filters.and(
+                        Filters.eq("supplierId", supplierId),
+                        Filters.ne("status", BcStatus.CANCELLED.name())))
+                .sort(new Document("orderDate", 1).append("ref", 1))
+                .into(new ArrayList<>());
+    }
+
     public Optional<PurchaseOrderEntity> findById(UUID id) {
         return Optional.ofNullable(coll().find(Filters.eq("_id", id)).first());
     }

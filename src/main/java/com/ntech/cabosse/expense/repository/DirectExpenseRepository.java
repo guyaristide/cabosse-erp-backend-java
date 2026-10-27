@@ -25,6 +25,15 @@ public class DirectExpenseRepository {
         return tenantDb.collection(COLLECTION, DirectExpenseEntity.class);
     }
 
+    /** Les dépenses d'un prestataire, refusées exclues, pour son état. */
+    public List<DirectExpenseEntity> listBySupplier(UUID supplierId) {
+        return coll().find(Filters.and(
+                        Filters.eq("supplierId", supplierId),
+                        Filters.ne("approvalStatus", "REJECTED")))
+                .sort(new org.bson.Document("expenseDate", 1).append("ref", 1))
+                .into(new ArrayList<>());
+    }
+
     public Optional<DirectExpenseEntity> findById(UUID id) {
         return Optional.ofNullable(coll().find(Filters.eq("_id", id)).first());
     }

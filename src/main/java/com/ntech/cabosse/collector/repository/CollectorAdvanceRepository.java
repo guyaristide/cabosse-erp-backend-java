@@ -173,6 +173,19 @@ public class CollectorAdvanceRepository {
     }
 
     /**
+     * Toutes les avances d'un délégué encore vivantes, la plus récente en
+     * tête : en attente, approuvées, décaissées ou closes. Les refusées et
+     * les retirées n'ont rien engagé, l'état du tiers ne les montre pas.
+     */
+    public List<CollectorAdvanceEntity> listByDelegate(UUID delegateSupplierId) {
+        return coll().find(Filters.and(
+                        Filters.eq("delegateSupplierId", delegateSupplierId),
+                        Filters.nin("status", "REJECTED", "CANCELLED")))
+                .sort(new org.bson.Document("advanceDate", -1).append("createdAt", -1))
+                .into(new ArrayList<>());
+    }
+
+    /**
      * Les avances décaissées d'une campagne, tous délégués confondus.
      * Sert la vue campagne du tableau de bord Direction : le décaissé,
      * le solde en cours et les délégués non soldés s'y agrègent.

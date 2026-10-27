@@ -80,6 +80,13 @@ public class AdvanceRefundRepository {
         return total;
     }
 
+    /** Tous les reliquats demandés pour un délégué, le plus récent en tête, pour son état. */
+    public List<AdvanceRefundEntity> listByDelegate(UUID delegateSupplierId) {
+        return coll().find(Filters.eq("delegateSupplierId", delegateSupplierId))
+                .sort(new Document("requestedAt", -1))
+                .into(new ArrayList<>());
+    }
+
     public void insert(AdvanceRefundEntity e) {
         coll().insertOne(e);
     }

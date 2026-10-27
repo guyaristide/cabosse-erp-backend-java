@@ -162,6 +162,14 @@ public class ProducerPurchaseRepository {
                 .into(new ArrayList<>());
     }
 
+    /** Reçus actifs posés sur un fournisseur apporteur, toutes campagnes, pour son état. */
+    public List<ProducerPurchaseEntity> listBySupplier(UUID supplierId) {
+        return coll()
+                .find(Filters.and(Filters.eq("supplierId", supplierId), notCancelled()))
+                .sort(new Document("date", 1))
+                .into(new ArrayList<>());
+    }
+
     /** Reçus actifs d'un producteur, toutes campagnes, pour ses cumuls. */
     public List<ProducerPurchaseEntity> listByMember(UUID memberId) {
         return coll()

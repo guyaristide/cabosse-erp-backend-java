@@ -69,6 +69,18 @@ public class DirectReceiptRepository {
         return filters.isEmpty() ? new Document() : Filters.and(filters);
     }
 
+    /**
+     * Les réceptions où ce fournisseur a une ligne, annulées exclues. La
+     * session en porte plusieurs : l'appelant ne retient que ses lignes.
+     */
+    public List<DirectReceiptEntity> listBySupplier(UUID supplierId) {
+        return coll().find(Filters.and(
+                        Filters.eq("lines.supplierId", supplierId),
+                        Filters.ne("status", DirectReceiptStatus.CANCELLED.name())))
+                .sort(new Document("receivedDate", 1).append("ref", 1))
+                .into(new ArrayList<>());
+    }
+
     public Optional<DirectReceiptEntity> findById(UUID id) {
         return Optional.ofNullable(coll().find(Filters.eq("_id", id)).first());
     }

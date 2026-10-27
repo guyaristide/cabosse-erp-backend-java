@@ -8,6 +8,7 @@ import com.ntech.cabosse.shared.export.ExportAudit;
 import com.ntech.cabosse.shared.export.ExportDataset;
 import com.ntech.cabosse.shared.export.ExportFormat;
 import com.ntech.cabosse.shared.export.ExportResponses;
+import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.security.Roles;
 import com.ntech.cabosse.supplier.dto.SupplierImportCommitResponseDto;
 import com.ntech.cabosse.supplier.dto.SupplierImportPreviewDto;
@@ -16,6 +17,7 @@ import com.ntech.cabosse.supplier.dto.SupplierResponseDto;
 import com.ntech.cabosse.supplier.dto.SupplierUpsertDto;
 import com.ntech.cabosse.supplier.service.SupplierImportService;
 import com.ntech.cabosse.supplier.service.SupplierService;
+import com.ntech.cabosse.supplier.service.SupplierStatementService;
 import io.quarkus.security.Authenticated;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
@@ -46,6 +48,7 @@ public class SupplierResource {
 
     @Inject SupplierService service;
     @Inject SupplierImportService importService;
+    @Inject SupplierStatementService statementService;
     @Inject ExportAudit exportAudit;
 
     @GET
@@ -179,6 +182,41 @@ public class SupplierResource {
     @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN, Roles.USER })
     public Response setActive(@PathParam("id") UUID id, @QueryParam("value") boolean value) {
         return Response.ok(ApiResponse.ok(service.setActive(id, value))).build();
+    }
+
+    /**
+     * L'état du fournisseur : agrégats et fil des opérations, sur une
+     * campagne ou tout l'historique (27/10/2026). Ouvert à qui suit la
+     * collecte, les achats, la comptabilité ou la direction : ce sont eux
+     * qui demandent « où en est-on avec ce tiers », pas le référentiel.
+     */
+    @GET
+    @Path("/{id}/statement")
+    @RequiresPermission({ Permission.COLLECTION_READ, Permission.PURCHASE_READ,
+            Permission.ACCOUNTING_READ, Permission.EXECUTIVE_READ })
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN, Roles.USER })
+    public Response statement(@PathParam("id") UUID id, @QueryParam("campaignId") UUID campaignId) {
+        return Response.ok(ApiResponse.ok(statementService.compute(id, campaignId))).build();
+    }
+
+    /** Le fil des opérations du fournisseur, en fichier. */
+    @GET
+    @Path("/{id}/statement/export")
+    @RequiresPermission({ Permission.COLLECTION_READ, Permission.PURCHASE_READ,
+            Permission.ACCOUNTING_READ, Permission.EXECUTIVE_READ })
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.PLATFORM_ADMIN, Roles.USER })
+    @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/pdf" })
+    public Response statementExport(@PathParam("id") UUID id,
+                                    @QueryParam("campaignId") UUID campaignId,
+                                    @QueryParam("format") String formatRaw) {
+        ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
+        var rows = statementService.operationsForExport(id, campaignId);
+        var supplier = service.getById(id);
+        var dataset = new ExportDataset<>(
+                Messages.msg("m.exp-t-etat-fournisseur") + " · " + supplier.name(),
+                SupplierStatementExportColumns.all(), rows);
+        exportAudit.record("etat-fournisseur", "État du fournisseur", format, rows.size());
+        return ExportResponses.build("etat-fournisseur", format, dataset);
     }
 
     @GET
