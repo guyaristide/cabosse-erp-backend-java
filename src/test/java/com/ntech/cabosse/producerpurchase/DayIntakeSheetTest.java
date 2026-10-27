@@ -120,6 +120,9 @@ class DayIntakeSheetTest extends AbstractIntegrationTest {
                 .body("data.rows[1].cumulativeQuantity", equalTo(4848.0F))
                 .body("data.rows[1].cumulativeBags", equalTo(26))
                 .body("data.rows[1].supplierKind", equalTo("PRODUCER"))
+                // Le nom devient un lien : la ligne porte la fiche du membre livré.
+                .body("data.rows[0].memberId", equalTo(m1))
+                .body("data.rows[1].memberId", equalTo(m2))
                 .body("data.totalWeightKg", equalTo(1648))
                 .body("data.totalAmount", equalTo(1977600))
                 .body("data.closingQuantity", equalTo(4848.0F));
@@ -726,7 +729,10 @@ class DayIntakeSheetTest extends AbstractIntegrationTest {
                 .body("data.items[0].weightKg", equalTo(200))
                 .body("data.items[0].amount", equalTo(240000))
                 // Le lien vers le reçu, pour y revenir depuis l'écriture.
-                .body("data.items[0].sourceId", org.hamcrest.Matchers.notNullValue());
+                .body("data.items[0].sourceId", org.hamcrest.Matchers.notNullValue())
+                // Et vers la fiche du producteur nommé.
+                .body("data.items[0].memberId", equalTo(memberId))
+                .body("data.items[0].delegateSupplierId", org.hamcrest.Matchers.nullValue());
     }
 
     /** On ne retire pas plus que ce qui est là. */

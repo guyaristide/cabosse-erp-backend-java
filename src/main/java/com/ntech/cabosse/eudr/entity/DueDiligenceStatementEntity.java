@@ -38,6 +38,8 @@ public class DueDiligenceStatementEntity {
 
     /** Référence client (snapshot pour affichage rapide). */
     public String customerName;
+    /** La fiche client derrière le nom. Absente sur les déclarations antérieures au 27/10/2026. */
+    public UUID customerId;
 
     /** Code pays destinataire ISO 3166-1 alpha-2 (FR, DE, IT, ES, NL…). */
     public String exportCountryCode;

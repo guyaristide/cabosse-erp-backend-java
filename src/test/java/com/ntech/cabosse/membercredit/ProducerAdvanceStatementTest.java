@@ -82,8 +82,11 @@ class ProducerAdvanceStatementTest extends AbstractIntegrationTest {
         String articleId = givenAs(admin).contentType("application/json")
                 .body("{\"type\":\"RAW_MATERIAL\",\"name\":\"Cacao marchand\",\"unit\":\"kg\"}")
                 .when().post("/api/v1/articles").then().statusCode(201).extract().path("data.id");
+        String sectionId = givenAs(admin).contentType("application/json")
+                .body("{\"code\":\"SEC-" + TestFixtures.randomSlugSuffix().toUpperCase() + "\",\"name\":\"Section Brou\"}")
+                .when().post("/api/v1/sections").then().statusCode(201).extract().path("data.id");
         String memberId = givenAs(admin).contentType("application/json")
-                .body("{\"lastName\":\"Brou\",\"gender\":\"MALE\",\"status\":\"ACTIVE\"}")
+                .body("{\"lastName\":\"Brou\",\"gender\":\"MALE\",\"status\":\"ACTIVE\",\"sectionId\":\"" + sectionId + "\"}")
                 .when().post("/api/v1/members").then().statusCode(201).extract().path("data.id");
         // Un second producteur sans avance : il ne doit pas apparaître.
         givenAs(admin).contentType("application/json")
@@ -127,6 +130,8 @@ class ProducerAdvanceStatementTest extends AbstractIntegrationTest {
         // Solde : 100 000 − (60 000 + 0 retenu).
         assertAmount(statement, "data.rows[0].advanceBalance", "40000");
         assertAmount(statement, "data.totals.advanceBalance", "40000");
+        // Le nom de section devient un lien : la ligne porte son identifiant.
+        org.junit.jupiter.api.Assertions.assertEquals(sectionId, statement.getString("data.rows[0].sectionId"));
 
         // L'export répond aussi, au même format que les autres états.
         givenAs(admin).when()

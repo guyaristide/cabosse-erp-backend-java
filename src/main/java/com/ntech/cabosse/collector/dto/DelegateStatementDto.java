@@ -93,7 +93,9 @@ public record DelegateStatementDto(
             /** La position vaut-elle avertissement, sans connaître les libellés du tenant. */
             Boolean statusWarning,
             LocalDate statusSince,
-            BigDecimal owedAtStatus) {}
+            BigDecimal owedAtStatus,
+            /** La section du délégué, pour ouvrir sa fiche depuis son nom. */
+            UUID sectionId) {}
 
     /** Totaux de la période. Les taux ne s'additionnent pas : ils sont absents. */
     public record Totals(

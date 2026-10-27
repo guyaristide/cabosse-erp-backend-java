@@ -76,8 +76,11 @@ class MemberStatementTest extends AbstractIntegrationTest {
         String articleId = givenAs(admin).contentType("application/json")
                 .body("{\"type\":\"RAW_MATERIAL\",\"name\":\"Cacao marchand\",\"unit\":\"kg\"}")
                 .when().post("/api/v1/articles").then().statusCode(201).extract().path("data.id");
+        String sectionId = givenAs(admin).contentType("application/json")
+                .body("{\"code\":\"SEC-" + UUID.randomUUID().toString().substring(0, 6).toUpperCase() + "\",\"name\":\"Section Est\"}")
+                .when().post("/api/v1/sections").then().statusCode(201).extract().path("data.id");
         String memberId = givenAs(admin).contentType("application/json")
-                .body("{\"lastName\":\"KOUASSI\",\"gender\":\"MALE\",\"status\":\"ACTIVE\"}")
+                .body("{\"lastName\":\"KOUASSI\",\"gender\":\"MALE\",\"status\":\"ACTIVE\",\"sectionId\":\"" + sectionId + "\"}")
                 .when().post("/api/v1/members").then().statusCode(201).extract().path("data.id");
         givenAs(admin).contentType("application/json")
                 .body("{\"memberId\":\"" + memberId + "\",\"name\":\"Parcelle Nord\",\"surfaceHa\":2.5,"
@@ -97,6 +100,8 @@ class MemberStatementTest extends AbstractIntegrationTest {
         givenAs(admin).when().get("/api/v1/members/" + memberId + "/statement")
                 .then().statusCode(200)
                 .body("data.header.name", containsString("KOUASSI"))
+                // Le nom de section devient un lien : l'en-tête porte son identifiant.
+                .body("data.header.sectionId", equalTo(sectionId))
                 .body("data.header.parcelCount", equalTo(1))
                 .body("data.header.totalSurfaceHa", equalTo(2.5f))
                 .body("data.totals.deliveriesCount", equalTo(2))

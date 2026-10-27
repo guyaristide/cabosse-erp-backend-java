@@ -134,6 +134,7 @@ public class MemberCreditService {
         // Un accumulateur par producteur : [avances, retenues, poids, livré].
         Map<UUID, BigDecimal[]> sums = new java.util.LinkedHashMap<>();
         Map<UUID, String[]> identity = new java.util.HashMap<>();
+        Map<UUID, UUID> sectionIds = new java.util.HashMap<>();
         for (MemberCreditEntity c : repo.listDisbursedOrSettled()) {
             if (!scope.isEmpty() && (c.campaignId == null || !scope.contains(c.campaignId))) {
                 continue;
@@ -144,6 +145,7 @@ public class MemberCreditService {
             acc[1] = acc[1].add(nz(c.imputedAmount));
             identity.putIfAbsent(c.memberId,
                     new String[] { c.memberCode, c.memberName, c.sectionName });
+            if (c.sectionId != null) sectionIds.putIfAbsent(c.memberId, c.sectionId);
         }
 
         // Les livraisons de la période, pour ces producteurs seulement.
@@ -182,7 +184,8 @@ public class MemberCreditService {
             BigDecimal owed = owedByMember.getOrDefault(entry.getKey(), BigDecimal.ZERO);
             rows.add(new com.ntech.cabosse.membercredit.dto.ProducerAdvanceStatementDto.Row(
                     entry.getKey(), who[0], who[1], who[2],
-                    acc[0], acc[1], acc[2], acc[3], balance, owed));
+                    acc[0], acc[1], acc[2], acc[3], balance, owed,
+                    sectionIds.get(entry.getKey())));
             tAdv = tAdv.add(acc[0]);
             tRet = tRet.add(acc[1]);
             tWeight = tWeight.add(acc[2]);

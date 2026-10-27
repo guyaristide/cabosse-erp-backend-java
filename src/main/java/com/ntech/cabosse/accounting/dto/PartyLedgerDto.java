@@ -3,6 +3,7 @@ package com.ntech.cabosse.accounting.dto;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Le grand livre d'un tiers, avec ses lettres de rapprochement.
@@ -22,7 +23,10 @@ public record PartyLedgerDto(
         String partyName,
         List<Row> rows,
         /** Ce qui reste dû après rapprochement : la somme des lignes sans lettre. */
-        BigDecimal openBalance
+        BigDecimal openBalance,
+        /** La fiche du tiers et sa nature, quand le compte n'en a qu'une. */
+        UUID partyId,
+        String partyType
 ) {
 
     public record Row(

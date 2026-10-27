@@ -83,7 +83,9 @@ class StockCriticalThresholdTest extends AbstractIntegrationTest {
         givenAs(admin).when().get("/api/v1/stocks/" + articleId + "/sites/" + siteId)
                 .then().statusCode(200)
                 .body("data.belowThreshold", equalTo(true))
-                .body("data.critical", equalTo(true));
+                .body("data.critical", equalTo(true))
+                // Le site est nommé sur la position : le service le résout.
+                .body("data.siteName", equalTo("Entrepôt"));
 
         // Abaisser le pourcentage à 10 % (= seuil critique 10) : 15 n'est plus critique.
         givenAs(admin).contentType("application/json")

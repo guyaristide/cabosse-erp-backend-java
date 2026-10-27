@@ -2,6 +2,7 @@ package com.ntech.cabosse.accounting.dto;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * La balance auxiliaire : ce que doit chaque tiers, sous son collectif.
@@ -44,6 +45,11 @@ public record SubsidiaryBalanceDto(
             String partyType,
             BigDecimal totalDebit,
             BigDecimal totalCredit,
-            BigDecimal balance
+            BigDecimal balance,
+            /**
+             * La fiche du tiers, quand le compte n'en a qu'une. Nul sur un
+             * compte « divers » partagé : aucune fiche ne peut le revendiquer.
+             */
+            UUID partyId
     ) {}
 }

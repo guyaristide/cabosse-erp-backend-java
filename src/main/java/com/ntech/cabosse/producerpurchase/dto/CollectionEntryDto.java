@@ -32,5 +32,8 @@ public record CollectionEntryDto(
         /** Le délégué qui a livré pour lui, quand il y en a un. */
         String delegateName,
         Integer nbSacs,
-        BigDecimal weightKg
+        BigDecimal weightKg,
+        /** Les identifiants derrière les noms, pour que l'écran puisse ouvrir la fiche. */
+        UUID memberId,
+        UUID delegateSupplierId
 ) {}

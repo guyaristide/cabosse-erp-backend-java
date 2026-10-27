@@ -378,7 +378,8 @@ public class DelegateAccountService {
                     position == null ? null : position.statusLabel,
                     position == null ? null : warningByCode.get(position.statusCode),
                     position == null ? null : position.effectiveDate,
-                    position == null ? null : position.owedAmount));
+                    position == null ? null : position.owedAmount,
+                    delegate.sectionId));
 
             totalBalance = totalBalance.add(balance);
             totalAdvanced = totalAdvanced.add(advanced);
@@ -457,25 +458,31 @@ public class DelegateAccountService {
         record Op(LocalDate date,
                   com.ntech.cabosse.collector.dto.DelegateLedgerDto.Operation kind,
                   String ref, String fieldNoteRef,
-                  BigDecimal amount, BigDecimal weight, BigDecimal retention) {}
+                  BigDecimal amount, BigDecimal weight, BigDecimal retention,
+                  UUID sourceId, String sourceType) {}
 
         List<Op> ops = new ArrayList<>();
         for (CollectorAdvanceEntity a : advances.listDisbursedByDelegate(delegateSupplierId)) {
             if (campaignId != null && !campaignId.equals(a.campaignId)) continue;
             ops.add(new Op(a.advanceDate,
                     com.ntech.cabosse.collector.dto.DelegateLedgerDto.Operation.ADVANCE,
-                    a.ref, null, nz(a.effectiveAmount()), BigDecimal.ZERO, BigDecimal.ZERO));
+                    a.ref, null, nz(a.effectiveAmount()), BigDecimal.ZERO, BigDecimal.ZERO,
+                    a.id, "COLLECTOR_ADVANCE"));
         }
         for (var note : groupByDeliveryNote(purchases.listByDelegate(delegateSupplierId, campaignId))) {
+            // Le bordereau n'a pas de fiche : la ligne mène au premier reçu.
+            UUID firstReceipt = note.receipts().isEmpty() ? null : note.receipts().get(0).id();
             ops.add(new Op(note.date(),
                     com.ntech.cabosse.collector.dto.DelegateLedgerDto.Operation.DELIVERY,
                     note.deliveryRef(), note.deliveryRef(),
-                    note.amount(), note.weightKg(), note.retention()));
+                    note.amount(), note.weightKg(), note.retention(),
+                    firstReceipt, "PRODUCER_PURCHASE"));
         }
         for (var p : payments.listForDelegate(delegateSupplierId, campaignId)) {
             ops.add(new Op(p.date,
                     com.ntech.cabosse.collector.dto.DelegateLedgerDto.Operation.SETTLEMENT,
-                    p.ref, null, nz(p.totalAmount), BigDecimal.ZERO, BigDecimal.ZERO));
+                    p.ref, null, nz(p.totalAmount), BigDecimal.ZERO, BigDecimal.ZERO,
+                    p.id, "PRODUCER_PAYMENT"));
         }
         // Une date manquante ne doit pas faire disparaître l'opération :
         // elle passe en tête, où elle se voit.
@@ -505,7 +512,7 @@ public class DelegateAccountService {
                     weight.signum() > 0 ? delivered.divide(weight, 2, RoundingMode.HALF_UP) : null,
                     delivered, retention, net,
                     gross.signum() != 0 ? net.multiply(HUNDRED).divide(gross, 1, RoundingMode.HALF_UP) : null,
-                    op.amount()));
+                    op.amount(), op.sourceId(), op.sourceType()));
         }
 
         return new com.ntech.cabosse.collector.dto.DelegateLedgerDto(
@@ -576,7 +583,7 @@ public class DelegateAccountService {
                 lines.add(new DelegateAccountDto.Receipt(
                         r.id, r.ref, r.officialReceiptRef, r.producerName, r.date,
                         nz(r.weightKg), nz(r.amount), nz(r.delegateMargin),
-                        nz(r.delegateRetention)));
+                        nz(r.delegateRetention), r.memberId));
             }
             notes.add(new DelegateAccountDto.DeliveryNote(
                     en.getKey(), date, lines.size(), weight, amount, margin, noteRetention, lines));

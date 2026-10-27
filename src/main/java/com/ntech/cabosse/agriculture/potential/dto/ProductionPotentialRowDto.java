@@ -23,5 +23,7 @@ public record ProductionPotentialRowDto(
         int parcelCount,
         BigDecimal surfaceHa,
         BigDecimal estimateKg,
-        BigDecimal yieldKgPerHa
+        BigDecimal yieldKgPerHa,
+        /** La section du producteur, pour ouvrir sa fiche depuis son nom. */
+        UUID sectionId
 ) {}

@@ -68,7 +68,9 @@ public class CollectionEntriesService {
                     r != null ? r.producerName : null,
                     r != null ? r.delegateName : null,
                     r != null ? r.nbSacs : null,
-                    r != null ? r.weightKg : null);
+                    r != null ? r.weightKg : null,
+                    r != null ? r.memberId : null,
+                    r != null ? r.delegateSupplierId : null);
         }).toList();
     }
 }

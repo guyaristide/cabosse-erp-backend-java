@@ -28,7 +28,9 @@ public record MemberStatementDto(
             UUID id, String code, String name, String status,
             String sectionName, String village, String phone, LocalDate joinedAt,
             boolean collector, int parcelCount, BigDecimal totalSurfaceHa,
-            UUID supplierId
+            UUID supplierId,
+            /** La section, pour ouvrir sa fiche depuis son nom. */
+            UUID sectionId
     ) {}
 
     public record Totals(

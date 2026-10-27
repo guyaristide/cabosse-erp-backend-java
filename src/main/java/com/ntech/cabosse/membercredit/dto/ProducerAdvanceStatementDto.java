@@ -42,7 +42,9 @@ public record ProducerAdvanceStatementDto(
              * livraisons directes. À côté du solde d'avance, pour lire la
              * position dans un même état, sans compensation silencieuse.
              */
-            BigDecimal owedToProducer) {}
+            BigDecimal owedToProducer,
+            /** La section du producteur, pour ouvrir sa fiche depuis son nom. */
+            UUID sectionId) {}
 
     /** Totaux de la période. */
     public record Totals(

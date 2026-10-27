@@ -46,7 +46,11 @@ public record DayIntakeRowDto(
          * du français à l'écran, ce qui a déjà coûté une panne
          * (DEC-16).</p>
          */
-        String supplierStatusLabel
+        String supplierStatusLabel,
+        /** La fiche fournisseur derrière l'apporteur : le délégué qui a livré, sinon le fournisseur du reçu. */
+        UUID supplierId,
+        /** Le membre livré, quand la ligne est la livraison d'un sociétaire. */
+        UUID memberId
 ) {
 
     /** Une ligne de reçu, la forme historique. */
@@ -55,7 +59,8 @@ public record DayIntakeRowDto(
                            BigDecimal weightKg, BigDecimal unitPrice, BigDecimal amount,
                            BigDecimal cumulativeQuantity, Integer cumulativeBags) {
         this(purchaseId, date, supplierName, ref, deliveryRef, supplierKind, nbSacs, weightKg,
-                unitPrice, amount, cumulativeQuantity, cumulativeBags, "RECEIPT", null, null);
+                unitPrice, amount, cumulativeQuantity, cumulativeBags, "RECEIPT", null, null,
+                null, null);
     }
 
     /** Une ligne de reçu, avec le statut que portait son document. */
@@ -66,6 +71,17 @@ public record DayIntakeRowDto(
                            String supplierStatusLabel) {
         this(purchaseId, date, supplierName, ref, deliveryRef, supplierKind, nbSacs, weightKg,
                 unitPrice, amount, cumulativeQuantity, cumulativeBags, "RECEIPT", null,
-                supplierStatusLabel);
+                supplierStatusLabel, null, null);
+    }
+
+    /** Une ligne de reçu qui sait qui l'a apportée, pour ouvrir sa fiche. */
+    public DayIntakeRowDto(UUID purchaseId, LocalDate date, String supplierName, String ref,
+                           String deliveryRef, String supplierKind, Integer nbSacs,
+                           BigDecimal weightKg, BigDecimal unitPrice, BigDecimal amount,
+                           BigDecimal cumulativeQuantity, Integer cumulativeBags,
+                           String supplierStatusLabel, UUID supplierId, UUID memberId) {
+        this(purchaseId, date, supplierName, ref, deliveryRef, supplierKind, nbSacs, weightKg,
+                unitPrice, amount, cumulativeQuantity, cumulativeBags, "RECEIPT", null,
+                supplierStatusLabel, supplierId, memberId);
     }
 }

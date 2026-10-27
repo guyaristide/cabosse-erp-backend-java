@@ -28,7 +28,9 @@ public record DueDiligenceResponseDto(
         String rejectionReason,
         UUID pdfFileId,
         String notes,
-        Instant createdAt
+        Instant createdAt,
+        /** Le client de la vente, pour ouvrir sa fiche depuis son nom. */
+        UUID customerId
 ) {
     public static DueDiligenceResponseDto from(DueDiligenceStatementEntity e) {
         return new DueDiligenceResponseDto(
@@ -39,7 +41,8 @@ public record DueDiligenceResponseDto(
                 e.status, e.eudrReferenceNumber,
                 e.generatedAt, e.submittedAt, e.submittedByEmail,
                 e.acceptedAt, e.rejectedAt, e.rejectionReason,
-                e.pdfFileId, e.notes, e.createdAt
+                e.pdfFileId, e.notes, e.createdAt,
+                e.customerId
         );
     }
 }

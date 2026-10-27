@@ -85,5 +85,7 @@ public record DelegateAccountDto(
     public record Receipt(
             UUID id, String ref, String officialReceiptRef, String producerName,
             LocalDate date, BigDecimal weightKg, BigDecimal amount, BigDecimal margin,
-            BigDecimal retention) {}
+            BigDecimal retention,
+            /** Le membre nommé sur le reçu, pour ouvrir sa fiche. */
+            UUID memberId) {}
 }

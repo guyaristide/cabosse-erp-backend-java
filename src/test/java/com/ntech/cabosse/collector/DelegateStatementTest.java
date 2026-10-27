@@ -222,6 +222,8 @@ class DelegateStatementTest extends AbstractIntegrationTest {
 
         // Les lignes sont triées par code : del-a précède del-b.
         org.junit.jupiter.api.Assertions.assertEquals("del-a", statement.getString("data.rows[0].delegateCode"));
+        // Le nom de section devient un lien : la ligne porte son identifiant.
+        org.junit.jupiter.api.Assertions.assertEquals(sectionId, statement.getString("data.rows[0].sectionId"));
         assertAmount(statement, "data.rows[0].advancedAmount", "300000");
         assertAmount(statement, "data.rows[0].retentionPerKg", "25");
         assertAmount(statement, "data.rows[0].retentionAmount", "5000");  // 200 kg x 25
@@ -321,6 +323,12 @@ class DelegateStatementTest extends AbstractIntegrationTest {
         // Une avance n'a pas de bordereau : le numéro de brousse ne se
         // porte que sur ce qui est descendu du terrain.
         org.junit.jupiter.api.Assertions.assertNull(ledger.getString("data.lines[0].fieldNoteRef"));
+
+        // Chaque ligne sait d'où elle vient, pour ouvrir la pièce.
+        org.junit.jupiter.api.Assertions.assertEquals("COLLECTOR_ADVANCE", ledger.getString("data.lines[0].sourceType"));
+        org.junit.jupiter.api.Assertions.assertNotNull(ledger.getString("data.lines[0].sourceId"));
+        org.junit.jupiter.api.Assertions.assertEquals("PRODUCER_PURCHASE", ledger.getString("data.lines[1].sourceType"));
+        org.junit.jupiter.api.Assertions.assertNotNull(ledger.getString("data.lines[1].sourceId"));
     }
 
     @Test

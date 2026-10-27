@@ -2,6 +2,7 @@ package com.ntech.cabosse.tracabilite.dto;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Vue généalogique complète d'un lot — agrégat consommé en un appel par
@@ -36,5 +37,9 @@ public record LotTraceResponseDto(
         String periodLabel,
         int durationDays,
         List<StageDto> stages,
-        List<DaughterLotDto> daughterLots
+        List<DaughterLotDto> daughterLots,
+        /** La fiche fournisseur derrière la pièce dominante, quand la pièce la connaît. */
+        UUID supplierId,
+        /** L'article de la matière dominante. */
+        UUID articleId
 ) {}

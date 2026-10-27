@@ -167,7 +167,7 @@ public class MemberStatementService {
                 m.id, m.code, m.name, m.status != null ? m.status.name() : null,
                 m.sectionId == null ? null : sections.findById(m.sectionId).map(sec -> sec.name).orElse(null),
                 m.village, m.phone, m.joinedAt, m.collector,
-                owned.size(), surface, m.supplierId);
+                owned.size(), surface, m.supplierId, m.sectionId);
         return new MemberStatementDto(header, totals, rows, creditRows, ops,
                 selected != null ? selected.id : null, selected != null ? selected.label : null);
     }

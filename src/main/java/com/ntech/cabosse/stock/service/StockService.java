@@ -105,11 +105,22 @@ public class StockService {
 
     // ─── Lecture ────────────────────────────────────────────────────
 
+    /** Les noms de site, chargés une fois par appel : une lecture par ligne ferait autant d'allers-retours. */
+    private Map<UUID, String> siteNames() {
+        Map<UUID, String> out = new HashMap<>();
+        for (SiteEntity s : sites.listAll()) out.put(s.id, s.name);
+        return out;
+    }
+
+    private String siteNameOf(UUID siteId) {
+        return siteId == null ? null : sites.findById(siteId).map(s -> s.name).orElse(null);
+    }
+
     public StockItemResponseDto getByArticleAndSite(UUID articleId, UUID siteId) {
         StockItemEntity e = stockItems.findByArticleAndSite(articleId, siteId)
                 .orElseThrow(() -> new NotFoundException(
                         Messages.msg("m.stk-no-stock-for-article-site")));
-        return StockItemResponseDto.from(e, warningPct());
+        return StockItemResponseDto.from(e, warningPct(), siteNameOf(e.siteId));
     }
 
     /** Liste complète, réservée aux exports — l'API de liste passe par {@link #pageBySite}. */
@@ -117,8 +128,9 @@ public class StockService {
                                                   ArticleType articleType,
                                                   boolean belowThresholdOnly) {
         int pct = warningPct();
+        Map<UUID, String> names = siteNames();
         return stockItems.listBySite(siteId, q, articleType, belowThresholdOnly).stream()
-                .map(e -> StockItemResponseDto.from(e, pct))
+                .map(e -> StockItemResponseDto.from(e, pct, names.get(e.siteId)))
                 .toList();
     }
 
@@ -127,10 +139,11 @@ public class StockService {
             PageRequest pr) {
         long total = stockItems.countBySite(siteId, q, articleType, belowThresholdOnly);
         int pct = warningPct();
+        Map<UUID, String> names = siteNames();
         List<StockItemResponseDto> items = stockItems
                 .listBySite(siteId, q, articleType, belowThresholdOnly, pr.skip(), pr.perPage())
                 .stream()
-                .map(e -> StockItemResponseDto.from(e, pct))
+                .map(e -> StockItemResponseDto.from(e, pct, names.get(e.siteId)))
                 .toList();
         Map<String, String> filters = new HashMap<>();
         if (siteId != null) filters.put("siteId", siteId.toString());
@@ -143,8 +156,9 @@ public class StockService {
 
     public List<StockItemResponseDto> listByArticle(UUID articleId) {
         int pct = warningPct();
+        Map<UUID, String> names = siteNames();
         return stockItems.listByArticle(articleId).stream()
-                .map(e -> StockItemResponseDto.from(e, pct))
+                .map(e -> StockItemResponseDto.from(e, pct, names.get(e.siteId)))
                 .toList();
     }
 
@@ -278,9 +292,9 @@ public class StockService {
         // dépendent que des dates d'effet, jamais de l'ordre de saisie.
         if (movements.existsLaterThan(article.id, site.id, mvt.occurredAt)) {
             StockItemEntity recomputed = recomputeChronologically(article.id, site.id);
-            if (recomputed != null) return StockItemResponseDto.from(recomputed);
+            if (recomputed != null) return StockItemResponseDto.from(recomputed, warningPct(), site.name);
         }
-        return StockItemResponseDto.from(updated);
+        return StockItemResponseDto.from(updated, warningPct(), site.name);
     }
 
     // ─── Rejeu chronologique d'un couple (article, site) ────────────
@@ -1102,11 +1116,12 @@ public class StockService {
     public List<StockItemResponseDto> snapshotBySiteAsItems(UUID siteId, Instant asOf) {
         List<StockItemEntity> current = stockItems.listBySite(siteId, null, null, false);
         List<StockItemResponseDto> out = new ArrayList<>(current.size());
+        String siteName = siteNameOf(siteId);
         for (StockItemEntity it : current) {
             SnapshotPoint p = snapshotAt(it.articleId, siteId, asOf);
             // Construit un DTO avec les snapshots article du present + qté/CMUP du passé
             StockItemEntity snap = cloneAsOf(it, p.quantity(), p.cmup());
-            out.add(StockItemResponseDto.from(snap));
+            out.add(StockItemResponseDto.from(snap, 20, siteName));
         }
         return out;
     }

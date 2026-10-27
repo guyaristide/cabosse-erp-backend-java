@@ -100,6 +100,7 @@ public class DueDiligenceService {
         ddr.saleId = sale.id;
         ddr.saleRef = sale.ref;
         ddr.customerName = sale.customerName;
+        ddr.customerId = sale.customerId;
         // Code pays destinataire : à priori celui du client, mais on n'a
         // pas le détail au MVP. On laisse vide pour saisie manuelle.
         ddr.exportCountryCode = null;

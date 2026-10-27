@@ -42,7 +42,13 @@ public class SubsidiaryLedgerService {
     @Inject TenantPreferencesLookup preferences;
 
     /** Un tiers tel qu'il compte ici : un compte, un nom, une nature. */
-    private record Party(String account, String collective, String name, String type) {}
+    private record Party(String account, String collective, String name, String type,
+                         java.util.UUID id) {}
+
+    /** La fiche d'un compte, seulement quand une seule la revendique. */
+    private static java.util.UUID soleHolderId(List<Party> holders) {
+        return holders.size() == 1 ? holders.get(0).id() : null;
+    }
 
     /**
      * Le nom d'une ligne auxiliaire quand plusieurs fiches la partagent.
@@ -114,7 +120,8 @@ public class SubsidiaryLedgerService {
                 BigDecimal bal = cell[0].subtract(cell[1]);
                 rows.add(new SubsidiaryBalanceDto.Row(
                         account, holderName(holders, labels.get(account)),
-                        holders.get(0).type(), cell[0], cell[1], bal));
+                        holders.get(0).type(), cell[0], cell[1], bal,
+                        soleHolderId(holders)));
                 partiesBalance = partiesBalance.add(bal);
             }
             rows.sort(Comparator.comparing(SubsidiaryBalanceDto.Row::account));
@@ -197,8 +204,12 @@ public class SubsidiaryLedgerService {
                     l.date(), l.pieceRef(), l.sourceRef(), l.libelle(),
                     l.debit(), l.credit(), running, letters[i]));
         }
+        List<Party> holders = declaredParties().stream()
+                .filter(p -> p.account().equals(account)).toList();
         return new com.ntech.cabosse.accounting.dto.PartyLedgerDto(
-                account, partyNameOf(account), rows, open);
+                account, partyNameOf(account), rows, open,
+                soleHolderId(holders),
+                holders.isEmpty() ? null : holders.get(0).type());
     }
 
     /** A, B … Z, puis AA, AB : le nombre de lettres ne borne pas le lettrage. */
@@ -239,7 +250,7 @@ public class SubsidiaryLedgerService {
             BigDecimal[] cell = e.getValue();
             rows.add(new SubsidiaryBalanceDto.Row(
                     account, labels.getOrDefault(account, ""), null,
-                    cell[0], cell[1], cell[0].subtract(cell[1])));
+                    cell[0], cell[1], cell[0].subtract(cell[1]), null));
         }
         rows.sort(Comparator.comparing(SubsidiaryBalanceDto.Row::account));
         return rows;
@@ -255,7 +266,7 @@ public class SubsidiaryLedgerService {
                     c.collectiveAccount == null || c.collectiveAccount.isBlank()
                             ? com.ntech.cabosse.accounting.entity.SyscohadaAccounts.CLIENTS
                             : c.collectiveAccount.trim(),
-                    c.name, "CUSTOMER"));
+                    c.name, "CUSTOMER", c.id));
         }
         for (var s : suppliers.listAll()) {
             if (s.subsidiaryAccount == null || s.subsidiaryAccount.isBlank()) continue;
@@ -264,7 +275,7 @@ public class SubsidiaryLedgerService {
                             ? (s.collector ? prefs.delegatePayableAccount()
                                     : com.ntech.cabosse.accounting.entity.SyscohadaAccounts.FOURNISSEURS)
                             : s.collectiveAccount.trim(),
-                    s.name, "SUPPLIER"));
+                    s.name, "SUPPLIER", s.id));
         }
         return out;
     }

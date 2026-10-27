@@ -90,7 +90,11 @@ public class FermentationBatchService {
         e.id = idGenerator.newId();
         e.ref = refService.next();
         e.harvestIds = new ArrayList<>(requested);
-        e.harvestCodes = hList.stream().map(h -> h.code).toList();
+        // Dans l'ordre demandé : un $in Mongo ne garantit pas le sien, et
+        // les deux tableaux se lisent côte à côte.
+        java.util.Map<UUID, String> codeById = new java.util.HashMap<>();
+        for (HarvestEntity h : hList) codeById.put(h.id, h.code);
+        e.harvestCodes = requested.stream().map(codeById::get).toList();
         e.weightInKg = payload.weightInKg();
         e.status = FermentationBatchStatus.PREPARING;
         e.notes = blankToNull(payload.notes());

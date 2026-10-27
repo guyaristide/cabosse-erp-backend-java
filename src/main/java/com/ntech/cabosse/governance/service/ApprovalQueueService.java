@@ -14,6 +14,7 @@ import com.ntech.cabosse.purchaserequest.repository.PurchaseRequestRepository;
 import com.ntech.cabosse.permission.service.PermissionResolver;
 import com.ntech.cabosse.shared.api.PageRequest;
 import com.ntech.cabosse.shared.api.Pagination;
+import com.ntech.cabosse.treasury.dto.BeneficiaryKind;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.jwt.JsonWebToken;
@@ -134,7 +135,8 @@ public class ApprovalQueueService {
                     a.notes, a.createdByEmail,
                     a.governanceApprovalRequired,
                     canApprove && (!a.governanceApprovalRequired || canApproveGovernance),
-                    a.siteId, a.campaignId));
+                    a.siteId, a.campaignId,
+                    a.delegateSupplierId != null ? BeneficiaryKind.DELEGATE.name() : null));
         });
     }
 
@@ -166,7 +168,9 @@ public class ApprovalQueueService {
                     r.notes, r.requestedByEmail,
                     governance,
                     canApprove && (!governance || canApproveGovernance),
-                    r.siteId, r.campaignId));
+                    r.siteId, r.campaignId,
+                    r.delegateSupplierId != null ? BeneficiaryKind.DELEGATE.name()
+                            : r.memberId != null ? BeneficiaryKind.MEMBER.name() : null));
         });
     }
 
@@ -193,7 +197,8 @@ public class ApprovalQueueService {
                         c.notes, c.requestedByEmail,
                         c.governanceApprovalRequired,
                         false,
-                        null, c.campaignId)));
+                        null, c.campaignId,
+                        c.memberId != null ? BeneficiaryKind.MEMBER.name() : null)));
     }
 
     /** Ancienneté en jours, sur l'horloge du serveur. */
@@ -227,7 +232,8 @@ public class ApprovalQueueService {
                             r.justification, r.createdByEmail,
                             false,
                             canApprove && (isAdmin || !mine),
-                            r.siteId, r.campaignId));
+                            r.siteId, r.campaignId,
+                            r.supplierId != null ? BeneficiaryKind.SUPPLIER.name() : null));
                 });
     }
 
@@ -260,7 +266,9 @@ public class ApprovalQueueService {
                     r.reason, r.createdByEmail,
                     false,
                     canApprove && !mine,
-                    null, null));
+                    null, null,
+                    // Une caisse n'est pas un tiers : pas de fiche à ouvrir.
+                    null));
         });
     }
 
@@ -296,7 +304,8 @@ public class ApprovalQueueService {
                     governanceStep ? canApproveGovernance : canApprove,
                     // La dépense n'est pas rattachée à un site : elle
                     // engage la structure, pas un magasin.
-                    null, e.campaignId));
+                    null, e.campaignId,
+                    e.supplierId != null ? BeneficiaryKind.SUPPLIER.name() : null));
         });
     }
 

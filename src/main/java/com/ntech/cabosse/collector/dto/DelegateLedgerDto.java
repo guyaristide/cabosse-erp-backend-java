@@ -59,7 +59,15 @@ public record DelegateLedgerDto(
             /** (I) = H / C, en pourcentage. */
             BigDecimal repaymentRatePct,
             /** Montant propre à l'opération, hors cumul. */
-            BigDecimal amount) {}
+            BigDecimal amount,
+            /**
+             * La pièce d'origine, pour l'ouvrir depuis la ligne. Une
+             * livraison regroupe plusieurs reçus : c'est le premier qui
+             * est porté, le bordereau n'ayant pas de fiche à lui.
+             */
+            UUID sourceId,
+            /** COLLECTOR_ADVANCE, PRODUCER_PURCHASE ou PRODUCER_PAYMENT. */
+            String sourceType) {}
 
     public record Totals(
             BigDecimal advanced,

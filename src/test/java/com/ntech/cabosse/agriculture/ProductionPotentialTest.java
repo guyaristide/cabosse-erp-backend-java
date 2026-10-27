@@ -80,10 +80,24 @@ class ProductionPotentialTest extends AbstractIntegrationTest {
     }
 
     private String createMember(UserEntity admin, String lastName) {
+        return createMember(admin, lastName, null);
+    }
+
+    private String createMember(UserEntity admin, String lastName, String sectionId) {
         return givenAs(admin)
                 .contentType("application/json")
-                .body("{\"lastName\":\"" + lastName + "\",\"gender\":\"MALE\",\"status\":\"ACTIVE\"}")
+                .body("{\"lastName\":\"" + lastName + "\",\"gender\":\"MALE\",\"status\":\"ACTIVE\""
+                        + (sectionId == null ? "" : ",\"sectionId\":\"" + sectionId + "\"") + "}")
                 .when().post("/api/v1/members")
+                .then().statusCode(201)
+                .extract().path("data.id");
+    }
+
+    private String createSection(UserEntity admin) {
+        return givenAs(admin)
+                .contentType("application/json")
+                .body("{\"code\":\"SEC-" + TestFixtures.randomSlugSuffix().toUpperCase() + "\",\"name\":\"Section Nord\"}")
+                .when().post("/api/v1/sections")
                 .then().statusCode(201)
                 .extract().path("data.id");
     }
@@ -109,7 +123,8 @@ class ProductionPotentialTest extends AbstractIntegrationTest {
         String campaignId = createCampaign(admin);
 
         // 20 ha pour 18 000 kg → 900 kg/ha.
-        String grand = createMember(admin, "Grand");
+        String sectionId = createSection(admin);
+        String grand = createMember(admin, "Grand", sectionId);
         createParcel(admin, grand, campaignId, "20", "18000");
 
         // 1 ha pour 2 000 kg → 2 000 kg/ha.
@@ -127,6 +142,8 @@ class ProductionPotentialTest extends AbstractIntegrationTest {
                 .body("data.campaignLabel", equalTo("Campagne principale 2026"))
                 .body("data.rows", hasSize(2))
                 .body("data.rows[0].memberName", equalTo("Grand"))
+                // Le nom de section devient un lien : la ligne porte son identifiant.
+                .body("data.rows[0].sectionId", equalTo(sectionId))
                 .extract().jsonPath();
 
         assertThat(body.getDouble("data.totalSurfaceHa")).isEqualTo(21.0);

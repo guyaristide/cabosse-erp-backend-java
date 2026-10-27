@@ -69,6 +69,11 @@ public class DayIntakeSheetService {
         return Boolean.TRUE.equals(collectorById.get(party)) ? "DELEGATE" : "PRODUCER";
     }
 
+    /** La fiche derrière le nom affiché : le délégué qui a livré, sinon le fournisseur du reçu. */
+    private static UUID supplierIdOf(ProducerPurchaseEntity r) {
+        return r.delegateSupplierId != null ? r.delegateSupplierId : r.supplierId;
+    }
+
     /** Qui est délégué aujourd'hui, par identifiant de fiche. */
     private java.util.Map<UUID, Boolean> collectorFlags() {
         java.util.Map<UUID, Boolean> out = new java.util.HashMap<>();
@@ -171,7 +176,7 @@ public class DayIntakeSheetService {
                     null, date, null, m.ref, null, null,
                     m.bags, weight, m.unitPrice, nz(m.total),
                     runningQty, runningBags,
-                    "OPENING", null, null));
+                    "OPENING", null, null, null, null));
         }
         for (ProducerPurchaseEntity r : receipts) {
             BigDecimal weight = nz(r.weightKg);
@@ -186,7 +191,8 @@ public class DayIntakeSheetService {
                     r.ref, r.deliveryRef,
                     supplierKindOf(r, collectorById),
                     r.nbSacs, weight, r.guaranteedPricePerKg, nz(r.amount),
-                    runningQty, runningBags, r.counterpartyStatus));
+                    runningQty, runningBags, r.counterpartyStatus,
+                    supplierIdOf(r), r.memberId));
         }
 
         // Le brassage porte sur ce qui vient d'entrer : les corrections
@@ -207,7 +213,7 @@ public class DayIntakeSheetService {
                     null, c.date, c.reason, c.ref, null, null,
                     bags == 0 ? null : -bags, removed.negate(), null, null,
                     runningQty, runningBags,
-                    "CORRECTION", c.id, null));
+                    "CORRECTION", c.id, null, null, null));
         }
 
         // Ce qui est sorti du magasin dans la journée. Sans ligne sur la
@@ -346,7 +352,7 @@ public class DayIntakeSheetService {
                     totalAmount = totalAmount.add(nz(m.total));
                     rows.add(new DayIntakeRowDto(null, event.date(), null, m.ref, null, null,
                             m.bags, weight, m.unitPrice, nz(m.total),
-                            runningQty, runningBags, "OPENING", null, null));
+                            runningQty, runningBags, "OPENING", null, null, null, null));
                 }
                 case RECEIPT -> {
                     ProducerPurchaseEntity r = (ProducerPurchaseEntity) event.payload();
@@ -361,7 +367,8 @@ public class DayIntakeSheetService {
                             r.ref, r.deliveryRef,
                             supplierKindOf(r, collectorById),
                             r.nbSacs, weight, r.guaranteedPricePerKg, nz(r.amount),
-                            runningQty, runningBags, r.counterpartyStatus));
+                            runningQty, runningBags, r.counterpartyStatus,
+                            supplierIdOf(r), r.memberId));
                 }
                 case CORRECTION -> {
                     StockCorrectionEntity c = (StockCorrectionEntity) event.payload();
@@ -373,7 +380,7 @@ public class DayIntakeSheetService {
                     correctedBags += bags;
                     rows.add(new DayIntakeRowDto(null, c.date, c.reason, c.ref, null, null,
                             bags == 0 ? null : -bags, removed.negate(), null, null,
-                            runningQty, runningBags, "CORRECTION", c.id, null));
+                            runningQty, runningBags, "CORRECTION", c.id, null, null, null));
                 }
                 case OUTFLOW -> {
                     var m = (com.ntech.cabosse.stock.entity.StockMovementEntity) event.payload();
@@ -386,7 +393,7 @@ public class DayIntakeSheetService {
                     rows.add(new DayIntakeRowDto(null, event.date(),
                             m.sourceRef, m.ref, null, null,
                             bags == 0 ? null : -bags, left.negate(), null, null,
-                            runningQty, runningBags, "OUTFLOW", null, null));
+                            runningQty, runningBags, "OUTFLOW", null, null, null, null));
                 }
             }
         }

@@ -47,9 +47,13 @@ class UnchainedProcessingTest extends AbstractIntegrationTest {
 
     /** @param activities filières du tenant, qui décident de ses capacités */
     private UserEntity adminOf(String... activities) {
+        return adminOf(TenantOrganizationModel.PRIVATE_COMPANY, activities);
+    }
+
+    private UserEntity adminOf(TenantOrganizationModel model, String... activities) {
         TenantEntity tenant = fixtures.createActiveTenant(
                 "coop-chn-" + TestFixtures.randomSlugSuffix(), "Structure Transformation");
-        tenant.organizationModel = TenantOrganizationModel.PRIVATE_COMPANY;
+        tenant.organizationModel = model;
         tenant.activities = new ArrayList<>();
         for (String code : activities) {
             TenantActivity activity = new TenantActivity();
@@ -185,5 +189,58 @@ class UnchainedProcessingTest extends AbstractIntegrationTest {
                 .when().post("/api/v1/fermentation-batches")
                 .then().statusCode(201)
                 .body("data.harvestIds", hasSize(0));
+    }
+
+    /**
+     * Les codes suivent l'ordre des identifiants demandés.
+     *
+     * <p>Les deux tableaux se lisent côte à côte, et un $in Mongo ne rend
+     * pas les récoltes dans l'ordre demandé : le code de la seconde
+     * pouvait se retrouver en face de l'identifiant de la première.</p>
+     */
+    @Test
+    void a_fermentation_batch_lists_harvest_codes_in_the_requested_order() {
+        UserEntity a = adminOf(TenantOrganizationModel.COOPERATIVE, "cacao-production");
+        String memberId = givenAs(a).contentType("application/json")
+                .body("{\"lastName\":\"Koffi\",\"gender\":\"MALE\",\"status\":\"ACTIVE\"}")
+                .when().post("/api/v1/members").then().statusCode(201).extract().path("data.id");
+        String parcelId = givenAs(a).contentType("application/json")
+                .body("""
+                        { "name": "Parcelle Sud", "surfaceHa": 4,
+                          "gpsCenter": [-4.02, 5.23], "memberId": "%s", "status": "ACTIVE" }
+                        """.formatted(memberId))
+                .when().post("/api/v1/parcels").then().statusCode(201).extract().path("data.id");
+        // Une récolte se rattache à la campagne qui couvre sa date.
+        java.time.LocalDate today = java.time.LocalDate.now();
+        givenAs(a).contentType("application/json")
+                .body("""
+                        { "label": "Principale", "startDate": "%s", "endDate": "%s",
+                          "basePricePerKg": 1000 }
+                        """.formatted(today.minusMonths(2), today.plusMonths(3)))
+                .when().post("/api/v1/campaigns").then().statusCode(201);
+
+        String[] ids = new String[2];
+        String[] codes = new String[2];
+        for (int i = 0; i < 2; i++) {
+            var created = givenAs(a).contentType("application/json")
+                    .body("""
+                            { "parcelId": "%s", "harvestDate": "%s", "freshBeansKg": 500 }
+                            """.formatted(parcelId, java.time.LocalDate.now().minusDays(2 - i)))
+                    .when().post("/api/v1/harvests").then().statusCode(201).extract().jsonPath();
+            ids[i] = created.getString("data.id");
+            codes[i] = created.getString("data.code");
+        }
+
+        // Demandées dans l'ordre inverse de leur création.
+        givenAs(a).contentType("application/json")
+                .body("""
+                        { "weightInKg": 800, "harvestIds": ["%s", "%s"] }
+                        """.formatted(ids[1], ids[0]))
+                .when().post("/api/v1/fermentation-batches")
+                .then().statusCode(201)
+                .body("data.harvestIds[0]", equalTo(ids[1]))
+                .body("data.harvestIds[1]", equalTo(ids[0]))
+                .body("data.harvestCodes[0]", equalTo(codes[1]))
+                .body("data.harvestCodes[1]", equalTo(codes[0]));
     }
 }

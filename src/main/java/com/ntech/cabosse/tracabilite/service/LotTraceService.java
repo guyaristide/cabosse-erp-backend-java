@@ -32,6 +32,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * Service de traçabilité — reconstitue la généalogie d'un lot à partir
@@ -65,6 +66,10 @@ public class LotTraceService {
 
     @Inject ManufacturingOrderRepository ofs;
     @Inject StockMovementRepository movements;
+    // Pour remonter du mouvement à la fiche fournisseur : le mouvement ne
+    // porte que la pièce, pas le tiers.
+    @Inject com.ntech.cabosse.achats.repository.PurchaseOrderRepository purchaseOrders;
+    @Inject com.ntech.cabosse.producerpurchase.repository.ProducerPurchaseRepository producerPurchases;
 
     // ════════════════════════════════════════════════════════════════
     //  API publique
@@ -146,7 +151,9 @@ public class LotTraceService {
                 periodLabel,
                 durationDays,
                 stages,
-                daughters
+                daughters,
+                upstream.dominantSupplierId,
+                upstream.dominantArticleId
         );
     }
 
@@ -155,17 +162,19 @@ public class LotTraceService {
     // ════════════════════════════════════════════════════════════════
 
     private record UpstreamSource(MovementSource type, String ref, String label,
-                                  Instant when, String articleName) {}
+                                  Instant when, String articleName, UUID sourceEntityId) {}
 
     private record UpstreamInference(
             List<UpstreamSource> sources,
             String dominantSupplier,
-            String dominantMaterial
+            String dominantMaterial,
+            UUID dominantSupplierId,
+            UUID dominantArticleId
     ) {}
 
     private UpstreamInference inferUpstream(ManufacturingOrderEntity of) {
         if (of.consumptionLines == null || of.consumptionLines.isEmpty()) {
-            return new UpstreamInference(List.of(), null, null);
+            return new UpstreamInference(List.of(), null, null, null, null);
         }
         Instant cutoff = of.startedAt != null ? of.startedAt : of.createdAt;
         if (cutoff == null) cutoff = Instant.now();
@@ -173,6 +182,7 @@ public class LotTraceService {
         List<UpstreamSource> sources = new ArrayList<>();
         Map<String, Integer> supplierCount = new HashMap<>();
         Map<String, Integer> materialCount = new HashMap<>();
+        Map<String, UUID> materialIds = new HashMap<>();
         for (ConsumptionLine line : of.consumptionLines) {
             if (line.articleId == null) continue;
             // Note : on cherche les mouvements sur le site de l'OF — pas porté
@@ -184,18 +194,44 @@ public class LotTraceService {
                 String label = formatSourceLabel(m);
                 sources.add(new UpstreamSource(
                         m.sourceType, m.sourceRef, label, m.occurredAt,
-                        line.articleName));
+                        line.articleName, m.sourceEntityId));
                 if (label != null && !label.isBlank()) {
                     supplierCount.merge(label, 1, Integer::sum);
                 }
             }
             if (line.articleName != null) {
                 materialCount.merge(line.articleName, 1, Integer::sum);
+                materialIds.putIfAbsent(line.articleName, line.articleId);
             }
         }
         String dominantSupplier = pickDominant(supplierCount);
         String dominantMaterial = pickDominant(materialCount);
-        return new UpstreamInference(sources, dominantSupplier, dominantMaterial);
+        UUID dominantSupplierId = dominantSupplier == null ? null : sources.stream()
+                .filter(s -> dominantSupplier.equals(s.label()))
+                .map(this::supplierIdOf)
+                .filter(java.util.Objects::nonNull)
+                .findFirst().orElse(null);
+        return new UpstreamInference(sources, dominantSupplier, dominantMaterial,
+                dominantSupplierId,
+                dominantMaterial == null ? null : materialIds.get(dominantMaterial));
+    }
+
+    /**
+     * La fiche fournisseur derrière une pièce d'entrée, quand la pièce la
+     * nomme : un bon de commande ou un reçu producteur. Une réception
+     * directe porte un fournisseur par ligne, un amorçage aucun : rien à
+     * ouvrir dans ces cas.
+     */
+    private UUID supplierIdOf(UpstreamSource s) {
+        if (s.sourceEntityId() == null || s.type() == null) return null;
+        return switch (s.type()) {
+            case PURCHASE_ORDER -> purchaseOrders.findById(s.sourceEntityId())
+                    .map(po -> po.supplierId).orElse(null);
+            case PRODUCER_PURCHASE, COLLECTOR_DELIVERY -> producerPurchases.findById(s.sourceEntityId())
+                    .map(r -> r.delegateSupplierId != null ? r.delegateSupplierId : r.supplierId)
+                    .orElse(null);
+            default -> null;
+        };
     }
 
     private static String pickDominant(Map<String, Integer> counts) {

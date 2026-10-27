@@ -108,7 +108,8 @@ public class ProductionPotentialService {
                     m.sectionId != null ? sectionNames.get(m.sectionId) : null,
                     memberParcels.size(),
                     surface, estimate,
-                    ratio(estimate, surface)));
+                    ratio(estimate, surface),
+                    m.sectionId));
 
             totalSurface = totalSurface.add(surface);
             totalEstimate = totalEstimate.add(estimate);

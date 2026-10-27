@@ -128,7 +128,7 @@ class SubsidiaryLedgerTest extends AbstractIntegrationTest {
     @Test
     void chaque_tiers_se_lit_sous_son_collectif() {
         UserEntity a = admin();
-        customerWithAccount(a, "Kouassi", "411001");
+        String kouassi = customerWithAccount(a, "Kouassi", "411001");
         customerWithAccount(a, "Traoré", "411002");
         entry(a, "411001", "521000", 500000, "Facture Kouassi");
         entry(a, "411002", "521000", 300000, "Facture Traoré");
@@ -138,6 +138,9 @@ class SubsidiaryLedgerTest extends AbstractIntegrationTest {
                 .then().statusCode(200)
                 .body(group + ".parties.account", hasItem("411001"))
                 .body(group + ".parties.partyName", hasItem("Kouassi"))
+                // Le nom du tiers devient un lien : la ligne porte sa fiche.
+                .body(group + ".parties.find { it.account == '411001' }.partyId", equalTo(kouassi))
+                .body(group + ".parties.find { it.account == '411001' }.partyType", equalTo("CUSTOMER"))
                 // Le contrôle : le détail par tiers fait bien le total.
                 .body(group + ".partiesBalance", equalTo(800000))
                 .body(group + ".unallocated", equalTo(0))
@@ -243,13 +246,16 @@ class SubsidiaryLedgerTest extends AbstractIntegrationTest {
     @Test
     void une_facture_et_son_reglement_portent_la_meme_lettre() {
         UserEntity a = admin();
-        customerWithAccount(a, "Kouassi", "411001");
+        String kouassi = customerWithAccount(a, "Kouassi", "411001");
         entry(a, "411001", "521000", 500000, "Facture");
         entry(a, "571000", "411001", 500000, "Règlement");
         entry(a, "411001", "521000", 120000, "Facture non réglée");
 
         givenAs(a).when().get("/api/v1/accounting/subsidiary-ledger/411001")
                 .then().statusCode(200)
+                // Le titre du grand livre mène à la fiche du tiers.
+                .body("data.partyId", equalTo(kouassi))
+                .body("data.partyType", equalTo("CUSTOMER"))
                 .body("data.rows[0].letter", equalTo("A"))
                 .body("data.rows[1].letter", equalTo("A"))
                 // Ce qui reste sans lettre est ce qui reste dû, et c'est

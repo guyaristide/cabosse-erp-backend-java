@@ -30,17 +30,24 @@ public record StockItemResponseDto(
         boolean critical,
         Instant lastMovementAt,
         Instant createdAt,
-        Instant updatedAt
+        Instant updatedAt,
+        /** Le nom du site, résolu par le service : la position ne le porte pas. */
+        String siteName
 ) {
     public static StockItemResponseDto from(StockItemEntity e) {
-        return from(e, 20);
+        return from(e, 20, null);
+    }
+
+    public static StockItemResponseDto from(StockItemEntity e, int warningPct) {
+        return from(e, warningPct, null);
     }
 
     /**
      * @param warningPct pourcentage du seuil d'alerte sous lequel le stock
      *                   passe en critique (préférence {@code stockMinWarningPct}).
+     * @param siteName   nom du site, chargé une fois par appel côté service.
      */
-    public static StockItemResponseDto from(StockItemEntity e, int warningPct) {
+    public static StockItemResponseDto from(StockItemEntity e, int warningPct, String siteName) {
         BigDecimal value = (e.quantity != null && e.cmup != null)
                 ? e.quantity.multiply(e.cmup)
                 : null;
@@ -54,7 +61,8 @@ public record StockItemResponseDto(
                 e.articleCode, e.articleName, e.articleUnit, e.articleType,
                 e.quantity, e.cmup, e.alertThreshold, value,
                 below, crit,
-                e.lastMovementAt, e.createdAt, e.updatedAt
+                e.lastMovementAt, e.createdAt, e.updatedAt,
+                siteName
         );
     }
 }

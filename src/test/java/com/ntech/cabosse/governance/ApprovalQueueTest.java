@@ -131,7 +131,9 @@ class ApprovalQueueTest extends AbstractIntegrationTest {
                 .then().statusCode(200)
                 .body("data.page.items.kind", org.hamcrest.Matchers.hasItem("PURCHASE_REQUEST"))
                 .body("data.page.items[0].requestedByEmail", equalTo(acheteur.email))
-                .body("data.page.items[0].amount", org.hamcrest.Matchers.notNullValue());
+                .body("data.page.items[0].amount", org.hamcrest.Matchers.notNullValue())
+                // La nature du bénéficiaire dit quelle fiche ouvrir derrière le nom.
+                .body("data.page.items[0].beneficiaryKind", equalTo("SUPPLIER"));
     }
 
     @Test
@@ -189,7 +191,9 @@ class ApprovalQueueTest extends AbstractIntegrationTest {
                 .body("data.page.items[0].requesterNote", equalTo("Avance de campagne"))
                 .body("data.page.items[0].requestedByEmail", equalTo(admin.email))
                 .body("data.page.items[0].accountBalance", notNullValue())
-                .body("data.page.items[0].ageDays", equalTo(0));
+                .body("data.page.items[0].ageDays", equalTo(0))
+                // La nature du bénéficiaire dit quelle fiche ouvrir derrière le nom.
+                .body("data.page.items[0].beneficiaryKind", equalTo("DELEGATE"));
     }
 
     @Test

@@ -57,5 +57,13 @@ public record PendingApprovalDto(
          */
         boolean actionable,
         UUID siteId,
-        UUID campaignId
+        UUID campaignId,
+        /**
+         * La nature du bénéficiaire, mêmes codes que la trésorerie
+         * (MEMBER, DELEGATE, SUPPLIER, CUSTOMER) : sans elle, l'écran ne
+         * sait pas quelle fiche ouvrir derrière le nom. Nul quand le
+         * bénéficiaire n'est pas un tiers, une caisse par exemple.
+         */
+        @Schema(description = "Nature du bénéficiaire, en code")
+        String beneficiaryKind
 ) {}
