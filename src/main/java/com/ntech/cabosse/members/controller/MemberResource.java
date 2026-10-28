@@ -71,6 +71,7 @@ public class MemberResource {
     @Inject com.ntech.cabosse.members.service.MemberImportRunner importRunner;
     @Inject MemberRegisterService registerService;
     @Inject ExportAudit exportAudit;
+    @Inject com.ntech.cabosse.members.service.MemberListExportService listExportService;
     @Inject TenantCapabilityService capabilities;
     @Inject TenantContext tenantContext;
 
@@ -111,13 +112,50 @@ public class MemberResource {
                          @QueryParam("sortDir") String direction) {
         ensureCapability();
         return Response.ok(ApiResponse.ok(service.page(
-                new com.ntech.cabosse.members.repository.MemberSearchCriteria(
-                        q, parseStatus(statusRaw), parseCollector(collectorRaw),
-                        sectionId, village, parseGender(genderRaw), parseGenderMissing(genderRaw),
-                        parseParcels(parcelsRaw), "true".equalsIgnoreCase(convertedRaw) ? Boolean.TRUE : null,
-                        // Même grammaire que les parcelles : « with » ou « without ».
-                        parseParcels(sharesRaw)),
+                criteriaFrom(q, statusRaw, collectorRaw, sectionId, village, genderRaw,
+                        parcelsRaw, convertedRaw, sharesRaw),
                 PageRequest.of(page, perPage, sort, direction)))).build();
+    }
+
+    /** Les mêmes filtres pour la liste et pour son export : un seul endroit les lit. */
+    private static com.ntech.cabosse.members.repository.MemberSearchCriteria criteriaFrom(
+            String q, String statusRaw, String collectorRaw, UUID sectionId, String village,
+            String genderRaw, String parcelsRaw, String convertedRaw, String sharesRaw) {
+        return new com.ntech.cabosse.members.repository.MemberSearchCriteria(
+                q, parseStatus(statusRaw), parseCollector(collectorRaw),
+                sectionId, village, parseGender(genderRaw), parseGenderMissing(genderRaw),
+                parseParcels(parcelsRaw), "true".equalsIgnoreCase(convertedRaw) ? Boolean.TRUE : null,
+                // Même grammaire que les parcelles : « with » ou « without ».
+                parseParcels(sharesRaw));
+    }
+
+    /**
+     * La liste telle qu'elle est filtrée à l'écran, en fichier (demandé le
+     * 28/10/2026). Déclarée avant {@code /{id}} pour la même raison que
+     * les villages.
+     */
+    @GET
+    @Path("/export")
+    @Produces({ "text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "application/pdf", MediaType.APPLICATION_JSON })
+    public Response export(@QueryParam("q") String q,
+                           @QueryParam("status") String statusRaw,
+                           @QueryParam("collector") String collectorRaw,
+                           @QueryParam("sectionId") UUID sectionId,
+                           @QueryParam("village") String village,
+                           @QueryParam("gender") String genderRaw,
+                           @QueryParam("parcels") String parcelsRaw,
+                           @QueryParam("converted") String convertedRaw,
+                           @QueryParam("shares") String sharesRaw,
+                           @QueryParam("format") String formatRaw) {
+        ensureCapability();
+        ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
+        var rows = listExportService.rows(criteriaFrom(q, statusRaw, collectorRaw, sectionId, village,
+                genderRaw, parcelsRaw, convertedRaw, sharesRaw));
+        var dataset = new ExportDataset<>(Messages.msg("m.exp-t-membres"),
+                MemberListExportColumns.all(), rows);
+        exportAudit.record("membres", "Liste des membres", format, rows.size());
+        return ExportResponses.build("membres", format, dataset);
     }
 
     /**

@@ -196,6 +196,14 @@ class MemberDashboardTest extends AbstractIntegrationTest {
         givenAs(admin).when().get("/api/v1/members?shares=with")
                 .then().statusCode(200)
                 .body("data.total", equalTo(3));
+
+        // L'export suit les filtres de l'écran (demandé le 28/10/2026).
+        String csv = givenAs(admin).when().get("/api/v1/members/export?format=csv&shares=without")
+                .then().statusCode(200)
+                .extract().asString();
+        org.junit.jupiter.api.Assertions.assertTrue(csv.contains("SANS PART"), csv);
+        org.junit.jupiter.api.Assertions.assertTrue(csv.contains("PART NULLE"), csv);
+        org.junit.jupiter.api.Assertions.assertFalse(csv.contains("YAO"), csv);
     }
     /**
      * Un fournisseur pris pour un sociétaire se retrouve et se convertit
