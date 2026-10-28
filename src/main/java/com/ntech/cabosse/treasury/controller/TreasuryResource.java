@@ -46,6 +46,7 @@ import java.util.UUID;
 public class TreasuryResource {
 
     @Inject TreasuryService service;
+    @Inject com.ntech.cabosse.treasury.service.TreasuryForecastService forecastService;
     @Inject ExportAudit exportAudit;
     @Inject com.ntech.cabosse.treasury.service.PayableService payableService;
     @Inject com.ntech.cabosse.treasury.service.AccountStatementService statementService;
@@ -313,6 +314,19 @@ public class TreasuryResource {
     public Response countHistory(@QueryParam("accountId") UUID accountId,
                                  @QueryParam("limit") @DefaultValue("20") int limit) {
         return Response.ok(ApiResponse.ok(service.countHistory(accountId, limit))).build();
+    }
+
+    /**
+     * Le solde net théorique à date : réel + à encaisser − à payer
+     * (demandé le 28/10/2026). Ouvert à qui lit déjà les files ; les
+     * soldes réservés restent absents, le service en décide.
+     */
+    @GET
+    @Path("/forecast")
+    @RequiresPermission({ Permission.ACCOUNTING_READ, Permission.TREASURY_WRITE,
+            Permission.REPORTING_READ, Permission.EXECUTIVE_READ })
+    public Response forecast() {
+        return Response.ok(ApiResponse.ok(forecastService.compute())).build();
     }
 
     // ─── Rapprochement ──────────────────────────────────────────────
