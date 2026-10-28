@@ -27,8 +27,9 @@ import java.util.UUID;
  * mais il fallait les compter à la main pour répondre à « combien de
  * femmes », « quel âge ont nos plantations », « combien d'hectares ».</p>
  *
- * <p>Deux partis pris de lecture. Les producteurs <strong>radiés</strong>
- * ne comptent pas : le portrait décrit qui est là, pas qui est passé. Et
+ * <p>Deux partis pris de lecture. Seuls les <strong>sociétaires</strong>
+ * comptent : ni les radiés (le portrait décrit qui est là, pas qui est
+ * passé), ni les fiches sans part sociale. Et
  * une moyenne annonce toujours sur combien de fiches elle est établie :
  * un âge moyen calculé sur un tiers du registre ne vaut pas un âge moyen
  * complet, et taire l'écart ferait prendre l'un pour l'autre.</p>
@@ -42,20 +43,14 @@ public class MemberDashboardService {
     @Inject ProductionPotentialService potential;
 
     public MemberDashboardDto compute(UUID campaignId, String cropCode) {
-        // Une fiche convertie en fournisseur n'est plus un sociétaire.
-        List<MemberEntity> everyone = members.listAll().stream()
-                .filter(m -> !m.convertedToSupplier).toList();
-        List<MemberEntity> all = everyone.stream()
+        // Le portrait ne compte que les sociétaires : une fiche convertie en
+        // fournisseur n'en est plus un, un radié non plus, et sans part
+        // sociale (nulle ou à zéro) on n'a pas adhéré (demandé le 28/10/2026).
+        List<MemberEntity> all = members.listAll().stream()
+                .filter(m -> !m.convertedToSupplier)
                 .filter(m -> m.status != MemberStatus.RETIRED)
+                .filter(MemberDashboardService::holdsShares)
                 .toList();
-        int active = 0, pending = 0, suspended = 0, inactive = 0, retired = 0;
-        for (MemberEntity m : everyone) {
-            if (m.status == MemberStatus.ACTIVE) active++;
-            else if (m.status == MemberStatus.PENDING) pending++;
-            else if (m.status == MemberStatus.SUSPENDED) suspended++;
-            else if (m.status == MemberStatus.INACTIVE) inactive++;
-            else if (m.status == MemberStatus.RETIRED) retired++;
-        }
 
         int men = 0;
         int women = 0;
@@ -121,8 +116,11 @@ public class MemberDashboardService {
                 average(plantationAgeSum, withPlantingYear), youngest, oldest, withPlantingYear,
                 surface, perMember(surface, all.size()), activeParcels.size(),
                 potentialKg, yield,
-                sections.listAll().size(),
-                active, pending, suspended, inactive, retired);
+                sections.listAll().size());
+    }
+
+    private static boolean holdsShares(MemberEntity m) {
+        return m.partsSocialesAmount != null && m.partsSocialesAmount.signum() > 0;
     }
 
     /** L'année de naissance, qu'elle vienne d'une date complète ou d'elle seule. */

@@ -104,6 +104,7 @@ public class MemberResource {
                          @QueryParam("gender") String genderRaw,
                          @QueryParam("parcels") String parcelsRaw,
                          @QueryParam("converted") String convertedRaw,
+                         @QueryParam("shares") String sharesRaw,
                          @QueryParam("page") @DefaultValue("0") int page,
                          @QueryParam("perPage") @DefaultValue("20") int perPage,
                          @QueryParam("sort") String sort,
@@ -113,7 +114,9 @@ public class MemberResource {
                 new com.ntech.cabosse.members.repository.MemberSearchCriteria(
                         q, parseStatus(statusRaw), parseCollector(collectorRaw),
                         sectionId, village, parseGender(genderRaw), parseGenderMissing(genderRaw),
-                        parseParcels(parcelsRaw), "true".equalsIgnoreCase(convertedRaw) ? Boolean.TRUE : null),
+                        parseParcels(parcelsRaw), "true".equalsIgnoreCase(convertedRaw) ? Boolean.TRUE : null,
+                        // Même grammaire que les parcelles : « with » ou « without ».
+                        parseParcels(sharesRaw)),
                 PageRequest.of(page, perPage, sort, direction)))).build();
     }
 

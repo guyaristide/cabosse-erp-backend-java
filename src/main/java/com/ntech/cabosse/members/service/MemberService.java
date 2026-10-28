@@ -91,7 +91,7 @@ public class MemberService {
                                               com.ntech.cabosse.members.entity.MemberStatus statusFilter,
                                               PageRequest pr) {
         return page(new com.ntech.cabosse.members.repository.MemberSearchCriteria(
-                q, statusFilter, null, null, null, null, null, null, null), pr);
+                q, statusFilter, null, null, null, null, null, null, null, null), pr);
     }
 
     public Pagination<MemberResponseDto> page(

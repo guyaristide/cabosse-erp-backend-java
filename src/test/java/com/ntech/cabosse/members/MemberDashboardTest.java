@@ -71,10 +71,15 @@ class MemberDashboardTest extends AbstractIntegrationTest {
     }
 
     private String member(UserEntity admin, String name, String gender, Integer birthYear) {
+        return member(admin, name, gender, birthYear, "10000");
+    }
+
+    private String member(UserEntity admin, String name, String gender, Integer birthYear, String shares) {
         String years = birthYear == null ? "" : ", \"birthYear\": " + birthYear;
+        String parts = shares == null ? "" : ", \"partsSocialesAmount\": " + shares;
         return givenAs(admin).contentType("application/json")
-                .body("{\"lastName\":\"%s\",\"gender\":\"%s\",\"status\":\"ACTIVE\"%s}"
-                        .formatted(name, gender, years))
+                .body("{\"lastName\":\"%s\",\"gender\":\"%s\",\"status\":\"ACTIVE\"%s%s}"
+                        .formatted(name, gender, years, parts))
                 .when().post("/api/v1/members").then().statusCode(201).extract().path("data.id");
     }
 
@@ -153,23 +158,26 @@ class MemberDashboardTest extends AbstractIntegrationTest {
                 .body("data.sectionCount", notNullValue());
     }
     /**
-     * Le total se lit et les fiches sans genre se retrouvent (ticket du
-     * 24/10/2026) : le portrait dit ce qu'il compte par statut, et la liste
-     * sait filtrer les fiches muettes sur le genre pour les compléter.
+     * Les fiches sans genre se retrouvent (ticket du 24/10/2026), et le
+     * portrait ne compte que les sociétaires : sans part sociale, nulle ou
+     * à zéro, on n'a pas adhéré (demandé le 28/10/2026).
      */
     @Test
-    void the_records_without_gender_can_be_found_and_the_total_explains_itself() {
+    void the_records_without_gender_can_be_found_and_only_shareholders_are_counted() {
         UserEntity admin = admin();
         member(admin, "YAO", "MALE", null);
         member(admin, "AMENAN", "FEMALE", null);
         member(admin, "TRAORE", "UNKNOWN", null);
+        member(admin, "SANS PART", "MALE", 1980, null);
+        member(admin, "PART NULLE", "FEMALE", 1990, "0");
 
         givenAs(admin).when().get("/api/v1/members/dashboard")
                 .then().statusCode(200)
                 .body("data.totalMembers", equalTo(3))
+                .body("data.menCount", equalTo(1))
+                .body("data.womenCount", equalTo(1))
                 .body("data.unknownGenderCount", equalTo(1))
-                .body("data.activeCount", equalTo(3))
-                .body("data.retiredExcludedCount", equalTo(0));
+                .body("data.membersWithAge", equalTo(0));
 
         // Le filtre « genre non renseigné » rend la fiche à compléter, et elle seule.
         givenAs(admin).when().get("/api/v1/members?gender=UNKNOWN")
@@ -178,7 +186,16 @@ class MemberDashboardTest extends AbstractIntegrationTest {
                 .body("data.items[0].name", org.hamcrest.Matchers.containsString("TRAORE"));
         givenAs(admin).when().get("/api/v1/members?gender=FEMALE")
                 .then().statusCode(200)
-                .body("data.total", equalTo(1));
+                .body("data.total", equalTo(2));
+
+        // Le filtre « sans part sociale » rend les deux fiches que le
+        // portrait écarte, et « avec part sociale » celles qu'il compte.
+        givenAs(admin).when().get("/api/v1/members?shares=without")
+                .then().statusCode(200)
+                .body("data.total", equalTo(2));
+        givenAs(admin).when().get("/api/v1/members?shares=with")
+                .then().statusCode(200)
+                .body("data.total", equalTo(3));
     }
     /**
      * Un fournisseur pris pour un sociétaire se retrouve et se convertit

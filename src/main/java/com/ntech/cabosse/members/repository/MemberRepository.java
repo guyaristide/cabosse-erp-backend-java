@@ -46,11 +46,11 @@ public class MemberRepository {
     }
 
     public long countSearch(String q, MemberStatus statusFilter) {
-        return countSearch(new MemberSearchCriteria(q, statusFilter, null, null, null, null, null, null, null));
+        return countSearch(new MemberSearchCriteria(q, statusFilter, null, null, null, null, null, null, null, null));
     }
 
     public List<MemberEntity> search(String q, MemberStatus statusFilter, int skip, int limit) {
-        return search(new MemberSearchCriteria(q, statusFilter, null, null, null, null, null, null, null),
+        return search(new MemberSearchCriteria(q, statusFilter, null, null, null, null, null, null, null, null),
                 skip, limit);
     }
 
@@ -115,6 +115,16 @@ public class MemberRepository {
         if (c.hasParcels() != null) {
             java.util.Set<UUID> owners = parcels.memberIdsWithParcels();
             filters.add(c.hasParcels() ? Filters.in("_id", owners) : Filters.nin("_id", owners));
+        }
+        // Sans part sociale, nulle ou à zéro, on n'a pas adhéré : le portrait
+        // les écarte, la liste doit les retrouver (demandé le 28/10/2026).
+        if (Boolean.TRUE.equals(c.holdsShares())) {
+            filters.add(Filters.gt("partsSocialesAmount", 0));
+        } else if (Boolean.FALSE.equals(c.holdsShares())) {
+            filters.add(Filters.or(
+                    Filters.exists("partsSocialesAmount", false),
+                    Filters.eq("partsSocialesAmount", null),
+                    Filters.lte("partsSocialesAmount", 0)));
         }
         if (c.status() != null) filters.add(Filters.eq("status", c.status().name()));
         // Faux se dit aussi des fiches anciennes où le champ n'existe

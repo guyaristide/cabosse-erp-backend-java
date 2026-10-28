@@ -30,9 +30,14 @@ public record MemberSearchCriteria(
         /** Vrai : avec au moins une parcelle ; faux : sans ; nul : sans effet. */
         Boolean hasParcels,
         /** Vrai : les fiches converties en fournisseur seulement ; nul : jamais elles. */
-        Boolean converted) {
+        Boolean converted,
+        /**
+         * Vrai : une part sociale souscrite ; faux : aucune, nulle ou à zéro,
+         * donc pas d'adhésion (demandé le 28/10/2026) ; nul : sans effet.
+         */
+        Boolean holdsShares) {
 
     public static MemberSearchCriteria none() {
-        return new MemberSearchCriteria(null, null, null, null, null, null, null, null, null);
+        return new MemberSearchCriteria(null, null, null, null, null, null, null, null, null, null);
     }
 }
