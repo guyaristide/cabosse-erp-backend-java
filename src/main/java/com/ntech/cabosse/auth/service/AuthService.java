@@ -62,18 +62,18 @@ public class AuthService {
         if (user == null) {
             // Hash dummy pour égaliser le temps de réponse (timing attack mitigation).
             passwordHasher.verify(request.password(), DUMMY_HASH);
-            recordLoginFailure(request.email(), "user_not_found", ipAddress);
+            recordLoginFailure(request.email(), null, "user_not_found", ipAddress);
             throw new UnauthorizedException(Messages.msg(GENERIC_ERROR_KEY));
         }
 
         if (!passwordHasher.verify(request.password(), user.passwordHash)) {
-            recordLoginFailure(user.email, "bad_password", ipAddress);
+            recordLoginFailure(user.email, user.tenantId, "bad_password", ipAddress);
             throw new UnauthorizedException(Messages.msg(GENERIC_ERROR_KEY));
         }
 
         if (user.status != UserStatus.ACTIVE) {
             log.infof("Login refused for %s: status=%s", user.email, user.status);
-            recordLoginFailure(user.email, "user_status_" + user.status, ipAddress);
+            recordLoginFailure(user.email, user.tenantId, "user_status_" + user.status, ipAddress);
             throw new UnauthorizedException(Messages.msg(GENERIC_ERROR_KEY));
         }
 
@@ -83,7 +83,7 @@ public class AuthService {
                     user.email,
                     tenant != null ? tenant.id : "null",
                     tenant != null ? tenant.status : "null");
-            recordLoginFailure(user.email, "tenant_inactive", ipAddress);
+            recordLoginFailure(user.email, user.tenantId, "tenant_inactive", ipAddress);
             throw new UnauthorizedException(Messages.msg(GENERIC_ERROR_KEY));
         }
 
@@ -102,9 +102,14 @@ public class AuthService {
         return issueTokens(user, tenant, userAgent, ipAddress);
     }
 
-    private void recordLoginFailure(String email, String reason, String ipAddress) {
+    /**
+     * Le tenant est celui du compte visé quand il existe : sans lui,
+     * l'échec n'apparaissait dans le journal d'aucune structure.
+     */
+    private void recordLoginFailure(String email, UUID tenantId, String reason, String ipAddress) {
         audit.event(com.ntech.cabosse.shared.audit.AuditEventType.AUTHENTICATION_FAILED)
                 .actorEmail(email)
+                .tenant(tenantId, null)
                 .description("Échec d'authentification (" + reason + ")")
                 .payload(java.util.Map.of("reason", reason))
                 .ip(ipAddress)
@@ -142,9 +147,27 @@ public class AuthService {
         );
     }
 
-    /** Révoque un refresh token (logout). Idempotent. */
-    public void logout(String refreshToken) {
-        refreshTokens.revoke(refreshToken, "logout");
+    /**
+     * Révoque un refresh token (logout). Idempotent.
+     *
+     * <p>La fin de session se journalise (SEC-16), mais une seule fois :
+     * un second appel sur un jeton déjà révoqué ne révoque rien et ne
+     * laisse donc pas de seconde ligne.</p>
+     */
+    public void logout(String refreshToken, String ipAddress) {
+        var token = refreshTokens.peek(refreshToken).orElse(null);
+        boolean revoked = refreshTokens.revoke(refreshToken, "logout");
+        if (token == null || !revoked) return;
+
+        UserEntity user = users.findById(token.userId);
+        TenantEntity tenant = tenants.findById(token.tenantId);
+        audit.event(com.ntech.cabosse.shared.audit.AuditEventType.SESSION_ENDED)
+                .actor(user != null ? user.email : null, token.userId)
+                .target("user", token.userId.toString(), user != null ? user.email : null)
+                .tenant(token.tenantId, tenant != null ? tenant.name : null)
+                .description("Déconnexion de " + (user != null ? user.email : token.userId))
+                .ip(ipAddress)
+                .record();
     }
 
     /**

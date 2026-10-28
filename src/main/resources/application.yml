@@ -57,6 +57,15 @@ quarkus:
   smallrye-jwt:
     enabled: true
 
+  log:
+    console:
+      # Chaque ligne porte la requête, la structure et l'acteur, posés
+      # dans le MDC par RequestTraceFilter : le journal du serveur se
+      # découpe ainsi par structure, et une ligne se rattache à la
+      # requête que l'utilisateur cite par son X-Request-Id (SEC-16).
+      # Les champs sont vides hors requête, le format reste lisible.
+      format: "%d{yyyy-MM-dd HH:mm:ss,SSS} %-5p [%c{3.}] (%t) [req=%X{requestId} tenant=%X{tenantId} actor=%X{actorEmail}] %s%e%n"
+
   cache:
     caffeine:
       # Cache déclaré dans CacheNames.TENANT_REGISTRY — toute valeur
@@ -99,3 +108,10 @@ application:
     # Absent, la route de restauration refuse.
     # Générer avec : openssl rand -base64 48
     restore-secret: ${PLATFORM_RESTORE_SECRET:}
+
+cabosse:
+  trace:
+    # Durée de conservation des traces de requêtes (collection
+    # request_traces de chaque structure), en jours. Relue au démarrage
+    # par RequestTraceRetention, qui aligne l'index TTL par collMod.
+    retention-days: 730

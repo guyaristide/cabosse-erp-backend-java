@@ -34,6 +34,7 @@ public class ExpenseTypeImportService {
 
     @Inject ExpenseTypeRepository repo;
     @Inject ExpenseTypeService service;
+    @Inject com.ntech.cabosse.importjournal.service.ImportAudit importAudit;
 
     public ExpenseTypeImportPreviewDto preview(List<ExpenseTypeImportRowDto> input) {
         if (input == null || input.isEmpty()) {
@@ -108,6 +109,8 @@ public class ExpenseTypeImportService {
                 skipped.add(new Row(row.rowNumber(), Status.INVALID, row.normalized(), issues));
             }
         }
+        importAudit.committed("expense-types", "natures de dépense", null,
+                createdIds.size(), 0, skipped.size(), null);
         return new ExpenseTypeImportCommitResponseDto(
                 preview.totalRows(), createdIds.size(), skipped.size(), createdIds, skipped
         );

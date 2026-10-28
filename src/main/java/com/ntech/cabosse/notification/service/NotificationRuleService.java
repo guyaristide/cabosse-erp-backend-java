@@ -5,6 +5,8 @@ import com.ntech.cabosse.notification.dto.NotificationRuleUpdateDto;
 import com.ntech.cabosse.notification.entity.NotificationChannel;
 import com.ntech.cabosse.notification.entity.NotificationRuleEntity;
 import com.ntech.cabosse.notification.repository.NotificationRuleRepository;
+import com.ntech.cabosse.shared.audit.AuditEventType;
+import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.i18n.Messages;
@@ -43,6 +45,8 @@ public class NotificationRuleService {
     @Inject NotificationRuleRepository rules;
     @Inject IdGenerator idGenerator;
     @Inject org.eclipse.microprofile.jwt.JsonWebToken jwt;
+    @Inject AuditService audit;
+    @Inject com.ntech.cabosse.shared.tenant.TenantContext tenantContext;
 
     public List<NotificationRuleDto> list() {
         Map<String, NotificationRuleEntity> stored = rules.listAll().stream()
@@ -102,6 +106,21 @@ public class NotificationRuleService {
             e.updatedByEmail = null;
         }
         rules.upsert(e);
+        Map<String, Object> trace = new java.util.LinkedHashMap<>();
+        trace.put("eventCode", eventCode);
+        trace.put("enabled", e.enabled);
+        trace.put("channels", e.channels);
+        trace.put("recipientRoleIds", e.recipientRoleIds);
+        trace.put("ccEmails", e.ccEmails);
+        audit.event(AuditEventType.NOTIFICATION_RULE_UPDATED)
+                .actorEmail(e.updatedByEmail)
+                .target("notification_rule", e.id.toString(), eventCode)
+                .tenant(tenantContext.tenantId(), null)
+                .description("Règle de notification « " + Messages.msg(spec.labelKey()) + " » "
+                        + (e.enabled ? "activée" : "désactivée") + " (canaux : "
+                        + String.join(", ", e.channels) + ")")
+                .payload(trace)
+                .record();
         return list();
     }
 

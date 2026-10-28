@@ -8,6 +8,8 @@ import com.ntech.cabosse.eudr.entity.EudrDossierEntity;
 import com.ntech.cabosse.eudr.entity.EudrRiskLevel;
 import com.ntech.cabosse.eudr.entity.EudrStatus;
 import com.ntech.cabosse.eudr.repository.EudrDossierRepository;
+import com.ntech.cabosse.shared.audit.AuditEventType;
+import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.i18n.Messages;
@@ -19,7 +21,9 @@ import org.eclipse.microprofile.jwt.JsonWebToken;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -38,6 +42,7 @@ public class EudrDossierService {
     @Inject IdGenerator idGenerator;
     @Inject TenantContext tenantContext;
     @Inject JsonWebToken jwt;
+    @Inject AuditService audit;
 
     private String actor() {
         try { return jwt.getName(); } catch (Exception e) { return null; }
@@ -45,6 +50,17 @@ public class EudrDossierService {
 
     private UUID safeUserId() {
         try { return tenantContext.userId(); } catch (Exception e) { return null; }
+    }
+
+    private void audit(EudrDossierEntity d, AuditEventType type, String description,
+                       Map<String, Object> payload) {
+        audit.event(type)
+                .actorEmail(actor())
+                .target("eudr_dossier", d.id.toString(), d.parcelCode)
+                .tenant(tenantContext.tenantId(), null)
+                .description(description)
+                .payload(payload)
+                .record();
     }
 
     // ─── Auto-création à la création de parcelle ────────────────────
@@ -99,14 +115,33 @@ public class EudrDossierService {
         if (d.status == EudrStatus.NOT_STARTED) d.status = EudrStatus.IN_PROGRESS;
         d.updatedAt = Instant.now();
         dossiers.replace(d);
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("documentId", doc.id.toString());
+        payload.put("type", doc.type != null ? doc.type.name() : null);
+        payload.put("label", doc.label);
+        payload.put("fileId", doc.fileId != null ? doc.fileId.toString() : null);
+        payload.put("status", d.status.name());
+        audit(d, AuditEventType.EUDR_DOCUMENT_ADDED,
+                "Pièce « " + doc.label + " » ajoutée au dossier EUDR de la parcelle " + d.parcelCode,
+                payload);
         return d;
     }
 
     public EudrDossierEntity removeDocument(UUID parcelId, UUID docId) {
         EudrDossierEntity d = getByParcel(parcelId);
+        EudrDocument removed = d.documents.stream()
+                .filter(doc -> docId.equals(doc.id)).findFirst().orElse(null);
         d.documents.removeIf(doc -> docId.equals(doc.id));
         d.updatedAt = Instant.now();
         dossiers.replace(d);
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("documentId", docId.toString());
+        payload.put("type", removed != null && removed.type != null ? removed.type.name() : null);
+        payload.put("label", removed != null ? removed.label : null);
+        audit(d, AuditEventType.EUDR_DOCUMENT_REMOVED,
+                "Pièce « " + (removed != null ? removed.label : docId)
+                        + " » retirée du dossier EUDR de la parcelle " + d.parcelCode,
+                payload);
         return d;
     }
 
@@ -124,6 +159,13 @@ public class EudrDossierService {
         if (notes != null && !notes.isBlank()) d.notes = notes.trim();
         d.updatedAt = Instant.now();
         dossiers.replace(d);
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("status", d.status.name());
+        payload.put("riskLevel", d.riskLevel.name());
+        payload.put("complianceExpiresOn", d.complianceExpiresOn.toString());
+        audit(d, AuditEventType.EUDR_DOSSIER_UPDATED,
+                "Dossier EUDR de la parcelle " + d.parcelCode + " déclaré conforme (risque "
+                        + d.riskLevel.name() + ")", payload);
         return d;
     }
 
@@ -139,6 +181,12 @@ public class EudrDossierService {
         d.lastReviewedByEmail = actor();
         d.updatedAt = Instant.now();
         dossiers.replace(d);
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("status", d.status.name());
+        payload.put("exclusionReason", d.exclusionReason);
+        audit(d, AuditEventType.EUDR_DOSSIER_UPDATED,
+                "Dossier EUDR de la parcelle " + d.parcelCode + " déclaré non conforme : "
+                        + d.exclusionReason, payload);
         return d;
     }
 

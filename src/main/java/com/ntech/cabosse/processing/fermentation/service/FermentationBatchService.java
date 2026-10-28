@@ -11,6 +11,8 @@ import com.ntech.cabosse.processing.fermentation.entity.Turning;
 import com.ntech.cabosse.processing.fermentation.repository.FermentationBatchRepository;
 import com.ntech.cabosse.shared.api.PageRequest;
 import com.ntech.cabosse.shared.api.Pagination;
+import com.ntech.cabosse.shared.audit.AuditEventType;
+import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.i18n.Messages;
@@ -46,6 +48,7 @@ public class FermentationBatchService {
     @Inject IdGenerator idGenerator;
     @Inject TenantContext tenantContext;
     @Inject JsonWebToken jwt;
+    @Inject AuditService audit;
 
     private String actor() {
         try { return jwt.getName(); } catch (Exception e) { return null; }
@@ -53,6 +56,24 @@ public class FermentationBatchService {
 
     private UUID safeUserId() {
         try { return tenantContext.userId(); } catch (Exception e) { return null; }
+    }
+
+    /** Un seul type d'événement pour le bac : l'action est dans la charge. */
+    private void audit(FermentationBatchEntity e, String action, String description,
+                       Map<String, Object> extra) {
+        Map<String, Object> payload = new java.util.LinkedHashMap<>();
+        payload.put("action", action);
+        payload.put("ref", e.ref);
+        payload.put("status", e.status != null ? e.status.name() : null);
+        payload.put("weightInKg", e.weightInKg);
+        if (extra != null) payload.putAll(extra);
+        audit.event(AuditEventType.FERMENTATION_BATCH_CHANGED)
+                .actorEmail(actor())
+                .target("fermentation_batch", e.id.toString(), e.ref)
+                .tenant(tenantContext.tenantId(), null)
+                .description(description)
+                .payload(payload)
+                .record();
     }
 
     public Pagination<FermentationBatchResponseDto> page(FermentationBatchStatus statusFilter, String q, PageRequest pr) {
@@ -103,6 +124,9 @@ public class FermentationBatchService {
         e.createdBy = safeUserId();
         e.createdByEmail = actor();
         batches.insert(e);
+        Map<String, Object> extra = new java.util.LinkedHashMap<>();
+        extra.put("harvestCodes", e.harvestCodes);
+        audit(e, "CREATED", "Bac de fermentation " + e.ref + " ouvert (" + e.weightInKg + " kg)", extra);
         return FermentationBatchResponseDto.from(e);
     }
 
@@ -115,6 +139,7 @@ public class FermentationBatchService {
         e.startedAt = Instant.now();
         e.updatedAt = e.startedAt;
         batches.replace(e);
+        audit(e, "STARTED", "Bac de fermentation " + e.ref + " démarré", null);
         return FermentationBatchResponseDto.from(e);
     }
 
@@ -133,6 +158,11 @@ public class FermentationBatchService {
         if (!batches.pushIfActive(e.id, "temperatureReadings", r, r.at)) {
             throw new BusinessException(Messages.msg("m.prc-batch-not-active-temperature"));
         }
+        Map<String, Object> extra = new java.util.LinkedHashMap<>();
+        extra.put("celsius", celsius);
+        extra.put("observation", r.observation);
+        audit(e, "TEMPERATURE_RECORDED", "Relevé de température " + celsius + " °C sur le bac "
+                + e.ref, extra);
         return FermentationBatchResponseDto.from(loadOrFail(id));
     }
 
@@ -148,6 +178,11 @@ public class FermentationBatchService {
         if (!batches.pushIfActive(e.id, "turnings", t, t.at)) {
             throw new BusinessException(Messages.msg("m.prc-batch-not-active-turning"));
         }
+        Map<String, Object> extra = new java.util.LinkedHashMap<>();
+        extra.put("operator", t.operator);
+        extra.put("notes", t.notes);
+        audit(e, "TURNING_RECORDED", "Brassage enregistré sur le bac " + e.ref
+                + (t.operator != null ? " par " + t.operator : ""), extra);
         return FermentationBatchResponseDto.from(loadOrFail(id));
     }
 
@@ -162,6 +197,11 @@ public class FermentationBatchService {
         e.status = FermentationBatchStatus.COMPLETED;
         e.updatedAt = e.completedAt;
         batches.replace(e);
+        Map<String, Object> extra = new java.util.LinkedHashMap<>();
+        extra.put("weightOutKg", e.weightOutKg);
+        extra.put("finalGradeEstimate", e.finalGradeEstimate);
+        audit(e, "COMPLETED", "Bac de fermentation " + e.ref + " terminé (" + e.weightOutKg
+                + " kg sortis)", extra);
         return FermentationBatchResponseDto.from(e);
     }
 
@@ -174,6 +214,10 @@ public class FermentationBatchService {
         e.notes = (e.notes != null ? e.notes + "\n" : "") + "Annulé : " + (reason != null ? reason : "");
         e.updatedAt = Instant.now();
         batches.replace(e);
+        Map<String, Object> extra = new java.util.LinkedHashMap<>();
+        extra.put("reason", reason);
+        audit(e, "CANCELLED", "Bac de fermentation " + e.ref + " annulé"
+                + (reason != null && !reason.isBlank() ? " : " + reason : ""), extra);
         return FermentationBatchResponseDto.from(e);
     }
 

@@ -2,6 +2,8 @@ package com.ntech.cabosse.tenant.service;
 
 import com.ntech.cabosse.settings.mail.MailFile;
 import com.ntech.cabosse.settings.mail.PlatformMailerService;
+import com.ntech.cabosse.shared.audit.AuditEventType;
+import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.i18n.Locales;
 import com.ntech.cabosse.shared.i18n.MailTexts;
 import com.ntech.cabosse.shared.i18n.Messages;
@@ -51,6 +53,8 @@ public class LicenseMailService {
     @Inject UserRepository users;
     @Inject com.ntech.cabosse.tenant.repository.TenantRepository tenants;
     @Inject Logger log;
+    @Inject AuditService audit;
+    @Inject org.eclipse.microprofile.jwt.JsonWebToken jwt;
 
     @Inject
     @Location("mail/license-activation.html")
@@ -152,7 +156,29 @@ public class LicenseMailService {
             throw new com.ntech.cabosse.shared.exception.BusinessException(
                     Messages.msg("m.tnt-no-license-to-resend", tenant.name));
         }
-        return sendActivation(tenant, recipients, extraEmails, invoice);
+        int sent = sendActivation(tenant, recipients, extraEmails, invoice);
+        java.util.Map<String, Object> payload = new java.util.LinkedHashMap<>();
+        payload.put("sent", sent);
+        payload.put("recipients", recipients == null ? List.of() : recipients);
+        payload.put("extraEmails", extraEmails == null ? List.of() : extraEmails);
+        payload.put("withInvoice", invoice != null);
+        payload.put("planCode", tenant.subscription.planCode);
+        // Action de la console éditeur : le tenant visé est celui du
+        // courrier, pas celui du contexte, comme pour les autres gestes
+        // de licence.
+        audit.event(AuditEventType.LICENSE_MAIL_RESENT)
+                .actorEmail(actor())
+                .target("tenant", tenant.id.toString(), tenant.slug)
+                .tenant(tenant.id, tenant.name)
+                .description("Courrier de licence renvoyé à " + sent + " destinataire(s)"
+                        + (invoice != null ? ", facture jointe" : ""))
+                .payload(payload)
+                .record();
+        return sent;
+    }
+
+    private String actor() {
+        try { return jwt != null ? jwt.getName() : null; } catch (Exception e) { return null; }
     }
 
     private boolean sendTo(TenantEntity tenant, TenantSubscription sub, String address,

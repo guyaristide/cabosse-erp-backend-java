@@ -155,7 +155,8 @@ public class TenantTechnicalService {
             new MigrationDescriptor("create_stock_corrections_collection", "091", "neiba"),
             new MigrationDescriptor("index_producer_purchase_by_supplier", "092", "neiba"),
             new MigrationDescriptor("backfill_dispatch_movement_bags", "093", "neiba"),
-            new MigrationDescriptor("backfill_supplier_member_id", "094", "neiba")
+            new MigrationDescriptor("backfill_supplier_member_id", "094", "neiba"),
+            new MigrationDescriptor("create_request_traces", "095", "neiba")
     );
 
     /** Fréquence de backup par plan tarifaire (cf. plans.json catalogue). */

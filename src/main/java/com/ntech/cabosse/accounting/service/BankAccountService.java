@@ -5,6 +5,8 @@ import com.ntech.cabosse.accounting.dto.BankAccountUpsertDto;
 import com.ntech.cabosse.accounting.entity.BankAccountEntity;
 import com.ntech.cabosse.accounting.repository.BankAccountRepository;
 import com.ntech.cabosse.accounting.repository.ChartOfAccountsRepository;
+import com.ntech.cabosse.shared.audit.AuditEventType;
+import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.i18n.Messages;
@@ -12,10 +14,13 @@ import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import org.eclipse.microprofile.jwt.JsonWebToken;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -30,6 +35,8 @@ public class BankAccountService {
     @Inject ChartOfAccountsRepository chart;
     @Inject IdGenerator idGenerator;
     @Inject TenantContext tenantContext;
+    @Inject AuditService audit;
+    @Inject JsonWebToken jwt;
 
     public List<BankAccountResponseDto> listAll() {
         return repo.listAll().stream()
@@ -46,6 +53,7 @@ public class BankAccountService {
         e.updatedAt = e.createdAt;
         e.createdBy = safeUserId();
         repo.insert(e);
+        trace(e, AuditEventType.BANK_ACCOUNT_CREATED, "Compte bancaire « " + e.label + " » créé");
         return BankAccountResponseDto.from(e, BigDecimal.ZERO, BigDecimal.ZERO);
     }
 
@@ -56,6 +64,7 @@ public class BankAccountService {
         applyPayload(e, payload);
         e.updatedAt = Instant.now();
         repo.replace(e);
+        trace(e, AuditEventType.BANK_ACCOUNT_UPDATED, "Compte bancaire « " + e.label + " » modifié");
         return BankAccountResponseDto.from(e, BigDecimal.ZERO, BigDecimal.ZERO);
     }
 
@@ -67,6 +76,29 @@ public class BankAccountService {
         // permet le delete direct ; à durcir quand on aura un index inverse
         // paiement→bankAccount.
         repo.deleteById(e.id);
+        trace(e, AuditEventType.BANK_ACCOUNT_DELETED, "Compte bancaire « " + e.label + " » supprimé");
+    }
+
+    private void trace(BankAccountEntity e, AuditEventType type, String description) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("bankAccountId", e.id.toString());
+        payload.put("label", e.label);
+        payload.put("bankName", e.bankName);
+        payload.put("accountNumber", e.accountNumber);
+        payload.put("chartAccount", e.syscohadaAccount);
+        payload.put("kind", e.kind != null ? e.kind.name() : null);
+        payload.put("active", e.active);
+        audit.event(type)
+                .actorEmail(actor())
+                .target("bank_account", e.id.toString(), e.label)
+                .tenant(tenantContext.tenantId(), null)
+                .description(description)
+                .payload(payload)
+                .record();
+    }
+
+    private String actor() {
+        try { return jwt.getName(); } catch (Exception ex) { return null; }
     }
 
     private void ensureChartAccount(String number) {

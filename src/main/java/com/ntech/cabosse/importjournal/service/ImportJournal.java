@@ -104,6 +104,11 @@ public class ImportJournal {
             return this;
         }
 
+        /** L'identifiant de la trace, connu dès l'ouverture ou après la clôture. */
+        public UUID runId() {
+            return runId;
+        }
+
         /** Combien de lignes sont passées, pendant que ça tourne. */
         public Trace progress(int rowsProcessed) {
             if (runId != null) repo.progress(runId, rowsProcessed);
@@ -185,7 +190,12 @@ public class ImportJournal {
         public void close() {
             try {
                 ImportRunEntity e = new ImportRunEntity();
-                e.id = runId != null ? runId : idGenerator.newId();
+                // Une trace ouverte d'avance existe déjà en base ; une trace
+                // fermée d'un coup n'y est pas encore. À décider avant de
+                // retenir l'identifiant pour l'audit.
+                boolean openedAhead = runId != null;
+                e.id = openedAhead ? runId : idGenerator.newId();
+                runId = e.id;
                 e.domain = domain;
                 e.phase = phase;
                 e.at = Instant.now();
@@ -206,7 +216,7 @@ public class ImportJournal {
                 // Une trace ouverte d'avance se remplace : l'insérer une
                 // seconde fois laisserait l'écran suivre celle qui ne se
                 // termine jamais.
-                if (runId != null) repo.replace(e);
+                if (openedAhead) repo.replace(e);
                 else repo.insert(e);
             } catch (RuntimeException ex) {
                 LOG.warnf(ex, "Trace d'import non écrite pour le domaine %s", domain);

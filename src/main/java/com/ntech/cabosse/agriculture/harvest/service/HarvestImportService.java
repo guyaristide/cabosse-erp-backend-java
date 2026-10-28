@@ -69,6 +69,7 @@ public class HarvestImportService {
 
     @Inject HarvestRepository harvests;
     @Inject HarvestService harvestService;
+    @Inject com.ntech.cabosse.importjournal.service.ImportAudit importAudit;
     @Inject ParcelRepository parcels;
     @Inject CampaignResolver campaignResolver;
 
@@ -215,6 +216,8 @@ public class HarvestImportService {
             }
         }
 
+        importAudit.committed("harvests", "récoltes", null,
+                created.size(), updated.size(), skipped.size(), null);
         return new HarvestImportCommitResponseDto(
                 preview.totalRows(), created.size(), updated.size(), skipped.size(),
                 campaign.label, created, updated, skipped);

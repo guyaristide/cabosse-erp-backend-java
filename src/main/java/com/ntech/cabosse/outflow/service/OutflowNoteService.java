@@ -46,6 +46,7 @@ public class OutflowNoteService {
     @Inject CustomerRepository customers;
     @Inject IdGenerator idGenerator;
     @Inject JsonWebToken jwt;
+    @Inject com.ntech.cabosse.importjournal.service.ImportAudit importAudit;
 
     /**
      * La liste, décorée des rapprochements du moment : la réception du
@@ -156,6 +157,8 @@ public class OutflowNoteService {
             repo.insert(e);
             created++;
         }
+        importAudit.committed("outflow-notes", "bordereaux de sortie", null,
+                created, 0, rejected.size(), null);
         return new OutflowImportResultDto(created, skipped, rejected);
     }
 

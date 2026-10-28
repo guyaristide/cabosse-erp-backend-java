@@ -6,10 +6,13 @@ import com.ntech.cabosse.campaign.entity.CampaignEntity;
 import com.ntech.cabosse.campaign.entity.CampaignTargetEntity;
 import com.ntech.cabosse.campaign.repository.CampaignRepository;
 import com.ntech.cabosse.campaign.repository.CampaignTargetRepository;
+import com.ntech.cabosse.shared.audit.AuditEventType;
+import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
+import com.ntech.cabosse.shared.tenant.TenantContext;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.jwt.JsonWebToken;
@@ -18,6 +21,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.YearMonth;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -41,6 +45,8 @@ public class CampaignTargetService {
     @Inject CampaignRepository campaigns;
     @Inject IdGenerator idGenerator;
     @Inject JsonWebToken jwt;
+    @Inject AuditService audit;
+    @Inject TenantContext tenantContext;
 
     public List<CampaignTargetDto> list(UUID campaignId) {
         loadOrFail(campaignId);
@@ -67,15 +73,19 @@ public class CampaignTargetService {
         CampaignEntity campaign = loadOrFail(campaignId);
         ensureWithinCampaign(campaign, payload.month());
 
+        CampaignTargetEntity existing = repo.find(campaignId, payload.month()).orElse(null);
+        Map<String, Object> before = targetPayload(existing);
+
         if (payload.collectionTargetKg() == null && payload.saleTargetKg() == null) {
             repo.delete(campaignId, payload.month());
+            trace(campaign, payload.month(), before, null,
+                    "Objectif " + payload.month() + " de la campagne « " + campaign.label + " » effacé");
             return new CampaignTargetDto(payload.month(), null, null, Instant.now(), actor());
         }
 
         // L'identifiant d'un document ne se remplace pas : on reprend
         // celui qui existe, sinon Mongo refuse le remplacement.
-        CampaignTargetEntity e = repo.find(campaignId, payload.month())
-                .orElseGet(CampaignTargetEntity::new);
+        CampaignTargetEntity e = existing != null ? existing : new CampaignTargetEntity();
         if (e.id == null) e.id = idGenerator.newId();
         e.campaignId = campaignId;
         e.month = payload.month();
@@ -84,7 +94,33 @@ public class CampaignTargetService {
         e.updatedAt = Instant.now();
         e.updatedByEmail = actor();
         repo.upsert(e);
+        trace(campaign, e.month, before, targetPayload(e),
+                "Objectif " + e.month + " de la campagne « " + campaign.label + " » enregistré");
         return CampaignTargetDto.from(e);
+    }
+
+    private static Map<String, Object> targetPayload(CampaignTargetEntity e) {
+        if (e == null) return null;
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("collectionTargetKg", e.collectionTargetKg);
+        m.put("saleTargetKg", e.saleTargetKg);
+        return m;
+    }
+
+    private void trace(CampaignEntity campaign, String month, Map<String, Object> before,
+                       Map<String, Object> after, String description) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("campaignId", campaign.id.toString());
+        payload.put("month", month);
+        payload.put("before", before);
+        payload.put("after", after);
+        audit.event(AuditEventType.CAMPAIGN_TARGET_SET)
+                .actorEmail(actor())
+                .target("campaign", campaign.id.toString(), campaign.label)
+                .tenant(tenantContext.tenantId(), null)
+                .description(description)
+                .payload(payload)
+                .record();
     }
 
     /**

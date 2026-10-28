@@ -2,6 +2,8 @@ package com.ntech.cabosse.accounting.service;
 
 import com.ntech.cabosse.accounting.entity.FiscalYearEntity;
 import com.ntech.cabosse.accounting.repository.FiscalYearRepository;
+import com.ntech.cabosse.shared.audit.AuditEventType;
+import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.i18n.Messages;
@@ -35,6 +37,30 @@ public class FiscalYearDocumentService {
     @Inject FiscalYearRepository years;
     @Inject FileUploadService uploads;
     @Inject IdGenerator idGenerator;
+    @Inject AuditService audit;
+    @Inject com.ntech.cabosse.shared.tenant.TenantContext tenantContext;
+    @Inject org.eclipse.microprofile.jwt.JsonWebToken jwt;
+
+    private String actor() {
+        try { return jwt.getName(); } catch (Exception e) { return null; }
+    }
+
+    private void audit(FiscalYearEntity e, AuditEventType type, FiscalYearEntity.Document doc,
+                       String description) {
+        java.util.Map<String, Object> payload = new java.util.LinkedHashMap<>();
+        payload.put("documentId", doc.id != null ? doc.id.toString() : null);
+        payload.put("label", doc.label);
+        payload.put("fileName", doc.fileName);
+        payload.put("mimeType", doc.mimeType);
+        payload.put("sizeBytes", doc.sizeBytes);
+        audit.event(type)
+                .actorEmail(actor())
+                .target("fiscal_year", e.id.toString(), e.label)
+                .tenant(tenantContext.tenantId(), null)
+                .description(description)
+                .payload(payload)
+                .record();
+    }
 
     public FiscalYearEntity attach(UUID yearId, String label, byte[] bytes,
                                    String mimeType, String originalName) {
@@ -59,6 +85,8 @@ public class FiscalYearDocumentService {
         e.documents.add(doc);
         e.updatedAt = Instant.now();
         years.replace(e);
+        audit(e, AuditEventType.ATTACHMENT_ADDED, doc,
+                "Pièce « " + doc.label + " » jointe à l'exercice " + e.label);
         return e;
     }
 
@@ -80,6 +108,8 @@ public class FiscalYearDocumentService {
         e.documents.removeIf(d -> documentId.equals(d.id));
         e.updatedAt = Instant.now();
         years.replace(e);
+        audit(e, AuditEventType.ATTACHMENT_REMOVED, doc,
+                "Pièce « " + doc.label + " » retirée de l'exercice " + e.label);
         return e;
     }
 

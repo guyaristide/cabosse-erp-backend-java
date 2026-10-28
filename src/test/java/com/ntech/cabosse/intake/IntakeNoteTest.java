@@ -1,6 +1,8 @@
 package com.ntech.cabosse.intake;
 
 import com.ntech.cabosse.auth.service.PasswordHasher;
+import com.ntech.cabosse.shared.audit.AuditEventType;
+import com.ntech.cabosse.shared.audit.AuditRepository;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.security.Roles;
 import com.ntech.cabosse.tenant.entity.TenantEntity;
@@ -37,6 +39,7 @@ class IntakeNoteTest extends AbstractIntegrationTest {
 
     @Inject PasswordHasher passwordHasher;
     @Inject IdGenerator idGenerator;
+    @Inject AuditRepository auditRepository;
 
     private TenantEntity tenant;
 
@@ -164,6 +167,13 @@ class IntakeNoteTest extends AbstractIntegrationTest {
                 .then().statusCode(200)
                 .body("data.status", equalTo("ACCOUNTED"))
                 .body("data.receiptRefs", hasSize(2));
+
+        // La comptabilisation laisse sa ligne au journal d'audit, lue à la
+        // source : le journal n'est lisible que par la plateforme.
+        org.junit.jupiter.api.Assertions.assertEquals(1,
+                auditRepository.count(new AuditRepository.AuditQuery(
+                        null, AuditEventType.INTAKE_NOTE_ACCOUNTED.name(),
+                        null, tenant.id, null, null)));
 
         // Une seconde validation est refusée : les reçus ne doublent pas.
         givenAs(admin).contentType("application/json").body(lines)

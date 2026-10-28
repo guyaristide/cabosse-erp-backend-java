@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
 
 /**
@@ -189,6 +190,13 @@ class UnchainedProcessingTest extends AbstractIntegrationTest {
                 .when().post("/api/v1/fermentation-batches")
                 .then().statusCode(201)
                 .body("data.harvestIds", hasSize(0));
+
+        // L'ouverture du bac laisse sa trace au journal de la plateforme.
+        givenAs(fixtures.createPlatformAdmin())
+                .queryParam("tenantId", a.tenantId.toString()).queryParam("pageSize", 200)
+                .when().get("/api/v1/admin/audit")
+                .then().statusCode(200)
+                .body("data.items.eventType", hasItem("FERMENTATION_BATCH_CHANGED"));
     }
 
     /**

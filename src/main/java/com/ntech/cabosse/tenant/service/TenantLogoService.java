@@ -1,5 +1,7 @@
 package com.ntech.cabosse.tenant.service;
 
+import com.ntech.cabosse.shared.audit.AuditEventType;
+import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.storage.CloudFileEntity;
@@ -36,6 +38,8 @@ public class TenantLogoService {
 
     @Inject TenantRepository tenants;
     @Inject FileUploadService uploads;
+    @Inject AuditService audit;
+    @Inject org.eclipse.microprofile.jwt.JsonWebToken jwt;
 
     /**
      * Attache ou remplace le logo d'un tenant. Si un logo existait déjà,
@@ -74,12 +78,32 @@ public class TenantLogoService {
         if (tenant.branding == null) {
             tenant.branding = new TenantBranding("#1A1A1A");
         }
+        boolean replaced = tenant.branding.logoFileId != null;
         tenant.branding.logoFileId = file.id;
         tenant.branding.mimeType = file.mimeType;
         tenant.branding.sizeBytes = file.sizeBytes;
         tenant.updatedAt = Instant.now();
         tenant.updatedBy = actorId;
         tenants.update(tenant);
+        java.util.Map<String, Object> payload = new java.util.LinkedHashMap<>();
+        payload.put("action", replaced ? "REPLACED" : "ATTACHED");
+        payload.put("mimeType", file.mimeType);
+        payload.put("sizeBytes", file.sizeBytes);
+        trace(tenant, replaced ? "Logo remplacé" : "Logo ajouté", payload);
+    }
+
+    private void trace(TenantEntity tenant, String description, java.util.Map<String, Object> payload) {
+        audit.event(AuditEventType.TENANT_LOGO_CHANGED)
+                .actorEmail(actor())
+                .target("tenant", tenant.id.toString(), tenant.slug)
+                .tenant(tenant.id, tenant.name)
+                .description(description)
+                .payload(payload)
+                .record();
+    }
+
+    private String actor() {
+        try { return jwt != null ? jwt.getName() : null; } catch (Exception e) { return null; }
     }
 
     /** Retire le logo d'un tenant (no-op s'il n'y en a pas). */
@@ -90,7 +114,8 @@ public class TenantLogoService {
             throw new NotFoundException(Messages.msg("m.tnt-not-found", tenantId));
         }
 
-        if (tenant.branding != null && tenant.branding.logoFileId != null) {
+        boolean had = tenant.branding != null && tenant.branding.logoFileId != null;
+        if (had) {
             uploads.archive(SCOPE, tenant.branding.logoFileId);
             tenant.branding.logoFileId = null;
             tenant.branding.mimeType = null;
@@ -99,6 +124,8 @@ public class TenantLogoService {
         tenant.updatedAt = Instant.now();
         tenant.updatedBy = actorId;
         tenants.update(tenant);
+        // Sans logo, rien n'a changé : pas de ligne pour un geste à vide.
+        if (had) trace(tenant, "Logo retiré", java.util.Map.of("action", "REMOVED"));
     }
 
     /** Ouvre un stream sur le binaire du logo, avec ses méta. */

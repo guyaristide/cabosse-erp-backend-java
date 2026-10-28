@@ -37,6 +37,7 @@ public class SiteImportService {
 
     @Inject SiteRepository sites;
     @Inject SiteService siteService;
+    @Inject com.ntech.cabosse.importjournal.service.ImportAudit importAudit;
 
     public SiteImportPreviewDto preview(List<SiteImportRowDto> input) {
         if (input == null || input.isEmpty()) {
@@ -142,6 +143,7 @@ public class SiteImportService {
                 skipped.add(new Row(row.rowNumber(), Status.INVALID, row.normalized(), issues));
             }
         }
+        importAudit.committed("sites", "sites", null, createdIds.size(), 0, skipped.size(), null);
         return new SiteImportCommitResponseDto(
                 preview.totalRows(), createdIds.size(), skipped.size(), createdIds, skipped
         );

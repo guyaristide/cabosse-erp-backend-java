@@ -8,6 +8,7 @@ import jakarta.inject.Inject;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * Helper partagé pour consigner un export de données dans le journal
@@ -34,7 +35,11 @@ public class ExportAudit {
 
     /**
      * Consigne un export dans le journal d'audit ({@code DATA_EXPORTED},
-     * catégorie {@code OPERATIONS}).
+     * catégorie {@code OPERATIONS}), rattaché à la structure de la requête.
+     *
+     * <p>Sans structure dans la requête, l'événement part sans tenant
+     * plutôt que de faire échouer l'export : un agent de la plateforme
+     * n'en porte aucune dans son jeton.</p>
      *
      * @param targetType type technique de la cible (ex. {@code "articles"})
      * @param title      libellé humain de l'export (ex. {@code "Matières premières"})
@@ -42,6 +47,15 @@ public class ExportAudit {
      * @param rowCount   nombre de lignes exportées
      */
     public void record(String targetType, String title, ExportFormat format, int rowCount) {
+        record(tenantContext.tenantIdOrNull(), targetType, title, format, rowCount);
+    }
+
+    /**
+     * Même consignation, sur une structure désignée : pour le back-office,
+     * qui exporte les données d'une structure autre que celle de son jeton.
+     */
+    public void record(UUID tenantId, String targetType, String title,
+                       ExportFormat format, int rowCount) {
         // La découverte des colonnes n'exporte aucune donnée : la
         // journaliser noierait le journal sous de faux exports.
         if (format == ExportFormat.META) return;
@@ -50,7 +64,7 @@ public class ExportAudit {
         audit.event(AuditEventType.DATA_EXPORTED)
                 .actorEmail(email)
                 .target(targetType, title, title)
-                .tenant(tenantContext.tenantId(), null)
+                .tenant(tenantId, null)
                 .description("Export " + title + " (" + format.name() + ") · "
                         + rowCount + " ligne" + (rowCount > 1 ? "s" : ""))
                 .payload(Map.of(

@@ -97,6 +97,7 @@ public class ParcelImportService {
 
     @Inject ParcelRepository parcels;
     @Inject ParcelService parcelService;
+    @Inject com.ntech.cabosse.importjournal.service.ImportAudit importAudit;
     @Inject MemberRepository members;
     @Inject ProducerLookup producerLookup;
     @Inject CropRepository crops;
@@ -295,6 +296,8 @@ public class ParcelImportService {
             }
         }
 
+        importAudit.committed("parcels", "parcelles", null,
+                created.size(), updated.size(), skipped.size(), null);
         return new ParcelImportCommitResponseDto(
                 preview.totalRows(), created.size(), updated.size(), skipped.size(),
                 created, updated,

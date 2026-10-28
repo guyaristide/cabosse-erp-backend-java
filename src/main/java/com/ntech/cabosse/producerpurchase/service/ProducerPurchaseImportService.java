@@ -55,6 +55,7 @@ public class ProducerPurchaseImportService {
     @Inject CollectorAdvanceRepository advances;
     @Inject TenantPreferencesLookup preferences;
     @Inject ProducerPurchaseService purchaseService;
+    @Inject com.ntech.cabosse.importjournal.service.ImportAudit importAudit;
     @Inject com.ntech.cabosse.suppliercategory.service.SupplierMarginResolver marginResolver;
     @Inject DeliveryNoteRefService deliveryNoteRefService;
 
@@ -343,6 +344,8 @@ public class ProducerPurchaseImportService {
                         List.of(new FieldIssue("_", UserFacingReason.of(e)))));
             }
         }
+        importAudit.committed("producer-purchases", "reçus d'achat producteur", null,
+                createdRefs.size(), 0, skipped.size(), null);
         return new ProducerPurchaseImportCommitResponseDto(
                 preview.totalRows(), createdRefs.size(), skipped.size(), createdRefs, skipped);
     }

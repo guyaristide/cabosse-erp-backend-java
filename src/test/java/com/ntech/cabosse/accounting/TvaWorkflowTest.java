@@ -1,6 +1,8 @@
 package com.ntech.cabosse.accounting;
 
 import com.ntech.cabosse.auth.service.PasswordHasher;
+import com.ntech.cabosse.shared.audit.AuditEventType;
+import com.ntech.cabosse.shared.audit.AuditRepository;
 import com.ntech.cabosse.shared.migration.TenantMigrationRunner;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.security.Roles;
@@ -20,6 +22,7 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.HashSet;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.notNullValue;
@@ -41,6 +44,7 @@ class TvaWorkflowTest extends AbstractIntegrationTest {
     @Inject PasswordHasher passwordHasher;
     @Inject IdGenerator idGenerator;
     @Inject TenantMigrationRunner migrations;
+    @Inject AuditRepository auditRepository;
 
     private UserEntity tenantAdmin() {
         TenantEntity tenant = fixtures.createActiveTenant(
@@ -155,6 +159,15 @@ class TvaWorkflowTest extends AbstractIntegrationTest {
                 .when().get("/api/v1/accounting/tva/history")
                 .then().statusCode(200)
                 .body("data.find { it.periodStart == '" + firstDay + "' }.status", equalTo("DEPOSE"));
+
+        // Chaque étape du workflow laisse sa ligne au journal d'audit, lue
+        // à la source : le journal n'est lisible que par la plateforme.
+        assertThat(auditRepository.count(new AuditRepository.AuditQuery(
+                null, AuditEventType.TVA_DECLARATION_READY.name(), null, admin.tenantId, null, null)))
+                .isEqualTo(1);
+        assertThat(auditRepository.count(new AuditRepository.AuditQuery(
+                null, AuditEventType.TVA_DECLARATION_DEPOSED.name(), null, admin.tenantId, null, null)))
+                .isEqualTo(1);
     }
 
     @Test

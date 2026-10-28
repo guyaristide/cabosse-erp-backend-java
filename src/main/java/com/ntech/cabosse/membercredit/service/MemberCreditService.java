@@ -499,6 +499,8 @@ public class MemberCreditService {
         repo.replace(e);
         advanceNotifier.memberCreditExecutionRequested(e.ref, e.memberName,
                 nz(e.effectiveAmount()), safeUserId());
+        audit(e, AuditEventType.EXECUTION_REQUESTED,
+                "Avance " + e.ref + " transmise à l'exécution pour " + e.memberName);
         return MemberCreditResponseDto.from(e);
     }
 

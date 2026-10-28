@@ -143,7 +143,10 @@ public class TenantDiagnosticsResource {
         var rows = service.flatten(service.lookup(tenantId, q, actor()));
         var dataset = new ExportDataset<>(Messages.msg("m.exp-t-diagnostic-piece"),
                 DiagnosticLookupExportColumns.all(), rows);
-        exportAudit.record("diagnostic-piece", "Diagnostic : pièce retrouvée", format, rows.size());
+        // Rattaché à la structure diagnostiquée, pas à celle du jeton :
+        // l'agent de la plateforme n'en porte aucune.
+        exportAudit.record(tenantId, "diagnostic-piece", "Diagnostic : pièce retrouvée",
+                format, rows.size());
         return ExportResponses.build("diagnostic-piece", format, dataset);
     }
 
@@ -160,7 +163,7 @@ public class TenantDiagnosticsResource {
         var rows = service.flatten(service.consistency(tenantId, actor()));
         var dataset = new ExportDataset<>(Messages.msg("m.exp-t-diagnostic-coherence"),
                 ConsistencyExportColumns.all(), rows);
-        exportAudit.record("diagnostic-coherence", "Diagnostic : contrôles de cohérence",
+        exportAudit.record(tenantId, "diagnostic-coherence", "Diagnostic : contrôles de cohérence",
                 format, rows.size());
         return ExportResponses.build("diagnostic-coherence", format, dataset);
     }

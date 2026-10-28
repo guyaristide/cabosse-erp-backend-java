@@ -131,6 +131,21 @@ class GuardedReadsTest extends AbstractIntegrationTest {
         UserEntity autre = withRights(a, "autre", "ACCOUNTING_READ");
         givenAs(autre).when().get("/api/v1/me/tenant/admin/audit")
                 .then().statusCode(403);
+
+        // Le refus laisse une ligne au journal de la structure (SEC-16) :
+        // une suite de droits refusés sur un compte est un signal que le
+        // contrôleur doit voir, et l'écran ne le montre qu'au refusé.
+        org.bson.Document denied = mongoClient.getDatabase("cabosse_control")
+                .getCollection("global_audit")
+                .find(com.mongodb.client.model.Filters.and(
+                        com.mongodb.client.model.Filters.eq("eventType", "PERMISSION_DENIED"),
+                        com.mongodb.client.model.Filters.eq("actorEmail", autre.email)))
+                .first();
+        org.assertj.core.api.Assertions.assertThat(denied).isNotNull();
+        org.assertj.core.api.Assertions.assertThat(denied.get("tenantId")).isEqualTo(tenant.id);
+        org.assertj.core.api.Assertions.assertThat(denied.getString("targetId")).isEqualTo("AUDIT_READ");
+        org.assertj.core.api.Assertions.assertThat(denied.getString("description"))
+                .contains("AUDIT_READ").contains("GET").contains("/api/v1/me/tenant/admin/audit");
     }
 
     @Test

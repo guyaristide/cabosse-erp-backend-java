@@ -6,6 +6,8 @@ import com.ntech.cabosse.eudr.entity.DeforestationAlertEntity;
 import com.ntech.cabosse.eudr.entity.DeforestationAlertStatus;
 import com.ntech.cabosse.eudr.entity.DeforestationSeverity;
 import com.ntech.cabosse.eudr.repository.DeforestationAlertRepository;
+import com.ntech.cabosse.shared.audit.AuditEventType;
+import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.i18n.Messages;
@@ -18,7 +20,9 @@ import org.eclipse.microprofile.jwt.JsonWebToken;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -45,6 +49,7 @@ public class DeforestationCheckService {
     @Inject IdGenerator idGenerator;
     @Inject TenantContext tenantContext;
     @Inject JsonWebToken jwt;
+    @Inject AuditService audit;
 
     private String actor() {
         try { return jwt.getName(); } catch (Exception e) { return null; }
@@ -52,6 +57,17 @@ public class DeforestationCheckService {
 
     private UUID safeUserId() {
         try { return tenantContext.userId(); } catch (Exception e) { return null; }
+    }
+
+    private void audit(AuditEventType type, String targetType, UUID targetId, String label,
+                       String description, Map<String, Object> payload) {
+        audit.event(type)
+                .actorEmail(actor())
+                .target(targetType, targetId.toString(), label)
+                .tenant(tenantContext.tenantId(), null)
+                .description(description)
+                .payload(payload)
+                .record();
     }
 
     public long count(DeforestationAlertStatus statusFilter, UUID parcelId) {
@@ -92,6 +108,17 @@ public class DeforestationCheckService {
         alert.createdBy = safeUserId();
         alert.createdByEmail = actor();
         alerts.insert(alert);
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("parcelId", parcel.id.toString());
+        payload.put("parcelCode", parcel.code);
+        payload.put("severity", alert.severity.name());
+        payload.put("detectedAt", alert.detectedAt.toString());
+        payload.put("areaHaImpacted", alert.areaHaImpacted);
+        payload.put("sourceReference", alert.sourceReference);
+        payload.put("status", alert.status.name());
+        audit(AuditEventType.EUDR_ALERT_RECORDED, "deforestation_alert", alert.id, parcel.code,
+                "Alerte déforestation " + alert.severity.name() + " saisie sur la parcelle "
+                        + parcel.code, payload);
         return alert;
     }
 
@@ -107,6 +134,14 @@ public class DeforestationCheckService {
             alert.resolvedByEmail = actor();
         }
         alerts.replace(alert);
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("status", alert.status != null ? alert.status.name() : null);
+        payload.put("parcelCode", alert.parcelCode);
+        payload.put("remediationAction", alert.remediationAction);
+        audit(AuditEventType.EUDR_ALERT_TRANSITIONED, "deforestation_alert", alert.id,
+                alert.parcelCode,
+                "Alerte déforestation de la parcelle " + alert.parcelCode + " passée à "
+                        + (alert.status != null ? alert.status.name() : "?"), payload);
         return alert;
     }
 
@@ -122,7 +157,16 @@ public class DeforestationCheckService {
         // TODO Phase 7 : appel API GFW (GLAD-L, RADD) + Hansen baseline
         // pour comparer la couverture pré/post 2020. Retourner une alerte
         // si perte > 5% détectée.
-        return new CheckResult(parcel.id, parcel.code, true, "Placeholder MVP : intégration API GFW en Phase 7.");
+        CheckResult result = new CheckResult(parcel.id, parcel.code, true,
+                "Placeholder MVP : intégration API GFW en Phase 7.");
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("action", "CHECK_PARCEL");
+        payload.put("parcelCode", parcel.code);
+        payload.put("ok", result.ok());
+        payload.put("message", result.message());
+        audit(AuditEventType.EUDR_DOSSIER_UPDATED, "parcel", parcel.id, parcel.code,
+                "Vérification déforestation demandée sur la parcelle " + parcel.code, payload);
+        return result;
     }
 
     public record CheckResult(UUID parcelId, String parcelCode, boolean ok, String message) {}

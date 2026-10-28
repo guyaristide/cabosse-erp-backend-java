@@ -10,6 +10,8 @@ import com.ntech.cabosse.processing.drying.entity.DryingBatchEntity;
 import com.ntech.cabosse.processing.drying.repository.DryingBatchRepository;
 import com.ntech.cabosse.shared.api.PageRequest;
 import com.ntech.cabosse.shared.api.Pagination;
+import com.ntech.cabosse.shared.audit.AuditEventType;
+import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.i18n.Messages;
@@ -55,6 +57,7 @@ public class BeanQualityCheckService {
     @Inject IdGenerator idGenerator;
     @Inject TenantContext tenantContext;
     @Inject JsonWebToken jwt;
+    @Inject AuditService audit;
 
     private String actor() {
         try { return jwt.getName(); } catch (Exception e) { return null; }
@@ -62,6 +65,25 @@ public class BeanQualityCheckService {
 
     private UUID safeUserId() {
         try { return tenantContext.userId(); } catch (Exception e) { return null; }
+    }
+
+    private void audit(BeanQualityCheckEntity e, AuditEventType type, String description) {
+        Map<String, Object> payload = new java.util.LinkedHashMap<>();
+        payload.put("ref", e.ref);
+        payload.put("dryingBatchRef", e.dryingBatchRef);
+        payload.put("grade", e.grade);
+        payload.put("conformOverall", e.conformOverall);
+        payload.put("acceptedKg", e.acceptedKg);
+        payload.put("beanArticleCode", e.beanArticleCode);
+        payload.put("siteName", e.siteName);
+        payload.put("lotRef", e.lotRef);
+        audit.event(type)
+                .actorEmail(actor())
+                .target("bean_quality_check", e.id.toString(), e.ref)
+                .tenant(tenantContext.tenantId(), null)
+                .description(description)
+                .payload(payload)
+                .record();
     }
 
     public Pagination<BeanQualityCheckResponseDto> page(Boolean conformFilter, String q,
@@ -108,6 +130,9 @@ public class BeanQualityCheckService {
         e.createdByEmail = actor();
         e.stockMovementCreated = false;
         qcs.insert(e);
+        audit(e, AuditEventType.BEAN_QC_RECORDED, "Contrôle qualité " + e.ref + " enregistré"
+                + (e.dryingBatchRef != null ? " sur le lot de séchage " + e.dryingBatchRef : "")
+                + (e.conformOverall ? " (conforme)" : " (non conforme)"));
         return BeanQualityCheckResponseDto.from(e);
     }
 
@@ -120,6 +145,7 @@ public class BeanQualityCheckService {
         applyPayload(e, payload, drying);
         e.updatedAt = Instant.now();
         qcs.replace(e);
+        audit(e, AuditEventType.BEAN_QC_UPDATED, "Contrôle qualité " + e.ref + " modifié");
         return BeanQualityCheckResponseDto.from(e);
     }
 
@@ -172,6 +198,8 @@ public class BeanQualityCheckService {
         e.stockMovementCreated = true;
         e.updatedAt = when;
         qcs.replace(e);
+        audit(e, AuditEventType.BEAN_QC_VALIDATED, "Contrôle qualité " + e.ref + " validé : "
+                + e.acceptedKg + " kg entrés en stock sous le lot " + e.lotRef);
         return BeanQualityCheckResponseDto.from(e);
     }
 

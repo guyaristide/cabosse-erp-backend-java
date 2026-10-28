@@ -40,6 +40,7 @@ public class PlatformSettingsService {
     @Inject SecretCipher cipher;
     @Inject Config config;
     @Inject Logger log;
+    @Inject com.ntech.cabosse.shared.audit.AuditService audit;
 
     /** Snapshot section → values déchiffrées. Reconstruit à chaque écriture. */
     private final Map<String, Map<String, String>> cache = new ConcurrentHashMap<>();
@@ -180,6 +181,35 @@ public class PlatformSettingsService {
 
         // invalidate cache
         cache.remove(section);
+    }
+
+    /**
+     * Coupe une passerelle de paiement : la configuration reste en base,
+     * seul {@code enabled} passe à faux. Les secrets sont réécrits tels
+     * quels, par la sentinelle vide, et n'apparaissent jamais dans la
+     * trace.
+     */
+    public void disablePaymentProvider(String section, String code, String updatedBy) {
+        RawSection raw = rawValuesForAdmin(section);
+        if (!raw.exists()) {
+            throw new com.ntech.cabosse.shared.exception.NotFoundException(
+                    com.ntech.cabosse.shared.i18n.Messages.msg("m.set-payment-gateway-not-found", code));
+        }
+        Map<String, String> values = new HashMap<>(raw.values());
+        boolean wasEnabled = Boolean.parseBoolean(values.get("enabled"));
+        values.put("enabled", "false");
+        writeSection(section, values, raw.secretKeys(), updatedBy);
+        String name = values.get("name") != null ? values.get("name") : code;
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("code", code);
+        payload.put("name", name);
+        payload.put("wasEnabled", wasEnabled);
+        audit.event(com.ntech.cabosse.shared.audit.AuditEventType.PAYMENT_PROVIDER_DELETED)
+                .actorEmail(updatedBy)
+                .target("settings", section, name)
+                .description("Passerelle de paiement « " + name + " » désactivée")
+                .payload(payload)
+                .record();
     }
 
     /** Vide tout le cache (utile en test). */

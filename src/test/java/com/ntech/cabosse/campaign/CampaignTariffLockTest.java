@@ -1,6 +1,8 @@
 package com.ntech.cabosse.campaign;
 
 import com.ntech.cabosse.auth.service.PasswordHasher;
+import com.ntech.cabosse.shared.audit.AuditEventType;
+import com.ntech.cabosse.shared.audit.AuditRepository;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.security.Roles;
 import com.ntech.cabosse.tenant.entity.TenantEntity;
@@ -43,6 +45,7 @@ class CampaignTariffLockTest extends AbstractIntegrationTest {
 
     @Inject PasswordHasher passwordHasher;
     @Inject IdGenerator idGenerator;
+    @Inject AuditRepository auditRepository;
 
     private TenantEntity tenant;
 
@@ -159,6 +162,13 @@ class CampaignTariffLockTest extends AbstractIntegrationTest {
                 after.getString("data.tariffHistory[0].reason"));
         org.junit.jupiter.api.Assertions.assertEquals(
                 a.email, after.getString("data.tariffHistory[0].changedByEmail"));
+
+        // Le changement de barème laisse aussi sa ligne au journal d'audit,
+        // lue à la source : le journal n'est lisible que par la plateforme.
+        org.junit.jupiter.api.Assertions.assertEquals(1,
+                auditRepository.count(new AuditRepository.AuditQuery(
+                        null, AuditEventType.CAMPAIGN_TARIFF_CHANGED.name(),
+                        null, tenant.id, null, null)));
     }
 
     @Test

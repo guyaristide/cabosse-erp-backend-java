@@ -13,9 +13,12 @@ import com.ntech.cabosse.accounting.repository.BankStatementRepository;
 import com.ntech.cabosse.accounting.entity.PostingSourceType;
 import com.ntech.cabosse.accounting.entity.SyscohadaAccounts;
 import com.ntech.cabosse.accounting.repository.JournalPieceRepository;
+import com.ntech.cabosse.shared.audit.AuditEventType;
+import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.i18n.Messages;
+import com.ntech.cabosse.shared.tenant.TenantContext;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.jwt.JsonWebToken;
@@ -23,7 +26,9 @@ import org.eclipse.microprofile.jwt.JsonWebToken;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -57,9 +62,36 @@ public class BankReconciliationService {
     @Inject JournalPieceRepository pieces;
     @Inject AccountingService accounting;
     @Inject JsonWebToken jwt;
+    @Inject AuditService audit;
+    @Inject TenantContext tenantContext;
 
     private String actor() {
         try { return jwt.getName(); } catch (Exception e) { return null; }
+    }
+
+    /** Trace d'un geste manuel sur une ligne de relevé ; la pièce liée quand il y en a une. */
+    private void trace(BankStatementLineEntity line, AuditEventType type,
+                       JournalPieceEntity piece, String description) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("lineId", line.id.toString());
+        payload.put("statementId", line.statementId != null ? line.statementId.toString() : null);
+        payload.put("bankAccountId", line.bankAccountId != null ? line.bankAccountId.toString() : null);
+        payload.put("operationDate", line.operationDate != null ? line.operationDate.toString() : null);
+        payload.put("label", line.label);
+        payload.put("amount", line.amount);
+        payload.put("direction", line.direction);
+        payload.put("status", line.status != null ? line.status.name() : null);
+        if (piece != null) {
+            payload.put("pieceId", piece.id.toString());
+            payload.put("pieceRef", piece.ref);
+        }
+        audit.event(type)
+                .actorEmail(actor())
+                .target("bank_statement_line", line.id.toString(), line.label)
+                .tenant(tenantContext.tenantId(), null)
+                .description(description)
+                .payload(payload)
+                .record();
     }
 
     // ════════════════════════════════════════════════════════════════
@@ -145,6 +177,8 @@ public class BankReconciliationService {
                 .orElseThrow(() -> new NotFoundException(Messages.msg("m.acc-piece-not-found", pieceId)));
         applyMatch(line, piece);
         refreshStatementCounters(line.statementId);
+        trace(line, AuditEventType.BANK_LINE_MATCHED, piece,
+                "Ligne de relevé « " + line.label + " » rapprochée avec la pièce " + piece.ref);
         return line;
     }
 
@@ -153,12 +187,18 @@ public class BankReconciliationService {
         if (line.status != BankStatementLineStatus.MATCHED) {
             throw new BusinessException(Messages.msg("m.acc-line-not-matched"));
         }
+        UUID previousPiece = line.matchedPieceId;
         line.status = BankStatementLineStatus.UNMATCHED;
         line.matchedPieceId = null;
         line.matchedAt = null;
         line.matchedByEmail = null;
         lines.replace(line);
         refreshStatementCounters(line.statementId);
+        JournalPieceEntity previous = previousPiece == null ? null
+                : pieces.findById(previousPiece).orElse(null);
+        trace(line, AuditEventType.BANK_LINE_UNMATCHED, previous,
+                "Rapprochement défait sur la ligne de relevé « " + line.label + " »"
+                        + (previous != null ? " (pièce " + previous.ref + ")" : ""));
         return line;
     }
 
@@ -170,6 +210,8 @@ public class BankReconciliationService {
         line.matchedByEmail = null;
         lines.replace(line);
         refreshStatementCounters(line.statementId);
+        trace(line, AuditEventType.BANK_LINE_IGNORED, null,
+                "Ligne de relevé « " + line.label + " » ignorée");
         return line;
     }
 
@@ -181,6 +223,8 @@ public class BankReconciliationService {
         line.matchedByEmail = null;
         lines.replace(line);
         refreshStatementCounters(line.statementId);
+        trace(line, AuditEventType.BANK_LINE_DISPUTED, null,
+                "Ligne de relevé « " + line.label + " » mise en litige");
         return line;
     }
 
@@ -204,6 +248,9 @@ public class BankReconciliationService {
                 line, PostingSourceType.BANK_REGULARIZATION, counterpart, label);
         applyMatch(line, piece);
         refreshStatementCounters(line.statementId);
+        trace(line, AuditEventType.BANK_LINE_REGULARIZED, piece,
+                "Ligne de relevé « " + line.label + " » régularisée sur le compte "
+                        + counterpart + " (pièce " + piece.ref + ")");
         return line;
     }
 
@@ -225,6 +272,8 @@ public class BankReconciliationService {
         line.matchedByEmail = actor();
         lines.replace(line);
         refreshStatementCounters(line.statementId);
+        trace(line, AuditEventType.BANK_LINE_SUSPENDED, piece,
+                "Ligne de relevé « " + line.label + " » mise en attente (pièce " + piece.ref + ")");
         return line;
     }
 

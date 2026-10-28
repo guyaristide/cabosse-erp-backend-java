@@ -2,6 +2,8 @@ package com.ntech.cabosse.members.service;
 
 import com.ntech.cabosse.members.entity.MemberEntity;
 import com.ntech.cabosse.members.repository.MemberRepository;
+import com.ntech.cabosse.shared.audit.AuditEventType;
+import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.i18n.Messages;
@@ -9,12 +11,16 @@ import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.storage.CloudFileEntity;
 import com.ntech.cabosse.shared.storage.CloudFileScope;
 import com.ntech.cabosse.shared.storage.FileUploadService;
+import com.ntech.cabosse.shared.tenant.TenantContext;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import org.eclipse.microprofile.jwt.JsonWebToken;
 
 import java.io.InputStream;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -33,6 +39,9 @@ public class MemberDocumentService {
     @Inject MemberRepository members;
     @Inject FileUploadService uploads;
     @Inject IdGenerator idGenerator;
+    @Inject AuditService audit;
+    @Inject TenantContext tenantContext;
+    @Inject JsonWebToken jwt;
 
     public MemberEntity attach(UUID memberId, String label, byte[] bytes,
                                String mimeType, String originalName) {
@@ -57,7 +66,26 @@ public class MemberDocumentService {
         e.documents.add(doc);
         e.updatedAt = Instant.now();
         members.replace(e);
+        // Métadonnées seulement : le contenu de la pièce ne va jamais au journal.
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("documentId", doc.id.toString());
+        payload.put("label", doc.label);
+        payload.put("fileName", doc.fileName);
+        payload.put("mimeType", doc.mimeType);
+        payload.put("sizeBytes", doc.sizeBytes);
+        audit.event(AuditEventType.MEMBER_DOCUMENT_UPLOADED)
+                .actorEmail(actor())
+                .target("member", e.id.toString(), e.name)
+                .tenant(tenantContext.tenantId(), null)
+                .description("Pièce « " + doc.label + " » déposée au dossier de " + e.name
+                        + " (" + e.code + ")")
+                .payload(payload)
+                .record();
         return e;
+    }
+
+    private String actor() {
+        try { return jwt.getName(); } catch (Exception e) { return null; }
     }
 
     public DocumentStream open(UUID memberId, UUID documentId) {

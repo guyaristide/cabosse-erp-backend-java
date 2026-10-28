@@ -10,6 +10,8 @@ import com.ntech.cabosse.members.entity.MemberEntity;
 import com.ntech.cabosse.members.repository.MemberRepository;
 import com.ntech.cabosse.shared.api.PageRequest;
 import com.ntech.cabosse.shared.api.Pagination;
+import com.ntech.cabosse.shared.audit.AuditEventType;
+import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.i18n.Messages;
@@ -43,6 +45,7 @@ public class ParcelService {
     @Inject JsonWebToken jwt;
     @Inject com.ntech.cabosse.tenant.capability.TenantCapabilityService capabilities;
     @Inject com.ntech.cabosse.eudr.service.EudrDossierService eudrDossiers;
+    @Inject AuditService audit;
 
     private String actor() {
         try { return jwt.getName(); } catch (Exception e) { return null; }
@@ -50,6 +53,24 @@ public class ParcelService {
 
     private UUID safeUserId() {
         try { return tenantContext.userId(); } catch (Exception e) { return null; }
+    }
+
+    private void audit(ParcelEntity e, AuditEventType type, String description) {
+        Map<String, Object> payload = new java.util.LinkedHashMap<>();
+        payload.put("code", e.code);
+        payload.put("name", e.name);
+        payload.put("surfaceHa", e.surfaceHa);
+        payload.put("cropCode", e.cropCode);
+        payload.put("memberId", e.memberId != null ? e.memberId.toString() : null);
+        payload.put("memberName", e.memberName);
+        payload.put("status", e.status != null ? e.status.name() : null);
+        audit.event(type)
+                .actorEmail(actor())
+                .target("parcel", e.id.toString(), e.code)
+                .tenant(tenantContext.tenantId(), null)
+                .description(description)
+                .payload(payload)
+                .record();
     }
 
     // ─── Lecture ────────────────────────────────────────────────────
@@ -114,6 +135,8 @@ public class ParcelService {
         } catch (RuntimeException ignored) {
             // log silencieux — dossier EUDR créable manuellement plus tard
         }
+        audit(e, AuditEventType.PARCEL_CREATED, "Parcelle " + e.code + " « " + e.name + " » créée"
+                + (e.memberName != null ? " pour " + e.memberName : ""));
         return ParcelResponseDto.from(e);
     }
 
@@ -130,6 +153,7 @@ public class ParcelService {
             if (previousMember != null) removeFromMember(previousMember, e.id);
             if (e.memberId != null) addToMember(e.memberId, e.id);
         }
+        audit(e, AuditEventType.PARCEL_UPDATED, "Parcelle " + e.code + " « " + e.name + " » modifiée");
         return ParcelResponseDto.from(e);
     }
 

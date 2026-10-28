@@ -7,6 +7,8 @@ import com.ntech.cabosse.campaign.entity.CampaignKind;
 import com.ntech.cabosse.campaign.entity.CampaignStatus;
 import com.ntech.cabosse.campaign.entity.QualityPremium;
 import com.ntech.cabosse.campaign.repository.CampaignRepository;
+import com.ntech.cabosse.shared.audit.AuditEventType;
+import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.i18n.Messages;
@@ -21,7 +23,9 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -54,6 +58,7 @@ public class CampaignService {
     @Inject TenantCapabilityService capabilityService;
     @Inject JsonWebToken jwt;
     @Inject com.ntech.cabosse.qualitygrade.service.QualityGradeService qualityGrades;
+    @Inject AuditService audit;
 
     /**
      * La campagne est un référentiel <strong>partagé</strong> : elle date les
@@ -116,6 +121,8 @@ public class CampaignService {
         e.createdBy = tenantContext.userId();
         e.createdByEmail = currentEmail();
         repo.insert(e);
+        trace(e, AuditEventType.CAMPAIGN_CREATED, "Campagne « " + e.label + " » créée ("
+                + e.startDate + " au " + e.endDate + ")", periodPayload(e));
         return e;
     }
 
@@ -141,9 +148,14 @@ public class CampaignService {
         if (tariffDiffers(e, payload)) {
             throw new BusinessException(Messages.msg("m.cmp-tariff-locked"));
         }
+        Map<String, Object> before = periodPayload(e);
         applyPayload(e, payload);
         e.updatedAt = Instant.now();
         repo.replace(e);
+        Map<String, Object> payloadAudit = new LinkedHashMap<>();
+        payloadAudit.put("before", before);
+        payloadAudit.put("after", periodPayload(e));
+        trace(e, AuditEventType.CAMPAIGN_UPDATED, "Campagne « " + e.label + " » modifiée", payloadAudit);
         return e;
     }
 
@@ -196,7 +208,68 @@ public class CampaignService {
             // plutôt qu'écraser en silence la décision de quelqu'un d'autre.
             throw new BusinessException(Messages.msg("m.cmp-tariff-changed-meanwhile"));
         }
-        return get(id);
+        CampaignEntity updated = get(id);
+        Map<String, Object> before = new LinkedHashMap<>();
+        before.put("basePricePerKg", change.previousBasePricePerKg);
+        before.put("ristournePct", change.previousRistournePct);
+        before.put("qualityPremiums", premiumsPayload(change.previousQualityPremiums));
+        Map<String, Object> after = new LinkedHashMap<>();
+        after.put("basePricePerKg", change.newBasePricePerKg);
+        after.put("ristournePct", change.newRistournePct);
+        after.put("qualityPremiums", premiumsPayload(change.newQualityPremiums));
+        Map<String, Object> payloadAudit = new LinkedHashMap<>();
+        payloadAudit.put("before", before);
+        payloadAudit.put("after", after);
+        payloadAudit.put("reason", change.reason);
+        trace(updated, AuditEventType.CAMPAIGN_TARIFF_CHANGED,
+                "Barème de la campagne « " + updated.label + " » modifié : " + change.reason, payloadAudit);
+        return updated;
+    }
+
+    private static List<Map<String, Object>> premiumsPayload(List<QualityPremium> premiums) {
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (QualityPremium qp : premiums != null ? premiums : List.<QualityPremium>of()) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("grade", qp.grade != null ? String.valueOf(qp.grade) : null);
+            m.put("premiumPerKg", qp.premiumPerKg);
+            out.add(m);
+        }
+        return out;
+    }
+
+    /** Ce que porte une campagne hors barème : la part qu'un « update » peut toucher. */
+    private static Map<String, Object> periodPayload(CampaignEntity e) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("code", e.code);
+        m.put("label", e.label);
+        m.put("kind", e.kind != null ? e.kind.name() : null);
+        m.put("campaignYear", e.campaignYear);
+        m.put("startDate", e.startDate != null ? e.startDate.toString() : null);
+        m.put("endDate", e.endDate != null ? e.endDate.toString() : null);
+        m.put("defaultPaymentMethod", e.defaultPaymentMethod);
+        m.put("basePricePerKg", e.basePricePerKg);
+        m.put("ristournePct", e.ristournePct);
+        return m;
+    }
+
+    private static Map<String, Object> scalePayload(com.ntech.cabosse.campaign.entity.CollectionScale s) {
+        if (s == null) return null;
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("transportPerKg", s.transportPerKg);
+        m.put("gatheringPerKg", s.gatheringPerKg);
+        m.put("buyerRemunerationPerKg", s.buyerRemunerationPerKg);
+        return m;
+    }
+
+    private void trace(CampaignEntity e, AuditEventType type, String description,
+                       Map<String, Object> payload) {
+        audit.event(type)
+                .actorEmail(currentEmail())
+                .target("campaign", e.id.toString(), e.label)
+                .tenant(tenantContext.tenantId(), null)
+                .description(description)
+                .payload(payload)
+                .record();
     }
 
     /** Le payload touche-t-il au barème déjà enregistré ? */
@@ -257,6 +330,7 @@ public class CampaignService {
             UUID id, com.ntech.cabosse.campaign.dto.CollectionScaleUpsertDto payload) {
         CampaignEntity e = repo.findById(id)
                 .orElseThrow(() -> new NotFoundException(Messages.msg("m.cmp-not-found")));
+        Map<String, Object> before = scalePayload(e.collectionScale);
         if (payload.transportPerKg() == null && payload.gatheringPerKg() == null
                 && payload.buyerRemunerationPerKg() == null) {
             e.collectionScale = null;
@@ -270,6 +344,14 @@ public class CampaignService {
         }
         e.updatedAt = java.time.Instant.now();
         repo.replace(e);
+        Map<String, Object> payloadAudit = new LinkedHashMap<>();
+        payloadAudit.put("before", before);
+        payloadAudit.put("after", scalePayload(e.collectionScale));
+        trace(e, AuditEventType.CAMPAIGN_SCALE_SET,
+                e.collectionScale == null
+                        ? "Barème de collecte de la campagne « " + e.label + " » effacé"
+                        : "Barème de collecte de la campagne « " + e.label + " » enregistré",
+                payloadAudit);
         return e;
     }
 
@@ -286,6 +368,7 @@ public class CampaignService {
         e.closedByEmail = currentEmail();
         e.updatedAt = now;
         repo.replace(e);
+        trace(e, AuditEventType.CAMPAIGN_CLOSED, "Campagne « " + e.label + " » clôturée", periodPayload(e));
         return e;
     }
 
@@ -312,6 +395,7 @@ public class CampaignService {
         e.closedByEmail = null;
         e.updatedAt = Instant.now();
         repo.replace(e);
+        trace(e, AuditEventType.CAMPAIGN_REOPENED, "Campagne « " + e.label + " » rouverte", periodPayload(e));
         return e;
     }
 
@@ -337,6 +421,7 @@ public class CampaignService {
             throw new BusinessException(Messages.msg("m.cmp-in-use", e.label));
         });
         repo.delete(id);
+        trace(e, AuditEventType.CAMPAIGN_DELETED, "Campagne « " + e.label + " » supprimée", periodPayload(e));
     }
 
     /**

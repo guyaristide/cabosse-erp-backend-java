@@ -53,6 +53,7 @@ public class ArticleImportService {
 
     @Inject ArticleRepository articles;
     @Inject ArticleService articleService;
+    @Inject com.ntech.cabosse.importjournal.service.ImportAudit importAudit;
 
     // ─── Preview ───────────────────────────────────────────────────
 
@@ -222,6 +223,7 @@ public class ArticleImportService {
             }
         }
 
+        importAudit.committed("articles", "articles", null, createdIds.size(), 0, skipped.size(), null);
         return new ArticleImportCommitResponseDto(
                 preview.totalRows(),
                 createdIds.size(),

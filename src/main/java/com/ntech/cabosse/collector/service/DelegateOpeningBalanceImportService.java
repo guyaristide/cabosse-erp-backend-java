@@ -44,6 +44,7 @@ public class DelegateOpeningBalanceImportService {
 
     @Inject SupplierRepository suppliers;
     @Inject DelegateOpeningBalanceService service;
+    @Inject com.ntech.cabosse.importjournal.service.ImportAudit importAudit;
 
     public DelegateOpeningBalanceImportPreviewDto preview(UUID campaignId,
                                                           List<DelegateOpeningBalanceImportRowDto> input) {
@@ -145,6 +146,8 @@ public class DelegateOpeningBalanceImportService {
                 skipped.add(new Row(row.rowNumber(), Status.INVALID, n, issues));
             }
         }
+        importAudit.committed("delegate-opening-balances", "soldes d'ouverture des délégués", null,
+                applied.size(), 0, skipped.size(), null);
         return new DelegateOpeningBalanceImportCommitDto(
                 preview.totalRows(), applied.size(), skipped.size(), applied, skipped);
     }

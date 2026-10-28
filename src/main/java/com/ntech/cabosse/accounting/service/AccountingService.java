@@ -20,6 +20,8 @@ import com.ntech.cabosse.accounting.entity.QuarantineStatus;
 import com.ntech.cabosse.accounting.entity.QuarantinedPostingEntity;
 import com.ntech.cabosse.tenant.entity.TenantPreferences;
 import com.ntech.cabosse.campaign.entity.CampaignEntity;
+import com.ntech.cabosse.shared.audit.AuditEventType;
+import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.i18n.Messages;
@@ -27,6 +29,7 @@ import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.jboss.logging.Logger;
 
 import java.math.BigDecimal;
@@ -88,6 +91,8 @@ public class AccountingService {
     @Inject com.ntech.cabosse.supplier.repository.SupplierRepository suppliersRepo;
     @Inject com.ntech.cabosse.analytics.repository.CostCenterRepository costCenters;
     @Inject com.ntech.cabosse.analytics.repository.AllocationKeyRepository allocationKeys;
+    @Inject AuditService audit;
+    @Inject JsonWebToken jwt;
 
     // ════════════════════════════════════════════════════════════════
     //  Entrée unique : postPiece + reverseFrom
@@ -414,7 +419,24 @@ public class AccountingService {
                         Messages.msg("m.acc-reversal-refused", src.ref)));
         created.reversedFromPieceId = src.id;
         pieces.linkReversal(created.id, src.id);
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("pieceId", src.id.toString());
+        payload.put("pieceRef", src.ref);
+        payload.put("reversalId", created.id.toString());
+        payload.put("reversalRef", created.ref);
+        payload.put("reason", reason.trim());
+        audit.event(AuditEventType.JOURNAL_PIECE_REVERSED)
+                .actorEmail(jwtName())
+                .target("journal_piece", src.id.toString(), src.ref)
+                .tenant(tenantContext.tenantId(), null)
+                .description("Pièce " + src.ref + " extournée par " + created.ref + " : " + reason.trim())
+                .payload(payload)
+                .record();
         return created;
+    }
+
+    private String jwtName() {
+        try { return jwt.getName(); } catch (Exception e) { return null; }
     }
 
     /**

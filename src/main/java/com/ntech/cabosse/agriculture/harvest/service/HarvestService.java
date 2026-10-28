@@ -11,6 +11,8 @@ import com.ntech.cabosse.agriculture.parcel.repository.ParcelRepository;
 import com.ntech.cabosse.members.repository.MemberRepository;
 import com.ntech.cabosse.shared.api.PageRequest;
 import com.ntech.cabosse.shared.api.Pagination;
+import com.ntech.cabosse.shared.audit.AuditEventType;
+import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
@@ -40,6 +42,7 @@ public class HarvestService {
     @Inject IdGenerator idGenerator;
     @Inject TenantContext tenantContext;
     @Inject JsonWebToken jwt;
+    @Inject AuditService audit;
 
     private String actor() {
         try { return jwt.getName(); } catch (Exception e) { return null; }
@@ -47,6 +50,25 @@ public class HarvestService {
 
     private UUID safeUserId() {
         try { return tenantContext.userId(); } catch (Exception e) { return null; }
+    }
+
+    private void audit(HarvestEntity e, AuditEventType type, String description) {
+        Map<String, Object> payload = new java.util.LinkedHashMap<>();
+        payload.put("code", e.code);
+        payload.put("parcelCode", e.parcelCode);
+        payload.put("memberId", e.memberId != null ? e.memberId.toString() : null);
+        payload.put("memberName", e.memberName);
+        payload.put("campaignLabel", e.campaignLabel);
+        payload.put("harvestDate", e.harvestDate != null ? e.harvestDate.toString() : null);
+        payload.put("cabossesKg", e.cabossesKg);
+        payload.put("freshBeansKg", e.freshBeansKg);
+        audit.event(type)
+                .actorEmail(actor())
+                .target("harvest", e.id.toString(), e.code)
+                .tenant(tenantContext.tenantId(), null)
+                .description(description)
+                .payload(payload)
+                .record();
     }
 
     public Pagination<HarvestResponseDto> page(UUID parcelId, UUID memberId, UUID campaignId,
@@ -90,6 +112,8 @@ public class HarvestService {
         e.createdBy = safeUserId();
         e.createdByEmail = actor();
         harvests.insert(e);
+        audit(e, AuditEventType.HARVEST_CREATED, "Récolte " + e.code + " enregistrée sur la parcelle "
+                + e.parcelCode + " (" + e.harvestDate + ")");
         return HarvestResponseDto.from(e);
     }
 
@@ -100,6 +124,8 @@ public class HarvestService {
         applyPayload(e, payload, parcel);
         e.updatedAt = Instant.now();
         harvests.replace(e);
+        audit(e, AuditEventType.HARVEST_UPDATED, "Récolte " + e.code + " modifiée (parcelle "
+                + e.parcelCode + ")");
         return HarvestResponseDto.from(e);
     }
 

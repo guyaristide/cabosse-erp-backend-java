@@ -49,6 +49,25 @@ public class AuditRepository implements PanacheMongoRepositoryBase<AuditEventEnt
         return mongoCollection().countDocuments(toFilter(query));
     }
 
+    /**
+     * Les événements d'une structure sur l'intervalle, bruts et du plus
+     * ancien au plus récent, pour l'archive des journaux.
+     *
+     * <p>Documents plutôt qu'entités : l'archive écrit ce que la base
+     * porte, charge utile comprise, et un champ ajouté demain y figurera
+     * sans retouche.</p>
+     */
+    public com.mongodb.client.FindIterable<org.bson.Document> rawForTenant(
+            UUID tenantId, Instant from, Instant to) {
+        return mongoDatabase()
+                .getCollection(com.ntech.cabosse.shared.persistence.ControlPlane.Collections.GLOBAL_AUDIT)
+                .find(Filters.and(
+                        Filters.eq("tenantId", tenantId),
+                        Filters.gte("occurredAt", from),
+                        Filters.lte("occurredAt", to)))
+                .sort(new org.bson.Document("occurredAt", 1));
+    }
+
     private static Bson toFilter(AuditQuery q) {
         List<Bson> filters = new ArrayList<>();
         if (q.category() != null && !q.category().isBlank()) {

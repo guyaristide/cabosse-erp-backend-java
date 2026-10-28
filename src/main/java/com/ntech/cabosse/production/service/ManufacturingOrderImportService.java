@@ -44,6 +44,7 @@ public class ManufacturingOrderImportService {
     @Inject ArticleService articleService;
     @Inject ArticleRepository articleRepository;
     @Inject ManufacturingOrderService manufacturingOrderService;
+    @Inject com.ntech.cabosse.importjournal.service.ImportAudit importAudit;
 
     public ManufacturingOrderImportResultDto importOne(ManufacturingOrderImportDto payload) {
         boolean strict = Boolean.TRUE.equals(payload.strictMode());
@@ -81,6 +82,7 @@ public class ManufacturingOrderImportService {
                 resolvedConsumptions
         );
 
+        importAudit.committedOne("manufacturing-orders", "ordre de fabrication", of.id(), of.ref());
         return new ManufacturingOrderImportResultDto(
                 of,
                 fp.created(),

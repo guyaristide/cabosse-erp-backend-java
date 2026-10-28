@@ -89,11 +89,14 @@ public class MemberSupplierAccountService {
             suppliers.replace(s);
             opened++;
         }
-        audit.event(AuditEventType.CHART_ACCOUNT_CHANGED)
+        // Chaque compte ouvert laisse sa propre ligne via chartService.create ;
+        // celle-ci résume le geste d'ensemble.
+        audit.event(AuditEventType.MEMBER_ACCOUNTS_OPENED)
                 .actorEmail(actor())
                 .target("chart_account", root, root)
                 .tenant(tenantContext.tenantId(), null)
-                .description(opened + " compte(s) fournisseur ouvert(s) aux sociétaires sous " + root)
+                .description(opened + " compte(s) fournisseur ouvert(s) aux sociétaires sous " + root
+                        + " (" + already + " déjà ouvert(s))")
                 .payload(Map.of("opened", opened, "alreadyOpen", already, "root", root))
                 .record();
         return new Opened(opened, already, root);

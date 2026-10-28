@@ -54,6 +54,7 @@ public class PurchaseOrderImportService {
     @Inject ArticleService articleService;
     @Inject ArticleRepository articleRepository;
     @Inject PurchaseOrderService purchaseOrderService;
+    @Inject com.ntech.cabosse.importjournal.service.ImportAudit importAudit;
     @Inject PurchaseOrderRepository purchaseOrderRepository;
 
     public PurchaseOrderImportResultDto importOne(PurchaseOrderImportDto payload, UUID siteId) {
@@ -121,6 +122,7 @@ public class PurchaseOrderImportService {
         // Application du statut cible via les transitions standards.
         bc = applyInitialStatus(bc, payload.initialStatus());
 
+        importAudit.committedOne("purchase-orders", "bon de commande", bc.id(), bc.ref());
         return PurchaseOrderImportResultDto.created(
                 bc,
                 resolvedSupplier.created(),

@@ -18,6 +18,7 @@ import org.eclipse.microprofile.jwt.JsonWebToken;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -83,7 +84,15 @@ public class ChartOfAccountsService {
         for (int attempt = 0; attempt < 3; attempt++) {
             String number = nextSubAccountNumber(rootNumber);
             try {
-                return create(new ChartAccountUpsertDto(number, label));
+                ChartOfAccountsEntity e = insert(new ChartAccountUpsertDto(number, label));
+                audit.event(AuditEventType.SUB_ACCOUNT_CREATED)
+                        .actorEmail(actor())
+                        .target("chart_account", e.id.toString(), e.number)
+                        .tenant(tenantContext.tenantId(), null)
+                        .description("Sous-compte " + e.number + " (" + e.label + ") ouvert sous " + rootNumber.trim())
+                        .payload(Map.of("root", rootNumber.trim(), "number", e.number, "label", e.label))
+                        .record();
+                return e;
             } catch (com.mongodb.MongoWriteException e) {
                 if (e.getError().getCategory() != com.mongodb.ErrorCategory.DUPLICATE_KEY) throw e;
             }
@@ -92,6 +101,13 @@ public class ChartOfAccountsService {
     }
 
     public ChartOfAccountsEntity create(ChartAccountUpsertDto p) {
+        ChartOfAccountsEntity e = insert(p);
+        trace(e, "Compte " + e.number + " (" + e.label + ") ouvert");
+        return e;
+    }
+
+    // Écriture sans trace : chaque geste appelant pose sa propre ligne d'audit.
+    private ChartOfAccountsEntity insert(ChartAccountUpsertDto p) {
         String number = p.number().trim();
         if (chart.numberExists(number)) {
             throw new BusinessException(Messages.msg("m.acc-chart-number-taken", number));
@@ -111,7 +127,6 @@ public class ChartOfAccountsService {
         e.createdAt = now;
         e.updatedAt = now;
         chart.insert(e);
-        trace(e, "Compte " + e.number + " (" + e.label + ") ouvert");
         return e;
     }
 

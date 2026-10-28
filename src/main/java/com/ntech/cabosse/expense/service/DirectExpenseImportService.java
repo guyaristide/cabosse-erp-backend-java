@@ -59,6 +59,7 @@ import com.ntech.cabosse.shared.exception.UserFacingReason;
 public class DirectExpenseImportService {
 
     @Inject DirectExpenseService expenses;
+    @Inject com.ntech.cabosse.importjournal.service.ImportAudit importAudit;
     @Inject SupplierRepository suppliers;
     @Inject com.ntech.cabosse.supplier.service.SupplierService supplierService;
     @Inject ExpenseTypeRepository expenseTypes;
@@ -244,6 +245,8 @@ public class DirectExpenseImportService {
                         row.notices()));
             }
         }
+        importAudit.committed("direct-expenses", "dépenses directes", null,
+                createdIds.size(), 0, skipped.size(), null);
         return new DirectExpenseImportCommitResponseDto(
                 preview.totalRows(), createdIds.size(), skipped.size(), createdSuppliers,
                 createdIds, skipped);

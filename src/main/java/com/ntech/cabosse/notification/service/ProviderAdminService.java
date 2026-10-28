@@ -12,6 +12,8 @@ import com.ntech.cabosse.notification.entity.NotificationProviderEntity;
 import com.ntech.cabosse.notification.entity.ProviderUsage;
 import com.ntech.cabosse.notification.repository.NotificationProviderRepository;
 import com.ntech.cabosse.settings.service.SecretCipher;
+import com.ntech.cabosse.shared.audit.AuditEventType;
+import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.i18n.Messages;
@@ -42,6 +44,43 @@ public class ProviderAdminService {
     @Inject ProviderEngineRegistry engines;
     @Inject ProviderResolver resolver;
     @Inject SecretCipher cipher;
+    @Inject AuditService audit;
+    @Inject org.eclipse.microprofile.jwt.JsonWebToken jwt;
+
+    private String actorOr(String actor) {
+        if (actor != null) return actor;
+        try { return jwt.getName(); } catch (Exception e) { return null; }
+    }
+
+    /**
+     * La trace d'un changement de passerelle. Jamais les paramètres : ils
+     * portent les clés. Pour une passerelle de la plateforme, le tenant
+     * est vide, comme pour les paramètres de la plateforme.
+     */
+    private void audit(NotificationProviderEntity e, String action, String actor,
+                       String description, Map<String, Object> extra) {
+        Map<String, Object> payload = new java.util.LinkedHashMap<>();
+        payload.put("action", action);
+        payload.put("channel", e.channel != null ? e.channel.name() : null);
+        payload.put("engineCode", e.engineCode);
+        payload.put("label", e.label);
+        payload.put("scope", e.scope != null ? e.scope.name() : null);
+        payload.put("active", e.active);
+        payload.put("usages", e.usages == null ? List.of() : e.usages.stream()
+                .map(u -> u.usage != null ? u.usage.name() : null).toList());
+        if (extra != null) payload.putAll(extra);
+        audit.event(AuditEventType.NOTIFICATION_PROVIDER_CHANGED)
+                .actorEmail(actorOr(actor))
+                .target("notification_provider", e.id.toString(), e.label)
+                .tenant(e.tenantId, null)
+                .description(description)
+                .payload(payload)
+                .record();
+    }
+
+    private static String levelOf(NotificationProviderEntity e) {
+        return e.tenantId == null ? " de la plateforme" : "";
+    }
 
     /**
      * Les fournisseurs d'un niveau.
@@ -75,6 +114,8 @@ public class ProviderAdminService {
         e.createdAt = Instant.now();
         apply(e, payload, engine, actor);
         repo.insert(e);
+        audit(e, "CREATED", actor, "Passerelle " + e.channel.name() + " « " + e.label
+                + " » (" + e.engineCode + ") créée" + levelOf(e), null);
         return describe(e);
     }
 
@@ -89,12 +130,16 @@ public class ProviderAdminService {
         }
         apply(e, payload, engine, actor);
         repo.replace(e);
+        audit(e, "UPDATED", actor, "Passerelle " + e.channel.name() + " « " + e.label
+                + " » modifiée" + levelOf(e), null);
         return describe(e);
     }
 
     public void delete(UUID id, UUID tenantId) {
-        load(id, tenantId);
+        NotificationProviderEntity e = load(id, tenantId);
         repo.delete(id);
+        audit(e, "DELETED", null, "Passerelle " + e.channel.name() + " « " + e.label
+                + " » supprimée" + levelOf(e), null);
     }
 
     /**
@@ -107,13 +152,27 @@ public class ProviderAdminService {
             throw new BusinessException(Messages.msg("m.ntf-test-target-required"));
         }
         NotificationProviderEntity e = load(id, tenantId);
+        TestResult result = runTest(e, target.trim());
+        // L'essai part vers une cible réelle : il se trace, avec son issue
+        // mais sans la clé qui l'a permis.
+        Map<String, Object> extra = new java.util.LinkedHashMap<>();
+        extra.put("target", target.trim());
+        extra.put("success", result.success());
+        extra.put("detail", result.detail());
+        audit(e, "TESTED", null, "Essai de la passerelle " + e.channel.name() + " « " + e.label
+                + " » vers " + target.trim() + (result.success() ? " réussi" : " échoué")
+                + levelOf(e), extra);
+        return result;
+    }
+
+    private TestResult runTest(NotificationProviderEntity e, String target) {
         Optional<ResolvedProvider> resolved = resolver.resolveOne(e);
         if (resolved.isEmpty()) {
             return new TestResult(false, unusableReason(e));
         }
         ResolvedProvider provider = resolved.get();
         SendRequest request = new SendRequest(
-                e.channel, target.trim(),
+                e.channel, target,
                 "Essai de configuration Cabosse ERP",
                 "Ceci est un message d'essai envoyé depuis la console d'administration "
                         + "de Cabosse ERP par NEIBA Technologies.");

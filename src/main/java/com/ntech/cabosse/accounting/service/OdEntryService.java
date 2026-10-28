@@ -8,6 +8,8 @@ import com.ntech.cabosse.accounting.entity.OdDraftEntity;
 import com.ntech.cabosse.accounting.entity.PostingSourceType;
 import com.ntech.cabosse.accounting.repository.ChartOfAccountsRepository;
 import com.ntech.cabosse.accounting.repository.OdDraftRepository;
+import com.ntech.cabosse.shared.audit.AuditEventType;
+import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.i18n.Messages;
@@ -20,7 +22,9 @@ import org.eclipse.microprofile.jwt.JsonWebToken;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -51,6 +55,7 @@ public class OdEntryService {
     @Inject com.ntech.cabosse.analytics.repository.ProgramRepository programs;
     @Inject com.ntech.cabosse.tenant.service.TenantPreferencesLookup preferences;
     @Inject com.ntech.cabosse.permission.service.PermissionResolver permissionResolver;
+    @Inject AuditService audit;
 
     public record OdLineInput(String account, String libelle,
                               java.math.BigDecimal debit,
@@ -100,6 +105,10 @@ public class OdEntryService {
         e.createdByEmail = actor();
         e.updatedAt = e.createdAt;
         drafts.insert(e);
+        boolean opening = OdDraftEntity.KIND_AN.equals(e.kind);
+        trace(e, opening ? AuditEventType.OPENING_ENTRIES_CREATED : AuditEventType.OD_ENTRY_CREATED,
+                (opening ? "À-nouveaux « " : "Opération diverse « ") + e.libelle
+                        + " » créée en brouillon, datée du " + e.date);
         return e;
     }
 
@@ -116,6 +125,12 @@ public class OdEntryService {
         e.entries = toEntries(lines);
         e.updatedAt = Instant.now();
         drafts.replace(e);
+        // Le journal AN n'a pas d'événement de modification propre : le
+        // brouillon d'à-nouveaux modifié se lit sous OD_ENTRY_UPDATED, le
+        // payload portant le journal.
+        trace(e, AuditEventType.OD_ENTRY_UPDATED,
+                (OdDraftEntity.KIND_AN.equals(e.kind) ? "À-nouveaux « " : "Opération diverse « ")
+                        + e.libelle + " » modifiée en brouillon");
         return e;
     }
 
@@ -238,7 +253,36 @@ public class OdEntryService {
         e.validatedBy = safeUserId();
         piece.ifPresent(p -> e.pieceRef = p.ref);
         drafts.replace(e);
+        trace(e, opening ? AuditEventType.OPENING_ENTRIES_VALIDATED : AuditEventType.OD_ENTRY_VALIDATED,
+                (opening ? "À-nouveaux « " : "Opération diverse « ") + e.libelle + " » validée"
+                        + (e.pieceRef != null ? " (pièce " + e.pieceRef + ")" : " (écriture retenue en quarantaine)"));
         return e;
+    }
+
+    private void trace(OdDraftEntity e, AuditEventType type, String description) {
+        java.math.BigDecimal totalDebit = java.math.BigDecimal.ZERO;
+        java.math.BigDecimal totalCredit = java.math.BigDecimal.ZERO;
+        for (JournalEntry line : e.entries != null ? e.entries : List.<JournalEntry>of()) {
+            if (line.debit != null) totalDebit = totalDebit.add(line.debit);
+            if (line.credit != null) totalCredit = totalCredit.add(line.credit);
+        }
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("draftId", e.id.toString());
+        payload.put("kind", e.kind != null ? e.kind : "OD");
+        payload.put("date", e.date != null ? e.date.toString() : null);
+        payload.put("libelle", e.libelle);
+        payload.put("lines", e.entries != null ? e.entries.size() : 0);
+        payload.put("totalDebit", totalDebit);
+        payload.put("totalCredit", totalCredit);
+        payload.put("status", e.status);
+        payload.put("pieceRef", e.pieceRef);
+        audit.event(type)
+                .actorEmail(actor())
+                .target("od_draft", e.id.toString(), e.pieceRef != null ? e.pieceRef : e.libelle)
+                .tenant(tenantContext.tenantId(), null)
+                .description(description)
+                .payload(payload)
+                .record();
     }
 
     // ─── Internals ──────────────────────────────────────────────────

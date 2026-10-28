@@ -104,6 +104,8 @@ class SaleImportServiceTest {
         service.siteRepository = siteRepository;
         service.saleService = saleService;
         service.saleRepository = saleRepository;
+        // La trace d'audit de l'import est un collaborateur comme les autres.
+        service.importAudit = mock(com.ntech.cabosse.importjournal.service.ImportAudit.class);
 
         // Site par défaut résolu
         SiteEntity site = new SiteEntity();

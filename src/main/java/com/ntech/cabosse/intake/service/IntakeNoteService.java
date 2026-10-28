@@ -40,6 +40,7 @@ public class IntakeNoteService {
     @Inject com.ntech.cabosse.supplier.repository.SupplierRepository suppliers;
     @Inject IdGenerator idGenerator;
     @Inject com.ntech.cabosse.importjournal.service.ImportJournal journal;
+    @Inject com.ntech.cabosse.importjournal.service.ImportAudit importAudit;
     @Inject JsonWebToken jwt;
     @Inject AttachmentService attachments;
     @Inject AuditService audit;
@@ -217,6 +218,8 @@ public class IntakeNoteService {
             }
         }
         trace.counts(created, skipped).close();
+        importAudit.committed("intake-notes", "bordereaux de réception", null,
+                created, 0, rejected.size(), trace.runId());
         return new IntakeImportResultDto(created, skipped, rejected, warned, skippedRows);
     }
 
@@ -315,7 +318,35 @@ public class IntakeNoteService {
         e.createdByEmail = actor();
         e.updatedAt = e.createdAt;
         repo.insert(e);
+        trace(e, AuditEventType.INTAKE_NOTE_CREATED,
+                "Bordereau " + e.ref + " créé pour " + e.supplierName, notePayload(e));
         return getById(e.id);
+    }
+
+    private static java.util.Map<String, Object> notePayload(IntakeNoteEntity e) {
+        java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();
+        m.put("ref", e.ref);
+        m.put("date", e.date != null ? e.date.toString() : null);
+        m.put("siteId", e.siteId != null ? e.siteId.toString() : null);
+        m.put("supplierId", e.supplierId != null ? e.supplierId.toString() : null);
+        m.put("supplierName", e.supplierName);
+        m.put("delegateSupplierId", e.delegateSupplierId != null ? e.delegateSupplierId.toString() : null);
+        m.put("grossWeightKg", e.grossWeightKg);
+        m.put("bagCount", e.bagCount);
+        m.put("netWeightKg", e.netWeightKg);
+        m.put("status", e.status);
+        return m;
+    }
+
+    private void trace(IntakeNoteEntity e, AuditEventType type, String description,
+                       java.util.Map<String, Object> payload) {
+        audit.event(type)
+                .actorEmail(actor())
+                .target("intake_note", e.id.toString(), e.ref)
+                .tenant(tenantContext.tenantId(), null)
+                .description(description)
+                .payload(payload)
+                .record();
     }
 
     /**
@@ -356,10 +387,17 @@ public class IntakeNoteService {
         values.bagCount = p.bagCount();
         values.netWeightKg = p.netWeightKg();
         values.siteId = p.siteId() != null ? p.siteId() : e.siteId;
+        java.util.Map<String, Object> before = notePayload(e);
         if (!repo.correct(id, values)) {
             throw new com.ntech.cabosse.shared.exception.BusinessException(
                     Messages.msg("m.itk-note-accounted-locked", e.ref));
         }
+        IntakeNoteEntity corrected = loadOrFail(id);
+        java.util.Map<String, Object> payload = new java.util.LinkedHashMap<>();
+        payload.put("before", before);
+        payload.put("after", notePayload(corrected));
+        trace(corrected, AuditEventType.INTAKE_NOTE_CORRECTED,
+                "Bordereau " + corrected.ref + " corrigé (" + corrected.supplierName + ")", payload);
         return getById(id);
     }
 
@@ -380,6 +418,8 @@ public class IntakeNoteService {
             throw new com.ntech.cabosse.shared.exception.BusinessException(
                     Messages.msg("m.itk-note-accounted-locked", e.ref));
         }
+        trace(e, AuditEventType.INTAKE_NOTE_DELETED,
+                "Bordereau " + e.ref + " supprimé (" + e.supplierName + ")", notePayload(e));
     }
 
     private UUID matchCampaign(String label, List<CampaignEntity> all) {

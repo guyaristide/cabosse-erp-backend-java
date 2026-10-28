@@ -38,6 +38,7 @@ public class CustomerImportService {
 
     @Inject CustomerRepository customers;
     @Inject CustomerService customerService;
+    @Inject com.ntech.cabosse.importjournal.service.ImportAudit importAudit;
 
     public CustomerImportPreviewDto preview(List<CustomerImportRowDto> input) {
         if (input == null || input.isEmpty()) {
@@ -152,6 +153,7 @@ public class CustomerImportService {
                 skipped.add(new Row(row.rowNumber(), Status.INVALID, row.normalized(), issues));
             }
         }
+        importAudit.committed("customers", "clients", null, createdIds.size(), 0, skipped.size(), null);
         return new CustomerImportCommitResponseDto(
                 preview.totalRows(), createdIds.size(), skipped.size(), createdIds, skipped
         );

@@ -1,6 +1,8 @@
 package com.ntech.cabosse.supplier;
 
 import com.ntech.cabosse.auth.service.PasswordHasher;
+import com.ntech.cabosse.shared.audit.AuditEventType;
+import com.ntech.cabosse.shared.audit.AuditRepository;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.security.Roles;
 import com.ntech.cabosse.tenant.entity.TenantEntity;
@@ -44,6 +46,7 @@ class NonMemberDelegateTest extends AbstractIntegrationTest {
 
     @Inject PasswordHasher passwordHasher;
     @Inject IdGenerator idGenerator;
+    @Inject AuditRepository auditRepository;
 
     private TenantEntity tenant;
 
@@ -110,6 +113,13 @@ class NonMemberDelegateTest extends AbstractIntegrationTest {
         givenAs(a).queryParam("q", "Prestataire Extérieur").when().get("/api/v1/suppliers")
                 .then().statusCode(200)
                 .body("data.items[0].collectorMarginByCampaign", hasSize(1));
+
+        // Le taux convenu laisse sa ligne au journal d'audit, lue à la
+        // source : le journal n'est lisible que par la plateforme.
+        org.junit.jupiter.api.Assertions.assertEquals(1,
+                auditRepository.count(new AuditRepository.AuditQuery(
+                        null, AuditEventType.COLLECTOR_MARGINS_SET.name(),
+                        null, tenant.id, null, null)));
     }
 
     @Test

@@ -496,6 +496,8 @@ public class CollectorAdvanceService {
         e.updatedAt = e.executionRequestedAt;
         repo.replace(e);
         notifier.advanceExecutionRequested(e, safeUserId());
+        audit(e, AuditEventType.EXECUTION_REQUESTED,
+                "Transmise à l'exécution pour " + e.delegateName);
         return CollectorAdvanceResponseDto.from(e);
     }
 

@@ -35,6 +35,7 @@ public class SupplierImportService {
 
     @Inject SupplierRepository suppliers;
     @Inject SupplierService supplierService;
+    @Inject com.ntech.cabosse.importjournal.service.ImportAudit importAudit;
 
     public SupplierImportPreviewDto preview(List<SupplierImportRowDto> input) {
         if (input == null || input.isEmpty()) {
@@ -155,6 +156,7 @@ public class SupplierImportService {
             }
         }
 
+        importAudit.committed("suppliers", "fournisseurs", null, createdIds.size(), 0, skipped.size(), null);
         return new SupplierImportCommitResponseDto(
                 preview.totalRows(),
                 createdIds.size(),

@@ -91,6 +91,22 @@ public class ControlPlaneSchemaBootstrap {
                         Indexes.ascending("tenantId"),
                         new IndexOptions().name("idx_audit_tenantId")
                 );
+        // Le journal d'une structure se lit toujours trié par date, et
+        // l'archive des journaux le parcourt par intervalle : la paire
+        // évite le tri en mémoire sur deux ans d'événements (SEC-16).
+        controlPlane.collection(ControlPlane.Collections.GLOBAL_AUDIT, Document.class)
+                .createIndex(
+                        Indexes.compoundIndex(
+                                Indexes.ascending("tenantId"),
+                                Indexes.descending("occurredAt")
+                        ),
+                        new IndexOptions().name("idx_audit_tenant_occurredAt")
+                );
+        controlPlane.collection(ControlPlane.Collections.GLOBAL_AUDIT, Document.class)
+                .createIndex(
+                        Indexes.ascending("eventType"),
+                        new IndexOptions().name("idx_audit_eventType")
+                );
 
         // ─── tenant backups ───
         // Lu par TenantTechnicalService (statut technique d'un tenant) :

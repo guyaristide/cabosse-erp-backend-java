@@ -2,6 +2,8 @@ package com.ntech.cabosse.accounting.service;
 
 import com.ntech.cabosse.accounting.entity.OdDraftEntity;
 import com.ntech.cabosse.accounting.repository.OdDraftRepository;
+import com.ntech.cabosse.shared.audit.AuditEventType;
+import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.i18n.Messages;
@@ -37,6 +39,34 @@ public class OdDocumentService {
     @Inject OdDraftRepository drafts;
     @Inject FileUploadService uploads;
     @Inject IdGenerator idGenerator;
+    @Inject AuditService audit;
+    @Inject com.ntech.cabosse.shared.tenant.TenantContext tenantContext;
+    @Inject org.eclipse.microprofile.jwt.JsonWebToken jwt;
+
+    private String actor() {
+        try { return jwt.getName(); } catch (Exception e) { return null; }
+    }
+
+    private void audit(OdDraftEntity e, AuditEventType type, OdDraftEntity.Document doc,
+                       String description) {
+        java.util.Map<String, Object> payload = new java.util.LinkedHashMap<>();
+        payload.put("documentId", doc.id != null ? doc.id.toString() : null);
+        payload.put("label", doc.label);
+        payload.put("fileName", doc.fileName);
+        payload.put("mimeType", doc.mimeType);
+        payload.put("sizeBytes", doc.sizeBytes);
+        audit.event(type)
+                .actorEmail(actor())
+                .target("od_draft", e.id.toString(), e.pieceRef != null ? e.pieceRef : e.libelle)
+                .tenant(tenantContext.tenantId(), null)
+                .description(description)
+                .payload(payload)
+                .record();
+    }
+
+    private static String nameOf(OdDraftEntity e) {
+        return e.pieceRef != null ? e.pieceRef : "« " + e.libelle + " »";
+    }
 
     public OdDraftEntity attach(UUID odId, String label, byte[] bytes,
                                 String mimeType, String originalName) {
@@ -62,6 +92,8 @@ public class OdDocumentService {
         e.documents.add(doc);
         e.updatedAt = Instant.now();
         drafts.replace(e);
+        audit(e, AuditEventType.ATTACHMENT_ADDED, doc,
+                "Justificatif « " + doc.label + " » joint à l'opération diverse " + nameOf(e));
         return e;
     }
 
@@ -81,6 +113,8 @@ public class OdDocumentService {
         e.documents.removeIf(d -> documentId.equals(d.id));
         e.updatedAt = Instant.now();
         drafts.replace(e);
+        audit(e, AuditEventType.ATTACHMENT_REMOVED, doc,
+                "Justificatif « " + doc.label + " » retiré de l'opération diverse " + nameOf(e));
         return e;
     }
 

@@ -2,9 +2,13 @@ package com.ntech.cabosse.auth.service;
 
 import com.ntech.cabosse.auth.entity.RefreshTokenEntity;
 import com.ntech.cabosse.auth.repository.RefreshTokenRepository;
+import com.ntech.cabosse.shared.audit.AuditEventType;
+import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.UnauthorizedException;
 import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
+import com.ntech.cabosse.user.entity.UserEntity;
+import com.ntech.cabosse.user.repository.UserRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
@@ -17,6 +21,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.HexFormat;
+import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -51,6 +57,8 @@ public class RefreshTokenService {
 
     @Inject RefreshTokenRepository repo;
     @Inject IdGenerator idGenerator;
+    @Inject UserRepository users;
+    @Inject AuditService audit;
     @Inject Logger log;
 
     /** Token freshly minted. {@link #secret} ne quitte la mémoire qu'une fois. */
@@ -91,7 +99,7 @@ public class RefreshTokenService {
         }
         if (old.rotatedAt != null) {
             // Reuse detected — révocation en cascade de toute la famille.
-            revokeFamilyForReuse(old, now);
+            revokeFamilyForReuse(old, now, ipAddress);
             throw new UnauthorizedException(Messages.msg("m.aut-refresh-token-reused"));
         }
 
@@ -100,7 +108,7 @@ public class RefreshTokenService {
         // rotater (ou révoquer) ce token entre notre lecture et ici —
         // même traitement qu'un rejeu : la famille est révoquée.
         if (!repo.markRotated(old.id, now)) {
-            revokeFamilyForReuse(old, now);
+            revokeFamilyForReuse(old, now, ipAddress);
             throw new UnauthorizedException(Messages.msg("m.aut-refresh-token-reused"));
         }
 
@@ -111,10 +119,25 @@ public class RefreshTokenService {
         );
     }
 
-    private void revokeFamilyForReuse(RefreshTokenEntity token, Instant now) {
+    /**
+     * Un rejeu est un vol de jeton ou une file qui a doublé : dans les deux
+     * cas la structure doit le voir dans son journal (SEC-16). Le
+     * rafraîchissement ordinaire, lui, n'y figure pas : il en remplirait
+     * une ligne toutes les quinze minutes par session.
+     */
+    private void revokeFamilyForReuse(RefreshTokenEntity token, Instant now, String ipAddress) {
         long affected = repo.revokeFamily(token.familyId, now, "reuse_detected");
         log.warnf("Refresh token reuse detected (familyId=%s, userId=%s) : %d tokens revoked",
                 token.familyId, token.userId, affected);
+        UserEntity user = users.findById(token.userId);
+        audit.event(AuditEventType.AUTHENTICATION_FAILED)
+                .actor(user != null ? user.email : null, token.userId)
+                .target("refresh_token_family", token.familyId.toString(), null)
+                .tenant(token.tenantId, null)
+                .description("Jeton de rafraîchissement réutilisé, famille révoquée")
+                .payload(Map.of("reason", "refresh_token_reuse", "revokedTokens", affected))
+                .ip(ipAddress)
+                .record();
     }
 
     public record RotatedRefresh(IssuedRefreshToken token, UUID userId, UUID tenantId) {}
@@ -124,9 +147,17 @@ public class RefreshTokenService {
      * token est introuvable ou déjà révoqué. Écriture conditionnelle
      * mono-document : aucun conflit possible avec un refresh ou un autre
      * logout simultané.
+     *
+     * @return {@code true} si cet appel a effectivement révoqué le jeton.
      */
-    public void revoke(String presentedSecret, String reason) {
-        repo.revokeByHash(hash(presentedSecret), Instant.now(), reason);
+    public boolean revoke(String presentedSecret, String reason) {
+        return repo.revokeByHash(hash(presentedSecret), Instant.now(), reason);
+    }
+
+    /** Le jeton tel qu'il est en base, sans le toucher : pour savoir à qui il appartient. */
+    public Optional<RefreshTokenEntity> peek(String presentedSecret) {
+        if (presentedSecret == null || presentedSecret.isBlank()) return Optional.empty();
+        return repo.findByHash(hash(presentedSecret));
     }
 
     /**

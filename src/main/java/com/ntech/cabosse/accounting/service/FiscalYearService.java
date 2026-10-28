@@ -67,6 +67,7 @@ public class FiscalYearService {
     @Inject IdGenerator idGenerator;
     @Inject AuditService audit;
     @Inject JsonWebToken jwt;
+    @Inject com.ntech.cabosse.shared.tenant.TenantContext tenantContext;
 
     public record WipLine(String label, BigDecimal amount) {}
     public record AllocationInput(String account, BigDecimal amount) {}
@@ -295,6 +296,7 @@ public class FiscalYearService {
         audit.event(AuditEventType.FISCAL_YEAR_ARRESTED)
                 .actorEmail(actor())
                 .target("fiscal_year", e.id.toString(), e.label)
+                .tenant(tenantContext.tenantId(), null)
                 .description("Exercice " + e.label + " arrêté : résultat net "
                         + e.resultNet + " " + Messages.currencyLabel()
                         + " (impôt " + tax + ", en-cours " + wipTotal + ")")
@@ -363,6 +365,7 @@ public class FiscalYearService {
         audit.event(AuditEventType.FISCAL_YEAR_CLOSED)
                 .actorEmail(actor())
                 .target("fiscal_year", e.id.toString(), e.label)
+                .tenant(tenantContext.tenantId(), null)
                 .description("Résultat de l'exercice " + e.label + " affecté ("
                         + lines.size() + " ligne(s), " + target + " "
                         + Messages.currencyLabel() + ") : exercice clôturé")

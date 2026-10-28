@@ -97,6 +97,7 @@ public class PurchaseRequestService {
         PurchaseRequestEntity e = loadOrFail(id);
         requireStatus(e, PurchaseRequestStatus.DRAFT, "m.prq-delete-draft-only");
         repo.delete(id);
+        audit(e, AuditEventType.PURCHASE_REQUEST_DELETED, "Suppression");
     }
 
     public PurchaseRequestResponseDto submit(UUID id) {

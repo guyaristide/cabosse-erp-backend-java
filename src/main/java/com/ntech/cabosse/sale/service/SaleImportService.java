@@ -69,6 +69,7 @@ public class SaleImportService {
     @Inject ArticleRepository articleRepository;
     @Inject SiteRepository siteRepository;
     @Inject SaleService saleService;
+    @Inject com.ntech.cabosse.importjournal.service.ImportAudit importAudit;
     @Inject SaleRepository saleRepository;
 
     public SaleImportResultDto importOne(SaleImportDto payload) {
@@ -181,6 +182,7 @@ public class SaleImportService {
         boolean deliveryPostponed = "DELIVERED".equalsIgnoreCase(
                 payload.initialStatus() == null ? "" : payload.initialStatus().trim())
                 && sale.status() != SaleStatus.DELIVERED;
+        importAudit.committedOne("sales", "vente", sale.id(), sale.ref());
         return SaleImportResultDto.created(
                 sale, customer.created(), customer.id(), customer.name(), createdArticles,
                 deliveryPostponed

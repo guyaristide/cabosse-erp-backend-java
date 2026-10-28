@@ -63,6 +63,7 @@ public class MeTenantAdminResource {
     @Inject MeTenantAdminService adminService;
     @Inject AuditRepository auditRepo;
     @Inject com.ntech.cabosse.tenant.service.TenantResetService resetService;
+    @Inject com.ntech.cabosse.logs.service.TenantLogsArchiveService logsArchive;
 
     // ─── Utilisateurs ───
 
@@ -267,6 +268,36 @@ public class MeTenantAdminResource {
                 items
         );
         return Response.ok(ApiResponse.ok(body)).build();
+    }
+
+    /**
+     * L'archive des journaux de la structure (SEC-16).
+     *
+     * <p>Le même droit que le journal : qui peut lire l'audit peut
+     * l'emporter, avec les traces, les imports et les envois de la
+     * période. Le téléchargement lui-même est journalisé.</p>
+     */
+    @GET
+    @Path("/logs/archive")
+    @RequiresPermission(Permission.AUDIT_READ)
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    // Le JSON reste déclaré pour qu'un refus garde l'enveloppe habituelle.
+    @Produces({ "application/zip", MediaType.APPLICATION_JSON })
+    @Operation(summary = "Télécharger l'archive des journaux de la structure",
+            description = "Journal d'audit, traces de requêtes, imports, envois et clés "
+                    + "d'idempotence sur la période, en CSV et en JSON ligne à ligne, "
+                    + "avec un manifeste. Les deux bornes sont obligatoires.")
+    @APIResponse(responseCode = "200", description = "Archive ZIP")
+    @APIResponse(responseCode = "400", description = "Période absente ou inversée")
+    @APIResponse(responseCode = "403", description = "Droit de lecture du journal requis")
+    public Response logsArchive(@QueryParam("from") String from, @QueryParam("to") String to) {
+        com.ntech.cabosse.logs.service.LogsArchiveDownload download =
+                logsArchive.forCurrentTenant(from, to);
+        return Response.ok(download.body())
+                .type("application/zip")
+                .header("Content-Disposition", "attachment; filename=\"" + download.filename() + "\"")
+                .header("Cache-Control", "no-store")
+                .build();
     }
 
     private static String normalize(String s) {

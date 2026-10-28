@@ -42,6 +42,7 @@ public class CommoditySaleImportService {
     @Inject com.ntech.cabosse.dispatch.repository.DispatchNoteRepository dispatchNotes;
     @Inject ArticleRepository articles;
     @Inject CommoditySaleService saleService;
+    @Inject com.ntech.cabosse.importjournal.service.ImportAudit importAudit;
 
     @jakarta.inject.Inject
     com.ntech.cabosse.qualitygrade.service.QualityGradeService qualityGrades;
@@ -322,6 +323,8 @@ public class CommoditySaleImportService {
                         List.of(new FieldIssue("_", explain(e, raw, nrm)))));
             }
         }
+        importAudit.committed("commodity-sales", "ventes de matière première", null,
+                createdRefs.size(), 0, skipped.size(), null);
         return new CommoditySaleImportCommitResponseDto(
                 preview.totalRows(), createdRefs.size(), skipped.size(), createdRefs, skipped);
     }

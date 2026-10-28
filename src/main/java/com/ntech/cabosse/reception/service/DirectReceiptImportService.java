@@ -78,6 +78,7 @@ public class DirectReceiptImportService {
     @Inject SupplierService supplierService;
     @Inject DirectReceiptRepository receipts;
     @Inject DirectReceiptService receiptService;
+    @Inject com.ntech.cabosse.importjournal.service.ImportAudit importAudit;
 
     // ─── Preview ────────────────────────────────────────────────────
 
@@ -376,6 +377,8 @@ public class DirectReceiptImportService {
             }
         }
 
+        importAudit.committed("direct-receipts", "réceptions directes", null,
+                committedRows, 0, skipped.size(), null);
         return new DirectReceiptImportCommitResponseDto(
                 preview.totalRows(),
                 createdRefs.size(),

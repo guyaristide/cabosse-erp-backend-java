@@ -21,9 +21,12 @@ import com.ntech.cabosse.producerpurchase.entity.ProducerPurchaseEntity;
 import com.ntech.cabosse.producerpurchase.service.DeliveryNoteRefService;
 import com.ntech.cabosse.producerpurchase.service.ProducerPurchaseService;
 import com.ntech.cabosse.reception.entity.PaymentMethod;
+import com.ntech.cabosse.shared.audit.AuditEventType;
+import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.i18n.Messages;
+import com.ntech.cabosse.shared.tenant.TenantContext;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.jwt.JsonWebToken;
@@ -74,6 +77,8 @@ public class SntAccountingService {
     @Inject com.ntech.cabosse.producerpurchase.repository.ProducerPurchaseRepository purchases;
     @Inject DeliveryNoteRefService deliveryNoteRefService;
     @Inject JsonWebToken jwt;
+    @Inject AuditService audit;
+    @Inject TenantContext tenantContext;
 
     public SntPreviewDto preview(UUID intakeId, SntAccountingRequestDto request) {
         IntakeNoteEntity note = intakeNotes.loadOrFail(intakeId);
@@ -125,8 +130,34 @@ public class SntAccountingService {
         intakeRepo.finishAccounting(note.id, totalWeight, totalAmount, refs, traceOf(skipped));
         BigDecimal gap = note.netWeightKg != null
                 ? note.netWeightKg.subtract(totalWeight) : null;
+        traceAccounted(note, "Bordereau " + note.ref + " comptabilisé : " + refs.size()
+                        + " reçu(s) créé(s), " + skipped.size() + " ligne(s) écartée(s)",
+                refs.size(), createdMembers, skipped.size(), totalWeight, totalAmount, gap, refs);
         return new SntCommitResultDto(refs.size(), createdMembers, skipped.size(),
                 totalWeight, totalAmount, gap, refs, skipped);
+    }
+
+    private void traceAccounted(IntakeNoteEntity note, String description, int createdReceipts,
+                                int createdMembers, int skippedRows, BigDecimal weight,
+                                BigDecimal amount, BigDecimal gap, List<String> refs) {
+        Map<String, Object> payload = new java.util.LinkedHashMap<>();
+        payload.put("intakeNoteId", note.id.toString());
+        payload.put("ref", note.ref);
+        payload.put("supplierName", note.supplierName);
+        payload.put("receiptsCreated", createdReceipts);
+        payload.put("membersCreated", createdMembers);
+        payload.put("skippedRows", skippedRows);
+        payload.put("weightKg", weight);
+        payload.put("amount", amount);
+        payload.put("weightGapKg", gap);
+        payload.put("receiptRefs", refs);
+        audit.event(AuditEventType.INTAKE_NOTE_ACCOUNTED)
+                .actorEmail(actor())
+                .target("intake_note", note.id.toString(), note.ref)
+                .tenant(tenantContext.tenantId(), null)
+                .description(description)
+                .payload(payload)
+                .record();
     }
 
     /**
@@ -192,6 +223,10 @@ public class SntAccountingService {
         intakeRepo.finishAccounting(note.id, weight, amount, refs, traceOf(created.skipped()));
 
         BigDecimal gap = note.netWeightKg != null ? note.netWeightKg.subtract(weight) : null;
+        traceAccounted(note, "Bordereau " + note.ref + " complété : " + created.refs().size()
+                        + " reçu(s) ajouté(s), " + created.skipped().size() + " ligne(s) écartée(s)",
+                created.refs().size(), created.createdMembers(), created.skipped().size(),
+                weight, amount, gap, refs);
         return new SntCommitResultDto(created.refs().size(), created.createdMembers(),
                 created.skipped().size(), weight, amount, gap, refs, created.skipped());
     }

@@ -4,17 +4,22 @@ import com.ntech.cabosse.accounting.entity.JournalPieceEntity;
 import com.ntech.cabosse.accounting.entity.QuarantineStatus;
 import com.ntech.cabosse.accounting.entity.QuarantinedPostingEntity;
 import com.ntech.cabosse.accounting.repository.QuarantinedPostingRepository;
+import com.ntech.cabosse.shared.audit.AuditEventType;
+import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.ErrorCode;
 import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.i18n.Messages;
+import com.ntech.cabosse.shared.tenant.TenantContext;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -33,6 +38,8 @@ public class QuarantineService {
     @Inject QuarantinedPostingRepository repo;
     @Inject AccountingService accounting;
     @Inject JsonWebToken jwt;
+    @Inject AuditService audit;
+    @Inject TenantContext tenantContext;
 
     public List<QuarantinedPostingEntity> list(QuarantineStatus status, int limit, int skip) {
         return repo.list(status, limit, skip);
@@ -67,6 +74,13 @@ public class QuarantineService {
         q.resolvedByEmail = actor();
         q.resultingPieceRef = piece.get().ref;
         repo.replace(q);
+        Map<String, Object> payload = basePayload(q);
+        payload.put("postingDate", effective.toString());
+        payload.put("pieceId", piece.get().id.toString());
+        payload.put("pieceRef", piece.get().ref);
+        trace(q, AuditEventType.QUARANTINE_POSTED, payload,
+                "Écriture en quarantaine « " + q.libelle + " » passée au journal (pièce "
+                        + piece.get().ref + ", datée du " + effective + ")");
         return piece.get();
     }
 
@@ -82,7 +96,35 @@ public class QuarantineService {
         q.resolvedAt = Instant.now();
         q.resolvedByEmail = actor();
         repo.replace(q);
+        Map<String, Object> payload = basePayload(q);
+        payload.put("reason", q.discardReason);
+        trace(q, AuditEventType.QUARANTINE_DISCARDED, payload,
+                "Écriture en quarantaine « " + q.libelle + " » écartée : " + q.discardReason);
         return q;
+    }
+
+    private Map<String, Object> basePayload(QuarantinedPostingEntity q) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("quarantineId", q.id.toString());
+        payload.put("sourceType", q.sourceType != null ? q.sourceType.name() : null);
+        payload.put("sourceRef", q.sourceRef);
+        payload.put("originalDate", q.date != null ? q.date.toString() : null);
+        payload.put("lockedPeriod", q.lockedPeriod);
+        payload.put("totalDebit", q.totalDebit);
+        payload.put("totalCredit", q.totalCredit);
+        return payload;
+    }
+
+    private void trace(QuarantinedPostingEntity q, AuditEventType type,
+                       Map<String, Object> payload, String description) {
+        audit.event(type)
+                .actorEmail(actor())
+                .target("quarantined_posting", q.id.toString(),
+                        q.sourceRef != null ? q.sourceRef : q.libelle)
+                .tenant(tenantContext.tenantId(), null)
+                .description(description)
+                .payload(payload)
+                .record();
     }
 
     private static void requirePending(QuarantinedPostingEntity q) {

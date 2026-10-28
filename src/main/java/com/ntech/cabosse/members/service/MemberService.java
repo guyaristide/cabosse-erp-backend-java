@@ -194,6 +194,20 @@ public class MemberService {
         if (postCapital && e.status != MemberStatus.PENDING) {
             postCapitalIfEnabled(e);
         }
+        Map<String, Object> trace = new HashMap<>();
+        trace.put("code", e.code);
+        trace.put("name", e.name);
+        trace.put("status", e.status != null ? e.status.name() : null);
+        trace.put("collector", e.collector);
+        trace.put("supplierId", e.supplierId != null ? e.supplierId.toString() : null);
+        audit.event(AuditEventType.MEMBER_CREATED)
+                .actorEmail(actor())
+                .target("member", e.id.toString(), e.name)
+                .tenant(tenantContext.tenantId(), null)
+                .description("Membre " + e.name + " (" + e.code + ") créé"
+                        + (e.status == MemberStatus.PENDING ? ", dossier en attente" : ""))
+                .payload(trace)
+                .record();
         return MemberResponseDto.from(e, fileValidityMonths(), producerRefKeys.identityProofTypeNames());
     }
 
@@ -718,7 +732,27 @@ public class MemberService {
         e.updatedAt = Instant.now();
         members.replace(e);
         syncMirrorSupplier(e);
+        audit.event(AuditEventType.COLLECTOR_MARGINS_SET)
+                .actorEmail(actor())
+                .target("member", e.id.toString(), e.name)
+                .tenant(tenantContext.tenantId(), null)
+                .description("Rémunération par campagne du délégué " + e.name + " (" + e.code
+                        + ") enregistrée : " + e.collectorMarginByCampaign.size() + " campagne(s)")
+                .payload(Map.of("rates", marginsPayload(e.collectorMarginByCampaign)))
+                .record();
         return MemberResponseDto.from(e);
+    }
+
+    /** Les taux convenus, campagne par campagne, pour le journal d'audit. */
+    public static List<Map<String, Object>> marginsPayload(List<SupplierEntity.CampaignMargin> margins) {
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (SupplierEntity.CampaignMargin m : margins != null ? margins : List.<SupplierEntity.CampaignMargin>of()) {
+            Map<String, Object> row = new HashMap<>();
+            row.put("campaignId", m.campaignId != null ? m.campaignId.toString() : null);
+            row.put("rate", m.rate);
+            out.add(row);
+        }
+        return out;
     }
 
     private SupplierEntity createMirrorSupplier(MemberEntity m) {

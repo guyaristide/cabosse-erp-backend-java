@@ -137,6 +137,7 @@ public class InventorySessionService {
         InventorySessionEntity e = loadOrFail(id);
         requireStatus(e, InventorySessionEntity.STATUS_OPEN,
                 "m.stk-counts-only-open-session");
+        int changed = 0;
         for (InventorySessionEntity.Line line : e.lines) {
             if (countedByArticle.containsKey(line.articleId)) {
                 BigDecimal counted = countedByArticle.get(line.articleId);
@@ -145,12 +146,23 @@ public class InventorySessionService {
                             Messages.msg("m.stk-negative-counted-qty", line.articleName));
                 }
                 line.countedQty = counted;
+                changed++;
             }
             if (notesByArticle != null && notesByArticle.containsKey(line.articleId)) {
                 line.notes = notesByArticle.get(line.articleId);
             }
         }
         sessions.replace(e);
+        long counted = e.lines.stream().filter(l -> l.countedQty != null).count();
+        audit.event(AuditEventType.INVENTORY_COUNTS_UPDATED)
+                .actorEmail(actor())
+                .target("inventory_session", e.id.toString(), e.ref)
+                .tenant(tenantContext.tenantId(), null)
+                .description("Comptages de l'inventaire " + e.ref + " mis à jour : " + changed
+                        + " ligne(s) saisie(s), " + counted + "/" + e.lines.size() + " comptée(s)")
+                .payload(Map.of("linesChanged", changed, "linesCounted", counted,
+                        "lines", e.lines.size(), "siteName", e.siteName == null ? "" : e.siteName))
+                .record();
         return e;
     }
 
@@ -277,10 +289,20 @@ public class InventorySessionService {
             throw new BusinessException(Messages.msg("m.stk-validated-session-not-cancellable"));
         }
         if (InventorySessionEntity.STATUS_CANCELLED.equals(e.status)) return e;
+        String previousStatus = e.status;
         e.status = InventorySessionEntity.STATUS_CANCELLED;
         e.cancelledAt = Instant.now();
         e.cancelledBy = safeUserId();
         sessions.replace(e);
+        audit.event(AuditEventType.INVENTORY_CANCELLED)
+                .actorEmail(actor())
+                .target("inventory_session", e.id.toString(), e.ref)
+                .tenant(tenantContext.tenantId(), null)
+                .description("Inventaire " + e.ref + " annulé (site " + e.siteName + ")")
+                .payload(Map.of("previousStatus", previousStatus,
+                        "siteName", e.siteName == null ? "" : e.siteName,
+                        "lines", e.lines == null ? 0 : e.lines.size()))
+                .record();
         return e;
     }
 

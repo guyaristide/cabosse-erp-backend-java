@@ -157,7 +157,7 @@ public final class Exporters {
      * après avoir désamorcé une formule par une apostrophe en tête, ce
      * que les tableurs lisent comme « texte, tel quel ».
      */
-    static String csvCell(String value) {
+    public static String csvCell(String value) {
         if (value == null) return "";
         if (looksLikeFormula(value)) value = "'" + value;
         boolean needsQuote = value.indexOf(',') >= 0

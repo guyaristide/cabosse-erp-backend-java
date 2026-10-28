@@ -4,10 +4,13 @@ import com.ntech.cabosse.accounting.dto.TvaDeclarationDto;
 import com.ntech.cabosse.accounting.entity.TvaDeclarationEntity;
 import com.ntech.cabosse.accounting.entity.TvaDeclarationStatus;
 import com.ntech.cabosse.accounting.repository.TvaDeclarationRepository;
+import com.ntech.cabosse.shared.audit.AuditEventType;
+import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
+import com.ntech.cabosse.shared.tenant.TenantContext;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.jwt.JsonWebToken;
@@ -16,7 +19,9 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -40,9 +45,31 @@ public class TvaDeclarationService {
     @Inject TvaDeclarationRepository repo;
     @Inject IdGenerator idGenerator;
     @Inject JsonWebToken jwt;
+    @Inject AuditService audit;
+    @Inject TenantContext tenantContext;
 
     private String actor() {
         try { return jwt.getName(); } catch (Exception e) { return null; }
+    }
+
+    private void trace(TvaDeclarationEntity e, AuditEventType type, String description) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("declarationId", e.id.toString());
+        payload.put("yearMonth", e.yearMonth);
+        payload.put("collected", e.collected);
+        payload.put("deductible", e.deductible);
+        payload.put("toPay", e.toPay);
+        payload.put("dueDate", e.dueDate != null ? e.dueDate.toString() : null);
+        payload.put("depositedNumber", e.depositedNumber);
+        payload.put("depositedAt", e.depositedAt != null ? e.depositedAt.toString() : null);
+        payload.put("status", e.status != null ? e.status.name() : null);
+        audit.event(type)
+                .actorEmail(actor())
+                .target("tva_declaration", e.id.toString(), e.yearMonth)
+                .tenant(tenantContext.tenantId(), null)
+                .description(description)
+                .payload(payload)
+                .record();
     }
 
     /** Récupère la déclaration persistée, si elle existe. */
@@ -87,6 +114,8 @@ public class TvaDeclarationService {
         e.status = TvaDeclarationStatus.PRET_A_DEPOSER;
         e.updatedAt = Instant.now();
         if (isNew) repo.insert(e); else repo.replace(e);
+        trace(e, AuditEventType.TVA_DECLARATION_READY,
+                "Déclaration de TVA " + yearMonth + " prête à déposer");
         return e;
     }
 
@@ -109,6 +138,9 @@ public class TvaDeclarationService {
         e.status = TvaDeclarationStatus.DEPOSE;
         e.updatedAt = Instant.now();
         repo.replace(e);
+        trace(e, AuditEventType.TVA_DECLARATION_DEPOSED,
+                "Déclaration de TVA " + yearMonth + " déposée sous le n° " + e.depositedNumber
+                        + " le " + e.depositedAt);
         return e;
     }
 

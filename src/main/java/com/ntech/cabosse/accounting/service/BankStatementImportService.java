@@ -7,10 +7,13 @@ import com.ntech.cabosse.accounting.entity.BankStatementStatus;
 import com.ntech.cabosse.accounting.repository.BankAccountRepository;
 import com.ntech.cabosse.accounting.repository.BankStatementLineRepository;
 import com.ntech.cabosse.accounting.repository.BankStatementRepository;
+import com.ntech.cabosse.shared.audit.AuditEventType;
+import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
+import com.ntech.cabosse.shared.tenant.TenantContext;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.jwt.JsonWebToken;
@@ -60,11 +63,12 @@ public class BankStatementImportService {
     @Inject BankStatementLineRepository lines;
     @Inject IdGenerator idGenerator;
     @Inject JsonWebToken jwt;
+    @Inject AuditService audit;
+    @Inject TenantContext tenantContext;
 
     public ImportResult importCsv(UUID bankAccountId, String fileName, InputStream csv) {
-        if (banks.findById(bankAccountId).isEmpty()) {
-            throw new NotFoundException(Messages.msg("m.acc-bank-account-not-found", bankAccountId));
-        }
+        var bank = banks.findById(bankAccountId).orElseThrow(
+                () -> new NotFoundException(Messages.msg("m.acc-bank-account-not-found", bankAccountId)));
         List<ParsedLine> parsed = parse(csv);
         if (parsed.isEmpty()) {
             throw new BusinessException(Messages.msg("m.acc-import-no-valid-line"));
@@ -123,6 +127,24 @@ public class BankStatementImportService {
 
         LOG.infof("Extrait bancaire %s importé pour compte %s : %d ligne(s) ajoutée(s), %d doublon(s) ignoré(s)",
                 stmt.id, bankAccountId, inserted, skipped);
+
+        java.util.Map<String, Object> payload = new java.util.LinkedHashMap<>();
+        payload.put("statementId", stmt.id.toString());
+        payload.put("bankAccountId", bankAccountId.toString());
+        payload.put("bankAccountLabel", bank.label);
+        payload.put("fileName", fileName);
+        payload.put("linesInserted", inserted);
+        payload.put("duplicatesSkipped", skipped);
+        payload.put("periodFrom", stmt.periodFrom != null ? stmt.periodFrom.toString() : null);
+        payload.put("periodTo", stmt.periodTo != null ? stmt.periodTo.toString() : null);
+        audit.event(AuditEventType.BANK_STATEMENT_IMPORTED)
+                .actorEmail(actor())
+                .target("bank_statement", stmt.id.toString(), fileName)
+                .tenant(tenantContext.tenantId(), null)
+                .description("Relevé « " + fileName + " » importé sur le compte « " + bank.label + " » : "
+                        + inserted + " ligne(s), " + skipped + " doublon(s) ignoré(s)")
+                .payload(payload)
+                .record();
 
         return new ImportResult(stmt.id, inserted, skipped);
     }

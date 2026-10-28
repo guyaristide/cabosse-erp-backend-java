@@ -139,8 +139,9 @@ public class AuthResource {
                     + "blacklist sur les JWT signés. Pour invalider immédiatement il faudrait "
                     + "un mécanisme d'audience ou de jti blacklist (Phase D si nécessaire).")
     @APIResponse(responseCode = "204", description = "Refresh révoqué (idempotent)")
-    public Response logout(@Valid @RequestBody LogoutRequestDto request) {
-        authService.logout(request.refreshToken());
+    public Response logout(@Valid @RequestBody LogoutRequestDto request,
+                           @Context HttpServerRequest http) {
+        authService.logout(request.refreshToken(), clientIp(http));
         return Response.noContent().build();
     }
 

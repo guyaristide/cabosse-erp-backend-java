@@ -81,6 +81,11 @@ class MemberEnrolmentTest extends AbstractIntegrationTest {
                 .body("data.birthPlace", equalTo("Sakassou"))
                 // Le champ legacy reste alimenté pour le registre et les exports.
                 .body("data.civilStatus", equalTo("MALE"));
+
+        // La création laisse sa ligne au journal d'audit, lue à la source.
+        assertThat(auditRepository.count(new AuditRepository.AuditQuery(
+                null, AuditEventType.MEMBER_CREATED.name(), null, admin.tenantId, null, null)))
+                .isEqualTo(1);
     }
 
     @Test

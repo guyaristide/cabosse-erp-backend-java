@@ -9,6 +9,8 @@ import com.ntech.cabosse.eudr.repository.EudrDossierRepository;
 import com.ntech.cabosse.sale.entity.SaleEntity;
 import com.ntech.cabosse.sale.entity.SaleLine;
 import com.ntech.cabosse.sale.repository.SaleRepository;
+import com.ntech.cabosse.shared.audit.AuditEventType;
+import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.i18n.Messages;
@@ -21,8 +23,10 @@ import org.eclipse.microprofile.jwt.JsonWebToken;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -56,6 +60,7 @@ public class DueDiligenceService {
     @Inject IdGenerator idGenerator;
     @Inject TenantContext tenantContext;
     @Inject JsonWebToken jwt;
+    @Inject AuditService audit;
 
     private String actor() {
         try { return jwt.getName(); } catch (Exception e) { return null; }
@@ -63,6 +68,27 @@ public class DueDiligenceService {
 
     private UUID safeUserId() {
         try { return tenantContext.userId(); } catch (Exception e) { return null; }
+    }
+
+    private void audit(DueDiligenceStatementEntity ddr, AuditEventType type, String description,
+                       Map<String, Object> payload) {
+        audit.event(type)
+                .actorEmail(actor())
+                .target("due_diligence_statement", ddr.id.toString(), ddr.ref)
+                .tenant(tenantContext.tenantId(), null)
+                .description(description)
+                .payload(payload)
+                .record();
+    }
+
+    private void auditStatus(DueDiligenceStatementEntity ddr, String description) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("status", ddr.status.name());
+        payload.put("saleRef", ddr.saleRef);
+        payload.put("exportCountryCode", ddr.exportCountryCode);
+        payload.put("eudrReferenceNumber", ddr.eudrReferenceNumber);
+        payload.put("rejectionReason", ddr.rejectionReason);
+        audit(ddr, AuditEventType.EUDR_DDR_STATUS_CHANGED, description, payload);
     }
 
     public List<DueDiligenceStatementEntity> list(DueDiligenceStatus statusFilter) {
@@ -76,7 +102,19 @@ public class DueDiligenceService {
     public DueDiligenceStatementEntity generateForSale(UUID saleId) {
         SaleEntity sale = sales.findById(saleId)
                 .orElseThrow(() -> new NotFoundException(Messages.msg("m.eud-sale-not-found", saleId)));
-        return ddrs.findBySale(saleId).orElseGet(() -> createNew(sale));
+        var existing = ddrs.findBySale(saleId);
+        if (existing.isPresent()) return existing.get();
+        DueDiligenceStatementEntity ddr = createNew(sale);
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("saleId", sale.id.toString());
+        payload.put("saleRef", sale.ref);
+        payload.put("lotRefs", ddr.lotRefs);
+        payload.put("parcelCodes", ddr.parcelCodes);
+        payload.put("status", ddr.status.name());
+        audit(ddr, AuditEventType.EUDR_DDR_GENERATED,
+                "Déclaration de diligence raisonnée " + ddr.ref + " générée pour la vente "
+                        + sale.ref, payload);
+        return ddr;
     }
 
     private DueDiligenceStatementEntity createNew(SaleEntity sale) {
@@ -128,6 +166,8 @@ public class DueDiligenceService {
         ddr.status = DueDiligenceStatus.READY;
         ddr.updatedAt = Instant.now();
         ddrs.replace(ddr);
+        auditStatus(ddr, "Déclaration " + ddr.ref + " prête à soumettre (destination "
+                + ddr.exportCountryCode + ")");
         return ddr;
     }
 
@@ -145,6 +185,8 @@ public class DueDiligenceService {
         ddr.submittedByEmail = actor();
         ddr.updatedAt = Instant.now();
         ddrs.replace(ddr);
+        auditStatus(ddr, "Déclaration " + ddr.ref + " soumise (référence UE "
+                + ddr.eudrReferenceNumber + ")");
         return ddr;
     }
 
@@ -154,6 +196,7 @@ public class DueDiligenceService {
         ddr.acceptedAt = Instant.now();
         ddr.updatedAt = Instant.now();
         ddrs.replace(ddr);
+        auditStatus(ddr, "Déclaration " + ddr.ref + " acceptée");
         return ddr;
     }
 
@@ -164,6 +207,8 @@ public class DueDiligenceService {
         ddr.rejectionReason = reason != null ? reason.trim() : null;
         ddr.updatedAt = Instant.now();
         ddrs.replace(ddr);
+        auditStatus(ddr, "Déclaration " + ddr.ref + " rejetée"
+                + (ddr.rejectionReason != null ? " : " + ddr.rejectionReason : ""));
         return ddr;
     }
 

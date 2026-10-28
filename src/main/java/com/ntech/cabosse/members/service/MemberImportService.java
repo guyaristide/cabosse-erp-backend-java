@@ -93,6 +93,7 @@ public class MemberImportService {
 
     @Inject MemberRepository members;
     @Inject com.ntech.cabosse.importjournal.service.ImportJournal journal;
+    @Inject com.ntech.cabosse.importjournal.service.ImportAudit importAudit;
     @Inject com.ntech.cabosse.plan.service.PlanLimitService planLimits;
     @Inject MemberService memberService;
     @Inject SectionRepository sections;
@@ -524,6 +525,8 @@ public class MemberImportService {
         }
 
         trace.counts(created.size(), updated.size()).close();
+        importAudit.committed("members", "producteurs", null,
+                created.size(), updated.size(), skipped.size(), trace.runId());
 
         return new MemberImportCommitResponseDto(
                 preview.totalRows(), created.size(), updated.size(), skipped.size(),

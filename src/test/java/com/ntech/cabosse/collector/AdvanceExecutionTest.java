@@ -1,6 +1,8 @@
 package com.ntech.cabosse.collector;
 
 import com.ntech.cabosse.auth.service.PasswordHasher;
+import com.ntech.cabosse.shared.audit.AuditEventType;
+import com.ntech.cabosse.shared.audit.AuditRepository;
 import com.ntech.cabosse.shared.persistence.IdGenerator;
 import com.ntech.cabosse.shared.security.Roles;
 import com.ntech.cabosse.tenant.entity.TenantEntity;
@@ -40,6 +42,7 @@ class AdvanceExecutionTest extends AbstractIntegrationTest {
 
     @Inject PasswordHasher passwordHasher;
     @Inject IdGenerator idGenerator;
+    @Inject AuditRepository auditRepository;
 
     private TenantEntity tenant;
 
@@ -113,6 +116,12 @@ class AdvanceExecutionTest extends AbstractIntegrationTest {
                 .body("data.executionRequestedByEmail", equalTo(admin.email));
 
         assertThat(unreadOf(cashier)).isEqualTo(before + 1);
+
+        // La transmission laisse sa ligne au journal d'audit, lue à la
+        // source : le journal n'est lisible que par la plateforme.
+        assertThat(auditRepository.count(new AuditRepository.AuditQuery(
+                null, AuditEventType.EXECUTION_REQUESTED.name(), null, tenant.id, null, null)))
+                .isEqualTo(1);
 
         // La caissière désigne la caisse ou la banque au décaissement :
         // la liste des comptes (sans soldes) s'ouvre à son droit de

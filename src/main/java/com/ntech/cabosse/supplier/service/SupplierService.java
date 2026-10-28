@@ -252,7 +252,15 @@ public class SupplierService {
         e.collectorMarginByCampaign = marginValidator.validated(payload);
         e.updatedAt = Instant.now();
         repo.replace(e);
-        auditEvt(e, "Rémunération par campagne");
+        audit.event(AuditEventType.COLLECTOR_MARGINS_SET)
+                .actorEmail(actor())
+                .target("supplier", e.id.toString(), e.name)
+                .tenant(tenantContext.tenantId(), null)
+                .description("Rémunération par campagne du délégué « " + e.name + " » enregistrée : "
+                        + e.collectorMarginByCampaign.size() + " campagne(s)")
+                .payload(java.util.Map.of("rates",
+                        com.ntech.cabosse.members.service.MemberService.marginsPayload(e.collectorMarginByCampaign)))
+                .record();
         syncMirroredMember(e);
         return SupplierResponseDto.from(e);
     }

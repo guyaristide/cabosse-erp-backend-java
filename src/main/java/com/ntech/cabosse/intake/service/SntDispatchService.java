@@ -8,14 +8,18 @@ import com.ntech.cabosse.intake.dto.SntDispatchResultDto;
 import com.ntech.cabosse.intake.dto.SntLineDto;
 import com.ntech.cabosse.intake.entity.IntakeNoteEntity;
 import com.ntech.cabosse.intake.repository.IntakeNoteRepository;
+import com.ntech.cabosse.shared.audit.AuditEventType;
+import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.imports.ImportFields;
 import com.ntech.cabosse.shared.imports.PartyMatch;
+import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.supplier.entity.SupplierEntity;
 import com.ntech.cabosse.supplier.repository.SupplierRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import org.eclipse.microprofile.jwt.JsonWebToken;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -53,6 +57,9 @@ public class SntDispatchService {
     @Inject IntakeNoteService intakeNotes;
     @Inject SntAccountingService accounting;
     @Inject SupplierRepository suppliers;
+    @Inject AuditService audit;
+    @Inject TenantContext tenantContext;
+    @Inject JsonWebToken jwt;
 
     public SntDispatchPreviewDto preview(SntDispatchRequestDto request) {
         return allocate(request).toPreview();
@@ -104,8 +111,33 @@ public class SntDispatchService {
         }
 
         int failed = (int) outcomes.stream().filter(o -> !o.accounted()).count();
+        // Chaque bordereau comptabilisé a déjà sa ligne ; celle-ci résume
+        // la répartition dans son ensemble.
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("notesSelected", allocation.buckets.size());
+        payload.put("notesAccounted", accountedNotes);
+        payload.put("notesFailed", failed);
+        payload.put("receiptsCreated", createdReceipts);
+        payload.put("membersCreated", createdMembers);
+        payload.put("weightKg", totalWeight);
+        payload.put("amount", totalAmount);
+        payload.put("unassignedLines", allocation.unassigned().size());
+        payload.put("noteRefs", allocation.buckets.stream().map(b -> b.note.ref).toList());
+        audit.event(AuditEventType.INTAKE_NOTE_DISPATCHED)
+                .actorEmail(actor())
+                .target("intake_note", null, accountedNotes + " bordereau(x)")
+                .tenant(tenantContext.tenantId(), null)
+                .description("Extrait réparti sur " + allocation.buckets.size() + " bordereau(x) : "
+                        + accountedNotes + " comptabilisé(s), " + failed + " refusé(s), "
+                        + createdReceipts + " reçu(s) créé(s)")
+                .payload(payload)
+                .record();
         return new SntDispatchResultDto(accountedNotes, failed, createdReceipts, createdMembers,
                 totalWeight, totalAmount, outcomes, allocation.unassigned());
+    }
+
+    private String actor() {
+        try { return jwt.getName(); } catch (Exception e) { return null; }
     }
 
     // ─── La répartition ─────────────────────────────────────────────

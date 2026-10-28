@@ -359,12 +359,7 @@ public class PlatformSettingsResource {
     public Response deletePaymentProvider(@PathParam("code") String code) {
         // Désactivation seulement — on conserve la config historique mais
         // on coupe la passerelle.
-        RawSection raw = settings.rawValuesForAdmin(PAYMENT_PREFIX + code);
-        if (!raw.exists()) throw new NotFoundException(Messages.msg("m.set-payment-gateway-not-found", code));
-        Map<String, String> values = new HashMap<>(raw.values());
-        values.put("enabled", "false");
-        // On écrit en gardant secrets tels quels — la sentinelle vide fait conserver
-        settings.writeSection(PAYMENT_PREFIX + code, values, raw.secretKeys(), currentAdmin());
+        settings.disablePaymentProvider(PAYMENT_PREFIX + code, code, currentAdmin());
         return Response.noContent().build();
     }
 

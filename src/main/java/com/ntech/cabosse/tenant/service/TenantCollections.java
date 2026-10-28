@@ -31,7 +31,10 @@ public final class TenantCollections {
      * croire à Mongock que tout est déjà joué sur une base vide.</p>
      */
     public static final Set<String> TECHNICAL = Set.of(
-            "_provisioning_marker", "mongockChangeLog", "mongockLock");
+            "_provisioning_marker", "mongockChangeLog", "mongockLock",
+            // Traces de requêtes (SEC-16) : journal technique à durée de vie
+            // propre, jamais une donnée métier à garder ou à remettre à plat.
+            "request_traces");
 
     private static final List<String> SETTINGS = List.of(
             "accounting_periods",

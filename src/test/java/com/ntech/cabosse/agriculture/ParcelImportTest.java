@@ -25,6 +25,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
 
 /**
@@ -166,6 +167,16 @@ class ParcelImportTest extends AbstractIntegrationTest {
                 .body("data.items[0].gpsCenter", hasSize(2))
                 // L'année de plantation se dérive de la date complète.
                 .body("data.items[0].plantingYear", equalTo(2003));
+
+        // L'import laisse sa trace, et la parcelle qu'il a créée aussi :
+        // le journal est tenu par la plateforme, qui seule le relit.
+        givenAs(fixtures.createPlatformAdmin())
+                .queryParam("tenantId", admin.tenantId.toString()).queryParam("pageSize", 200)
+                .when().get("/api/v1/admin/audit")
+                .then().statusCode(200)
+                .body("data.items.eventType", hasItem("DATA_IMPORTED"))
+                .body("data.items.eventType", hasItem("PARCEL_CREATED"))
+                .body("data.items.eventType", hasItem("PARCEL_UPDATED"));
     }
 
     @Test

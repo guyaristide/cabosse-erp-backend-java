@@ -9,6 +9,8 @@ import com.ntech.cabosse.processing.fermentation.entity.FermentationBatchEntity;
 import com.ntech.cabosse.processing.fermentation.repository.FermentationBatchRepository;
 import com.ntech.cabosse.shared.api.PageRequest;
 import com.ntech.cabosse.shared.api.Pagination;
+import com.ntech.cabosse.shared.audit.AuditEventType;
+import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.i18n.Messages;
@@ -37,6 +39,7 @@ public class DryingBatchService {
     @Inject IdGenerator idGenerator;
     @Inject TenantContext tenantContext;
     @Inject JsonWebToken jwt;
+    @Inject AuditService audit;
 
     private String actor() {
         try { return jwt.getName(); } catch (Exception e) { return null; }
@@ -44,6 +47,25 @@ public class DryingBatchService {
 
     private UUID safeUserId() {
         try { return tenantContext.userId(); } catch (Exception e) { return null; }
+    }
+
+    /** Un seul type d'événement pour le lot : l'action est dans la charge. */
+    private void audit(DryingBatchEntity e, String action, String description,
+                       Map<String, Object> extra) {
+        Map<String, Object> payload = new java.util.LinkedHashMap<>();
+        payload.put("action", action);
+        payload.put("ref", e.ref);
+        payload.put("status", e.status != null ? e.status.name() : null);
+        payload.put("method", e.method != null ? e.method.toString() : null);
+        payload.put("weightInKg", e.weightInKg);
+        if (extra != null) payload.putAll(extra);
+        audit.event(AuditEventType.DRYING_BATCH_CHANGED)
+                .actorEmail(actor())
+                .target("drying_batch", e.id.toString(), e.ref)
+                .tenant(tenantContext.tenantId(), null)
+                .description(description)
+                .payload(payload)
+                .record();
     }
 
     public Pagination<DryingBatchResponseDto> page(DryingBatchStatus statusFilter, String q, PageRequest pr) {
@@ -94,6 +116,9 @@ public class DryingBatchService {
         e.createdBy = safeUserId();
         e.createdByEmail = actor();
         batches.insert(e);
+        Map<String, Object> extra = new java.util.LinkedHashMap<>();
+        extra.put("fermentationBatchRefs", e.fermentationBatchRefs);
+        audit(e, "CREATED", "Lot de séchage " + e.ref + " ouvert (" + e.weightInKg + " kg)", extra);
         return DryingBatchResponseDto.from(e);
     }
 
@@ -116,6 +141,12 @@ public class DryingBatchService {
         e.status = DryingBatchStatus.COMPLETED;
         e.updatedAt = e.completedAt;
         batches.replace(e);
+        Map<String, Object> extra = new java.util.LinkedHashMap<>();
+        extra.put("weightOutKg", e.weightOutKg);
+        extra.put("finalHumidityPct", e.finalHumidityPct);
+        extra.put("weightLossPct", e.weightLossPct);
+        audit(e, "COMPLETED", "Lot de séchage " + e.ref + " terminé (" + e.weightOutKg
+                + " kg sortis)", extra);
         return DryingBatchResponseDto.from(e);
     }
 
@@ -128,6 +159,10 @@ public class DryingBatchService {
         e.notes = (e.notes != null ? e.notes + "\n" : "") + "Annulé : " + (reason != null ? reason : "");
         e.updatedAt = Instant.now();
         batches.replace(e);
+        Map<String, Object> extra = new java.util.LinkedHashMap<>();
+        extra.put("reason", reason);
+        audit(e, "CANCELLED", "Lot de séchage " + e.ref + " annulé"
+                + (reason != null && !reason.isBlank() ? " : " + reason : ""), extra);
         return DryingBatchResponseDto.from(e);
     }
 
