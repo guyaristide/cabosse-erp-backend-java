@@ -349,6 +349,9 @@ class DelegateStatementTest extends AbstractIntegrationTest {
         org.junit.jupiter.api.Assertions.assertTrue(csv.contains("Mise en compte"), csv);
         org.junit.jupiter.api.Assertions.assertTrue(csv.contains("Marge"), csv);
         org.junit.jupiter.api.Assertions.assertTrue(csv.contains("DIABATE Moussa"), csv);
+        // La marge est un montant au kilo, jamais un taux : rien dans ce
+        // fichier ne se lit en pourcentage (signalé le 29/10/2026).
+        org.junit.jupiter.api.Assertions.assertFalse(csv.contains("%"), csv);
     }
 
     @Test

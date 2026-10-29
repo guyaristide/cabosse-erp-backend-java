@@ -30,7 +30,9 @@ final class CampaignMonthExportColumns {
                         CampaignMonthDto::saleTargetKg),
                 ExportColumn.of(Messages.msg("m.exp-h-ecart-vente"), CampaignMonthDto::saleGapKg),
                 ExportColumn.of(Messages.msg("m.exp-h-chiffre-affaires"), CampaignMonthDto::revenue),
-                ExportColumn.of(Messages.msg("m.exp-h-marge-brute"), CampaignMonthDto::grossMargin),
+                // Un montant, pas un taux : sans la nature, « marge » sortait en pourcentage.
+                ExportColumn.of("marge-brute", Messages.msg("m.exp-h-marge-brute"),
+                        com.ntech.cabosse.shared.export.ColumnKind.NUMBER_MONEY, CampaignMonthDto::grossMargin),
                 ExportColumn.of(Messages.msg("m.exp-h-solde-tresorerie"),
                         CampaignMonthDto::treasuryBalance));
     }

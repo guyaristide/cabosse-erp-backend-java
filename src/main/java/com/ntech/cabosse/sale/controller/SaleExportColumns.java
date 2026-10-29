@@ -29,7 +29,9 @@ final class SaleExportColumns {
                 ExportColumn.of(Messages.msg("m.imp-h-tva"),               SaleResponseDto::vat),
                 ExportColumn.of(Messages.msg("m.imp-h-total-ttc"),         SaleResponseDto::totalTtc),
                 ExportColumn.of(Messages.msg("m.imp-h-cout-matiere"),      SaleResponseDto::totalCost),
-                ExportColumn.of(Messages.msg("m.imp-h-marge-brute"),       SaleResponseDto::grossMargin),
+                // Un montant, pas un taux : sans la nature, « marge » sortait en pourcentage.
+                ExportColumn.of("marge-brute", Messages.msg("m.imp-h-marge-brute"),
+                        com.ntech.cabosse.shared.export.ColumnKind.NUMBER_MONEY, SaleResponseDto::grossMargin),
                 ExportColumn.of(Messages.msg("m.imp-h-total-paye"),        SaleResponseDto::totalPaid),
                 ExportColumn.of(Messages.msg("m.imp-h-solde-facture"),     SaleResponseDto::balanceDue),
                 ExportColumn.of(Messages.msg("m.imp-h-etat-facture"),      r -> invoiceState(r.paymentStatus())),
