@@ -106,6 +106,8 @@ public final class TenantCollections {
             "harvests",
             "idempotency_keys",
             "import_runs",
+            // Le fichier déposé à chaque import, gardé sans limite (DEC-52).
+            "import_files",
             "intake_notes",
             "inventory_sessions",
             "journal_pieces",

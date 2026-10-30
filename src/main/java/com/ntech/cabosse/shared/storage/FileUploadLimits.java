@@ -80,6 +80,18 @@ public final class FileUploadLimits {
                     "application/pdf",
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     "text/csv"
+            )),
+
+            // Le fichier déposé à un import, gardé tel quel (DEC-52) : CSV ou
+            // Excel, tels que les navigateurs les nomment, parfois sans type.
+            "import.source",
+            new TypeRule(20_000_000L, Set.of(
+                    "text/csv",
+                    "text/plain",
+                    "application/csv",
+                    "application/vnd.ms-excel",
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    "application/octet-stream"
             ))
     );
 
