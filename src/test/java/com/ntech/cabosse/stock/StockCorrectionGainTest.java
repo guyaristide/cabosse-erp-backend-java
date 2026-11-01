@@ -93,9 +93,11 @@ class StockCorrectionGainTest extends AbstractIntegrationTest {
         UserEntity a = admin();
         String[] s = stockedSite(a);
 
-        correct(a, s[0], s[1], "\"reason\": \"Soleil du 15 : gain de poids\", \"gainKg\": 40")
+        correct(a, s[0], s[1], "\"reason\": \"Soleil du 15 : gain de poids\", \"gainKg\": 40, \"gainBags\": 3")
                 .statusCode(201)
                 .body("data.gainKg", equalTo(40))
+                // Les sacs qui entrent avec le gain sont gardés (31/10/2026).
+                .body("data.gainBags", equalTo(3))
                 .body("data.gainValue", equalTo(48000.00F))
                 .body("data.value", nullValue())
                 .body("data.pieceRef", notNullValue());

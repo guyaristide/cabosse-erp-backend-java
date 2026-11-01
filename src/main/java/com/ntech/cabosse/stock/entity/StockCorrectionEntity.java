@@ -52,6 +52,9 @@ public class StockCorrectionEntity {
     public BigDecimal weightKg;
     /** Poids ajouté, en kg : un gain constaté, entré au coût moyen du jour. */
     public BigDecimal gainKg;
+
+    /** Sacs entrés avec le gain : sacs finals = sacs + ajoutés − retirés (31/10/2026). */
+    public Integer gainBags;
     /** Valeur du gain, au même coût moyen que la perte. */
     public BigDecimal gainValue;
     /** Le mouvement entrant du gain, quand il y en a un. */

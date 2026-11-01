@@ -86,7 +86,10 @@ public class StockCorrectionService {
             throw new BusinessException(Messages.msg("m.stk-correction-weight-required"));
         }
         int bags = payload.bags() != null ? payload.bags() : 0;
-        if (bags < 0) {
+        // Les sacs qui entrent avec le gain : sacs finals = sacs + ajoutés
+        // − retirés (demandé le 31/10/2026).
+        int gainBags = payload.gainBags() != null ? payload.gainBags() : 0;
+        if (bags < 0 || gainBags < 0) {
             throw new BusinessException(Messages.msg("m.stk-correction-bags-negative"));
         }
 
@@ -121,6 +124,7 @@ public class StockCorrectionService {
                 ? weight.multiply(cmup).setScale(2, RoundingMode.HALF_UP)
                 : null;
         e.gainKg = gain.signum() > 0 ? gain : null;
+        e.gainBags = gainBags > 0 ? gainBags : null;
         e.gainValue = cmup != null && gain.signum() > 0
                 ? gain.multiply(cmup).setScale(2, RoundingMode.HALF_UP)
                 : null;
@@ -195,6 +199,7 @@ public class StockCorrectionService {
                         + (weight.signum() > 0 ? ", " + weight + " " + article.unit + " retirés" : "")
                         + (gain.signum() > 0 ? ", " + gain + " " + article.unit + " ajoutés" : "")
                         + (bags > 0 ? ", " + bags + " sac(s) retirés" : "")
+                        + (gainBags > 0 ? ", " + gainBags + " sac(s) ajoutés" : "")
                         + (e.pieceRef != null ? ", pièce " + e.pieceRef : ""))
                 .record();
 

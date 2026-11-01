@@ -204,7 +204,9 @@ public class DayIntakeSheetService {
             // Net de la perte et du gain : le carnet lit un seul chiffre
             // par correction, signé.
             BigDecimal removed = nz(c.weightKg).subtract(nz(c.gainKg));
-            int bags = c.bags != null ? c.bags : 0;
+            // Même lecture pour les sacs : retirés moins ajoutés, signé
+            // (sacs finals = sacs + ajoutés − retirés, 31/10/2026).
+            int bags = (c.bags != null ? c.bags : 0) - (c.gainBags != null ? c.gainBags : 0);
             runningQty = runningQty.subtract(removed);
             runningBags -= bags;
             correctedWeight = correctedWeight.add(removed);

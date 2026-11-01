@@ -24,6 +24,8 @@ public record StockCorrectionDto(
         BigDecimal value,
         BigDecimal gainKg,
         BigDecimal gainValue,
+        /** Sacs entrés avec le gain (31/10/2026). */
+        Integer gainBags,
         String notes,
         String pieceRef,
         String createdBy,
@@ -34,7 +36,7 @@ public record StockCorrectionDto(
                 e.id, e.ref, e.date, e.siteId, e.siteName,
                 e.articleId, e.articleName, e.articleUnit,
                 e.reason, e.bags, e.weightKg, e.unitPrice, e.value,
-                e.gainKg, e.gainValue,
+                e.gainKg, e.gainValue, e.gainBags,
                 e.notes, e.pieceRef, e.createdBy, e.createdAt);
     }
 }

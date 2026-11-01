@@ -33,5 +33,7 @@ public record StockCorrectionCreateDto(
          * ajoutés : on peut en retirer, jamais en ajouter.
          */
         @DecimalMin(value = "0") BigDecimal gainKg,
+        /** Sacs qui entrent avec le gain de poids (demandé le 31/10/2026). */
+        @Min(0) Integer gainBags,
         @Size(max = 500) String notes
 ) {}

@@ -73,12 +73,19 @@ public class StockCorrectionRepository {
         // Agrégation par les builders du driver : convertir le filtre en
         // document à la main perd le registre de codecs, et un UUID ne
         // sait plus s'encoder.
+        // Net des sacs ajoutés avec un gain : le report du lendemain
+        // compte ce qui est vraiment sorti (31/10/2026).
         Document sum = coll().withDocumentClass(Document.class).aggregate(List.of(
                 com.mongodb.client.model.Aggregates.match(Filters.and(filters)),
                 com.mongodb.client.model.Aggregates.group(null,
-                        com.mongodb.client.model.Accumulators.sum("bags", "$bags"))
+                        com.mongodb.client.model.Accumulators.sum("bags", "$bags"),
+                        com.mongodb.client.model.Accumulators.sum("gainBags",
+                                new Document("$ifNull", List.of("$gainBags", 0))))
         ), Document.class).first();
-        return sum != null && sum.get("bags") != null ? ((Number) sum.get("bags")).intValue() : 0;
+        if (sum == null) return 0;
+        int removed = sum.get("bags") != null ? ((Number) sum.get("bags")).intValue() : 0;
+        int added = sum.get("gainBags") != null ? ((Number) sum.get("gainBags")).intValue() : 0;
+        return removed - added;
     }
 
     public long countSearch(UUID siteId, UUID articleId) {
