@@ -76,12 +76,22 @@ public class DispatchNoteService {
 
     public Pagination<DispatchNoteResponseDto> page(DispatchNoteStatus status, UUID siteId,
                                                     PageRequest pr) {
-        long total = repo.count(status, siteId);
+        return page(status, siteId, null, null, pr);
+    }
+
+    /** Bornée par dates : les chargements d'un jour précis (31/10/2026). */
+    public Pagination<DispatchNoteResponseDto> page(DispatchNoteStatus status, UUID siteId,
+                                                    java.time.LocalDate from, java.time.LocalDate to,
+                                                    PageRequest pr) {
+        long total = repo.count(status, siteId, from, to);
         var sort = DispatchNoteRepository.SORTABLE.resolve(pr);
-        List<DispatchNoteResponseDto> items = repo.list(status, siteId, pr.skip(), pr.perPage(), sort)
+        List<DispatchNoteResponseDto> items = repo
+                .list(status, siteId, from, to, pr.skip(), pr.perPage(), sort)
                 .stream().map(DispatchNoteResponseDto::from).toList();
-        return Pagination.of(total, pr, sort.names(), sort.order(),
-                new java.util.HashMap<>(), items);
+        java.util.Map<String, String> filters = new java.util.HashMap<>();
+        if (from != null) filters.put("from", from.toString());
+        if (to != null) filters.put("to", to.toString());
+        return Pagination.of(total, pr, sort.names(), sort.order(), filters, items);
     }
 
     public DispatchNoteResponseDto getById(UUID id) {

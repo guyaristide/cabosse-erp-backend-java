@@ -59,13 +59,19 @@ public class DispatchNoteResource {
     @RequiresPermission(Permission.STOCK_READ)
     public Response list(@QueryParam("status") DispatchNoteStatus status,
                          @QueryParam("siteId") UUID siteId,
+                         @QueryParam("from") String from,
+                         @QueryParam("to") String to,
                          @QueryParam("page") @DefaultValue("0") int page,
                          @QueryParam("perPage") @DefaultValue("20") int perPage,
                          @QueryParam("sort") String sort,
                          @QueryParam("sortDir") String sortDir) {
         ensureCapability();
+        // Les chargements d'un jour précis se cherchent par dates (31/10/2026).
         return Response.ok(ApiResponse.ok(
-                service.page(status, siteId, PageRequest.of(page, perPage, sort, sortDir)))).build();
+                service.page(status, siteId,
+                        com.ntech.cabosse.shared.api.Dates.parseOrNull(from),
+                        com.ntech.cabosse.shared.api.Dates.parseOrNull(to),
+                        PageRequest.of(page, perPage, sort, sortDir)))).build();
     }
 
     @GET

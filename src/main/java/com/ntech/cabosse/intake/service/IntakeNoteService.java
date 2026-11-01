@@ -47,7 +47,12 @@ public class IntakeNoteService {
     @Inject TenantContext tenantContext;
 
     public List<IntakeNoteDto> list(String status) {
-        return repo.list(status).stream().map(IntakeNoteDto::from).toList();
+        return list(status, null, null);
+    }
+
+    /** Bornée par dates : les bordereaux d'un jour précis (31/10/2026). */
+    public List<IntakeNoteDto> list(String status, java.time.LocalDate from, java.time.LocalDate to) {
+        return repo.list(status, from, to).stream().map(IntakeNoteDto::from).toList();
     }
 
     public IntakeNoteEntity loadOrFail(UUID id) {

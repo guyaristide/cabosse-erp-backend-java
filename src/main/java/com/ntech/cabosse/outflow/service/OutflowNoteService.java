@@ -54,7 +54,12 @@ public class OutflowNoteService {
      * à la lecture pour que l'ordre des imports ne compte pas.
      */
     public List<OutflowNoteDto> list() {
-        List<OutflowNoteEntity> notes = repo.list();
+        return list(null, null);
+    }
+
+    /** Borné par dates : les bons d'un jour précis (31/10/2026). */
+    public List<OutflowNoteDto> list(java.time.LocalDate from, java.time.LocalDate to) {
+        List<OutflowNoteEntity> notes = repo.list(from, to);
         if (notes.isEmpty()) return List.of();
 
         Map<String, UUID> intakeByRef = new HashMap<>();

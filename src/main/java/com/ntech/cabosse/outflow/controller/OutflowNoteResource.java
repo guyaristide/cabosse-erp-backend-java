@@ -56,9 +56,13 @@ public class OutflowNoteResource {
     @GET
     @RequiresPermission({ Permission.STOCK_READ, Permission.COLLECTION_READ,
             Permission.SALE_READ, Permission.ACCOUNTING_READ })
-    public Response list() {
+    public Response list(@QueryParam("from") String from,
+                         @QueryParam("to") String to) {
         ensureCapability();
-        return Response.ok(ApiResponse.ok(service.list())).build();
+        // Les bons d'un jour précis se cherchent par dates (31/10/2026).
+        return Response.ok(ApiResponse.ok(service.list(
+                com.ntech.cabosse.shared.api.Dates.parseOrNull(from),
+                com.ntech.cabosse.shared.api.Dates.parseOrNull(to)))).build();
     }
 
     /** Modèle d'import, au gabarit d'export de l'application. */

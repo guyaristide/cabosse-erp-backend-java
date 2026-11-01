@@ -28,7 +28,16 @@ public class OutflowNoteRepository {
     }
 
     public List<OutflowNoteEntity> list() {
-        return coll().find()
+        return list(null, null);
+    }
+
+    /** Le carnet, borné par dates quand on cherche un bon d'un jour précis (31/10/2026). */
+    public List<OutflowNoteEntity> list(java.time.LocalDate from, java.time.LocalDate to) {
+        List<org.bson.conversions.Bson> filters = new ArrayList<>();
+        if (from != null) filters.add(Filters.gte("date", from));
+        if (to != null) filters.add(Filters.lte("date", to));
+        var filter = filters.isEmpty() ? new Document() : Filters.and(filters);
+        return coll().find(filter)
                 .sort(new Document("date", -1).append("ref", -1))
                 .into(new ArrayList<>());
     }

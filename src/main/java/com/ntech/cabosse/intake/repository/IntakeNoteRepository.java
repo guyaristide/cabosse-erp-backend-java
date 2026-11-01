@@ -36,8 +36,16 @@ public class IntakeNoteRepository {
     }
 
     public List<IntakeNoteEntity> list(String status) {
-        var filter = status == null || status.isBlank()
-                ? new Document() : Filters.eq("status", status);
+        return list(status, null, null);
+    }
+
+    /** La liste, bornée par dates quand on cherche un bordereau d'un jour précis (31/10/2026). */
+    public List<IntakeNoteEntity> list(String status, java.time.LocalDate from, java.time.LocalDate to) {
+        List<org.bson.conversions.Bson> filters = new ArrayList<>();
+        if (status != null && !status.isBlank()) filters.add(Filters.eq("status", status));
+        if (from != null) filters.add(Filters.gte("date", from));
+        if (to != null) filters.add(Filters.lte("date", to));
+        var filter = filters.isEmpty() ? new Document() : Filters.and(filters);
         return coll().find(filter)
                 .sort(new Document("date", -1).append("ref", -1))
                 .into(new ArrayList<>());

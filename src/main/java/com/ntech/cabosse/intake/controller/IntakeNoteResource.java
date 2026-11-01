@@ -70,9 +70,14 @@ public class IntakeNoteResource {
     @GET
     @RequiresPermission({ Permission.STOCK_READ, Permission.COLLECTION_READ,
             Permission.PURCHASE_READ, Permission.ACCOUNTING_READ })
-    public Response list(@QueryParam("status") String status) {
+    public Response list(@QueryParam("status") String status,
+                         @QueryParam("from") String from,
+                         @QueryParam("to") String to) {
         ensureCapability();
-        return Response.ok(ApiResponse.ok(service.list(status))).build();
+        // Les bordereaux d'un jour précis se cherchent par dates (31/10/2026).
+        return Response.ok(ApiResponse.ok(service.list(status,
+                com.ntech.cabosse.shared.api.Dates.parseOrNull(from),
+                com.ntech.cabosse.shared.api.Dates.parseOrNull(to)))).build();
     }
 
     @GET

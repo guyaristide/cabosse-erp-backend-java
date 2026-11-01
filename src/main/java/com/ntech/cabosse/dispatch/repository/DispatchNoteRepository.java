@@ -110,23 +110,39 @@ public class DispatchNoteRepository {
     public List<DispatchNoteEntity> list(DispatchNoteStatus status, UUID siteId,
                                          int skip, int limit,
                                          com.ntech.cabosse.shared.api.SortFields.Sort sort) {
+        return list(status, siteId, null, null, skip, limit, sort);
+    }
+
+    /** Les chargements, bornés par dates quand on cherche ceux d'un jour précis (31/10/2026). */
+    public List<DispatchNoteEntity> list(DispatchNoteStatus status, UUID siteId,
+                                         java.time.LocalDate from, java.time.LocalDate to,
+                                         int skip, int limit,
+                                         com.ntech.cabosse.shared.api.SortFields.Sort sort) {
         Document order = sort.toDocument();
         if (!order.containsKey("ref")) order.append("ref", sort.ascending() ? 1 : -1);
-        List<Bson> filters = new ArrayList<>();
-        if (status != null) filters.add(Filters.eq("status", status.name()));
-        if (siteId != null) filters.add(Filters.eq("siteId", siteId));
-        Bson filter = filters.isEmpty() ? new Document() : Filters.and(filters);
-        return coll().find(filter)
+        return coll().find(filter(status, siteId, from, to))
                 .sort(order)
                 .skip(skip).limit(limit)
                 .into(new ArrayList<>());
     }
 
     public long count(DispatchNoteStatus status, UUID siteId) {
+        return count(status, siteId, null, null);
+    }
+
+    public long count(DispatchNoteStatus status, UUID siteId,
+                      java.time.LocalDate from, java.time.LocalDate to) {
+        return coll().countDocuments(filter(status, siteId, from, to));
+    }
+
+    private static Bson filter(DispatchNoteStatus status, UUID siteId,
+                               java.time.LocalDate from, java.time.LocalDate to) {
         List<Bson> filters = new ArrayList<>();
         if (status != null) filters.add(Filters.eq("status", status.name()));
         if (siteId != null) filters.add(Filters.eq("siteId", siteId));
-        return coll().countDocuments(filters.isEmpty() ? new Document() : Filters.and(filters));
+        if (from != null) filters.add(Filters.gte("date", from));
+        if (to != null) filters.add(Filters.lte("date", to));
+        return filters.isEmpty() ? new Document() : Filters.and(filters);
     }
 
     /** Les bordereaux d'une journée sur un site, dans l'ordre de saisie. */
