@@ -107,7 +107,7 @@ public class SntAccountingService {
         }
 
         Created done = createReceipts(note, preview, preview.rows(),
-                request.articleId(), request.siteId());
+                articleIdFor(note, request), request.siteId());
         int createdMembers = done.createdMembers();
         List<String> refs = done.refs();
         List<SntPreviewDto.Row> skipped = done.skipped();
@@ -214,7 +214,7 @@ public class SntAccountingService {
         }
 
         Created created = createReceipts(note, preview, pending,
-                request.articleId(), request.siteId());
+                articleIdFor(note, request), request.siteId());
         List<String> refs = new ArrayList<>(
                 note.receiptRefs == null ? List.of() : note.receiptRefs);
         refs.addAll(created.refs());
@@ -355,8 +355,20 @@ public class SntAccountingService {
 
     // ─── Analyse commune à la prévisualisation et à la validation ───
 
+    /**
+     * L'article sous lequel la matière entre : celui que l'écran a fixé,
+     * sinon celui du bordereau. Sans l'un ni l'autre, rien n'entre.
+     */
+    private static UUID articleIdFor(IntakeNoteEntity note, SntAccountingRequestDto request) {
+        UUID id = request.articleId() != null ? request.articleId() : note.articleId;
+        if (id == null) {
+            throw new BusinessException(Messages.msg("m.itk-article-required", note.ref));
+        }
+        return id;
+    }
+
     private SntPreviewDto analyse(IntakeNoteEntity note, SntAccountingRequestDto request) {
-        ArticleEntity article = articles.findById(request.articleId()).orElseThrow(
+        ArticleEntity article = articles.findById(articleIdFor(note, request)).orElseThrow(
                 () -> new NotFoundException(Messages.msg("m.itk-article-not-found")));
         if (article.id == null) {
             throw new NotFoundException(Messages.msg("m.itk-article-not-found"));

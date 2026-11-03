@@ -16,7 +16,8 @@ import java.util.UUID;
  */
 @Schema(description = "Comptabilisation de plusieurs bordereaux depuis un même extrait")
 public record SntDispatchRequestDto(
-        @NotNull UUID articleId,
+        /** Facultatif : à défaut, chaque bordereau entre sous son propre article. */
+        UUID articleId,
         UUID siteId,
         /** Les bordereaux retenus, dans l'ordre que l'écran a montré. */
         @NotNull List<UUID> intakeIds,

@@ -19,6 +19,8 @@ public record IntakeNoteDto(
         String campaignLabel,
         UUID campaignId,
         String productLabel,
+        /** Article du référentiel reconnu, repris à la comptabilisation. */
+        UUID articleId,
         String truckNumber,
         String supplierCode,
         String supplierName,
@@ -48,7 +50,7 @@ public record IntakeNoteDto(
                 ? e.netWeightKg.subtract(e.accountedWeightKg) : null;
         return new IntakeNoteDto(
                 e.id, e.ref, e.date, e.movement, e.campaignLabel, e.campaignId,
-                e.productLabel, e.truckNumber, e.supplierCode, e.supplierName,
+                e.productLabel, e.articleId, e.truckNumber, e.supplierCode, e.supplierName,
                 e.delegateSupplierId, e.supplierId, e.lineNumber,
                 e.grossWeightKg, e.bagCount, e.netWeightKg,
                 e.status, e.accountedAt, e.accountedByEmail,

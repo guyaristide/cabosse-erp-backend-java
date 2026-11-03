@@ -38,6 +38,7 @@ public class IntakeNoteService {
     @Inject IntakeNoteRepository repo;
     @Inject CampaignRepository campaigns;
     @Inject com.ntech.cabosse.supplier.repository.SupplierRepository suppliers;
+    @Inject com.ntech.cabosse.article.repository.ArticleRepository articles;
     @Inject IdGenerator idGenerator;
     @Inject com.ntech.cabosse.importjournal.service.ImportJournal journal;
     @Inject com.ntech.cabosse.importjournal.service.ImportAudit importAudit;
@@ -80,6 +81,7 @@ public class IntakeNoteService {
         List<SupplierEntity> allSuppliers = suppliers.listAll();
         List<SupplierEntity> collectors = allSuppliers.stream()
                 .filter(s -> s.collector).toList();
+        List<com.ntech.cabosse.article.entity.ArticleEntity> purchasables = purchasableArticles();
 
         int created = 0;
         int skipped = 0;
@@ -161,6 +163,10 @@ public class IntakeNoteService {
             e.campaignLabel = clean(raw.campaignLabel());
             e.campaignId = matchCampaign(e.campaignLabel, allCampaigns);
             e.productLabel = clean(raw.productLabel());
+            // Le produit du carnet est un article du référentiel, reconnu
+            // par son nom : c'est lui que la comptabilisation reprendra.
+            // Un libellé inconnu ne refuse rien, il se dit tout de suite.
+            e.articleId = matchArticle(e.productLabel, purchasables);
             e.truckNumber = clean(raw.truckNumber());
             e.supplierCode = clean(raw.supplierCode());
             e.supplierName = clean(raw.supplierName());
@@ -202,6 +208,13 @@ public class IntakeNoteService {
             }
             if (e.campaignId == null && e.campaignLabel != null) {
                 trace.decided("LEFT_NULL", "campagne", e.campaignLabel, "aucune campagne reconnue");
+            }
+            // Après le fournisseur, qui bloque : un produit inconnu ne
+            // refuse rien, l'article se choisira à la comptabilisation.
+            if (e.productLabel != null && e.articleId == null) {
+                trace.decided("LEFT_NULL", "article", e.productLabel, "aucun article achetable de ce nom");
+                warned.add(new IntakeImportResultDto.WarnedRow(raw.rowNumber(), ref,
+                        Messages.msg("m.itk-w-product-unknown", e.productLabel)));
             }
             e.lineNumber = parseInt(raw.lineNumber());
             e.grossWeightKg = group.gross;
@@ -291,7 +304,21 @@ public class IntakeNoteService {
         e.ref = ref;
         e.date = p.date();
         e.siteId = p.siteId();
-        e.productLabel = clean(p.productLabel());
+        // L'article désigné nomme le produit : le libellé libre ne sert
+        // qu'à défaut, pour une reprise sans référentiel.
+        if (p.articleId() != null) {
+            com.ntech.cabosse.article.entity.ArticleEntity article =
+                    articles.findById(p.articleId()).orElseThrow(
+                            () -> new NotFoundException(Messages.msg("m.itk-article-not-found")));
+            if (!article.purchasable || !article.active) {
+                throw new com.ntech.cabosse.shared.exception.BusinessException(
+                        Messages.msg("m.itk-article-not-purchasable", article.name));
+            }
+            e.articleId = article.id;
+            e.productLabel = article.name;
+        } else {
+            e.productLabel = clean(p.productLabel());
+        }
         e.truckNumber = clean(p.truckNumber());
         e.grossWeightKg = p.grossWeightKg();
         e.bagCount = p.bagCount();
@@ -335,6 +362,8 @@ public class IntakeNoteService {
         m.put("siteId", e.siteId != null ? e.siteId.toString() : null);
         m.put("supplierId", e.supplierId != null ? e.supplierId.toString() : null);
         m.put("supplierName", e.supplierName);
+        m.put("articleId", e.articleId != null ? e.articleId.toString() : null);
+        m.put("productLabel", e.productLabel);
         m.put("delegateSupplierId", e.delegateSupplierId != null ? e.delegateSupplierId.toString() : null);
         m.put("grossWeightKg", e.grossWeightKg);
         m.put("bagCount", e.bagCount);
@@ -483,6 +512,25 @@ public class IntakeNoteService {
     static String clean(String raw) { return ImportFields.clean(raw); }
 
     static String normalize(String raw) { return ImportFields.normalize(raw); }
+
+    private List<com.ntech.cabosse.article.entity.ArticleEntity> purchasableArticles() {
+        return articles.listAll().stream().filter(a -> a.purchasable && a.active).toList();
+    }
+
+    /**
+     * L'article dont le nom est celui du carnet, à la casse et aux
+     * espaces près. Deux articles du même nom (matière première
+     * et marchandise d'un même produit) ne se départagent pas ici : le
+     * bordereau reste sans article, et la comptabilisation choisira.
+     */
+    static UUID matchArticle(String label,
+                             List<com.ntech.cabosse.article.entity.ArticleEntity> candidates) {
+        String wanted = normalize(label);
+        if (wanted == null || wanted.isBlank()) return null;
+        List<com.ntech.cabosse.article.entity.ArticleEntity> hits = candidates.stream()
+                .filter(a -> wanted.equals(normalize(a.name))).toList();
+        return hits.size() == 1 ? hits.get(0).id : null;
+    }
 
     static LocalDate parseDate(String raw) { return ImportFields.parseDate(raw); }
 

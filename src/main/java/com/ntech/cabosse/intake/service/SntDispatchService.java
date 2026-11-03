@@ -94,7 +94,9 @@ public class SntDispatchService {
                 // rangerait la matière là où elle n'est pas.
                 UUID siteId = bucket.note.siteId != null ? bucket.note.siteId : request.siteId();
                 SntCommitResultDto done = accounting.commit(bucket.note.id,
-                        new SntAccountingRequestDto(request.articleId(), siteId, bucket.lines));
+                        new SntAccountingRequestDto(
+                                request.articleId() != null ? request.articleId() : bucket.note.articleId,
+                                siteId, bucket.lines));
                 accountedNotes++;
                 createdReceipts += done.createdReceipts();
                 createdMembers += done.createdMembers();

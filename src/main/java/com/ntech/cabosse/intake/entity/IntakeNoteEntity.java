@@ -41,6 +41,19 @@ public class IntakeNoteEntity {
     /** Produit tel que le carnet le nomme : une valeur, pas une filière. */
     public String productLabel;
 
+    /**
+     * L'article du référentiel que le camion apporte.
+     *
+     * <p>Le produit n'était qu'un texte libre, et l'article n'était choisi
+     * qu'à la comptabilisation, sans lien avec ce qui avait été tapé :
+     * « comment le système pourra faire l'association avec tout ce qui
+     * est stockable ? » (03/11/2026). Posé à la saisie, reconnu par son
+     * nom à l'import, il est repris par la comptabilisation et la
+     * répartition sans être redemandé. Nul sur les bordereaux anciens
+     * dont le libellé ne correspond à aucun article.</p>
+     */
+    public UUID articleId;
+
     public String truckNumber;
 
     /** Fournisseur du carnet : délégué ou producteur, code et nom libres. */

@@ -30,6 +30,9 @@ public record IntakeNoteCreateDto(
         /** Le délégué qui descend la matière, quand il est au référentiel. */
         java.util.UUID delegateSupplierId,
         @Size(max = 160) String supplierName,
+        /** Article achetable du référentiel : il nomme le produit et sera repris à la comptabilisation. */
+        java.util.UUID articleId,
+        /** Libellé libre, servi quand aucun article n'est désigné. */
         @Size(max = 120) String productLabel,
         @Size(max = 60) String truckNumber,
         @DecimalMin(value = "0", message = "{v.valeur-negative-interdite}") BigDecimal grossWeightKg,

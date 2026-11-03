@@ -496,6 +496,78 @@ class IntakeNoteTest extends AbstractIntegrationTest {
      * déroulant le cycle dans l'ordre réel le 13/09/2026, le magasinier
      * se retrouvait sans geste, et aucun écran ne disait pourquoi.</p>
      */
+    /**
+     * Le produit est un article du référentiel, pas un texte : posé à la
+     * saisie, reconnu par son nom à l'import, repris à la
+     * comptabilisation sans être redemandé (signalé le 03/11/2026).
+     */
+    @Test
+    void the_note_carries_its_article_and_the_accounting_takes_it_over() {
+        UserEntity admin = admin();
+        String siteId = givenAs(admin).contentType("application/json")
+                .body("{\"name\":\"Magasin article\",\"type\":\"TRANSFORMATION\",\"code\":\"MA-"
+                        + TestFixtures.randomSlugSuffix() + "\"}")
+                .when().post("/api/v1/sites").then().statusCode(201).extract().path("data.id");
+        String articleId = givenAs(admin).contentType("application/json")
+                .body("{\"type\":\"RAW_MATERIAL\",\"name\":\"Fèves marchandes\",\"unit\":\"kg\"}")
+                .when().post("/api/v1/articles").then().statusCode(201).extract().path("data.id");
+        String delegateId = givenAs(admin).contentType("application/json")
+                .body("{\"name\":\"ZANA COULIBALY\",\"collector\":true}")
+                .when().post("/api/v1/suppliers").then().statusCode(201).extract().path("data.id");
+        String today = LocalDate.now().toString();
+
+        // Saisi au magasin : l'article nomme le produit.
+        String noteId = givenAs(admin).contentType("application/json")
+                .body("""
+                        { "ref": "BR0400", "date": "%s", "siteId": "%s",
+                          "delegateSupplierId": "%s", "articleId": "%s", "netWeightKg": 500 }
+                        """.formatted(today, siteId, delegateId, articleId))
+                .when().post("/api/v1/intake-notes").then().statusCode(201)
+                .body("data.articleId", equalTo(articleId))
+                .body("data.productLabel", equalTo("Fèves marchandes"))
+                .extract().path("data.id");
+
+        // La comptabilisation ne redemande pas l'article : celui du
+        // bordereau sert quand la demande n'en nomme aucun.
+        String line = """
+                { "siteId": "%s", "lines": [
+                  { "rowNumber": 2, "reference": "P-100-001", "date": "%s",
+                    "weightKg": "500", "amount": "1\\u00A0400\\u00A0000", "amountCard": "0",
+                    "amountCash": "1\\u00A0400\\u00A0000", "producerName": "KONE DRISSA",
+                    "producerPhone": "0708091011",
+                    "delegateName": "ZANA COULIBALY", "delegatePhone": "0102030405" } ] }
+                """.formatted(siteId, today);
+        givenAs(admin).contentType("application/json").body(line)
+                .when().post("/api/v1/intake-notes/" + noteId + "/accounting/preview")
+                .then().statusCode(200)
+                .body("data.totalRows", equalTo(1));
+
+        // Importé du carnet : le nom du produit retrouve l'article, à la
+        // casse et aux espaces près.
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        [ { "rowNumber": 2, "productLabel": " fèves  MARCHANDES ", "date": "%s",
+                            "ref": "BR0401", "supplierName": "ZANA COULIBALY", "netWeightKg": "300" },
+                          { "rowNumber": 3, "productLabel": "Café", "date": "%s",
+                            "ref": "BR0402", "supplierName": "ZANA COULIBALY", "netWeightKg": "200" } ]
+                        """.formatted(today, today))
+                .when().post("/api/v1/intake-notes/import/commit?siteId=" + siteId)
+                .then().statusCode(200)
+                .body("data.createdCount", equalTo(2))
+                // Un produit sans article ne refuse rien : il se dit.
+                .body("data.warnedRows.find { it.ref == 'BR0402' }", org.hamcrest.Matchers.notNullValue());
+        givenAs(admin).when().get("/api/v1/intake-notes?status=TO_ACCOUNT").then().statusCode(200)
+                .body("data.find { it.ref == 'BR0401' }.articleId", equalTo(articleId))
+                .body("data.find { it.ref == 'BR0402' }.articleId", nullValue());
+
+        // Sans article nulle part, rien n'entre : la demande est refusée.
+        String orphanId = givenAs(admin).when().get("/api/v1/intake-notes?status=TO_ACCOUNT")
+                .then().statusCode(200).extract().path("data.find { it.ref == 'BR0402' }.id");
+        givenAs(admin).contentType("application/json").body(line)
+                .when().post("/api/v1/intake-notes/" + orphanId + "/accounting/preview")
+                .then().statusCode(422);
+    }
+
     @Test
     void the_keeper_enters_a_note_truck_by_truck() {
         UserEntity admin = admin();
