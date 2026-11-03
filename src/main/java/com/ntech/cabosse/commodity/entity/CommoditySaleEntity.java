@@ -1,5 +1,7 @@
 package com.ntech.cabosse.commodity.entity;
 
+import com.ntech.cabosse.campaign.entity.CampaignKind;
+
 import org.bson.codecs.pojo.annotations.BsonId;
 
 import java.math.BigDecimal;
@@ -32,8 +34,12 @@ public class CommoditySaleEntity {
     // ─── Contexte ───
     public UUID campaignId;
     public Integer campaignYear;
-    /** « Principale » ou « Intermédiaire ». */
-    public String campaignType;
+    /**
+     * Nature de la campagne rattachée, recopiée d'elle : principale ou
+     * intermédiaire. La vente ne la demande plus (03/11/2026), la campagne
+     * la porte déjà.
+     */
+    public CampaignKind campaignKind;
 
     public UUID customerId;
     public String customerName;

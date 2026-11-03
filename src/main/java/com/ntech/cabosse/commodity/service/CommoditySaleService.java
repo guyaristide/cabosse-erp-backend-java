@@ -385,7 +385,7 @@ public class CommoditySaleService {
         e.date = p.date();
         e.campaignId = campaign != null ? campaign.id : null;
         e.campaignYear = campaign != null ? campaign.campaignYear : null;
-        e.campaignType = blankToNull(p.campaignType());
+        e.campaignKind = campaign != null ? campaign.kind : null;
         e.customerId = customer.id;
         e.customerName = customer.name;
         e.contractId = contract != null ? contract.id : null;

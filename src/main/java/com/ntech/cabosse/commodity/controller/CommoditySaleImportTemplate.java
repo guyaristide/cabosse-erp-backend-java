@@ -17,7 +17,7 @@ final class CommoditySaleImportTemplate {
 
     record TemplateRow(
             String customerName, String product, String date,
-            String dispatchNoteNumber, String loadingNumber, String campaignType,
+            String dispatchNoteNumber, String loadingNumber,
             String departureLocation, String destination, String connaissementRef,
             String label, String originSections,
             String declaredKg, String dischargedKg, String acceptedKg,
@@ -50,7 +50,6 @@ final class CommoditySaleImportTemplate {
                 ExportColumn.of(Messages.msg("m.imp-h-date"),                               TemplateRow::date),
                 ExportColumn.of(Messages.msg("m.imp-h-n-bs"),                               TemplateRow::dispatchNoteNumber),
                 ExportColumn.of(Messages.msg("m.imp-h-n-chargement"),                       TemplateRow::loadingNumber),
-                ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-campaign-type"),           TemplateRow::campaignType),
                 ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-departure"),               TemplateRow::departureLocation),
                 ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-destination"),             TemplateRow::destination),
                 ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-bill-of-lading"),          TemplateRow::connaissementRef),
@@ -105,7 +104,7 @@ final class CommoditySaleImportTemplate {
         List<TemplateRow> samples = List.of(
                 new TemplateRow(
                         "Cargill", "Cacao marchand", "10/02/2026",
-                        "5", "1", "Principale",
+                        "5", "1",
                         "Méagui", "Port d'Abidjan", "CONN-2026-045",
                         "RA", "Méagui, Soubré",
                         "25000", "24900", "24800",

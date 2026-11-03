@@ -270,7 +270,6 @@ public class CommoditySaleImportService {
                         nrm.articleId(),
                         parseUuid(raw.siteId()),
                         parseUuid(raw.campaignId()),
-                        blankToNull(raw.campaignType()),
                         null,
                         // Le bordereau nommé par le fichier, quand il existe.
                         // Sans ce rattachement, la vente redemandait une

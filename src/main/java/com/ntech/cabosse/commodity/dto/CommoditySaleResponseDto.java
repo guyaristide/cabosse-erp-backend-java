@@ -1,5 +1,7 @@
 package com.ntech.cabosse.commodity.dto;
 
+import com.ntech.cabosse.campaign.entity.CampaignKind;
+
 import com.ntech.cabosse.commodity.entity.CommoditySaleEntity;
 
 import java.math.BigDecimal;
@@ -13,7 +15,7 @@ public record CommoditySaleResponseDto(
         LocalDate date,
         UUID campaignId,
         Integer campaignYear,
-        String campaignType,
+        CampaignKind campaignKind,
         UUID customerId,
         String customerName,
         UUID contractId,
@@ -60,7 +62,7 @@ public record CommoditySaleResponseDto(
 ) {
     public static CommoditySaleResponseDto from(CommoditySaleEntity e) {
         return new CommoditySaleResponseDto(
-                e.id, e.ref, e.date, e.campaignId, e.campaignYear, e.campaignType,
+                e.id, e.ref, e.date, e.campaignId, e.campaignYear, e.campaignKind,
                 e.customerId, e.customerName, e.contractId,
                 e.dispatchNoteId, e.dispatchNoteRef,
                 e.articleId, e.articleCode, e.articleName, e.articleUnit,

@@ -25,7 +25,6 @@ public record CommoditySaleUpsertDto(
         @NotNull UUID articleId,
         @NotNull UUID siteId,
         UUID campaignId,
-        @Size(max = 20) String campaignType,
         UUID contractId,
 
         /**

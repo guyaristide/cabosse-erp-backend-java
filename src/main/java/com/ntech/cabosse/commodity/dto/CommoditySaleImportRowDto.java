@@ -5,8 +5,7 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
 /**
  * Ligne d'import d'une vente cacao (parsing client), backlog NEG-02. Tout en
  * texte, validé/normalisé côté service. {@code customerName} rapproche le
- * client par nom ; {@code siteId}/{@code campaignId}/{@code campaignType}
- * fixés à l'import. {@code montantFacture} donne le prix (montant ÷ accepté).
+ * client par nom ; {@code siteId}/{@code campaignId} fixés à l'import. {@code montantFacture} donne le prix (montant ÷ accepté).
  */
 @Schema(description = "Ligne d'import vente cacao")
 public record CommoditySaleImportRowDto(
@@ -18,7 +17,6 @@ public record CommoditySaleImportRowDto(
         String loadingNumber,
         String siteId,
         String campaignId,
-        String campaignType,
         String departureLocation,
         String destination,
         String connaissementRef,
