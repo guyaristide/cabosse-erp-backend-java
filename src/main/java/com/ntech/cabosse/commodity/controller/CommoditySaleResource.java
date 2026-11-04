@@ -150,7 +150,7 @@ public class CommoditySaleResource {
         ensureCapability();
         ExportFormat format = ExportFormat.parseOrDefault(formatRaw);
         if (format == ExportFormat.PDF) format = ExportFormat.XLSX;
-        return ExportResponses.build("modele-import-ventes-cacao", format, CommoditySaleImportTemplate.dataset());
+        return ExportResponses.build("modele-import-ventes-en-gros", format, CommoditySaleImportTemplate.dataset());
     }
 
     @POST

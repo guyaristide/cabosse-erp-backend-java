@@ -7,9 +7,10 @@ import com.ntech.cabosse.shared.export.ExportDataset;
 import java.util.List;
 
 /**
- * Modèle d'import des ventes cacao (backlog NEG-02). Ne contient que les
- * colonnes du fichier ; le site (départ) et la campagne sont choisis dans les
- * sélecteurs de la page d'import.
+ * Modèle d'import des ventes en gros (backlog NEG-02, VTE-24). Ne contient
+ * que les colonnes du fichier ; le site (départ) et la campagne sont choisis
+ * dans les sélecteurs de la page d'import. Une seconde feuille dit lesquelles
+ * des colonnes comptent et ce que le bordereau de sortie apporte.
  */
 final class CommoditySaleImportTemplate {
 
@@ -45,19 +46,22 @@ final class CommoditySaleImportTemplate {
 
     static ExportDataset<TemplateRow> dataset() {
         List<ExportColumn<TemplateRow>> cols = List.of(
+                // Les sept colonnes qui font la vente ouvrent le fichier (VTE-24) :
+                // l'import les reconnaît par leur en-tête, l'ordre est pour l'œil.
                 ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-customer"),                TemplateRow::customerName),
                 ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-product"),                 TemplateRow::product),
                 ExportColumn.of(Messages.msg("m.imp-h-date"),                               TemplateRow::date),
                 ExportColumn.of(Messages.msg("m.imp-h-n-bs"),                               TemplateRow::dispatchNoteNumber),
+                ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-declared-weight"),         TemplateRow::declaredKg),
+                ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-accepted-weight"),         TemplateRow::acceptedKg),
+                ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-invoiced-amount"),         TemplateRow::montantFacture),
                 ExportColumn.of(Messages.msg("m.imp-h-n-chargement"),                       TemplateRow::loadingNumber),
                 ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-departure"),               TemplateRow::departureLocation),
                 ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-destination"),             TemplateRow::destination),
                 ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-bill-of-lading"),          TemplateRow::connaissementRef),
                 ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-label"),                   TemplateRow::label),
                 ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-origin-sections"),         TemplateRow::originSections),
-                ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-declared-weight"),         TemplateRow::declaredKg),
                 ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-discharged-weight"),       TemplateRow::dischargedKg),
-                ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-accepted-weight"),         TemplateRow::acceptedKg),
                 ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-bags-accepted"),           TemplateRow::sacsAccepted),
                 ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-bags-missing"),            TemplateRow::sacsMissing),
                 ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-bags-rejected"),           TemplateRow::sacsRejected),
@@ -88,7 +92,6 @@ final class CommoditySaleImportTemplate {
                 ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-taste"),                   TemplateRow::taste),
                 ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-grade"),                   TemplateRow::grade),
                 ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-analysis-result"),         TemplateRow::analysisResult),
-                ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-invoiced-amount"),         TemplateRow::montantFacture),
                 ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-transport-equalization"), TemplateRow::transportEqualization),
                 ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-gathering-differential"), TemplateRow::gatheringDifferential),
                 ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-total-value"), TemplateRow::totalValue),
@@ -104,7 +107,7 @@ final class CommoditySaleImportTemplate {
         List<TemplateRow> samples = List.of(
                 new TemplateRow(
                         "Cargill", "Cacao marchand", "10/02/2026",
-                        "5", "1",
+                        "BS-2026-0012", "1",
                         "Méagui", "Port d'Abidjan", "CONN-2026-045",
                         "RA", "Méagui, Soubré",
                         "25000", "24900", "24800",
@@ -120,6 +123,14 @@ final class CommoditySaleImportTemplate {
                         "", "", "", "", "", "", "", "", "", "", ""
                 )
         );
-        return new ExportDataset<>(Messages.msg("m.exp-t-modele-d-import-ventes-commodite"), cols, samples);
+        return new ExportDataset<>(Messages.msg("m.exp-t-modele-d-import-ventes-commodite"), cols, samples,
+                new ExportDataset.Guide(Messages.msg("m.imp-g-title"), List.of(
+                        Messages.msg("m.imp-g-commodity-sale-required"),
+                        Messages.msg("m.imp-g-commodity-sale-note"),
+                        Messages.msg("m.imp-g-commodity-sale-declared"),
+                        Messages.msg("m.imp-g-commodity-sale-loads"),
+                        Messages.msg("m.imp-g-commodity-sale-optional"),
+                        Messages.msg("m.imp-g-commodity-sale-context"),
+                        Messages.msg("m.imp-g-commodity-sale-formats"))));
     }
 }

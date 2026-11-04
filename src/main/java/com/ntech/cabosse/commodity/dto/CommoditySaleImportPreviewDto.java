@@ -38,6 +38,13 @@ public record CommoditySaleImportPreviewDto(
         }
     }
 
+    /**
+     * La ligne telle que l'import la lira. Quand un bordereau de sortie
+     * est reconnu, {@code dispatchNoteRefs} le nomme (tous, pour une vente
+     * à plusieurs chargements), {@code dispatchedKg} et
+     * {@code dispatchedBags} disent ce qu'il a fait sortir : c'est ce poids
+     * qui devient le poids déclaré de la vente, pas celui du fichier.
+     */
     public record Normalized(
             UUID customerId,
             String customerName,
@@ -46,8 +53,17 @@ public record CommoditySaleImportPreviewDto(
             String date,
             BigDecimal declaredKg,
             BigDecimal acceptedKg,
-            BigDecimal amount
-    ) {}
+            BigDecimal amount,
+            String dispatchNoteRefs,
+            BigDecimal dispatchedKg,
+            Integer dispatchedBags
+    ) {
+        public Normalized(UUID customerId, String customerName, UUID articleId, String articleLabel,
+                          String date, BigDecimal declaredKg, BigDecimal acceptedKg, BigDecimal amount) {
+            this(customerId, customerName, articleId, articleLabel, date, declaredKg, acceptedKg, amount,
+                    null, null, null);
+        }
+    }
 
     public record FieldIssue(String field, String message) {}
 }

@@ -83,8 +83,12 @@ public class CommoditySaleImportService {
             // se juge que sur son bordereau, le reste appartient à la vente.
             LoadRow attached = grouping.loads.get(raw.rowNumber());
             if (attached != null) {
+                var loadNote = attached.note();
                 Normalized loadOnly = new Normalized(null, null, null, null, null,
-                        parseDecimal(raw.declaredKg()), null, null);
+                        loadNote != null ? loadNote.totalNetKg : parseDecimal(raw.declaredKg()), null, null,
+                        loadNote != null ? loadNote.ref : null,
+                        loadNote != null ? loadNote.totalNetKg : null,
+                        loadNote != null ? loadNote.totalBags : null);
                 if (attached.error() != null) {
                     invalid++;
                     rows.add(new Row(raw.rowNumber(), Status.INVALID, loadOnly,
@@ -137,10 +141,9 @@ public class CommoditySaleImportService {
             if (date == null) issues.add(new FieldIssue("date", Messages.msg("m.imp-date-invalid-or-missing")));
             if (parseUuid(raw.siteId()) == null) issues.add(new FieldIssue("siteId", Messages.msg("m.imp-departure-site-required")));
 
-            BigDecimal declared = parseDecimal(raw.declaredKg());
+            BigDecimal declaredInFile = parseDecimal(raw.declaredKg());
+            BigDecimal declared = declaredInFile;
             BigDecimal accepted = parseDecimal(raw.acceptedKg());
-            if (declared == null || declared.signum() <= 0)
-                issues.add(new FieldIssue("declaredKg", Messages.msg("m.imp-declared-weight-required")));
             if (accepted == null || accepted.signum() <= 0)
                 issues.add(new FieldIssue("acceptedKg", Messages.msg("m.imp-accepted-weight-required")));
 
@@ -167,11 +170,17 @@ public class CommoditySaleImportService {
             // évite le « stock insuffisant » sur une marchandise partie.
             String noteRef = blankToNull(raw.dispatchNoteNumber());
             boolean headNoteOpen = false;
+            List<String> noteRefs = new ArrayList<>();
+            BigDecimal dispatchedKg = null;
+            Integer dispatchedBags = null;
             if (noteRef != null) {
                 var note = dispatchNotes.findByRef(noteRef);
                 if (note.isPresent() && note.get().status
                         == com.ntech.cabosse.dispatch.entity.DispatchNoteStatus.OPEN) {
                     headNoteOpen = true;
+                    noteRefs.add(note.get().ref);
+                    dispatchedKg = nz(note.get().totalNetKg);
+                    dispatchedBags = note.get().totalBags;
                     notices.add(new FieldIssue("dispatchNoteNumber",
                             Messages.msg("m.imp-dispatch-note-called", note.get().ref)));
                 } else {
@@ -198,10 +207,27 @@ public class CommoditySaleImportService {
                     } else {
                         notices.add(new FieldIssue("dispatchNoteNumber",
                                 Messages.msg("m.imp-dispatch-note-called", l.note().ref)));
-                        BigDecimal more = parseDecimal(l.raw().declaredKg());
-                        if (declared != null && more != null) declared = declared.add(more);
+                        noteRefs.add(l.note().ref);
+                        dispatchedKg = nz(dispatchedKg).add(nz(l.note().totalNetKg));
+                        if (l.note().totalBags != null)
+                            dispatchedBags = (dispatchedBags == null ? 0 : dispatchedBags) + l.note().totalBags;
                     }
                 }
+            }
+
+            // Le poids déclaré est celui des bordereaux quand il y en a :
+            // c'est ce que la vente retiendra. Le fichier n'a alors rien à
+            // fournir, et s'il dit autre chose, on le constate sans bloquer.
+            // Sans bordereau, il reste la seule source et devient requis.
+            if (headNoteOpen) {
+                declared = dispatchedKg;
+                if (declaredInFile != null && declaredInFile.compareTo(nz(dispatchedKg)) != 0) {
+                    notices.add(new FieldIssue("declaredKg", Messages.msg(
+                            "m.imp-declared-weight-from-note", declaredInFile.stripTrailingZeros().toPlainString(),
+                            nz(dispatchedKg).stripTrailingZeros().toPlainString())));
+                }
+            } else if (declared == null || declared.signum() <= 0) {
+                issues.add(new FieldIssue("declaredKg", Messages.msg("m.imp-declared-weight-required")));
             }
 
             Status status = issues.isEmpty() ? Status.READY : Status.INVALID;
@@ -214,7 +240,9 @@ public class CommoditySaleImportService {
                             article != null ? article.id : null,
                             article != null ? article.name : null,
                             date != null ? date.toString() : null,
-                            declared, accepted, montant),
+                            declared, accepted, montant,
+                            noteRefs.isEmpty() ? null : String.join(", ", noteRefs),
+                            dispatchedKg, dispatchedBags),
                     issues, notices));
         }
         return new CommoditySaleImportPreviewDto(input.size(), ready, invalid, rows);
@@ -386,10 +414,12 @@ public class CommoditySaleImportService {
         loadsByHead.computeIfAbsent(head.rowNumber(), k -> new ArrayList<>()).add(row);
     }
 
-    /** Un bordereau et un poids déclaré, et rien de ce qui fait la vente. */
+    /**
+     * Un bordereau et rien de ce qui fait la vente. Le poids déclaré n'y
+     * est plus attendu : le bordereau le porte (VTE-23).
+     */
     private static boolean isLoadOnly(CommoditySaleImportRowDto r) {
         return blankToNull(r.dispatchNoteNumber()) != null
-                && blankToNull(r.declaredKg()) != null
                 && blankToNull(r.acceptedKg()) == null
                 && blankToNull(r.dischargedKg()) == null
                 && blankToNull(r.montantFacture()) == null;
@@ -411,6 +441,8 @@ public class CommoditySaleImportService {
         if (s == null || s.isBlank()) return null;
         try { return LocalDate.parse(s.trim()); } catch (Exception e) { return null; }
     }
+
+    private static BigDecimal nz(BigDecimal v) { return v == null ? BigDecimal.ZERO : v; }
 
     private static BigDecimal parseDecimal(String s) {
         if (s == null || s.isBlank()) return null;

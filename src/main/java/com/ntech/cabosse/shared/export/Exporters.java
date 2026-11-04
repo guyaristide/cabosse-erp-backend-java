@@ -281,6 +281,8 @@ public final class Exporters {
             }
             sheet.createFreezePane(0, 1);
 
+            writeGuideSheet(wb, dataset.guide());
+
             wb.write(out);
             out.flush();
         } catch (IOException e) {
@@ -571,6 +573,35 @@ public final class Exporters {
     }
 
     /** Nom d'onglet Excel : max 31 chars, pas de \ / ? * [ ]. */
+    /**
+     * La feuille d'accompagnement d'un modèle d'import : une ligne de
+     * texte par entrée, la première en gras comme titre. Rien n'est écrit
+     * quand le jeu n'en porte pas.
+     */
+    private static void writeGuideSheet(Workbook wb, ExportDataset.Guide guide) {
+        if (guide == null || guide.lines() == null || guide.lines().isEmpty()) return;
+        Sheet sheet = wb.createSheet(safeSheetName(guide.title()));
+        XSSFFont bold = (XSSFFont) wb.createFont();
+        bold.setBold(true);
+        CellStyle titleStyle = wb.createCellStyle();
+        titleStyle.setFont(bold);
+        CellStyle textStyle = wb.createCellStyle();
+        textStyle.setWrapText(true);
+        textStyle.setVerticalAlignment(VerticalAlignment.TOP);
+        int rowIdx = 0;
+        Row title = sheet.createRow(rowIdx++);
+        Cell titleCell = title.createCell(0);
+        titleCell.setCellValue(guide.title());
+        titleCell.setCellStyle(titleStyle);
+        for (String line : guide.lines()) {
+            Row r = sheet.createRow(rowIdx++);
+            Cell c = r.createCell(0);
+            c.setCellValue(line == null ? "" : line);
+            c.setCellStyle(textStyle);
+        }
+        sheet.setColumnWidth(0, 110 * 256);
+    }
+
     private static String safeSheetName(String raw) {
         if (raw == null || raw.isBlank()) return "Export";
         // Caractères interdits par Apache POI dans un nom de feuille : \ / ? * [ ] :

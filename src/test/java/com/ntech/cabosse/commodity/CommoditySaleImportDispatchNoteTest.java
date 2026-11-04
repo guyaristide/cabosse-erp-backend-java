@@ -204,4 +204,103 @@ class CommoditySaleImportDispatchNoteTest extends AbstractIntegrationTest {
                 .body("data.createdCount", equalTo(0))
                 .body("data.skippedRows[0].issues[0].message", not(containsString("N° BS")));
     }
+
+    /**
+     * Le bordereau apporte le poids : le fichier n'a plus à le répéter
+     * (VTE-23). L'aperçu dit ce que le bordereau fait sortir, et c'est
+     * ce poids que la vente retiendra.
+     */
+    @Test
+    void le_bordereau_fournit_le_poids_declare_que_le_fichier_na_plus_a_donner() {
+        UserEntity admin = admin();
+        Seed s = seed(admin);
+
+        String withoutDeclared = """
+                [{ "rowNumber": 2, "customerName": "ZAMACOM", "productCode": "Fèves séchées",
+                   "date": "%s", "siteId": "%s", "dispatchNoteNumber": "%s",
+                   "acceptedKg": "3050", "montantFacture": "3050000" }]
+                """.formatted(LocalDate.now(), s.siteId(), s.noteRef());
+
+        givenAs(admin).contentType("application/json").body(withoutDeclared)
+                .when().post("/api/v1/commodity/sales/import/preview")
+                .then().statusCode(200)
+                .body("data.rows[0].status", equalTo("READY"))
+                .body("data.rows[0].normalized.dispatchNoteRefs", equalTo(s.noteRef()))
+                .body("data.rows[0].normalized.dispatchedKg", equalTo(3084))
+                .body("data.rows[0].normalized.dispatchedBags", equalTo(50))
+                .body("data.rows[0].normalized.declaredKg", equalTo(3084));
+
+        givenAs(admin).contentType("application/json").body(withoutDeclared)
+                .when().post("/api/v1/commodity/sales/import/commit")
+                .then().statusCode(200).body("data.createdCount", equalTo(1));
+    }
+
+    /** Le fichier dit 3 000, le bordereau 3 084 : on le constate, on ne bloque pas. */
+    @Test
+    void un_poids_declare_different_du_bordereau_est_signale_sans_bloquer() {
+        UserEntity admin = admin();
+        Seed s = seed(admin);
+
+        String differing = """
+                [{ "rowNumber": 2, "customerName": "ZAMACOM", "productCode": "Fèves séchées",
+                   "date": "%s", "siteId": "%s", "dispatchNoteNumber": "%s",
+                   "declaredKg": "3000", "acceptedKg": "3000", "montantFacture": "3000000" }]
+                """.formatted(LocalDate.now(), s.siteId(), s.noteRef());
+
+        givenAs(admin).contentType("application/json").body(differing)
+                .when().post("/api/v1/commodity/sales/import/preview")
+                .then().statusCode(200)
+                .body("data.rows[0].status", equalTo("READY"))
+                .body("data.rows[0].normalized.declaredKg", equalTo(3084))
+                .body("data.rows[0].notices.find { it.field == 'declaredKg' }.message", containsString("3000"))
+                .body("data.rows[0].notices.find { it.field == 'declaredKg' }.message", containsString("3084"));
+    }
+
+    /** Sans bordereau, le poids déclaré reste la seule source et manque. */
+    @Test
+    void sans_bordereau_le_poids_declare_reste_requis() {
+        UserEntity admin = admin();
+        Seed s = seed(admin);
+
+        String noNoteNoDeclared = """
+                [{ "rowNumber": 2, "customerName": "ZAMACOM", "productCode": "Fèves séchées",
+                   "date": "%s", "siteId": "%s",
+                   "acceptedKg": "3050", "montantFacture": "3050000" }]
+                """.formatted(LocalDate.now(), s.siteId());
+
+        givenAs(admin).contentType("application/json").body(noNoteNoDeclared)
+                .when().post("/api/v1/commodity/sales/import/preview")
+                .then().statusCode(200)
+                .body("data.rows[0].status", equalTo("INVALID"))
+                .body("data.rows[0].issues.field", org.hamcrest.Matchers.hasItem("declaredKg"));
+    }
+
+    /**
+     * Le modèle (VTE-24) : les sept colonnes qui font la vente ouvrent le
+     * fichier, une feuille « Mode d'emploi » suit, et le fichier porte le
+     * nom de l'écran.
+     */
+    @Test
+    void le_modele_ouvre_sur_les_colonnes_obligatoires_et_porte_un_mode_d_emploi() throws Exception {
+        UserEntity admin = admin();
+        var response = givenAs(admin).when().get("/api/v1/commodity/sales/import/template?format=xlsx")
+                .then().statusCode(200)
+                .header("Content-Disposition", containsString("modele-import-ventes-en-gros"))
+                .extract().asByteArray();
+
+        try (var wb = new org.apache.poi.xssf.usermodel.XSSFWorkbook(new java.io.ByteArrayInputStream(response))) {
+            org.junit.jupiter.api.Assertions.assertEquals(2, wb.getNumberOfSheets());
+            var header = wb.getSheetAt(0).getRow(0);
+            org.junit.jupiter.api.Assertions.assertEquals("Client", header.getCell(0).getStringCellValue());
+            org.junit.jupiter.api.Assertions.assertEquals("Produit", header.getCell(1).getStringCellValue());
+            org.junit.jupiter.api.Assertions.assertEquals("Date", header.getCell(2).getStringCellValue());
+            org.junit.jupiter.api.Assertions.assertEquals("N° BS", header.getCell(3).getStringCellValue());
+            org.junit.jupiter.api.Assertions.assertEquals("Poids déclaré (kg)", header.getCell(4).getStringCellValue());
+            org.junit.jupiter.api.Assertions.assertEquals("Poids accepté (kg)", header.getCell(5).getStringCellValue());
+            org.junit.jupiter.api.Assertions.assertTrue(header.getCell(6).getStringCellValue().startsWith("Montant facturé"));
+            var guide = wb.getSheetAt(1);
+            org.junit.jupiter.api.Assertions.assertEquals("Mode d'emploi", guide.getSheetName());
+            org.junit.jupiter.api.Assertions.assertTrue(guide.getRow(1).getCell(0).getStringCellValue().contains("N° BS"));
+        }
+    }
 }
