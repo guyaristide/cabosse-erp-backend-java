@@ -1128,6 +1128,7 @@ public class AccountingService {
             case PRODUCER_PURCHASE -> PostingSourceType.PRODUCER_PURCHASE_REVERSAL;
             case PRODUCER_PURCHASE_SETTLEMENT ->
                     PostingSourceType.PRODUCER_PURCHASE_SETTLEMENT_REVERSAL;
+            case COMMODITY_SALE -> PostingSourceType.COMMODITY_SALE_REVERSAL;
             default -> throw new BusinessException(
                     Messages.msg("m.acc-piece-already-reversed", t));
         };

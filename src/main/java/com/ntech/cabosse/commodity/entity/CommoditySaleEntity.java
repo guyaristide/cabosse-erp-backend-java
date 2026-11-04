@@ -141,6 +141,12 @@ public class CommoditySaleEntity {
     // ─── Traces ───
     public String movementRef;
     public String pieceRef;
+    /**
+     * La source de la pièce comptable de la version en cours : l'id de la
+     * vente à la création, puis un identifiant neuf à chaque modification
+     * (VTE-25), la pièce précédente ayant été contre-passée sous l'ancien.
+     */
+    public UUID pieceSourceId;
 
     // ─── Encaissements client (page 3 du modèle de l'expert) ───
     public java.util.List<CommoditySalePayment> payments;

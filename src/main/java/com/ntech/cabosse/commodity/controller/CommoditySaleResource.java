@@ -28,6 +28,7 @@ import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
+import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
@@ -141,6 +142,20 @@ public class CommoditySaleResource {
         ensureCapability();
         return Response.status(Response.Status.CREATED)
                 .entity(ApiResponse.created(service.create(payload))).build();
+    }
+
+    /**
+     * Modification d'une vente saisie (VTE-25) : même référence, mêmes
+     * encaissements, tout le reste se ressaisit. L'écriture d'origine est
+     * contre-passée et une nouvelle est posée, jamais corrigée en place.
+     */
+    @PUT
+    @Path("/{id}")
+    @RequiresPermission(Permission.SALE_WRITE)
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    public Response update(@PathParam("id") UUID id, @Valid CommoditySaleUpsertDto payload) {
+        ensureCapability();
+        return Response.ok(ApiResponse.ok(service.update(id, payload))).build();
     }
 
     @GET

@@ -94,15 +94,14 @@ final class CommoditySaleImportTemplate {
                 ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-analysis-result"),         TemplateRow::analysisResult),
                 ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-transport-equalization"), TemplateRow::transportEqualization),
                 ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-gathering-differential"), TemplateRow::gatheringDifferential),
-                ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-total-value"), TemplateRow::totalValue),
                 ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-bic"), TemplateRow::bic),
                 ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-fiscal-stamp"), TemplateRow::fiscalStamp),
                 ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-sales-commission"), TemplateRow::salesCommission),
                 ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-mandate-repayment"), TemplateRow::mandateRepayment),
                 ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-revolving-repayment"), TemplateRow::revolvingRepayment),
-                ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-collector-retention"), TemplateRow::collectorRetention),
-                ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-total-deductions"), TemplateRow::totalDeductions),
-                ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-net-amount"), TemplateRow::netAmount)
+                // Valeur totale, total des retenues et montant net se calculent
+                // (VTE-26) : le fichier n'a plus à les porter.
+                ExportColumn.of(Messages.msg("m.imp-h-commodity-sale-collector-retention"), TemplateRow::collectorRetention)
         );
         List<TemplateRow> samples = List.of(
                 new TemplateRow(

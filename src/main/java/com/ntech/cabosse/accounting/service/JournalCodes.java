@@ -49,7 +49,7 @@ public final class JournalCodes {
                  PRODUCER_PURCHASE_SETTLEMENT, PRODUCER_PURCHASE_SETTLEMENT_REVERSAL,
                  COLLECTOR_DELIVERY,
                  DIRECT_EXPENSE, DIRECT_EXPENSE_REVERSAL -> JournalCode.ACH;
-            case SALE, SALE_REVERSAL, COMMODITY_SALE -> JournalCode.VTE;
+            case SALE, SALE_REVERSAL, COMMODITY_SALE, COMMODITY_SALE_REVERSAL -> JournalCode.VTE;
             default -> JournalCode.OD;
         };
     }

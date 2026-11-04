@@ -119,6 +119,8 @@ public enum PostingSourceType {
     PRODUCER_PURCHASE_SETTLEMENT_REVERSAL,
     /** Vente de matière première en gros ou à l'export. */
     COMMODITY_SALE,
+    /** Contre-passation de la pièce d'une vente en gros modifiée (VTE-25). */
+    COMMODITY_SALE_REVERSAL,
     /** Règlement versé à un fournisseur au titre de ses livraisons. */
     PRODUCER_PAYMENT
 }

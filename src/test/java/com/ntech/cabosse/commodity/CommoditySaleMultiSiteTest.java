@@ -25,6 +25,7 @@ import java.util.UUID;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.not;
 
 /**
  * Une vente, plusieurs magasins (demandé le 21/10/2026, VTE-16).
@@ -135,6 +136,15 @@ class CommoditySaleMultiSiteTest extends AbstractIntegrationTest {
         return new Seed(articleId, customerId,
                 note(admin, meagui, articleId, customerId, memberId, 50, 3084),
                 note(admin, touih, articleId, customerId, memberId, 34, 2290));
+    }
+
+    /** Un montant JSON arrive entier ou flottant selon son échelle : on compare la valeur. */
+    private static void assertAmount(io.restassured.response.ExtractableResponse<?> r, String path, String expected) {
+        Object raw = r.path(path);
+        org.junit.jupiter.api.Assertions.assertNotNull(raw, path);
+        org.junit.jupiter.api.Assertions.assertEquals(0,
+                new java.math.BigDecimal(raw.toString()).compareTo(new java.math.BigDecimal(expected)),
+                path + " = " + raw);
     }
 
     private String status(UserEntity admin, Note n) {
@@ -270,5 +280,66 @@ class CommoditySaleMultiSiteTest extends AbstractIntegrationTest {
                 .body("data.readyRows", equalTo(0))
                 .body("data.rows[0].status", equalTo("INVALID"))
                 .body("data.rows[0].issues[0].message", containsString("rejoindre"));
+    }
+
+    /**
+     * Une vente saisie se modifie (VTE-25) : elle garde sa référence, rend
+     * le bordereau qu'elle n'appelle plus, se recalcule, et sa pièce
+     * d'origine est contre-passée au profit d'une nouvelle.
+     */
+    @Test
+    void une_vente_se_modifie_en_rendant_le_bordereau_quelle_nappelle_plus() {
+        UserEntity admin = admin();
+        Seed s = seed(admin);
+
+        var created = givenAs(admin).contentType("application/json")
+                .body("""
+                        { "date": "%s", "customerId": "%s", "articleId": "%s", "siteId": "%s",
+                          "dispatchNoteIds": ["%s", "%s"],
+                          "weights": { "acceptedKg": 5300 }, "pricePerKg": 1200,
+                          "settlement": { "transportEqualization": 350000, "bic": 10000, "fiscalStamp": 5000,
+                                          "totalValue": 1, "netAmount": 1 } }
+                        """.formatted(LocalDate.now(), s.customerId(), s.articleId(), s.meagui().siteId(),
+                        s.meagui().id(), s.touih().id()))
+                .header("Idempotency-Key", UUID.randomUUID().toString())
+                .when().post("/api/v1/commodity/sales").then().statusCode(201)
+                .extract();
+        // Le décompte se calcule : 6 360 000 + 350 000 ; retenues 15 000 (VTE-26).
+        assertAmount(created, "data.settlement.totalValue", "6710000");
+        assertAmount(created, "data.settlement.totalDeductions", "15000");
+        assertAmount(created, "data.settlement.netAmount", "6695000");
+        String saleId = created.path("data.id");
+        String ref = created.path("data.ref");
+        String firstPiece = created.path("data.pieceRef");
+
+        // Le second camion n'était pas de cette vente : on le retire, et le
+        // poids accepté se corrige.
+        var updated = givenAs(admin).contentType("application/json")
+                .body("""
+                        { "date": "%s", "customerId": "%s", "articleId": "%s", "siteId": "%s",
+                          "dispatchNoteIds": ["%s"],
+                          "weights": { "acceptedKg": 3050 }, "pricePerKg": 1200,
+                          "settlement": { "transportEqualization": 100000 } }
+                        """.formatted(LocalDate.now(), s.customerId(), s.articleId(), s.meagui().siteId(),
+                        s.meagui().id()))
+                .when().put("/api/v1/commodity/sales/" + saleId).then().statusCode(200)
+                .body("data.ref", equalTo(ref))
+                .body("data.weights.declaredKg", equalTo(3084))
+                .body("data.dispatchNoteRefs", hasSize(1))
+                .body("data.pieceRef", not(equalTo(firstPiece)))
+                .extract();
+        assertAmount(updated, "data.amountInvoicedTtc", "3660000");
+        assertAmount(updated, "data.settlement.totalValue", "3760000");
+        assertAmount(updated, "data.settlement.netAmount", "3760000");
+
+        // Le bordereau rendu est de nouveau ouvert, l'autre reste vendu.
+        org.junit.jupiter.api.Assertions.assertEquals("SOLD", status(admin, s.meagui()));
+        org.junit.jupiter.api.Assertions.assertEquals("OPEN", status(admin, s.touih()));
+
+        // Trois pièces sur la vente : l'origine, sa contre-passation, la nouvelle.
+        givenAs(admin).when().get("/api/v1/accounting/journal?q=" + ref + "&perPage=50")
+                .then().statusCode(200)
+                .body("data.items.findAll { it.sourceRef == '" + ref + "' }.size()", equalTo(3))
+                .body("data.items.find { it.sourceType == 'COMMODITY_SALE_REVERSAL' }.sourceRef", equalTo(ref));
     }
 }

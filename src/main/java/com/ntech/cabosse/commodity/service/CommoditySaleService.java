@@ -290,7 +290,30 @@ public class CommoditySaleService {
         return out;
     }
 
-    public CommoditySaleResponseDto create(CommoditySaleUpsertDto p) {
+    /** Ce qu'une vente coûte et rapporte, calculé de la saisie avant toute écriture. */
+    private record Computed(
+            com.ntech.cabosse.customer.entity.CustomerEntity customer,
+            ArticleEntity article,
+            CampaignEntity campaign,
+            SalesContractEntity contract,
+            List<com.ntech.cabosse.dispatch.entity.DispatchNoteEntity> notes,
+            BigDecimal declaredKg, BigDecimal acceptedKg,
+            BigDecimal price, BigDecimal commercial,
+            BigDecimal coopPrime, BigDecimal producerPrime, BigDecimal socialPrime, BigDecimal totalPrime,
+            BigDecimal ht, BigDecimal vatRate, BigDecimal vat, BigDecimal ttc,
+            BigDecimal cmup, BigDecimal cogs, BigDecimal margin
+    ) {
+        com.ntech.cabosse.dispatch.entity.DispatchNoteEntity dispatchNote() {
+            return notes.isEmpty() ? null : notes.get(0);
+        }
+    }
+
+    /**
+     * Lit la saisie et calcule la vente, sans rien écrire. Les bordereaux
+     * doivent être ouverts, sauf ceux que {@code ownSaleId} a déjà
+     * vendus : une vente qui se modifie garde les siens.
+     */
+    private Computed compute(CommoditySaleUpsertDto p, UUID ownSaleId) {
         TenantPreferences prefs = preferences.current();
 
         var customer = customers.findById(p.customerId()).orElseThrow(
@@ -322,7 +345,10 @@ public class CommoditySaleService {
         // part, et le contrôle de site est tombé avec cette lecture.
         List<com.ntech.cabosse.dispatch.entity.DispatchNoteEntity> notes = loadNotes(p);
         for (var note : notes) {
-            if (note.status != com.ntech.cabosse.dispatch.entity.DispatchNoteStatus.OPEN) {
+            boolean ownSold = ownSaleId != null
+                    && note.status == com.ntech.cabosse.dispatch.entity.DispatchNoteStatus.SOLD
+                    && ownSaleId.equals(note.saleId);
+            if (note.status != com.ntech.cabosse.dispatch.entity.DispatchNoteStatus.OPEN && !ownSold) {
                 throw new BusinessException(Messages.msg("m.cco-dispatch-not-open",
                         note.ref, note.saleRef != null ? note.saleRef : ""));
             }
@@ -377,17 +403,24 @@ public class CommoditySaleService {
             cogs = declaredKg.multiply(nz(cmup));
         }
         BigDecimal margin = ht.subtract(cogs);
+        return new Computed(customer, article, campaign, contract, notes, declaredKg, acceptedKg,
+                price, commercial, coopPrime, producerPrime, socialPrime, totalPrime,
+                ht, vatRate, vat, ttc, cmup, cogs, margin);
+    }
 
-        Instant now = Instant.now();
-        CommoditySaleEntity e = new CommoditySaleEntity();
-        e.id = idGenerator.newId();
-        e.ref = refService.nextSale();
+    /** Pose la saisie et le calcul sur l'entité, création ou modification. */
+    private void fill(CommoditySaleEntity e, CommoditySaleUpsertDto p, Computed c) {
+        var campaign = c.campaign();
+        var contract = c.contract();
+        var article = c.article();
+        var notes = c.notes();
+        var dispatchNote = c.dispatchNote();
         e.date = p.date();
         e.campaignId = campaign != null ? campaign.id : null;
         e.campaignYear = campaign != null ? campaign.campaignYear : null;
         e.campaignKind = campaign != null ? campaign.kind : null;
-        e.customerId = customer.id;
-        e.customerName = customer.name;
+        e.customerId = c.customer().id;
+        e.customerName = c.customer().name;
         e.contractId = contract != null ? contract.id : null;
         e.articleId = article.id;
         e.articleCode = article.code;
@@ -400,43 +433,55 @@ public class CommoditySaleService {
             e.dispatchNoteIds = notes.stream().map(n -> n.id).toList();
             e.dispatchNoteRefs = notes.stream().map(n -> n.ref).toList();
             e.loads = loadsOf(notes, p);
+        } else {
+            e.dispatchNoteId = null;
+            e.dispatchNoteRef = null;
+            e.dispatchNoteIds = List.of();
+            e.dispatchNoteRefs = List.of();
+            e.loads = List.of();
         }
+        e.logistics = new CommoditySaleEntity.Logistics();
+        e.weights = new CommoditySaleEntity.Weights();
+        e.refactions = new CommoditySaleEntity.Refactions();
+        e.quality = new CommoditySaleEntity.Quality();
+        e.settlement = new CommoditySaleEntity.Settlement();
         mapLogistics(e, p);
         mapWeights(e, p);
         if (dispatchNote != null) {
-            e.weights.declaredKg = declaredKg;
+            e.weights.declaredKg = c.declaredKg();
         }
         mapRefactions(e, p);
         mapQuality(e, p);
+        e.pricePerKg = c.price();
+        e.commercial = c.commercial();
+        e.coopPrime = c.coopPrime();
+        e.producerPrime = c.producerPrime();
+        e.socialPrime = c.socialPrime();
+        e.totalPrime = c.totalPrime();
+        e.amountInvoicedHt = c.ht();
+        e.vatRatePct = nz(c.vatRate());
+        e.vat = c.vat();
+        e.amountInvoicedTtc = c.ttc();
+        e.cmupAtSale = nz(c.cmup());
+        e.cogs = c.cogs();
+        e.margin = c.margin();
+        // Le décompte se calcule du facturé : il le suit.
         mapSettlement(e, p);
-        e.pricePerKg = price;
-        e.commercial = commercial;
-        e.coopPrime = coopPrime;
-        e.producerPrime = producerPrime;
-        e.socialPrime = socialPrime;
-        e.totalPrime = totalPrime;
-        e.amountInvoicedHt = ht;
-        e.vatRatePct = nz(vatRate);
-        e.vat = vat;
-        e.amountInvoicedTtc = ttc;
-        e.cmupAtSale = nz(cmup);
-        e.cogs = cogs;
-        e.margin = margin;
-        e.createdAt = now;
-        e.updatedAt = now;
-        e.createdBy = safeUserId();
-        e.createdByEmail = actor();
+    }
 
-        // 1) Sortie de stock. Avec un bordereau de sortie, elle est déjà
-        //    faite au chargement, ligne à ligne sous les lots des reçus :
-        //    la vente le marque vendu, atomiquement, une seule vente par
-        //    chargement. Sans bordereau, l'ancien chemin sort le poids
-        //    déclaré au CMUP.
-        if (dispatchNote != null) {
+    /**
+     * La sortie de stock de la vente. Avec un bordereau de sortie, elle
+     * est déjà faite au chargement, ligne à ligne sous les lots des reçus :
+     * la vente le marque vendu, atomiquement, une seule vente par
+     * chargement. Sans bordereau, l'ancien chemin sort le poids déclaré
+     * au CMUP.
+     */
+    private void takeStock(CommoditySaleEntity e, CommoditySaleUpsertDto p, Computed c) {
+        if (c.dispatchNote() != null) {
             // Tous vendus, ou aucun : un bordereau pris entre-temps par une
             // autre vente rend ceux déjà marqués.
             List<UUID> marked = new ArrayList<>();
-            for (var note : notes) {
+            for (var note : c.notes()) {
                 if (!dispatchNotes.tryMarkSold(note.id, e.id, e.ref)) {
                     marked.forEach(dispatchNotes::unmarkSold);
                     throw new BusinessException(Messages.msg("m.cco-dispatch-not-open", note.ref, ""));
@@ -449,30 +494,59 @@ public class CommoditySaleService {
             // compte, et une sortie sans sacs y laissait un compte qui ne
             // baissait jamais (expert, 16/10/2026).
             stockService.applyMovement(new MovementInput(
-                    article.id, p.siteId(), MovementKind.OUT, declaredKg, nz(cmup),
+                    c.article().id, p.siteId(), MovementKind.OUT, c.declaredKg(), nz(c.cmup()),
                     MovementSource.COMMODITY_SALE, e.ref, e.id, null,
-                    "Vente " + article.name + " " + e.customerName, null,
+                    "Vente " + c.article().name + " " + e.customerName, null,
                     p.date().atStartOfDay(java.time.ZoneOffset.UTC).toInstant(),
                     false, null, false, e.weights == null ? null : e.weights.sacsAccepted));
             e.movementRef = e.ref;
         }
+    }
+
+    /** Défait la sortie de stock telle que l'entité la porte : bordereaux rendus ou poids rentré. */
+    private void giveStockBack(CommoditySaleEntity e, String reason) {
+        if (e.dispatchNoteIds != null && !e.dispatchNoteIds.isEmpty()) {
+            e.dispatchNoteIds.forEach(dispatchNotes::unmarkSold);
+        } else if (e.articleId != null && e.siteId != null && e.weights != null
+                && e.weights.declaredKg != null && e.weights.declaredKg.signum() > 0) {
+            stockService.applyMovement(new MovementInput(
+                    e.articleId, e.siteId, MovementKind.IN, e.weights.declaredKg, nz(e.cmupAtSale),
+                    MovementSource.COMMODITY_SALE, e.ref, e.id, null,
+                    reason + " " + e.ref, null,
+                    e.date.atStartOfDay(java.time.ZoneOffset.UTC).toInstant(), true, null, false));
+        }
+    }
+
+    /** La source de la pièce comptable en cours : la vente elle-même, puis chaque version. */
+    private static UUID pieceSourceOf(CommoditySaleEntity e) {
+        return e.pieceSourceId != null ? e.pieceSourceId : e.id;
+    }
+
+    public CommoditySaleResponseDto create(CommoditySaleUpsertDto p) {
+        Computed c = compute(p, null);
+        Instant now = Instant.now();
+        CommoditySaleEntity e = new CommoditySaleEntity();
+        e.id = idGenerator.newId();
+        e.ref = refService.nextSale();
+        e.pieceSourceId = e.id;
+        fill(e, p, c);
+        e.createdAt = now;
+        e.updatedAt = now;
+        e.createdBy = safeUserId();
+        e.createdByEmail = actor();
+
+        // 1) Sortie de stock.
+        takeStock(e, p, c);
 
         // 2) Écriture 411/701 (+ TVA). Si elle échoue (période close), on
         //    défait ce que l'étape 1 a fait.
         try {
-            accounting.postFromCommoditySale(e.id, e.ref, e.customerId, e.customerName, article.salesRevenueAccount,
-                            ht, vat, p.date(), commissionFor(e, acceptedKg))
+            accounting.postFromCommoditySale(e.pieceSourceId, e.ref, e.customerId, e.customerName,
+                            c.article().salesRevenueAccount,
+                            c.ht(), c.vat(), p.date(), commissionFor(e, c.acceptedKg()))
                     .ifPresent(piece -> e.pieceRef = piece.ref);
         } catch (RuntimeException ex) {
-            if (dispatchNote != null) {
-                notes.forEach(n -> dispatchNotes.unmarkSold(n.id));
-            } else {
-                stockService.applyMovement(new MovementInput(
-                        article.id, p.siteId(), MovementKind.IN, declaredKg, nz(cmup),
-                        MovementSource.COMMODITY_SALE, e.ref, e.id, null,
-                        "Annulation vente " + e.ref, null,
-                        p.date().atStartOfDay(java.time.ZoneOffset.UTC).toInstant(), true, null, false));
-            }
+            giveStockBack(e, "Annulation vente");
             throw ex;
         }
 
@@ -482,11 +556,95 @@ public class CommoditySaleService {
                 .actorEmail(actor())
                 .target("commodity_sale", e.id.toString(), e.ref)
                 .tenant(tenantContext.tenantId(), null)
-                .description("Vente négoce " + e.ref + " : " + e.customerName + " · " + acceptedKg
-                        + " kg acceptés (" + ttc + ")")
+                .description("Vente négoce " + e.ref + " : " + e.customerName + " · " + c.acceptedKg()
+                        + " kg acceptés (" + c.ttc() + ")")
                 .record();
 
         return CommoditySaleResponseDto.from(e);
+    }
+
+    /**
+     * Modifie une vente saisie (VTE-25, demandé le 04/11/2026) : la vente
+     * garde sa référence et ses encaissements, tout le reste se ressaisit
+     * et se recalcule. Ce qui avait été écrit se défait d'abord : la pièce
+     * comptable est contre-passée, les bordereaux rendus ou le poids
+     * rentré ; puis la nouvelle version repart comme une création, avec
+     * une pièce à elle. Rien ne se corrige en place dans le journal.
+     */
+    public CommoditySaleResponseDto update(UUID id, CommoditySaleUpsertDto p) {
+        CommoditySaleEntity e = loadOrFail(id);
+        CommoditySaleEntity previous = loadOrFail(id);
+        Computed c = compute(p, e.id);
+        UUID previousSource = pieceSourceOf(previous);
+
+        // 1) Le stock : rendre ce que l'ancienne version avait pris, prendre
+        //    ce que la nouvelle demande. Si la nouvelle ne peut pas (un
+        //    bordereau pris entre-temps), l'ancienne reprend le sien et
+        //    rien d'autre n'a bougé.
+        giveStockBack(previous, "Modification vente");
+        fill(e, p, c);
+        e.pieceSourceId = idGenerator.newId();
+        e.updatedAt = Instant.now();
+        try {
+            takeStock(e, p, c);
+        } catch (RuntimeException ex) {
+            restoreStock(previous);
+            throw ex;
+        }
+
+        // 2) La pièce de la nouvelle version, sous sa propre source. Si la
+        //    période refuse, tout revient : la pièce d'origine est intacte.
+        try {
+            accounting.postFromCommoditySale(e.pieceSourceId, e.ref, e.customerId, e.customerName,
+                            c.article().salesRevenueAccount,
+                            c.ht(), c.vat(), p.date(), commissionFor(e, c.acceptedKg()))
+                    .ifPresent(piece -> e.pieceRef = piece.ref);
+        } catch (RuntimeException ex) {
+            giveStockBack(e, "Annulation modification");
+            restoreStock(previous);
+            throw ex;
+        }
+
+        // 3) La contre-passation de l'ancienne pièce, en dernier : si elle
+        //    échoue, la nouvelle pièce est contre-passée à son tour et la
+        //    vente reste ce qu'elle était.
+        try {
+            accounting.reverseFrom(com.ntech.cabosse.accounting.entity.PostingSourceType.COMMODITY_SALE,
+                    previousSource, "modification de " + e.ref);
+        } catch (RuntimeException ex) {
+            accounting.reverseFrom(com.ntech.cabosse.accounting.entity.PostingSourceType.COMMODITY_SALE,
+                    e.pieceSourceId, "modification abandonnée de " + e.ref);
+            giveStockBack(e, "Annulation modification");
+            restoreStock(previous);
+            throw ex;
+        }
+
+        repo.replace(e);
+
+        audit.event(AuditEventType.COMMODITY_SALE_UPDATED)
+                .actorEmail(actor())
+                .target("commodity_sale", e.id.toString(), e.ref)
+                .tenant(tenantContext.tenantId(), null)
+                .description("Vente négoce " + e.ref + " modifiée : " + e.customerName + " · " + c.acceptedKg()
+                        + " kg acceptés (" + c.ttc() + ")")
+                .record();
+
+        return CommoditySaleResponseDto.from(e);
+    }
+
+    /** Remet la sortie de stock d'une version telle qu'elle était, après l'avoir rendue. */
+    private void restoreStock(CommoditySaleEntity e) {
+        if (e.dispatchNoteIds != null && !e.dispatchNoteIds.isEmpty()) {
+            e.dispatchNoteIds.forEach(noteId -> dispatchNotes.tryMarkSold(noteId, e.id, e.ref));
+        } else if (e.articleId != null && e.siteId != null && e.weights != null
+                && e.weights.declaredKg != null && e.weights.declaredKg.signum() > 0) {
+            stockService.applyMovement(new MovementInput(
+                    e.articleId, e.siteId, MovementKind.OUT, e.weights.declaredKg, nz(e.cmupAtSale),
+                    MovementSource.COMMODITY_SALE, e.ref, e.id, null,
+                    "Vente " + e.articleName + " " + e.customerName, null,
+                    e.date.atStartOfDay(java.time.ZoneOffset.UTC).toInstant(),
+                    false, null, false, e.weights.sacsAccepted));
+        }
     }
 
     // ─── Mapping des blocs ──────────────────────────────────────────
@@ -527,27 +685,46 @@ public class CommoditySaleService {
     }
 
     /**
-     * Le décompte reçu de l'exportateur, recopié tel quel.
+     * Le décompte de l'acheteur, selon la règle donnée le 04/11/2026
+     * (VTE-26) : valeur totale = facturé TTC + péréquation transport +
+     * différentiel ramassage ; total des retenues = BIC + timbre fiscal +
+     * commission commerciale + remboursement mandat + remboursement
+     * revolving + mise en compte ; montant net = valeur totale − retenues.
      *
-     * <p>Aucun total n'est recalculé : le document est une pièce reçue,
-     * et ses propres arrondis font foi dans la discussion avec le
-     * client. Un chiffre juste et différent du sien ne servirait à
-     * personne (demandé le 03/10/2026).</p>
+     * <p>Les composantes se saisissent, les trois totaux se calculent :
+     * ce que le fichier ou le formulaire en disait est ignoré. Aucune
+     * composante renseignée, aucun décompte.</p>
      */
     private void mapSettlement(CommoditySaleEntity e, CommoditySaleUpsertDto p) {
         if (p.settlement() == null) return;
         var d = p.settlement();
         e.settlement.transportEqualization = d.transportEqualization();
         e.settlement.gatheringDifferential = d.gatheringDifferential();
-        e.settlement.totalValue = d.totalValue();
         e.settlement.bic = d.bic();
         e.settlement.fiscalStamp = d.fiscalStamp();
         e.settlement.salesCommission = d.salesCommission();
         e.settlement.mandateRepayment = d.mandateRepayment();
         e.settlement.revolvingRepayment = d.revolvingRepayment();
         e.settlement.collectorRetention = d.collectorRetention();
-        e.settlement.totalDeductions = d.totalDeductions();
-        e.settlement.netAmount = d.netAmount();
+        computeSettlementTotals(e.settlement, e.amountInvoicedTtc);
+    }
+
+    /** Les trois totaux du décompte, depuis ses composantes et le facturé TTC. */
+    public static void computeSettlementTotals(CommoditySaleEntity.Settlement s, BigDecimal invoicedTtc) {
+        if (s == null) return;
+        boolean any = s.transportEqualization != null || s.gatheringDifferential != null
+                || s.bic != null || s.fiscalStamp != null || s.salesCommission != null
+                || s.mandateRepayment != null || s.revolvingRepayment != null || s.collectorRetention != null;
+        if (!any) {
+            s.totalValue = null;
+            s.totalDeductions = null;
+            s.netAmount = null;
+            return;
+        }
+        s.totalValue = nz(invoicedTtc).add(nz(s.transportEqualization)).add(nz(s.gatheringDifferential));
+        s.totalDeductions = nz(s.bic).add(nz(s.fiscalStamp)).add(nz(s.salesCommission))
+                .add(nz(s.mandateRepayment)).add(nz(s.revolvingRepayment)).add(nz(s.collectorRetention));
+        s.netAmount = s.totalValue.subtract(s.totalDeductions);
     }
 
     private void mapQuality(CommoditySaleEntity e, CommoditySaleUpsertDto p) {
