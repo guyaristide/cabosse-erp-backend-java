@@ -50,7 +50,9 @@ public record CommoditySaleResponseDto(
         String pieceRef,
         java.util.List<CommoditySalePaymentView> payments,
         BigDecimal totalPaid,
-        /** Solde client = TTC moins encaissé. */
+        /** Ce que le client doit : le net du décompte s'il y en a un, sinon le facturé TTC (VTE-27). */
+        BigDecimal amountDue,
+        /** Solde client = montant dû moins encaissé. */
         BigDecimal remainingDue,
         Instant createdAt,
         Instant updatedAt,
@@ -74,8 +76,8 @@ public record CommoditySaleResponseDto(
                 e.payments == null ? java.util.List.of()
                         : e.payments.stream().map(CommoditySalePaymentView::from).toList(),
                 e.totalPaid == null ? BigDecimal.ZERO : e.totalPaid,
-                (e.amountInvoicedTtc == null ? BigDecimal.ZERO : e.amountInvoicedTtc)
-                        .subtract(e.totalPaid == null ? BigDecimal.ZERO : e.totalPaid),
+                e.amountDue(),
+                e.amountDue().subtract(e.totalPaid == null ? BigDecimal.ZERO : e.totalPaid),
                 e.createdAt, e.updatedAt,
                 e.dispatchNoteIds == null ? java.util.List.of() : e.dispatchNoteIds,
                 e.dispatchNoteRefs == null ? java.util.List.of() : e.dispatchNoteRefs,

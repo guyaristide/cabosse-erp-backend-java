@@ -126,11 +126,10 @@ public class ReceivableService {
                 .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
     }
 
-    /** Facturé TTC de la vente en gros moins l'encaissé cumulé. */
+    /** Montant dû de la vente en gros (net du décompte, sinon facturé TTC) moins l'encaissé cumulé. */
     private BigDecimal remainingOf(CommoditySaleEntity sale) {
-        BigDecimal total = sale.amountInvoicedTtc == null ? BigDecimal.ZERO : sale.amountInvoicedTtc;
         BigDecimal paid = sale.totalPaid == null ? BigDecimal.ZERO : sale.totalPaid;
-        return total.subtract(paid);
+        return sale.amountDue().subtract(paid);
     }
 
     /** Total dû moins ce qui a déjà été encaissé. */

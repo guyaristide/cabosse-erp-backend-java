@@ -812,9 +812,9 @@ public class CommoditySaleService {
             UUID saleId, com.ntech.cabosse.commodity.dto.RecordSalePaymentDto p) {
         CommoditySaleEntity e = repo.findById(saleId).orElseThrow(
                 () -> new NotFoundException(Messages.msg("m.cco-sale-not-found", saleId)));
-        BigDecimal ttc = nz(e.amountInvoicedTtc);
+        // Le solde part du net du décompte quand il y en a un (VTE-27).
         BigDecimal paid = nz(e.totalPaid);
-        BigDecimal remaining = ttc.subtract(paid);
+        BigDecimal remaining = e.amountDue().subtract(paid);
         if (p.amount().compareTo(remaining) > 0) {
             throw new BusinessException(Messages.msg("m.cco-payment-exceeds-due",
                     p.amount(), remaining));

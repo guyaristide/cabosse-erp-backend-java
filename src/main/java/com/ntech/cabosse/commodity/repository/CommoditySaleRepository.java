@@ -89,14 +89,17 @@ public class CommoditySaleRepository {
     }
 
     /**
-     * Les ventes dont le facturé TTC dépasse l'encaissé : ce que les
+     * Les ventes dont le montant dû dépasse l'encaissé : ce que les
      * clients doivent encore. Sert la file des créances de trésorerie,
-     * qui ignorait le négoce jusqu'au correctif du 05/09/2026.
+     * qui ignorait le négoce jusqu'au correctif du 05/09/2026. Le dû est
+     * le net du décompte quand la vente en porte un, sinon le facturé TTC
+     * (VTE-27) : même règle que {@link CommoditySaleEntity#amountDue()}.
      */
     public List<CommoditySaleEntity> listUnsettled() {
         Bson unsettled = Filters.expr(new Document("$gt", List.of(
                 new Document("$subtract", List.of(
-                        new Document("$ifNull", List.of("$amountInvoicedTtc", 0)),
+                        new Document("$ifNull", List.of("$settlement.netAmount",
+                                new Document("$ifNull", List.of("$amountInvoicedTtc", 0)))),
                         new Document("$ifNull", List.of("$totalPaid", 0)))),
                 0)));
         return coll().find(unsettled)

@@ -150,8 +150,20 @@ public class CommoditySaleEntity {
 
     // ─── Encaissements client (page 3 du modèle de l'expert) ───
     public java.util.List<CommoditySalePayment> payments;
-    /** Cumul encaissé ; le solde client vaut TTC moins ce cumul. */
+    /** Cumul encaissé ; le solde client vaut le montant dû moins ce cumul. */
     public BigDecimal totalPaid = BigDecimal.ZERO;
+
+    /**
+     * Ce que le client doit sur cette vente : le montant net du décompte
+     * quand la vente en porte un, sinon le facturé TTC (VTE-27, signalé le
+     * 04/11/2026). L'acheteur retient ses frais et ses remboursements à la
+     * source ; ce qui arrive en banque est le net, et c'est lui que la
+     * caisse attend, pas le facturé.
+     */
+    public BigDecimal amountDue() {
+        if (settlement != null && settlement.netAmount != null) return settlement.netAmount;
+        return amountInvoicedTtc == null ? BigDecimal.ZERO : amountInvoicedTtc;
+    }
 
     // ─── Audit ───
     public Instant createdAt;

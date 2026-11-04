@@ -160,13 +160,18 @@ class SaleSettlementImportTest extends AbstractIntegrationTest {
                 .then().statusCode(200).extract().asString();
 
         for (String header : java.util.List.of(
-                "Péréquation transport", "Différentiel ramassage", "Valeur totale",
+                "Péréquation transport", "Différentiel ramassage",
                 "BIC", "Timbre fiscal", "Commission commerciale",
-                "Remboursement mandat", "Remboursement revolving", "Mise en compte",
-                "Total retenues", "Montant net")) {
+                "Remboursement mandat", "Remboursement revolving", "Mise en compte")) {
             org.assertj.core.api.Assertions.assertThat(csv)
                     .as("colonne « %s » absente du modèle", header)
                     .contains(header);
+        }
+        // Les trois totaux se calculent (VTE-26) : le modèle ne les demande plus.
+        for (String header : java.util.List.of("Valeur totale", "Total retenues", "Montant net")) {
+            org.assertj.core.api.Assertions.assertThat(csv)
+                    .as("colonne « %s » encore demandée par le modèle", header)
+                    .doesNotContain(header);
         }
     }
 
@@ -206,15 +211,26 @@ class SaleSettlementImportTest extends AbstractIntegrationTest {
         String id = givenAs(a).when().get("/api/v1/commodity/sales?q=" + ref)
                 .then().statusCode(200).extract().path("data.items[0].id");
 
-        // Les totaux sont ceux du document : les recalculer donnerait un
-        // chiffre juste et différent de celui que le client paiera.
-        givenAs(a).when().get("/api/v1/commodity/sales/" + id)
+        // Les totaux se calculent des composantes (VTE-26) ; ici le fichier
+        // les donnait justes, le calcul les retrouve. Le client doit le net.
+        var sale = givenAs(a).when().get("/api/v1/commodity/sales/" + id)
                 .then().statusCode(200)
                 .body("data.settlement.transportEqualization", equalTo(250000))
                 .body("data.settlement.mandateRepayment", equalTo(9000000))
                 .body("data.settlement.collectorRetention", equalTo(80000))
-                .body("data.settlement.totalDeductions", equalTo(9835000))
-                .body("data.settlement.netAmount", equalTo(535000));
+                .extract();
+        assertAmount(sale, "data.settlement.totalValue", "10370000");
+        assertAmount(sale, "data.settlement.totalDeductions", "9835000");
+        assertAmount(sale, "data.settlement.netAmount", "535000");
+        assertAmount(sale, "data.amountDue", "535000");
+    }
+
+    private static void assertAmount(io.restassured.response.ExtractableResponse<?> r, String path, String expected) {
+        Object raw = r.path(path);
+        org.junit.jupiter.api.Assertions.assertNotNull(raw, path);
+        org.junit.jupiter.api.Assertions.assertEquals(0,
+                new java.math.BigDecimal(raw.toString()).compareTo(new java.math.BigDecimal(expected)),
+                path + " = " + raw);
     }
 
     @Test

@@ -82,7 +82,8 @@ public class CustomerStatementService {
         for (CommoditySaleEntity cs : allCommodity) {
             Agg a = perCampaign.computeIfAbsent(cs.campaignId, k -> new Agg());
             a.sales++;
-            a.invoiced = a.invoiced.add(nz(cs.amountInvoicedTtc));
+            // Le client doit le net du décompte quand il y en a un (VTE-27).
+            a.invoiced = a.invoiced.add(cs.amountDue());
             a.paid = a.paid.add(nz(cs.totalPaid));
             a.commodityKg = a.commodityKg.add(acceptedKg(cs));
         }
@@ -115,7 +116,7 @@ public class CustomerStatementService {
         }
         BigDecimal commodityKg = BigDecimal.ZERO;
         for (CommoditySaleEntity cs : cIn) commodityKg = commodityKg.add(acceptedKg(cs));
-        BigDecimal commodityAmount = sum(cIn, cs -> cs.amountInvoicedTtc);
+        BigDecimal commodityAmount = sum(cIn, CommoditySaleEntity::amountDue);
         BigDecimal commodityPaid = sum(cIn, cs -> cs.totalPaid);
         BigDecimal invoiced = salesAmount.add(commodityAmount);
         BigDecimal paid = salesPaid.add(commodityPaid);

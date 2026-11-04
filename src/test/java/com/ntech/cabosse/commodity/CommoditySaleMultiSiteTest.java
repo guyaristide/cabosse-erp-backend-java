@@ -342,4 +342,46 @@ class CommoditySaleMultiSiteTest extends AbstractIntegrationTest {
                 .body("data.items.findAll { it.sourceRef == '" + ref + "' }.size()", equalTo(3))
                 .body("data.items.find { it.sourceType == 'COMMODITY_SALE_REVERSAL' }.sourceRef", equalTo(ref));
     }
+
+    /**
+     * Avec un décompte, le client doit le net, pas le facturé TTC (VTE-27) :
+     * le solde en part, et un encaissement au net passe même quand il
+     * dépasse le facturé.
+     */
+    @Test
+    void le_client_doit_le_net_du_decompte_et_le_regle_en_entier() {
+        UserEntity admin = admin();
+        Seed s = seed(admin);
+
+        var created = givenAs(admin).contentType("application/json")
+                .body("""
+                        { "date": "%s", "customerId": "%s", "articleId": "%s", "siteId": "%s",
+                          "dispatchNoteIds": ["%s", "%s"],
+                          "weights": { "acceptedKg": 5300 }, "pricePerKg": 1200,
+                          "settlement": { "transportEqualization": 350000, "bic": 10000, "fiscalStamp": 5000 } }
+                        """.formatted(LocalDate.now(), s.customerId(), s.articleId(), s.meagui().siteId(),
+                        s.meagui().id(), s.touih().id()))
+                .header("Idempotency-Key", UUID.randomUUID().toString())
+                .when().post("/api/v1/commodity/sales").then().statusCode(201)
+                .extract();
+        // Facturé 6 360 000, net du décompte 6 695 000 : c'est le net qui est dû.
+        assertAmount(created, "data.amountInvoicedTtc", "6360000");
+        assertAmount(created, "data.amountDue", "6695000");
+        assertAmount(created, "data.remainingDue", "6695000");
+        String saleId = created.path("data.id");
+
+        // La créance attendue en trésorerie est le net.
+        var queue = givenAs(admin).when().get("/api/v1/treasury/receivables?kind=COMMODITY_SALE&perPage=100")
+                .then().statusCode(200).extract();
+        assertAmount(queue, "data.page.items.find { it.sourceId == '" + saleId + "' }.amount", "6695000");
+
+        var paid = givenAs(admin).contentType("application/json")
+                .body("""
+                        { "paidOn": "%s", "amount": 6695000, "method": "CASH", "paymentRef": "VIR-1" }
+                        """.formatted(LocalDate.now()))
+                .header("Idempotency-Key", UUID.randomUUID().toString())
+                .when().post("/api/v1/commodity/sales/" + saleId + "/payments").then().statusCode(200)
+                .extract();
+        assertAmount(paid, "data.remainingDue", "0");
+    }
 }
