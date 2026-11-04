@@ -446,6 +446,91 @@ class SupplierCounterpartyTest extends AbstractIntegrationTest {
                 .body("data.rows[0].issues[0]", containsString("MB-"));
     }
 
+    /**
+     * Saisie à la main, la ligne n'a ni téléphone ni section pour
+     * départager deux homonymes : le comptable tape le code que le refus
+     * lui a donné, et la ligne désigne cette fiche (ACH-19, 04/11/2026).
+     */
+    @Test
+    void le_code_du_producteur_departage_les_homonymes_saisis_a_la_main() {
+        UserEntity admin = admin();
+        LocalDate today = LocalDate.now();
+        String siteId = site(admin);
+        String articleId = article(admin);
+
+        String section = givenAs(admin).contentType("application/json")
+                .body("{\"code\":\"CRA\",\"name\":\"Craobo\"}")
+                .when().post("/api/v1/sections").then().statusCode(201).extract().path("data.id");
+        String[] codes = new String[2];
+        String[] ids = new String[2];
+        for (int i = 0; i < 2; i++) {
+            var created = givenAs(admin).contentType("application/json")
+                    .body("""
+                            { "lastName": "AKA", "firstName": "BRAHIMA", "gender": "MALE",
+                              "status": "ACTIVE", "sectionId": "%s" }
+                            """.formatted(section))
+                    .when().post("/api/v1/members").then().statusCode(201).extract();
+            codes[i] = created.path("data.code");
+            ids[i] = created.path("data.id");
+        }
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "code": "d-%s", "name": "KOUI IBOBE", "collector": true,
+                          "sectionId": "%s" }
+                        """.formatted(TestFixtures.randomSlugSuffix(), section))
+                .when().post("/api/v1/suppliers").then().statusCode(201);
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        [ { "rowNumber": 2, "productLabel": "Cacao", "date": "%s",
+                            "movement": "Entrée Stock", "ref": "BR0898", "truckNumber": "CJY879",
+                            "supplierName": "KOUI IBOBE", "lineNumber": "1",
+                            "grossWeightKg": "4700", "bagCount": "70", "netWeightKg": "4600" } ]
+                        """.formatted(today))
+                .when().post("/api/v1/intake-notes/import/commit?siteId=" + siteId)
+                .then().statusCode(200);
+        String noteId = givenAs(admin).when().get("/api/v1/intake-notes?status=TO_ACCOUNT")
+                .then().statusCode(200).extract().path("data[0].id");
+
+        // Le nom seul : refusé, avec les deux codes.
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "articleId": "%s", "siteId": "%s", "lines": [
+                          { "rowNumber": 2, "date": "%s", "nbSacs": "70", "weightKg": "4600",
+                            "amount": "5520000", "amountCash": "5520000",
+                            "producerName": "Aka Brahima" } ] }
+                        """.formatted(articleId, siteId, today))
+                .when().post("/api/v1/intake-notes/" + noteId + "/accounting/preview")
+                .then().statusCode(200)
+                .body("data.invalidRows", equalTo(1))
+                .body("data.rows[0].issues[0]", containsString(codes[1]));
+
+        // Le code tapé en minuscules désigne la seconde fiche.
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "articleId": "%s", "siteId": "%s", "lines": [
+                          { "rowNumber": 2, "date": "%s", "nbSacs": "70", "weightKg": "4600",
+                            "amount": "5520000", "amountCash": "5520000",
+                            "producerName": "Aka Brahima", "producerCode": "%s" } ] }
+                        """.formatted(articleId, siteId, today, codes[1].toLowerCase()))
+                .when().post("/api/v1/intake-notes/" + noteId + "/accounting/preview")
+                .then().statusCode(200)
+                .body("data.invalidRows", equalTo(0))
+                .body("data.rows[0].memberId", equalTo(ids[1]));
+
+        // Un code que personne ne porte : refusé, sans deviner.
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "articleId": "%s", "siteId": "%s", "lines": [
+                          { "rowNumber": 2, "date": "%s", "weightKg": "4600",
+                            "amount": "5520000", "producerName": "Aka Brahima",
+                            "producerCode": "MB-1999-0000" } ] }
+                        """.formatted(articleId, siteId, today))
+                .when().post("/api/v1/intake-notes/" + noteId + "/accounting/preview")
+                .then().statusCode(200)
+                .body("data.invalidRows", equalTo(1))
+                .body("data.rows[0].issues[0]", containsString("MB-1999-0000"));
+    }
+
     @Test
     void un_code_et_un_nom_qui_se_contredisent_laissent_le_bordereau_sans_apporteur() {
         UserEntity admin = admin();

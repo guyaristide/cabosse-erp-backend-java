@@ -445,10 +445,12 @@ public class SntAccountingService {
         List<MemberEntity> all = members.listAll();
         Map<String, List<MemberEntity>> byPhone = new HashMap<>();
         Map<String, List<MemberEntity>> byName = new HashMap<>();
+        Map<String, MemberEntity> byCode = new HashMap<>();
         for (MemberEntity m : all) {
             String pk = phoneKey(m.phone);
             if (pk != null) byPhone.computeIfAbsent(pk, k -> new ArrayList<>()).add(m);
             byName.computeIfAbsent(normalize(m.name), k -> new ArrayList<>()).add(m);
+            if (m.code != null && !m.code.isBlank()) byCode.put(codeKey(m.code), m);
         }
 
         List<SntPreviewDto.Row> rows = new ArrayList<>();
@@ -492,7 +494,20 @@ public class SntAccountingService {
 
             MemberEntity matched = null;
             boolean memberToCreate = false;
-            if (producerName != null) {
+            String producerCode = clean(raw.producerCode());
+            if (producerCode != null) {
+                // Le code désigne la fiche sans discussion : c'est ce que
+                // le comptable tape quand le nom est partagé (ACH-19).
+                matched = byCode.get(codeKey(producerCode));
+                if (matched == null) {
+                    issues.add(Messages.msg("m.itk-producer-code-unknown", producerCode));
+                    blocking = true;
+                } else if (producerName == null) {
+                    producerName = matched.name;
+                } else if (!normalize(matched.name).equals(normalize(producerName))) {
+                    issues.add(Messages.msg("m.itk-name-code-mismatch", matched.name));
+                }
+            } else if (producerName != null) {
                 String pk = phoneKey(raw.producerPhone());
                 List<MemberEntity> phoneHits = pk == null ? List.of()
                         : byPhone.getOrDefault(pk, List.of());
@@ -604,6 +619,11 @@ public class SntAccountingService {
                 null, Boolean.FALSE,
                 "Créé à la comptabilisation du bordereau " + note.ref));
         return created.id();
+    }
+
+    /** Un code de membre tel qu'on le compare : sans espaces ni casse. */
+    private static String codeKey(String code) {
+        return code.trim().toUpperCase(java.util.Locale.ROOT);
     }
 
     /** Les fiches qui se disputent le nom, pour que le comptable tranche. */

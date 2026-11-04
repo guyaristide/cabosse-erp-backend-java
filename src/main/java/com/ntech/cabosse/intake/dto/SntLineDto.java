@@ -28,6 +28,14 @@ public record SntLineDto(
         String amountCash,
         String producerName,
         String producerPhone,
+        /**
+         * Le code du producteur au registre (MB-AAAA-NNNN), quand la
+         * ligne est saisie à la main et que le nom ne suffit pas : deux
+         * fiches au même nom ne se départagent ni par le téléphone,
+         * absent du formulaire, ni par la section (ACH-19, 04/11/2026).
+         * Renseigné, il désigne la fiche ; inconnu, la ligne est refusée.
+         */
+        String producerCode,
         String delegateName,
         String delegatePhone,
         /**
