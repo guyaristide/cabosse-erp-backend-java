@@ -9,7 +9,8 @@ import java.util.UUID;
  * Position que la coopérative peut tenir sur un délégué (backlog DEL-02).
  *
  * <p>Référentiel tenant, éditable. Deux valeurs sont semées à l'ouverture,
- * « Délégué principal » et « Délégué douteux », parce que ce sont celles
+ * « Délégué principal » et « Autre délégué » (« Délégué douteux » jusqu'au
+ * 09/11/2026, renommé à la demande de la coopérative, M100), parce que ce sont celles
  * que la coopérative a demandées ; elles ne sont pas figées dans le code
  * pour autant. Une structure qui voudra distinguer « en relance » de
  * « recouvrement clos » n'aura pas à attendre une livraison.</p>

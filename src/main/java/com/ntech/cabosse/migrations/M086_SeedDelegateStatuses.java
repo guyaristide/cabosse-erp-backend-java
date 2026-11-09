@@ -58,7 +58,7 @@ public class M086_SeedDelegateStatuses {
                 new IndexOptions().name("idx_delegate_status_positions_delegate"))));
 
         Object principalId = seed(statuses, PRINCIPAL, "Délégué principal", false, 10);
-        seed(statuses, DOUBTFUL, "Délégué douteux", true, 20);
+        seed(statuses, DOUBTFUL, "Autre délégué", true, 20);
 
         // Position initiale sur les délégués qui n'en ont aucune.
         for (Document delegate : database.getCollection(SUPPLIERS)

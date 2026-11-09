@@ -137,7 +137,7 @@ class DelegateStatusPositionTest extends AbstractIntegrationTest {
                 // Sans avance décaissée, le délégué ne doit rien : le montant
                 // est zéro, pas absent. C'est un constat, il a été mesuré.
                 .body("data.owedAmount", notNullValue())
-                .body("data.statusLabel", equalTo("Délégué douteux"));
+                .body("data.statusLabel", equalTo("Autre délégué"));
     }
 
     @Test
