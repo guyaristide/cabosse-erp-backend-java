@@ -337,6 +337,7 @@ public class ProducerPurchaseImportService {
                         // discute avec le producteur, pas dans un fichier.
                         null,
                         // Cet import-là ne porte pas de colonne statut.
+                        null,
                         null));
                 createdRefs.add(created.ref());
             } catch (RuntimeException e) {

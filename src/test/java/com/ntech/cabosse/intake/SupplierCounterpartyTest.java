@@ -94,6 +94,15 @@ class SupplierCounterpartyTest extends AbstractIntegrationTest {
                 .when().post("/api/v1/suppliers").then().statusCode(201).extract().path("data.id");
     }
 
+    /** Les montants reviennent entiers ou décimaux selon leur échelle : on compare en BigDecimal. */
+    private static void assertAmount(io.restassured.response.ExtractableResponse<?> r, String path, String expected) {
+        Object raw = r.path(path);
+        org.junit.jupiter.api.Assertions.assertNotNull(raw, path);
+        org.junit.jupiter.api.Assertions.assertEquals(0,
+                new java.math.BigDecimal(raw.toString()).compareTo(new java.math.BigDecimal(expected)),
+                path + " = " + raw);
+    }
+
     @Test
     void un_extrait_sans_producteur_se_comptabilise_sur_le_fournisseur_du_bordereau() {
         UserEntity admin = admin();
@@ -169,6 +178,27 @@ class SupplierCounterpartyTest extends AbstractIntegrationTest {
                 .body("data.weightKg", equalTo(852))
                 .body("data.pieceRef", notNullValue())
                 .body("data.movementRef", notNullValue());
+        // Sans délégué, rien n'a été décaissé : la livraison reste due au
+        // fournisseur (ACH-20, DEC-58). Le « payé » du fichier n'est pas
+        // celui de la coopérative.
+        var purchase = givenAs(admin).when().get("/api/v1/producer-purchases/" + purchaseId)
+                .then().statusCode(200).extract();
+        assertAmount(purchase, "data.remainder", "1022400");
+        String purchaseRef = purchase.path("data.ref");
+
+        // La dette attend en trésorerie, sous la nature du fournisseur.
+        var payables = givenAs(admin).when().get("/api/v1/treasury/payables?kind=SUPPLIER_PURCHASE")
+                .then().statusCode(200)
+                .body("data.page.items", hasSize(1))
+                .body("data.page.items[0].beneficiaryName", equalTo("NEGOCE DU SUD"))
+                .extract();
+        assertAmount(payables, "data.page.items[0].amount", "1022400");
+
+        // Et aucune pièce « Solde livraison » n'a soldé la dette par la caisse.
+        givenAs(admin).when().get("/api/v1/accounting/journal?q=" + purchaseRef + "&perPage=50")
+                .then().statusCode(200)
+                .body("data.items.findAll { it.sourceType == 'PRODUCER_PURCHASE_SETTLEMENT' }", hasSize(0))
+                .body("data.items.findAll { it.sourceType == 'PRODUCER_PURCHASE' }", hasSize(1));
     }
 
     @Test
