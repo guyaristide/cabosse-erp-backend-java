@@ -105,5 +105,15 @@ public record ProducerPurchaseUpsertDto(
          * Libre et facultatif : vide, le registre déduit le statut de
          * la fiche de l'apporteur comme avant.
          */
-        @Size(max = 40) String counterpartyStatus
+        @Size(max = 40) String counterpartyStatus,
+
+        /**
+         * Règlement différé : la coopérative n'a rien décaissé à la
+         * livraison, le reçu reste dû en entier à son bénéficiaire et se
+         * règle en trésorerie, approbation puis caisse. Posé par la
+         * comptabilisation d'un bordereau sans délégué (ACH-20, DEC-58,
+         * 09/11/2026) ; il prime sur le montant payé et sur l'option de
+         * paiement partiel.
+         */
+        Boolean deferredPayment
 ) {}

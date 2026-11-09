@@ -244,7 +244,9 @@ public class ProducerPurchaseService {
                             String.valueOf(creditImputed), String.valueOf(amount)));
         }
         BigDecimal payable = amount.subtract(creditImputed);
-        BigDecimal paid = resolvePaid(prefs, p, payable);
+        // Différé : rien n'a été versé, la dette reste entière (DEC-58).
+        BigDecimal paid = Boolean.TRUE.equals(p.deferredPayment())
+                ? BigDecimal.ZERO : resolvePaid(prefs, p, payable);
 
         Instant now = Instant.now();
         ProducerPurchaseEntity e = new ProducerPurchaseEntity();

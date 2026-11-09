@@ -301,9 +301,14 @@ public class SntAccountingService {
                         row.weightKg(),
                         row.pricePerKg(),
                         row.amount(),
-                        // Le fichier officiel dit « paiement effectué » :
-                        // le producteur est réputé réglé en entier.
-                        row.amount(),
+                        // Le fichier officiel dit « paiement effectué » : c'est
+                        // le délégué qui a payé les producteurs sur le terrain
+                        // avec ses avances, la livraison les apure. Sans
+                        // délégué, la coopérative n'a rien décaissé : la
+                        // livraison reste due au fournisseur ou au producteur
+                        // et se règle en trésorerie, approbation puis caisse
+                        // (ACH-20, DEC-58, tranchée par le client le 09/11/2026).
+                        saleDelegate == null ? null : row.amount(),
                         PaymentMethod.valueOf(row.paymentMethod()),
                         null,
                         null,
@@ -314,7 +319,8 @@ public class SntAccountingService {
                         null,
                         // Le statut du fichier, quand il en porte un :
                         // le registre l'affichera tel quel.
-                        row.statusLabel()));
+                        row.statusLabel(),
+                        saleDelegate == null));
                 refs.add(created.ref());
                 totalWeight = totalWeight.add(nz(row.weightKg()));
                 totalAmount = totalAmount.add(nz(row.amount()));
