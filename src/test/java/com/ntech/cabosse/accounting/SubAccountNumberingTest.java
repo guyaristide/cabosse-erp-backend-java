@@ -237,4 +237,50 @@ class SubAccountNumberingTest extends AbstractIntegrationTest {
                 .then().statusCode(200)
                 .body("data.advanceAccount", equalTo(number));
     }
+
+    /**
+     * Le compte s'ouvre d'office avec le miroir dès que la structure a
+     * choisi la racine (CPT-36, DEC-59) ; tant qu'elle ne l'a pas fait,
+     * la fiche attend dans les Paramètres.
+     */
+    @Test
+    void a_member_gets_its_account_at_creation_once_the_root_is_chosen() {
+        UserEntity a = admin();
+        TenantEntity tenant = tenants.findById(a.tenantId);
+        tenant.organizationModel = com.ntech.cabosse.tenant.entity.TenantOrganizationModel.COOPERATIVE;
+        tenants.update(tenant);
+        create(a, "4011100000", "Fournisseurs : producteurs");
+
+        // Sans racine réglée, rien ne s'ouvre tout seul.
+        member(a, "SANS", "Racine");
+        givenAs(a).when().get("/api/v1/accounting/chart/sub-accounts/members/pending")
+                .then().statusCode(200).body("data.withoutAccount", equalTo(1));
+
+        givenAs(a).contentType("application/json")
+                .body("{ \"memberSupplierAccountRoot\": \"4011100000\" }")
+                .when().put("/api/v1/me/tenant/preferences").then().statusCode(200)
+                .body("data.memberSupplierAccountRoot", equalTo("4011100000"));
+
+        member(a, "AVEC", "Racine");
+        givenAs(a).when().get("/api/v1/suppliers?q=AVEC")
+                .then().statusCode(200)
+                .body("data.items[0].subsidiaryAccount", equalTo("4011100001"))
+                .body("data.items[0].collectiveAccount", equalTo("4011100000"));
+        givenAs(a).when().get("/api/v1/accounting/chart?withBalances=false")
+                .then().statusCode(200)
+                .body("data.find { it.number == '4011100001' }.label", equalTo("Producteur AVEC Racine"));
+        // Le premier attend toujours : c'est la reprise au démarrage, ou le
+        // bouton, qui le rattrape.
+        givenAs(a).when().get("/api/v1/accounting/chart/sub-accounts/members/pending")
+                .then().statusCode(200).body("data.withoutAccount", equalTo(1));
+
+        // Une racine vide retire le choix : plus d'ouverture automatique.
+        givenAs(a).contentType("application/json")
+                .body("{ \"memberSupplierAccountRoot\": \"\" }")
+                .when().put("/api/v1/me/tenant/preferences").then().statusCode(200)
+                .body("data.memberSupplierAccountRoot", org.hamcrest.Matchers.nullValue());
+        member(a, "APRES", "Retrait");
+        givenAs(a).when().get("/api/v1/accounting/chart/sub-accounts/members/pending")
+                .then().statusCode(200).body("data.withoutAccount", equalTo(2));
+    }
 }

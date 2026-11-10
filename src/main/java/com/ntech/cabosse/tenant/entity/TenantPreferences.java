@@ -721,6 +721,21 @@ public class TenantPreferences {
                 ? "401200" : delegatePayableAccount;
     }
 
+    /**
+     * Racine sous laquelle le compte auxiliaire de chaque sociétaire s'ouvre
+     * d'office, à la création de son miroir et à la reprise au démarrage
+     * (CPT-36, DEC-59 du 10/11/2026 : 4011100000 en prod, 401100 sur la
+     * démo). Sans valeur, rien ne s'ouvre tout seul : le choix de la racine
+     * appartient à la structure, pas au logiciel. Pas de valeur par défaut,
+     * donc, et {@code null} se lit « pas encore choisie ».
+     */
+    public String memberSupplierAccountRoot;
+
+    public String memberSupplierAccountRoot() {
+        return memberSupplierAccountRoot == null || memberSupplierAccountRoot.isBlank()
+                ? null : memberSupplierAccountRoot.trim();
+    }
+
     /** {@code true} : site imposé au reçu ; {@code false} (défaut) : site actif surchargeable. */
     public Boolean producerPurchaseSiteRequired;
 

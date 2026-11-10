@@ -75,6 +75,7 @@ public class TenantPreferencesService {
                 p.collectionAdvanceAccount(),
                 p.collectionCommissionAccount(),
                 p.producerPayableAccount(),
+                p.memberSupplierAccountRoot(),
                 p.delegatePayableAccount(),
                 p.producerReferenceCodeType,
                 p.memberCreditApprovalThreshold(),
@@ -383,6 +384,17 @@ public class TenantPreferencesService {
                     "from", t.preferences.producerPayableAccount(),
                     "to", payload.producerPayableAccount()));
             t.preferences.producerPayableAccount = payload.producerPayableAccount().trim();
+        }
+        // Vide = la structure retire son choix, rien ne s'ouvre plus tout seul.
+        if (payload.memberSupplierAccountRoot() != null) {
+            String root = payload.memberSupplierAccountRoot().isBlank()
+                    ? null : payload.memberSupplierAccountRoot().trim();
+            if (!java.util.Objects.equals(root, t.preferences.memberSupplierAccountRoot())) {
+                diffs.put("memberSupplierAccountRoot", new java.util.HashMap<>(Map.of(
+                        "from", String.valueOf(t.preferences.memberSupplierAccountRoot()),
+                        "to", String.valueOf(root))));
+                t.preferences.memberSupplierAccountRoot = root;
+            }
         }
         if (payload.delegatePayableAccount() != null && !payload.delegatePayableAccount().isBlank()
                 && !payload.delegatePayableAccount().equals(t.preferences.delegatePayableAccount())) {

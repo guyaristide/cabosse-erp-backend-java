@@ -175,6 +175,7 @@ public final class TenantMapper {
                 entity.preferences.collectionAdvanceAccount(),
                 entity.preferences.collectionCommissionAccount(),
                 entity.preferences.producerPayableAccount(),
+                entity.preferences.memberSupplierAccountRoot(),
                 entity.preferences.delegatePayableAccount(),
                 entity.preferences.producerReferenceCodeType,
                 entity.preferences.memberCreditApprovalThreshold(),

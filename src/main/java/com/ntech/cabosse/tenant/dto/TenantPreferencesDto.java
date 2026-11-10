@@ -127,6 +127,9 @@ public record TenantPreferencesDto(
         String collectionAdvanceAccount,
         String collectionCommissionAccount,
         String producerPayableAccount,
+        @Schema(description = "Racine sous laquelle le compte auxiliaire de chaque sociétaire s'ouvre d'office ; vide tant que la structure ne l'a pas choisie.",
+                example = "4011100000")
+        String memberSupplierAccountRoot,
         String delegatePayableAccount,
 
         @Schema(description = "Type de code externe producteur qui fait référence (ex. « Code CCC »).",

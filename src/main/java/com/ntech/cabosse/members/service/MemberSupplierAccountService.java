@@ -47,6 +47,10 @@ public class MemberSupplierAccountService {
     @Inject AuditService audit;
     @Inject TenantContext tenantContext;
     @Inject JsonWebToken jwt;
+    @Inject com.ntech.cabosse.tenant.service.TenantPreferencesLookup preferences;
+
+    private static final org.jboss.logging.Logger LOG =
+            org.jboss.logging.Logger.getLogger(MemberSupplierAccountService.class);
 
     /** Ce qui attend : les sociétaires dont le miroir n'a pas encore de compte. */
     public record Pending(long members, long withoutAccount) {}
@@ -80,13 +84,7 @@ public class MemberSupplierAccountService {
                 already++;
                 continue;
             }
-            String number = SubAccountNumbering.next(root, taken).orElseThrow(
-                    () -> new BusinessException(Messages.msg("m.acc-chart-sub-account-exhausted", root)));
-            chartService.create(new ChartAccountUpsertDto(number, "Producteur " + m.name));
-            taken.add(number);
-            s.subsidiaryAccount = number;
-            s.updatedAt = Instant.now();
-            suppliers.replace(s);
+            openOne(m, s, root, taken);
             opened++;
         }
         // Chaque compte ouvert laisse sa propre ligne via chartService.create ;
@@ -100,6 +98,36 @@ public class MemberSupplierAccountService {
                 .payload(Map.of("opened", opened, "alreadyOpen", already, "root", root))
                 .record();
         return new Opened(opened, already, root);
+    }
+
+    /**
+     * Le compte du sociétaire, d'office, dans le même geste que son miroir
+     * (CPT-36, demandé le 10/11/2026). Seulement si la structure a choisi
+     * la racine : sans elle, la fiche reste à ouvrir depuis les Paramètres,
+     * qui disent combien attendent. Ne fait jamais échouer la création du
+     * sociétaire : une racine absente du plan se constate, elle ne bloque pas.
+     */
+    public void openFor(MemberEntity m, SupplierEntity s) {
+        String root = preferences.current().memberSupplierAccountRoot();
+        if (root == null) return;
+        if (s.subsidiaryAccount != null && !s.subsidiaryAccount.isBlank()) return;
+        if (!chart.numberExists(root)) {
+            LOG.warnf("Racine %s absente du plan : pas de compte ouvert pour le sociétaire %s", root, m.code);
+            return;
+        }
+        Set<String> taken = new HashSet<>(chart.numbersStartingWith(SubAccountNumbering.prefixOf(root)));
+        openOne(m, s, root, taken);
+    }
+
+    private void openOne(MemberEntity m, SupplierEntity s, String root, Set<String> taken) {
+        String number = SubAccountNumbering.next(root, taken).orElseThrow(
+                () -> new BusinessException(Messages.msg("m.acc-chart-sub-account-exhausted", root)));
+        chartService.create(new ChartAccountUpsertDto(number, "Producteur " + m.name));
+        taken.add(number);
+        s.subsidiaryAccount = number;
+        if (s.collectiveAccount == null || s.collectiveAccount.isBlank()) s.collectiveAccount = root;
+        s.updatedAt = Instant.now();
+        suppliers.replace(s);
     }
 
     private String actor() {

@@ -163,6 +163,11 @@ public record UpdateTenantPreferencesPayloadDto(
                 message = "{v.compte-de-dette-producteur-2-a-8-chiffres}")
         @Schema(description = "Compte de dette envers les producteurs (reliquats).")
         String producerPayableAccount,
+
+        @jakarta.validation.constraints.Pattern(regexp = "^$|^[0-9]{2,20}$",
+                message = "{v.racine-comptes-societaires-2-a-20-chiffres}")
+        @Schema(description = "Racine des comptes auxiliaires des sociétaires ; vide pour ne plus rien ouvrir d'office.")
+        String memberSupplierAccountRoot,
         String delegatePayableAccount,
 
         @jakarta.validation.constraints.Size(max = 60, message = "{v.type-de-code-trop-long}")
