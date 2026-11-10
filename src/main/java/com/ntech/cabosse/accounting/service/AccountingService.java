@@ -89,6 +89,7 @@ public class AccountingService {
     @Inject com.ntech.cabosse.article.repository.ArticleRepository articles;
     @Inject com.ntech.cabosse.customer.repository.CustomerRepository customersRepo;
     @Inject com.ntech.cabosse.supplier.repository.SupplierRepository suppliersRepo;
+    @Inject com.ntech.cabosse.members.repository.MemberRepository membersRepo;
     @Inject com.ntech.cabosse.analytics.repository.CostCenterRepository costCenters;
     @Inject com.ntech.cabosse.analytics.repository.AllocationKeyRepository allocationKeys;
     @Inject AuditService audit;
@@ -735,6 +736,24 @@ public class AccountingService {
                 .map(x -> partyAccount(x.subsidiaryAccount, x.collectiveAccount,
                         SyscohadaAccounts.FOURNISSEURS))
                 .orElse(SyscohadaAccounts.FOURNISSEURS);
+    }
+
+    /**
+     * Le compte dû à un sociétaire : celui de son fournisseur miroir (son
+     * auxiliaire, sinon son collectif), à défaut seulement le compte donné.
+     *
+     * <p>Le reçu d'un sociétaire ne pose que le sociétaire, pas le miroir ;
+     * en ne regardant que le fournisseur posé, la dette tombait sur le
+     * collectif des producteurs alors que la fiche portait son 401101, et
+     * la balance auxiliaire restait vide (relevé le 10/11/2026, CPT-35).</p>
+     */
+    public String memberPayableAccount(UUID memberId, String fallback) {
+        if (memberId == null) return fallback;
+        return membersRepo.findById(memberId)
+                .map(m -> m.supplierId)
+                .flatMap(suppliersRepo::findById)
+                .map(x -> partyAccount(x.subsidiaryAccount, x.collectiveAccount, fallback))
+                .orElse(fallback);
     }
 
     public record PurchaseLeg(String account, String label, BigDecimal amount) {}

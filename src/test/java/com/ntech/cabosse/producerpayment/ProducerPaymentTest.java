@@ -382,5 +382,49 @@ class ProducerPaymentTest extends AbstractIntegrationTest {
                 .then().statusCode(200)
                 .body("data.amountPaid", equalTo(0));
     }
-}
 
+    /**
+     * Le reçu d'un sociétaire sans délégué et son règlement passent par le
+     * compte auxiliaire de sa fiche, pas par le collectif des producteurs
+     * (CPT-35, relevé sur la démo le 10/11/2026 : 401100 alors que la fiche
+     * portait 401101).
+     */
+    @Test
+    void a_member_delivery_without_delegate_is_owed_on_its_own_account() {
+        UserEntity admin = tenantAdmin();
+        givenAs(admin).contentType("application/json")
+                .body("{ \"number\": \"401110\", \"label\": \"Fournisseurs : producteurs membres\" }")
+                .when().post("/api/v1/accounting/chart").then().statusCode(201);
+        givenAs(admin).contentType("application/json")
+                .body("{ \"memberSupplierAccountRoot\": \"401110\" }")
+                .when().put("/api/v1/me/tenant/preferences").then().statusCode(200);
+        String memberId = createProducer(admin, "Assi");
+        String siteId = createSite(admin);
+        String articleId = createArticle(admin);
+
+        String purchaseId = unpaidReceipt(admin, memberId, articleId, siteId, 300, 1000, null);
+        String purchaseRef = givenAs(admin).when().get("/api/v1/producer-purchases/" + purchaseId)
+                .then().statusCode(200).extract().path("data.ref");
+
+        givenAs(admin).when().get("/api/v1/accounting/journal?q=" + purchaseRef + "&perPage=50")
+                .then().statusCode(200)
+                .body("data.items.find { it.sourceType == 'PRODUCER_PURCHASE' }"
+                        + ".entries.findAll { it.credit != null && it.credit > 0 }.syscohadaAccount",
+                        org.hamcrest.Matchers.contains("401111"));
+
+        String paymentRef = givenAs(admin).contentType("application/json")
+                .body("""
+                        { "memberId": "%s", "paymentMethod": "BANK_TRANSFER", "date": "%s",
+                          "allocations": [ { "purchaseId": "%s", "amount": 300000 } ] }
+                        """.formatted(memberId, LocalDate.now(), purchaseId))
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                .when().post("/api/v1/producer-payments")
+                .then().statusCode(201).extract().path("data.ref");
+
+        givenAs(admin).when().get("/api/v1/accounting/journal?q=" + paymentRef + "&perPage=50")
+                .then().statusCode(200)
+                .body("data.items.find { it.sourceType == 'PRODUCER_PAYMENT' }"
+                        + ".entries.findAll { it.debit != null && it.debit > 0 }.syscohadaAccount",
+                        org.hamcrest.Matchers.contains("401111"));
+    }
+}

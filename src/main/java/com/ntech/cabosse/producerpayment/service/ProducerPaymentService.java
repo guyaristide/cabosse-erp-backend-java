@@ -258,7 +258,7 @@ public class ProducerPaymentService {
             // individuelle du fournisseur ne se solderait jamais.
             String debtAccount = toDelegate ? prefs.delegatePayableAccount()
                     : toSupplier ? accounting.supplierAccount(p.supplierId())
-                    : prefs.producerPayableAccount();
+                    : accounting.memberPayableAccount(e.memberId, prefs.producerPayableAccount());
             e.bankFees = (p.bankFees() != null && p.bankFees().signum() > 0)
                     ? p.bankFees() : null;
             accounting.postFromProducerPayment(e.id, e.ref, beneficiaryName,

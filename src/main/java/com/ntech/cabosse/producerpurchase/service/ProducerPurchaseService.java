@@ -483,6 +483,8 @@ public class ProducerPurchaseService {
         // jamais, le règlement débitant un compte que le reçu n'a pas
         // crédité.
         String payableAccount = delegate != null ? prefs.delegatePayableAccount()
+                : e.memberId != null
+                        ? accounting.memberPayableAccount(e.memberId, prefs.producerPayableAccount())
                 : e.supplierId != null ? accounting.supplierAccount(e.supplierId)
                 : prefs.producerPayableAccount();
         AccountingService.PurchaseLeg payable = new AccountingService.PurchaseLeg(
