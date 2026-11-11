@@ -14,11 +14,22 @@ import java.util.UUID;
  * Utilisateur authentifiable dans Cabosse ERP. Vit dans le plan contrôle
  * ({@code cabosse_control.users}).
  *
- * <p>Un utilisateur appartient à <strong>exactement un tenant</strong>,
- * porté par {@link #tenantId}. Cas particulier : les super-admins
- * plateforme (rôle {@code PLATFORM_ADMIN}) sont rattachés à un tenant
- * technique "NEIBA Internal" ou laissent {@code tenantId = null}, à
- * arbitrer côté politique de comptes.</p>
+ * <p>Un compte est une <strong>identité</strong> : adresse, nom, mot de
+ * passe, langue, statut global. Ce qu'il peut faire dans une structure
+ * vit dans son appartenance ({@link MembershipEntity}, une par structure,
+ * SAAS-29) : une même personne peut administrer une entreprise et
+ * travailler dans une autre du même groupe, avec un seul compte.</p>
+ *
+ * <p>{@link #tenantId} désigne sa <strong>structure d'origine</strong> :
+ * celle que la connexion propose à défaut d'une dernière structure
+ * visitée, et dont l'appartenance est sous-entendue tant qu'aucun
+ * document ne l'a écrite. Les champs {@link #roles} (hors rôle de
+ * plateforme), {@link #tenantRoleIds}, {@link #allowedSiteIds},
+ * {@link #permissionExceptions} et le statut {@code DISABLED} ne servent
+ * plus qu'à cette matérialisation : une fois l'appartenance écrite, c'est
+ * elle qui fait foi et ces champs ne sont plus relus. Les super-admins
+ * plateforme (rôle {@code PLATFORM_ADMIN}, porté par le compte) restent
+ * rattachés au tenant technique « platform ».</p>
  *
  * <p>Le mot de passe est stocké hashé (BCrypt), jamais en clair. Le hash
  * n'est <strong>jamais</strong> renvoyé dans une API ({@code UserResponseDto}
@@ -45,7 +56,7 @@ public class UserEntity extends PanacheMongoEntityBase {
     /** Hash BCrypt du mot de passe. Jamais sérialisé en JSON. */
     public String passwordHash;
 
-    /** Tenant de rattachement. Null pour les super-admins plateforme. */
+    /** Structure d'origine (voir la javadoc de classe). */
     public UUID tenantId;
 
     /**

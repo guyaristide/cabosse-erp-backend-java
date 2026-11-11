@@ -35,10 +35,10 @@ public class CashSupplyNotifier {
     private static final Logger LOG = Logger.getLogger(CashSupplyNotifier.class);
 
     /** Au-delà, on cesse de parcourir : une structure n'a pas mille comptes. */
-    private static final int MAX_USERS = 500;
 
     @Inject NotificationRouter router;
     @Inject UserRepository users;
+    @Inject com.ntech.cabosse.user.service.MembershipService memberships;
     @Inject PermissionResolver permissions;
     @Inject TenantContext tenantContext;
 
@@ -90,7 +90,7 @@ public class CashSupplyNotifier {
      * au-devant d'un refus.
      */
     private List<UserEntity> holders(UUID tenantId, Permission right, UUID exclude) {
-        return users.findByTenant(tenantId, 0, MAX_USERS).stream()
+        return memberships.usersOf(tenantId).stream()
                 .filter(u -> u.status == UserStatus.ACTIVE)
                 .filter(u -> u.email != null && !u.email.isBlank())
                 .filter(u -> exclude == null || !u.id.equals(exclude))

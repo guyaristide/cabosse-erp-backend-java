@@ -5,7 +5,6 @@ import com.ntech.cabosse.notification.entity.NotificationUsage;
 import com.ntech.cabosse.shared.i18n.Locales;
 import com.ntech.cabosse.tenant.service.TenantPreferencesLookup;
 import com.ntech.cabosse.user.entity.UserEntity;
-import com.ntech.cabosse.user.entity.UserStatus;
 import com.ntech.cabosse.user.repository.UserRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -44,11 +43,11 @@ import java.util.function.Function;
 public class NotificationRouter {
 
     /** Au-delà, on cesse de parcourir : une structure n'a pas mille comptes. */
-    private static final int MAX_USERS = 500;
 
     @Inject NotificationQueue queue;
     @Inject NotificationRuleService rules;
     @Inject UserRepository users;
+    @Inject com.ntech.cabosse.user.service.MembershipService memberships;
     @Inject TenantPreferencesLookup preferences;
     @Inject com.ntech.cabosse.shared.tenant.TenantContext tenantContext;
 
@@ -121,8 +120,9 @@ public class NotificationRouter {
      * aussi le directeur qui le porte légitimement.</p>
      */
     private boolean isTenantAdmin(UserEntity user) {
-        return user.roles != null
-                && user.roles.contains(com.ntech.cabosse.shared.security.Roles.TENANT_ADMIN);
+        return memberships.resolve(user, tenantContext.tenantId())
+                .map(com.ntech.cabosse.user.entity.MembershipEntity::isTenantAdmin)
+                .orElse(false);
     }
 
     /** Les comptes actifs des profils retenus, exclusions de gouvernance comprises. */
@@ -130,11 +130,13 @@ public class NotificationRouter {
         List<UserEntity> out = new ArrayList<>();
         UUID tenantId = tenantContext.tenantId();
         if (tenantId == null) return out;
-        for (UserEntity user : users.findByTenant(tenantId, 0, MAX_USERS)) {
-            if (user.status != UserStatus.ACTIVE) continue;
+        var byUser = memberships.membershipsByUserOf(tenantId);
+        for (UserEntity user : memberships.usersOf(tenantId)) {
+            var membership = byUser.get(user.id);
+            if (!com.ntech.cabosse.user.service.MembershipService.canEnter(user, membership)) continue;
             if (excludedUserIds != null && excludedUserIds.contains(user.id)) continue;
-            if (user.tenantRoleIds == null) continue;
-            boolean member = roleIds.stream().anyMatch(user.tenantRoleIds::contains);
+            if (membership.tenantRoleIds == null) continue;
+            boolean member = roleIds.stream().anyMatch(membership.tenantRoleIds::contains);
             if (member) out.add(user);
         }
         return out;

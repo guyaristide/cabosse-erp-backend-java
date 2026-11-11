@@ -32,8 +32,9 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
  * implicitement : un mauvais token sur {@code /refresh} ou {@code /logout}
  * retourne {@code 401}, géré côté service.
  *
- * <p>Trois endpoints :</p>
+ * <p>Quatre endpoints :</p>
  * <ul>
+ *   <li>{@code POST /switch-tenant} — ouvre une session sur une autre structure du compte (SAAS-29).</li>
  *   <li>{@code POST /login} — échange e-mail+mdp contre un couple access + refresh.</li>
  *   <li>{@code POST /refresh} — échange un refresh token valide contre un nouveau couple.</li>
  *   <li>{@code POST /logout} — révoque le refresh token courant (idempotent).</li>
@@ -47,6 +48,7 @@ public class AuthResource {
 
     @Inject AuthService authService;
     @Inject com.ntech.cabosse.auth.service.LoginThrottle throttle;
+    @Inject com.ntech.cabosse.shared.tenant.TenantContext tenantContext;
 
     @POST
     @Path("/login")
@@ -127,6 +129,27 @@ public class AuthResource {
             @Context HttpServerRequest http
     ) {
         LoginResponseDto body = authService.redeemInvitation(request, userAgent, clientIp(http));
+        return Response.ok(ApiResponse.ok(body)).build();
+    }
+
+    @POST
+    @Path("/switch-tenant")
+    @io.quarkus.security.Authenticated
+    @Operation(summary = "Passer dans une autre structure",
+            description = "Émet un nouveau couple (accessToken, refreshToken) pour une structure "
+                    + "où le compte connecté a une appartenance ouverte, sans se reconnecter. "
+                    + "Le refresh token présenté est fermé.")
+    @APIResponse(responseCode = "200", description = "Session ouverte sur la structure visée",
+            content = @Content(schema = @Schema(implementation = LoginResponseDto.class)))
+    @APIResponse(responseCode = "401", description = "Compte non actif")
+    @APIResponse(responseCode = "404", description = "Structure inaccessible à ce compte")
+    public Response switchTenant(
+            @Valid @RequestBody com.ntech.cabosse.auth.dto.SwitchTenantRequestDto request,
+            @HeaderParam(HttpHeaders.USER_AGENT) String userAgent,
+            @Context HttpServerRequest http
+    ) {
+        LoginResponseDto body = authService.switchTenant(
+                tenantContext.userId(), request, userAgent, clientIp(http));
         return Response.ok(ApiResponse.ok(body)).build();
     }
 

@@ -32,6 +32,8 @@ public enum AuditEventType {
 
     // === Utilisateurs / invitations ===
     INVITATION_SENT,
+    /** Un compte déjà connu reçoit l'accès à une structure de plus (SAAS-29). */
+    USER_ADDED_TO_TENANT,
     PASSWORD_RESET_REQUESTED,
     PASSWORD_CHANGED,
     USER_DISABLED,
@@ -183,6 +185,8 @@ public enum AuditEventType {
     // === Journaux et sécurité (SEC-16, 27/10/2026) ===
     LOGS_ARCHIVE_DOWNLOADED,
     SESSION_ENDED,
+    /** Passage d'une structure à une autre sans reconnexion (SAAS-29). */
+    TENANT_SWITCHED,
     DATA_IMPORTED,
     ATTACHMENT_ADDED,
     ATTACHMENT_REMOVED,
@@ -271,7 +275,7 @@ public enum AuditEventType {
             case TENANT_PLAN_CHANGED, TENANT_LICENSE_EXPIRING -> AuditCategory.BILLING;
             case CASH_FORECAST_FILED, CASH_FORECAST_SUBMITTED,
                  CASH_FORECAST_APPROVED, CASH_FORECAST_REJECTED -> AuditCategory.OPERATIONS;
-            case INVITATION_SENT, PASSWORD_RESET_REQUESTED, PASSWORD_CHANGED,
+            case INVITATION_SENT, USER_ADDED_TO_TENANT, PASSWORD_RESET_REQUESTED, PASSWORD_CHANGED,
                  USER_DISABLED, USER_REACTIVATED, ROLE_GRANTED, ROLE_REVOKED,
                  TENANT_ROLE_CHANGED, USER_ROLES_CHANGED -> AuditCategory.USER;
             case LOGIN_SUCCEEDED, AUTHENTICATION_FAILED, PERMISSION_DENIED,
@@ -326,7 +330,7 @@ public enum AuditEventType {
                  SALE_PAYMENT_RECEIVED, SALE_PAYMENT_REVERTED, SALE_CANCELLED
                  -> AuditCategory.OPERATIONS;
             case DATA_EXPORTED -> AuditCategory.OPERATIONS;
-            case LOGS_ARCHIVE_DOWNLOADED, SESSION_ENDED -> AuditCategory.SECURITY;
+            case LOGS_ARCHIVE_DOWNLOADED, SESSION_ENDED, TENANT_SWITCHED -> AuditCategory.SECURITY;
             case DATA_IMPORTED, ATTACHMENT_ADDED, ATTACHMENT_REMOVED,
                  EXECUTION_REQUESTED -> AuditCategory.OPERATIONS;
             case SUB_ACCOUNT_CREATED, MEMBER_ACCOUNTS_OPENED, JOURNAL_PIECE_REVERSED,

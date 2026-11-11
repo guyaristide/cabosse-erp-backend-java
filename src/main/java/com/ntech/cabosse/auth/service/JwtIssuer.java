@@ -35,22 +35,31 @@ public class JwtIssuer {
     @jakarta.inject.Inject
     com.ntech.cabosse.shared.config.ApplicationConfig config;
 
+    @jakarta.inject.Inject
+    com.ntech.cabosse.user.service.MembershipService memberships;
+
     /**
      * Émet un access token standard pour un user authentifié.
      *
+     * <p>Les groupes viennent de l'appartenance du compte à cette structure
+     * (SAAS-29) : la même personne peut être administratrice ici et simple
+     * utilisatrice ailleurs. Le rôle de plateforme, lui, suit le compte.</p>
+     *
      * @param user   user (control plane)
-     * @param tenant tenant du user
+     * @param tenant structure pour laquelle le jeton est émis
      * @return access token signé
      */
     public IssuedToken issueAccessToken(UserEntity user, TenantEntity tenant) {
         Instant expiresAt = Instant.now().plus(ACCESS_TOKEN_TTL);
+        java.util.Set<String> groups = memberships.groupsFor(user,
+                memberships.resolve(user, tenant.id).orElse(null));
         String currency = tenant.preferences != null && tenant.preferences.currency != null
                 ? tenant.preferences.currency
                 : "XOF";
         String jwt = Jwt.issuer(config.jwtIssuer())
                 .subject(user.id.toString())
                 .upn(user.email)
-                .groups(user.roles)
+                .groups(groups)
                 .claim(JwtClaims.TENANT_ID, tenant.id.toString())
                 .claim(JwtClaims.TENANT_DATABASE_NAME, tenant.databaseName)
                 .claim(JwtClaims.TENANT_CURRENCY, currency)
@@ -78,7 +87,8 @@ public class JwtIssuer {
         String jwt = Jwt.issuer(config.jwtIssuer())
                 .subject(targetUser.id.toString())
                 .upn(targetUser.email)
-                .groups(targetUser.roles)
+                .groups(memberships.groupsFor(targetUser,
+                        memberships.resolve(targetUser, targetTenant.id).orElse(null)))
                 .claim(JwtClaims.TENANT_ID, targetTenant.id.toString())
                 .claim(JwtClaims.TENANT_DATABASE_NAME, targetTenant.databaseName)
                 .claim(JwtClaims.TENANT_CURRENCY, currency)

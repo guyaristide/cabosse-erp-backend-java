@@ -11,9 +11,11 @@ import com.ntech.cabosse.tenant.service.InvitationTokenService;
 import com.ntech.cabosse.shared.tenant.TenantStatus;
 import com.ntech.cabosse.tenant.entity.TenantEntity;
 import com.ntech.cabosse.tenant.repository.TenantRepository;
+import com.ntech.cabosse.user.entity.MembershipEntity;
 import com.ntech.cabosse.user.entity.UserEntity;
 import com.ntech.cabosse.user.entity.UserStatus;
 import com.ntech.cabosse.user.repository.UserRepository;
+import com.ntech.cabosse.user.service.MembershipService;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
@@ -27,7 +29,9 @@ import java.util.UUID;
  *   <li>recherche du user par e-mail,</li>
  *   <li>vérification du hash de mot de passe,</li>
  *   <li>contrôle du statut user (refus si {@code INVITED} ou {@code DISABLED}),</li>
- *   <li>chargement et contrôle du tenant ({@code ACTIVE} obligatoire),</li>
+ *   <li>choix de la structure ouverte : la dernière visitée, à défaut celle
+ *       d'origine, à défaut la première où la porte est ouverte (SAAS-29),
+ *       sur une structure {@code ACTIVE} obligatoirement,</li>
  *   <li>émission du JWT,</li>
  *   <li>mise à jour de {@code lastLoginAt} sur le user.</li>
  * </ol>
@@ -53,6 +57,7 @@ public class AuthService {
     @Inject JwtIssuer jwtIssuer;
     @Inject RefreshTokenService refreshTokens;
     @Inject InvitationTokenService invitationTokens;
+    @Inject MembershipService memberships;
     @Inject com.ntech.cabosse.shared.audit.AuditService audit;
     @Inject Logger log;
 
@@ -77,12 +82,9 @@ public class AuthService {
             throw new UnauthorizedException(Messages.msg(GENERIC_ERROR_KEY));
         }
 
-        TenantEntity tenant = tenants.findById(user.tenantId);
-        if (tenant == null || tenant.status != TenantStatus.ACTIVE) {
-            log.infof("Login refused for %s: tenant=%s status=%s",
-                    user.email,
-                    tenant != null ? tenant.id : "null",
-                    tenant != null ? tenant.status : "null");
+        TenantEntity tenant = memberships.loginTenantFor(user).orElse(null);
+        if (tenant == null) {
+            log.infof("Login refused for %s: no enterable tenant", user.email);
             recordLoginFailure(user.email, user.tenantId, "tenant_inactive", ipAddress);
             throw new UnauthorizedException(Messages.msg(GENERIC_ERROR_KEY));
         }
@@ -132,6 +134,12 @@ public class AuthService {
         TenantEntity tenant = tenants.findById(rotated.tenantId());
         if (tenant == null || tenant.status != TenantStatus.ACTIVE) {
             throw new UnauthorizedException(Messages.msg("m.aut-tenant-not-active"));
+        }
+        // La porte de cette structure a pu se fermer entre deux
+        // rafraîchissements : un compte désactivé ici garde ses autres
+        // structures, mais pas celle-ci.
+        if (memberships.resolve(user, tenant.id).filter(MembershipEntity::isActive).isEmpty()) {
+            throw new UnauthorizedException(Messages.msg("m.aut-account-not-active"));
         }
 
         // L'access token vient d'être ré-émis pour ce couple — on le construit
@@ -204,10 +212,9 @@ public class AuthService {
             throw new UnauthorizedException(Messages.msg("m.aut-invitation-link-expired"));
         }
 
-        TenantEntity tenant = tenants.findById(user.tenantId);
-        if (tenant == null || tenant.status != TenantStatus.ACTIVE) {
-            log.warnf("Redeem refused for %s: tenant inactive (%s)", user.email,
-                    tenant != null ? tenant.status : "null");
+        TenantEntity tenant = memberships.loginTenantFor(user).orElse(null);
+        if (tenant == null) {
+            log.warnf("Redeem refused for %s: no enterable tenant", user.email);
             throw new BusinessException(Messages.msg("m.aut-account-tenant-not-active"));
         }
 
@@ -230,6 +237,49 @@ public class AuthService {
         return issueTokens(user, tenant, userAgent, ipAddress);
     }
 
+    /**
+     * Passe dans une autre structure sans se reconnecter (SAAS-29).
+     *
+     * <p>Le compte doit y avoir une appartenance ouverte et la structure
+     * doit être active ; sinon, elle n'existe pas pour lui. Le jeton de
+     * rafraîchissement de la structure quittée est fermé quand le client
+     * le présente, et un couple neuf est émis pour la structure visée :
+     * chaque session ne vaut que pour une structure.</p>
+     */
+    public LoginResponseDto switchTenant(UUID userId, com.ntech.cabosse.auth.dto.SwitchTenantRequestDto request,
+                                         String userAgent, String ipAddress) {
+        UserEntity user = users.findById(userId);
+        if (user == null || user.status != UserStatus.ACTIVE) {
+            throw new UnauthorizedException(Messages.msg("m.aut-account-not-active"));
+        }
+        TenantEntity tenant = tenants.findById(request.tenantId());
+        MembershipEntity membership = memberships.resolve(user, request.tenantId()).orElse(null);
+        if (tenant == null || tenant.status != TenantStatus.ACTIVE
+                || membership == null || !membership.isActive()) {
+            throw new com.ntech.cabosse.shared.exception.NotFoundException(
+                    Messages.msg("m.aut-tenant-not-accessible"));
+        }
+
+        if (request.refreshToken() != null && !request.refreshToken().isBlank()) {
+            var presented = refreshTokens.peek(request.refreshToken()).orElse(null);
+            // On ne ferme que sa propre session : un jeton d'un autre
+            // compte, présenté par erreur ou par malice, reste intact.
+            if (presented != null && userId.equals(presented.userId)) {
+                refreshTokens.revoke(request.refreshToken(), "tenant_switch");
+            }
+        }
+
+        memberships.touchLastUsed(membership);
+        audit.event(com.ntech.cabosse.shared.audit.AuditEventType.TENANT_SWITCHED)
+                .actor(user.email, user.id)
+                .target("user", user.id.toString(), user.email)
+                .tenant(tenant.id, tenant.name)
+                .description("Entrée de " + user.email + " dans « " + tenant.name + " »")
+                .ip(ipAddress)
+                .record();
+        return issueTokens(user, tenant, userAgent, ipAddress);
+    }
+
     // ─── Internals ───
 
     private LoginResponseDto issueTokens(UserEntity user, TenantEntity tenant,
@@ -237,6 +287,7 @@ public class AuthService {
         JwtIssuer.IssuedToken access = jwtIssuer.issueAccessToken(user, tenant);
         RefreshTokenService.IssuedRefreshToken refresh =
                 refreshTokens.issueNew(user.id, tenant.id, userAgent, ipAddress);
+        memberships.resolve(user, tenant.id).ifPresent(memberships::touchLastUsed);
         return new LoginResponseDto(
                 access.token(),
                 access.expiresAt(),
@@ -246,7 +297,7 @@ public class AuthService {
         );
     }
 
-    private static AuthenticatedUserDto authenticatedUserDto(UserEntity user, TenantEntity tenant) {
+    private AuthenticatedUserDto authenticatedUserDto(UserEntity user, TenantEntity tenant) {
         return new AuthenticatedUserDto(
                 user.id,
                 user.email,
@@ -254,8 +305,25 @@ public class AuthService {
                 user.lastName,
                 tenant.id,
                 tenant.name,
-                user.roles
+                memberships.groupsFor(user, memberships.resolve(user, tenant.id).orElse(null)),
+                accessibleTenants(user)
         );
+    }
+
+    /** Les structures où le compte peut entrer, pour le sélecteur. */
+    public java.util.List<com.ntech.cabosse.auth.dto.AccessibleTenantDto> accessibleTenants(UserEntity user) {
+        return memberships.enterableTenantsOf(user).stream()
+                .map(AuthService::accessibleTenant)
+                .toList();
+    }
+
+    public static com.ntech.cabosse.auth.dto.AccessibleTenantDto accessibleTenant(TenantEntity t) {
+        String logoUrl = t.branding != null && t.branding.logoFileId != null
+                ? "/api/v1/admin/tenants/" + t.id + "/logo" : null;
+        return new com.ntech.cabosse.auth.dto.AccessibleTenantDto(
+                t.id, t.name, logoUrl,
+                t.address != null ? t.address.city : null,
+                t.address != null ? t.address.country : null);
     }
 
     /** Utilitaire pour les callers qui n'ont pas besoin de l'objet UUID. */

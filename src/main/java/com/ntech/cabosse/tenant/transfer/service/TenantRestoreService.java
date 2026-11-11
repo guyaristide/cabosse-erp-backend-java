@@ -184,7 +184,19 @@ public class TenantRestoreService {
             while ((line = reader.readLine()) != null) {
                 if (line.isBlank()) continue;
                 Document d = Document.parse(line);
-                if (rebind != null) rebind(d, slice, rebind);
+                if (rebind != null) {
+                    rebind(d, slice, rebind);
+                    // Un compte déjà sur ce serveur est la même personne :
+                    // on ne le réécrit pas, son appartenance suffit (SAAS-29).
+                    if ("users".equals(slice.collection()) && d.get("_id") != null
+                            && destination.countDocuments(Filters.eq("_id", d.get("_id"))) > 0) {
+                        continue;
+                    }
+                    // Les appartenances sont neuves pour une structure neuve.
+                    if ("memberships".equals(slice.collection())) {
+                        d.put("_id", UuidCreator.getTimeOrderedEpoch());
+                    }
+                }
                 batch.add(d);
                 if (batch.size() >= 500) {
                     destination.insertMany(batch); written += batch.size(); batch.clear();
@@ -201,6 +213,12 @@ public class TenantRestoreService {
             d.put("_id", rebind.newTenantId());
             d.put("slug", rebind.slug());
             d.put("databaseName", rebind.databaseName());
+        } else if ("users".equals(slice.collection())) {
+            // Un compte originaire d'une autre structure garde son origine :
+            // il n'entre ici que par son appartenance (SAAS-29).
+            if (rebind.oldTenantId().equals(d.get(slice.tenantField()))) {
+                d.put(slice.tenantField(), rebind.newTenantId());
+            }
         } else {
             d.put(slice.tenantField(), rebind.newTenantId());
         }
@@ -302,6 +320,10 @@ public class TenantRestoreService {
                     Object id = Document.parse(line).get("_id");
                     if (id == null) continue;
                     if ("tenants".equals(slice.collection())) continue; // celui-là change d'identité
+                    // Un compte déjà là est la même personne, pas un doublon :
+                    // il est laissé tel quel à la copie (SAAS-29).
+                    if ("users".equals(slice.collection())) continue;
+                    if ("memberships".equals(slice.collection())) continue; // réécrites au nouveau tenant
                     if (control.getCollection(slice.collection())
                             .countDocuments(Filters.eq("_id", id)) > 0) {
                         throw new ConflictException(Messages.msg(

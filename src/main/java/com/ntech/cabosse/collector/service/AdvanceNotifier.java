@@ -36,10 +36,10 @@ public class AdvanceNotifier {
     private static final Logger LOG = Logger.getLogger(AdvanceNotifier.class);
 
     /** Au-delà, on cesse de parcourir : une structure n'a pas mille comptes. */
-    private static final int MAX_USERS = 500;
 
     @Inject NotificationRouter router;
     @Inject UserRepository users;
+    @Inject com.ntech.cabosse.user.service.MembershipService memberships;
     @Inject PermissionResolver permissions;
     @Inject TenantContext tenantContext;
 
@@ -171,7 +171,7 @@ public class AdvanceNotifier {
 
     /** Les comptes actifs qui portent ce droit, sauf celui qui a décidé. */
     private List<UserEntity> disbursers(UUID tenantId, UUID decidedBy, Permission right) {
-        return users.findByTenant(tenantId, 0, MAX_USERS).stream()
+        return memberships.usersOf(tenantId).stream()
                 .filter(u -> u.status == UserStatus.ACTIVE)
                 .filter(u -> u.email != null && !u.email.isBlank())
                 .filter(u -> decidedBy == null || !u.id.equals(decidedBy))
@@ -188,7 +188,7 @@ public class AdvanceNotifier {
      * l'enverrait au-devant d'un refus.</p>
      */
     private List<UserEntity> cashiers(UUID tenantId, CollectorAdvanceEntity advance) {
-        return users.findByTenant(tenantId, 0, MAX_USERS).stream()
+        return memberships.usersOf(tenantId).stream()
                 .filter(u -> u.status == UserStatus.ACTIVE)
                 .filter(u -> u.email != null && !u.email.isBlank())
                 .filter(u -> !u.id.equals(advance.approvedBy))
@@ -205,7 +205,7 @@ public class AdvanceNotifier {
      * d'yeux le lui refuserait de toute façon.</p>
      */
     private List<UserEntity> approvers(UUID tenantId, CollectorAdvanceEntity advance) {
-        return users.findByTenant(tenantId, 0, MAX_USERS).stream()
+        return memberships.usersOf(tenantId).stream()
                 .filter(u -> u.status == UserStatus.ACTIVE)
                 .filter(u -> u.email != null && !u.email.isBlank())
                 .filter(u -> !u.id.equals(advance.createdBy))

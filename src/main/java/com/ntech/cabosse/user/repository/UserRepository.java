@@ -16,6 +16,11 @@ import java.util.UUID;
  * <p>{@code findByEmail} est la voie d'entrée du flux d'authentification :
  * trouve le user par e-mail, puis vérifie le hash.</p>
  *
+ * <p>Tout ce qui est « les comptes d'une structure » passe par
+ * {@link com.ntech.cabosse.user.service.MembershipService} : depuis
+ * SAAS-29 un compte peut appartenir à plusieurs structures, et le champ
+ * {@code tenantId} du compte ne désigne plus que sa structure d'origine.</p>
+ *
  * <p>{@code streamAll()} hérité de {@code PanacheMongoRepositoryBase} —
  * utilisé par {@code ConstantsConsistencyCheck} pour vérifier que tous
  * les rôles assignés sont connus de {@code Roles}.</p>
@@ -31,24 +36,15 @@ public class UserRepository implements PanacheMongoRepositoryBase<UserEntity, UU
         return count("email", email) > 0;
     }
 
-    public List<UserEntity> findByTenant(UUID tenantId, int skip, int limit) {
-        return find("tenantId", Sort.ascending("email"), tenantId)
-                .page(skip / Math.max(limit, 1), limit)
-                .list();
-    }
-
-    public long countByTenant(UUID tenantId) {
-        return count("tenantId", tenantId);
-    }
-
     /**
-     * Comptes consommant un siège du plan : actifs et invités. Un compte
-     * désactivé libère sa place, sinon désactiver un ancien collaborateur
-     * ne servirait à rien face au plafond.
+     * Change la structure d'origine d'un compte, en update atomique. Sert
+     * au compte qui n'en avait pas encore et qu'une structure vient
+     * d'accueillir (SAAS-29).
      */
-    public long countActiveByTenant(UUID tenantId) {
-        return count("tenantId = ?1 and status != ?2", tenantId,
-                com.ntech.cabosse.user.entity.UserStatus.DISABLED);
+    public void setHomeTenant(UUID userId, UUID tenantId) {
+        mongoCollection().updateOne(
+                com.mongodb.client.model.Filters.eq("_id", userId),
+                com.mongodb.client.model.Updates.set("tenantId", tenantId));
     }
 
     /**
@@ -85,7 +81,4 @@ public class UserRepository implements PanacheMongoRepositoryBase<UserEntity, UU
         ).getModifiedCount() == 1;
     }
 
-    public void disableAllForTenant(UUID tenantId) {
-        update("status", UserStatus.DISABLED).where("tenantId", tenantId);
-    }
 }

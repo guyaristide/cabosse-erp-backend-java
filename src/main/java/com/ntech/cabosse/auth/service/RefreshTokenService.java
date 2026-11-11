@@ -170,6 +170,16 @@ public class RefreshTokenService {
         if (n > 0) log.infof("Revoked %d refresh token(s) of user %s (%s)", n, userId, reason);
     }
 
+    /**
+     * Coupe les sessions d'un compte sur une seule structure : fermer la
+     * porte d'une entreprise du groupe ne déconnecte pas des autres.
+     */
+    public void revokeAllForUserInTenant(UUID userId, UUID tenantId, String reason) {
+        long n = repo.revokeAllForUserInTenant(userId, tenantId, Instant.now(), reason);
+        if (n > 0) log.infof("Revoked %d refresh token(s) of user %s in tenant %s (%s)",
+                n, userId, tenantId, reason);
+    }
+
     // ─── Internals ───
 
     private IssuedRefreshToken persistNew(UUID userId, UUID tenantId, UUID familyId,

@@ -24,6 +24,12 @@ public final class TenantArchiveLayout {
      * Collections du plan de contrôle emportées, avec le champ qui les
      * rattache au tenant.
      *
+     * <p>Les comptes emportés sont ceux qui entrent dans la structure, leur
+     * structure d'origine fût-elle une autre (SAAS-29) ; à la
+     * restauration, un compte déjà présent sur le serveur est reconnu
+     * comme la même personne et laissé tel quel, seule son appartenance
+     * est posée.</p>
+     *
      * <p>Les jetons de rafraîchissement n'y sont pas, volontairement :
      * les restaurer ressusciterait des sessions ouvertes sur un autre
      * serveur. La trace d'audit y est, elle : une sauvegarde qui perd
@@ -32,6 +38,7 @@ public final class TenantArchiveLayout {
     public static final List<Slice> CONTROL_SLICES = List.of(
             new Slice("tenants", "_id"),
             new Slice("users", "tenantId"),
+            new Slice("memberships", "tenantId"),
             new Slice("subscriptions", "tenantId"),
             new Slice("support_tickets", "tenantId"),
             new Slice("cloud_files", "tenantId"),

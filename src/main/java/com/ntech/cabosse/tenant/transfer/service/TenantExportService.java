@@ -55,6 +55,7 @@ public class TenantExportService {
     private static final JsonWriterSettings JSON = JsonWriterSettings.builder().build();
 
     @Inject MongoClient mongoClient;
+    @Inject com.ntech.cabosse.user.service.MembershipService memberships;
     @Inject TenantRepository tenants;
     @Inject FileStorage files;
     @Inject BuildInfo buildInfo;
@@ -171,6 +172,12 @@ public class TenantExportService {
     private org.bson.conversions.Bson controlFilter(TenantArchiveLayout.Slice slice,
                                                     UUID tenantId, UUID logoFileId) {
         org.bson.conversions.Bson base = Filters.eq(slice.tenantField(), tenantId);
+        if (ControlPlane.Collections.USERS.equals(slice.collection())) {
+            // Les comptes qui entrent dans la structure, pas seulement
+            // ceux qui en sont originaires (SAAS-29).
+            List<UUID> members = memberships.membersOf(tenantId).stream().map(m -> m.userId).toList();
+            return members.isEmpty() ? base : Filters.or(base, Filters.in("_id", members));
+        }
         if (logoFileId == null
                 || !ControlPlane.Collections.CLOUD_FILES.equals(slice.collection())) {
             return base;

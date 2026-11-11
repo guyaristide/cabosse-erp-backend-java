@@ -76,6 +76,7 @@ public class TenantResetService {
     @Inject MongoClient mongoClient;
     @Inject TenantRepository tenants;
     @Inject UserRepository users;
+    @Inject com.ntech.cabosse.user.service.MembershipService memberships;
     @Inject TenantMigrationRunner migrationRunner;
     @Inject AuditService audit;
     @Inject JsonWebToken jwt;
@@ -156,7 +157,7 @@ public class TenantResetService {
             seedDefaultSite(databaseName);
         }
 
-        long remainingUsers = users.find("tenantId", tenantId).count();
+        long remainingUsers = memberships.countByTenant(tenantId);
         String keptLabel = keep == null || keep.isEmpty() ? "aucune famille" : keep.toString();
         log.warnf("Tenant %s reset to initial state by %s (%s conservée(s), %d documents restaurés, %d comptes conservés)",
                 tenant.slug, actor(), keptLabel, restoredDocuments, remainingUsers);

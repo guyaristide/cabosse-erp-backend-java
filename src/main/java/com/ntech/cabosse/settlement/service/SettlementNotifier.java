@@ -42,10 +42,10 @@ public class SettlementNotifier {
     private static final Logger LOG = Logger.getLogger(SettlementNotifier.class);
 
     /** Au-delà, on cesse de parcourir : une structure n'a pas mille comptes. */
-    private static final int MAX_USERS = 500;
 
     @Inject NotificationRouter router;
     @Inject UserRepository users;
+    @Inject com.ntech.cabosse.user.service.MembershipService memberships;
     @Inject PermissionResolver permissions;
     @Inject TenantContext tenantContext;
 
@@ -107,7 +107,7 @@ public class SettlementNotifier {
 
     /** Les comptes actifs qui portent ce droit, décideur exclu s'il y en a un. */
     private List<UserEntity> holdersOf(UUID tenantId, Permission right, UUID excluded) {
-        return users.findByTenant(tenantId, 0, MAX_USERS).stream()
+        return memberships.usersOf(tenantId).stream()
                 .filter(u -> u.status == UserStatus.ACTIVE)
                 .filter(u -> excluded == null || !u.id.equals(excluded))
                 .filter(u -> permissions.of(u, tenantId).contains(right))

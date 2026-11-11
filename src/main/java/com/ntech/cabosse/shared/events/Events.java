@@ -15,6 +15,8 @@ public final class Events {
 
     // === Cycle de vie tenant ===
     public static final String TENANT_PROVISIONED = "tenant.provisioned";
+    /** Un compte déjà connu vient d'être fait administrateur d'une structure neuve (SAAS-29). */
+    public static final String TENANT_ADMIN_ADOPTED = "tenant.admin-adopted";
     public static final String TENANT_SUSPENDED   = "tenant.suspended";
     public static final String TENANT_REACTIVATED = "tenant.reactivated";
     public static final String TENANT_DELETED     = "tenant.deleted";
