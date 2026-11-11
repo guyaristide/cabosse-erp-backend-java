@@ -19,6 +19,9 @@ import org.eclipse.microprofile.jwt.JsonWebToken;
 
 import java.time.Instant;
 import java.util.HashSet;
+import java.util.UUID;
+import java.util.List;
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.Set;
 
@@ -36,6 +39,12 @@ import java.util.Set;
  * <p>Rejouable : une fiche qui a déjà son compte est laissée telle
  * quelle. Les numéros se suivent comme à l'ouverture d'un sous-compte,
  * sans relire le plan à chaque fiche.</p>
+ *
+ * <p>Seuls les sociétaires <strong>avec parcelle</strong> comptent, le
+ * même critère que la liste des membres (demandé le 11/11/2026 : 4 174
+ * fiches, 4 131 producteurs avec parcelle, et seul ce dernier chiffre est
+ * juste). Un sociétaire sans parcelle n'apporte rien à la coopérative et
+ * n'a pas de dette à suivre ; son compte s'ouvre à sa première parcelle.</p>
  */
 @ApplicationScoped
 public class MemberSupplierAccountService {
@@ -48,6 +57,7 @@ public class MemberSupplierAccountService {
     @Inject TenantContext tenantContext;
     @Inject JsonWebToken jwt;
     @Inject com.ntech.cabosse.tenant.service.TenantPreferencesLookup preferences;
+    @Inject com.ntech.cabosse.agriculture.parcel.repository.ParcelRepository parcels;
 
     private static final org.jboss.logging.Logger LOG =
             org.jboss.logging.Logger.getLogger(MemberSupplierAccountService.class);
@@ -60,13 +70,27 @@ public class MemberSupplierAccountService {
 
     public Pending pending() {
         long total = 0, without = 0;
-        for (MemberEntity m : members.listAll()) {
-            if (m.supplierId == null) continue;
+        for (MemberEntity m : eligible()) {
             total++;
             SupplierEntity s = suppliers.findById(m.supplierId).orElse(null);
             if (s != null && (s.subsidiaryAccount == null || s.subsidiaryAccount.isBlank())) without++;
         }
         return new Pending(total, without);
+    }
+
+    /**
+     * Les sociétaires concernés : un miroir, au moins une parcelle non
+     * abandonnée, et pas convertis en fournisseur.
+     */
+    private List<MemberEntity> eligible() {
+        Set<UUID> owners = parcels.memberIdsWithParcels();
+        List<MemberEntity> out = new ArrayList<>();
+        for (MemberEntity m : members.listAll()) {
+            if (m.supplierId == null || m.convertedToSupplier) continue;
+            if (!owners.contains(m.id)) continue;
+            out.add(m);
+        }
+        return out;
     }
 
     public Opened openForMembers(String rootNumber) {
@@ -76,8 +100,7 @@ public class MemberSupplierAccountService {
         }
         Set<String> taken = new HashSet<>(chart.numbersStartingWith(SubAccountNumbering.prefixOf(root)));
         int opened = 0, already = 0;
-        for (MemberEntity m : members.listAll()) {
-            if (m.supplierId == null) continue;
+        for (MemberEntity m : eligible()) {
             SupplierEntity s = suppliers.findById(m.supplierId).orElse(null);
             if (s == null) continue;
             if (s.subsidiaryAccount != null && !s.subsidiaryAccount.isBlank()) {
@@ -101,16 +124,21 @@ public class MemberSupplierAccountService {
     }
 
     /**
-     * Le compte du sociétaire, d'office, dans le même geste que son miroir
-     * (CPT-36, demandé le 10/11/2026). Seulement si la structure a choisi
-     * la racine : sans elle, la fiche reste à ouvrir depuis les Paramètres,
-     * qui disent combien attendent. Ne fait jamais échouer la création du
-     * sociétaire : une racine absente du plan se constate, elle ne bloque pas.
+     * Le compte du sociétaire, d'office, à sa première parcelle (CPT-36,
+     * demandé le 10/11/2026 ; critère parcelle le 11/11/2026). Seulement si
+     * la structure a choisi la racine : sans elle, la fiche reste à ouvrir
+     * depuis les Paramètres, qui disent combien attendent. Ne fait jamais
+     * échouer la parcelle : une racine absente du plan se constate, elle ne
+     * bloque pas.
      */
-    public void openFor(MemberEntity m, SupplierEntity s) {
+    public void openForParcelOwner(UUID memberId) {
+        if (memberId == null) return;
         String root = preferences.current().memberSupplierAccountRoot();
         if (root == null) return;
-        if (s.subsidiaryAccount != null && !s.subsidiaryAccount.isBlank()) return;
+        MemberEntity m = members.findById(memberId).orElse(null);
+        if (m == null || m.supplierId == null || m.convertedToSupplier) return;
+        SupplierEntity s = suppliers.findById(m.supplierId).orElse(null);
+        if (s == null || (s.subsidiaryAccount != null && !s.subsidiaryAccount.isBlank())) return;
         if (!chart.numberExists(root)) {
             LOG.warnf("Racine %s absente du plan : pas de compte ouvert pour le sociétaire %s", root, m.code);
             return;

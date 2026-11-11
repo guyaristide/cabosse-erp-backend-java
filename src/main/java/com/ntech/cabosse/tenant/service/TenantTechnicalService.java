@@ -160,7 +160,9 @@ public class TenantTechnicalService {
             new MigrationDescriptor("create_import_files", "096", "neiba"),
             new MigrationDescriptor("backfill_intake_note_article", "097", "neiba"),
             new MigrationDescriptor("backfill_commodity_sale_campaign_kind", "098", "neiba"),
-            new MigrationDescriptor("recompute_commodity_settlement_totals", "099", "neiba")
+            new MigrationDescriptor("recompute_commodity_settlement_totals", "099", "neiba"),
+            new MigrationDescriptor("rename_doubtful_delegate_status", "100", "neiba"),
+            new MigrationDescriptor("open_member_supplier_accounts", "101", "neiba")
     );
 
     /** Fréquence de backup par plan tarifaire (cf. plans.json catalogue). */
