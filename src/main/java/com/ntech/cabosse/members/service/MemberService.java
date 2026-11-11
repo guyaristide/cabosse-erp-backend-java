@@ -75,7 +75,6 @@ public class MemberService {
     @Inject AuditService audit;
     @Inject AccountingService accounting;
     @Inject TenantPreferencesLookup preferences;
-    @Inject MemberSupplierAccountService memberAccounts;
     @Inject JsonWebToken jwt;
 
     private String actor() {
@@ -789,14 +788,9 @@ public class MemberService {
             }
         }
         suppliers.insert(s);
-        // Son compte auxiliaire dans le même geste, si la structure a
-        // choisi la racine (CPT-36). Un échec ici ne retire pas le miroir.
-        try {
-            memberAccounts.openFor(m, s);
-        } catch (RuntimeException ex) {
-            org.jboss.logging.Logger.getLogger(MemberService.class)
-                    .warnf(ex, "Compte auxiliaire non ouvert pour le sociétaire %s", m.code);
-        }
+        // Son compte auxiliaire ne s'ouvre pas ici mais à sa première
+        // parcelle (CPT-36, critère parcelle du 11/11/2026) : un sociétaire
+        // sans parcelle n'a pas de dette à suivre.
         return s;
     }
 

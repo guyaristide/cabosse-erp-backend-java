@@ -37,7 +37,11 @@ import java.util.UUID;
 @ApplicationScoped
 public class ParcelService {
 
+    private static final org.jboss.logging.Logger LOG =
+            org.jboss.logging.Logger.getLogger(ParcelService.class);
+
     @Inject ParcelRepository parcels;
+    @Inject com.ntech.cabosse.members.service.MemberSupplierAccountService memberAccounts;
     @Inject ParcelRefService refService;
     @Inject MemberRepository members;
     @Inject IdGenerator idGenerator;
@@ -216,6 +220,14 @@ public class ParcelService {
                 members.replace(m);
             }
         });
+        // Sa première parcelle lui ouvre son compte fournisseur, si la
+        // structure a choisi la racine (CPT-36). Un échec ici ne retire
+        // pas la parcelle.
+        try {
+            memberAccounts.openForParcelOwner(memberId);
+        } catch (RuntimeException ex) {
+            LOG.warnf(ex, "Compte auxiliaire non ouvert pour le sociétaire %s", memberId);
+        }
     }
 
     private void removeFromMember(UUID memberId, UUID parcelId) {

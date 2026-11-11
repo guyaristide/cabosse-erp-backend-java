@@ -43,6 +43,15 @@ class ProducerPaymentTest extends AbstractIntegrationTest {
         TenantEntity tenant = fixtures.createActiveTenant(
                 "coop-regl-" + TestFixtures.randomSlugSuffix(), "Coopérative Règlements");
         tenant.organizationModel = TenantOrganizationModel.COOPERATIVE;
+        // Une activité agricole : le compte du sociétaire s'ouvre à sa
+        // première parcelle (critère du 11/11/2026).
+        tenant.activities = new java.util.ArrayList<>();
+        com.ntech.cabosse.tenant.entity.TenantActivity activity =
+                new com.ntech.cabosse.tenant.entity.TenantActivity();
+        activity.code = "cacao-production";
+        activity.label = "Production de cacao";
+        activity.isPrimary = true;
+        tenant.activities.add(activity);
         tenants.update(tenant);
 
         UserEntity u = new UserEntity();
@@ -399,6 +408,13 @@ class ProducerPaymentTest extends AbstractIntegrationTest {
                 .body("{ \"memberSupplierAccountRoot\": \"401110\" }")
                 .when().put("/api/v1/me/tenant/preferences").then().statusCode(200);
         String memberId = createProducer(admin, "Assi");
+        // Sa première parcelle lui ouvre son compte 401111.
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "name": "Parcelle Assi", "surfaceHa": 1, "gpsCenter": [-4.02, 5.23],
+                          "memberId": "%s", "status": "ACTIVE" }
+                        """.formatted(memberId))
+                .when().post("/api/v1/parcels").then().statusCode(201);
         String siteId = createSite(admin);
         String articleId = createArticle(admin);
 

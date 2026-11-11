@@ -67,6 +67,21 @@ public class M101_OpenMemberSupplierAccounts {
             if (n != null) taken.add(n);
         }
 
+        // Seuls les sociétaires avec parcelle non abandonnée, et non
+        // convertis en fournisseur : le même critère que la liste des
+        // membres (11/11/2026).
+        Set<Object> owners = new HashSet<>();
+        for (Document p : database.getCollection("parcels")
+                .find(Filters.ne("status", "ABANDONED"))
+                .projection(Projections.include("memberId"))) {
+            if (p.get("memberId") != null) owners.add(p.get("memberId"));
+        }
+        for (Document m : database.getCollection("members")
+                .find(Filters.eq("convertedToSupplier", true))
+                .projection(Projections.include("_id"))) {
+            owners.remove(m.get("_id"));
+        }
+
         MongoCollection<Document> suppliers = database.getCollection("suppliers");
         int opened = 0;
         for (Document s : suppliers.find(Filters.and(
@@ -74,7 +89,8 @@ public class M101_OpenMemberSupplierAccounts {
                         Filters.or(Filters.exists("subsidiaryAccount", false),
                                 Filters.eq("subsidiaryAccount", null),
                                 Filters.eq("subsidiaryAccount", ""))))
-                .projection(Projections.include("name", "collectiveAccount"))) {
+                .projection(Projections.include("name", "collectiveAccount", "memberId"))) {
+            if (!owners.contains(s.get("memberId"))) continue;
             Optional<String> next = SubAccountNumbering.next(root, taken);
             if (next.isEmpty()) {
                 LOG.warnf("M101 : plus aucun numéro libre sous %s (%s)", root, database.getName());

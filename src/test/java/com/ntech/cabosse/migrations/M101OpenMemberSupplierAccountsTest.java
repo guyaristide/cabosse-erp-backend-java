@@ -43,11 +43,24 @@ class M101OpenMemberSupplierAccountsTest extends AbstractIntegrationTest {
         db.getCollection("chart_of_accounts").insertOne(
                 new Document("_id", UUID.randomUUID()).append("number", "4011100007")
                         .append("label", "Producteur déjà ouvert").append("family", "TIERS"));
+        UUID konanId = UUID.randomUUID(), diabyId = UUID.randomUUID(), sansParcelleId = UUID.randomUUID(),
+                abandonneeId = UUID.randomUUID(), convertiId = UUID.randomUUID();
         db.getCollection("suppliers").insertMany(java.util.List.of(
-                supplier("KONAN Yao", UUID.randomUUID(), null),
-                supplier("DIABY Jean", UUID.randomUUID(), ""),
+                supplier("KONAN Yao", konanId, null),
+                supplier("DIABY Jean", diabyId, ""),
                 supplier("Déjà pourvu", UUID.randomUUID(), "4011100007"),
+                supplier("Sans parcelle", sansParcelleId, null),
+                supplier("Parcelle abandonnée", abandonneeId, null),
+                supplier("Converti", convertiId, null),
                 supplier("Garage sans membre", null, null)));
+        // Seuls les sociétaires avec parcelle vivante comptent (11/11/2026).
+        db.getCollection("parcels").insertMany(java.util.List.of(
+                new Document("_id", UUID.randomUUID()).append("memberId", konanId).append("status", "ACTIVE"),
+                new Document("_id", UUID.randomUUID()).append("memberId", diabyId).append("status", "FALLOW"),
+                new Document("_id", UUID.randomUUID()).append("memberId", abandonneeId).append("status", "ABANDONED"),
+                new Document("_id", UUID.randomUUID()).append("memberId", convertiId).append("status", "ACTIVE")));
+        db.getCollection("members").insertOne(
+                new Document("_id", convertiId).append("convertedToSupplier", true));
 
         assertEquals(2, M101_OpenMemberSupplierAccounts.open(db, "4011100000"));
 
@@ -59,8 +72,10 @@ class M101OpenMemberSupplierAccountsTest extends AbstractIntegrationTest {
         assertEquals("4011100000", konan.getString("collectiveAccount"));
         assertEquals("Producteur KONAN Yao", db.getCollection("chart_of_accounts")
                 .find(new Document("number", "4011100008")).first().getString("label"));
-        assertNull(db.getCollection("suppliers").find(new Document("name", "Garage sans membre"))
-                .first().getString("subsidiaryAccount"));
+        for (String name : new String[] {"Garage sans membre", "Sans parcelle", "Parcelle abandonnée", "Converti"}) {
+            assertNull(db.getCollection("suppliers").find(new Document("name", name))
+                    .first().getString("subsidiaryAccount"), name);
+        }
 
         // Rejouer n'ouvre rien de plus.
         assertEquals(0, M101_OpenMemberSupplierAccounts.open(db, "4011100000"));

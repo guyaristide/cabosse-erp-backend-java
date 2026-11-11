@@ -151,19 +151,47 @@ class SubAccountNumberingTest extends AbstractIntegrationTest {
                 .extract().path("data.id");
     }
 
+    /** Les sociétaires et leurs parcelles suivent le modèle coopératif et une activité agricole. */
+    private void cooperativeWithParcels(UserEntity a) {
+        TenantEntity tenant = tenants.findById(a.tenantId);
+        tenant.organizationModel = com.ntech.cabosse.tenant.entity.TenantOrganizationModel.COOPERATIVE;
+        tenant.activities = new java.util.ArrayList<>();
+        com.ntech.cabosse.tenant.entity.TenantActivity activity =
+                new com.ntech.cabosse.tenant.entity.TenantActivity();
+        activity.code = "cacao-production";
+        activity.label = "Production de cacao";
+        activity.isPrimary = true;
+        tenant.activities.add(activity);
+        tenants.update(tenant);
+    }
+
+    /** Une parcelle vivante : c'est elle qui fait d'un sociétaire un producteur à suivre. */
+    private void parcel(UserEntity who, String memberId, String name) {
+        givenAs(who).contentType("application/json")
+                .body("""
+                        { "name": "%s", "surfaceHa": 1, "gpsCenter": [-4.02, 5.23],
+                          "memberId": "%s", "status": "ACTIVE" }
+                        """.formatted(name, memberId))
+                .when().post("/api/v1/parcels").then().statusCode(201);
+    }
+
     @Test
     void every_member_gets_a_supplier_account_in_one_go_and_the_pass_is_replayable() {
         UserEntity a = admin();
-        // Les sociétaires suivent la capacité du modèle coopératif.
-        TenantEntity tenant = tenants.findById(a.tenantId);
-        tenant.organizationModel = com.ntech.cabosse.tenant.entity.TenantOrganizationModel.COOPERATIVE;
-        tenants.update(tenant);
+        cooperativeWithParcels(a);
         create(a, "401110", "Fournisseurs : producteurs membres");
         String first = member(a, "KONAN", "Yao");
-        member(a, "DIABY", "Jean");
+        String second = member(a, "DIABY", "Jean");
+        member(a, "SANS", "Parcelle");
+        parcel(a, first, "Parcelle Konan");
+        parcel(a, second, "Parcelle Diaby");
 
+        // Trois sociétaires, deux avec parcelle : le troisième ne compte
+        // pas, le même critère que la liste des membres (11/11/2026).
         givenAs(a).when().get("/api/v1/accounting/chart/sub-accounts/members/pending")
-                .then().statusCode(200).body("data.withoutAccount", equalTo(2));
+                .then().statusCode(200)
+                .body("data.members", equalTo(2))
+                .body("data.withoutAccount", equalTo(2));
 
         givenAs(a).contentType("application/json").body("{ \"root\": \"401110\" }")
                 .when().post("/api/v1/accounting/chart/sub-accounts/members")
@@ -239,20 +267,19 @@ class SubAccountNumberingTest extends AbstractIntegrationTest {
     }
 
     /**
-     * Le compte s'ouvre d'office avec le miroir dès que la structure a
-     * choisi la racine (CPT-36, DEC-59) ; tant qu'elle ne l'a pas fait,
-     * la fiche attend dans les Paramètres.
+     * Le compte s'ouvre d'office à la première parcelle dès que la
+     * structure a choisi la racine (CPT-36, DEC-59, critère parcelle du
+     * 11/11/2026) ; tant qu'elle ne l'a pas fait, la fiche attend dans les
+     * Paramètres.
      */
     @Test
-    void a_member_gets_its_account_at_creation_once_the_root_is_chosen() {
+    void a_member_gets_its_account_at_its_first_parcel_once_the_root_is_chosen() {
         UserEntity a = admin();
-        TenantEntity tenant = tenants.findById(a.tenantId);
-        tenant.organizationModel = com.ntech.cabosse.tenant.entity.TenantOrganizationModel.COOPERATIVE;
-        tenants.update(tenant);
+        cooperativeWithParcels(a);
         create(a, "4011100000", "Fournisseurs : producteurs");
 
         // Sans racine réglée, rien ne s'ouvre tout seul.
-        member(a, "SANS", "Racine");
+        parcel(a, member(a, "SANS", "Racine"), "Parcelle sans racine");
         givenAs(a).when().get("/api/v1/accounting/chart/sub-accounts/members/pending")
                 .then().statusCode(200).body("data.withoutAccount", equalTo(1));
 
@@ -261,7 +288,16 @@ class SubAccountNumberingTest extends AbstractIntegrationTest {
                 .when().put("/api/v1/me/tenant/preferences").then().statusCode(200)
                 .body("data.memberSupplierAccountRoot", equalTo("4011100000"));
 
-        member(a, "AVEC", "Racine");
+        // La fiche seule n'ouvre rien : sans parcelle, pas de producteur à suivre.
+        String avec = member(a, "AVEC", "Racine");
+        givenAs(a).when().get("/api/v1/suppliers?q=AVEC")
+                .then().statusCode(200)
+                .body("data.items[0].subsidiaryAccount", org.hamcrest.Matchers.nullValue());
+        givenAs(a).when().get("/api/v1/accounting/chart/sub-accounts/members/pending")
+                .then().statusCode(200).body("data.withoutAccount", equalTo(1));
+
+        // Sa première parcelle lui ouvre son compte.
+        parcel(a, avec, "Parcelle avec racine");
         givenAs(a).when().get("/api/v1/suppliers?q=AVEC")
                 .then().statusCode(200)
                 .body("data.items[0].subsidiaryAccount", equalTo("4011100001"))
@@ -279,7 +315,7 @@ class SubAccountNumberingTest extends AbstractIntegrationTest {
                 .body("{ \"memberSupplierAccountRoot\": \"\" }")
                 .when().put("/api/v1/me/tenant/preferences").then().statusCode(200)
                 .body("data.memberSupplierAccountRoot", org.hamcrest.Matchers.nullValue());
-        member(a, "APRES", "Retrait");
+        parcel(a, member(a, "APRES", "Retrait"), "Parcelle après retrait");
         givenAs(a).when().get("/api/v1/accounting/chart/sub-accounts/members/pending")
                 .then().statusCode(200).body("data.withoutAccount", equalTo(2));
     }
