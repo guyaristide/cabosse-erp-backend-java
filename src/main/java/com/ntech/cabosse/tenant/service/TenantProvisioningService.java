@@ -21,6 +21,7 @@ import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.shared.tenant.TenantStatus;
 import com.ntech.cabosse.tenant.dto.CreateTenantPayloadDto;
 import com.ntech.cabosse.tenant.entity.TenantEntity;
+import com.ntech.cabosse.tenant.event.TenantAdminAdoptedEvent;
 import com.ntech.cabosse.tenant.event.TenantProvisionedEvent;
 import com.ntech.cabosse.tenant.mapper.CreateTenantMapper;
 import com.ntech.cabosse.tenant.repository.TenantRepository;
@@ -64,6 +65,7 @@ public class TenantProvisioningService {
     @Inject TenantMigrationRunner migrationRunner;
     @Inject InvitationTokenService invitationTokens;
     @Inject IdGenerator idGenerator;
+    @Inject com.ntech.cabosse.user.service.MembershipService memberships;
     @Inject EventBus eventBus;
     @Inject TenantContext tenantContext;
     @Inject com.ntech.cabosse.shared.audit.AuditService audit;
@@ -90,7 +92,10 @@ public class TenantProvisioningService {
 
         // 1. Validation d'unicité + cohérence métier + intégrité des références catalogue
         ensureSlugIsUnique(payload.slug());
-        ensureAdminEmailIsUnique(payload.admin().email());
+        UserEntity knownAdmin = users.findByEmail(payload.admin().email().trim().toLowerCase()).orElse(null);
+        if (knownAdmin != null && knownAdmin.status == UserStatus.DISABLED) {
+            throw new ConflictException(Messages.msg("m.tnt-email-linked", payload.admin().email()));
+        }
         ensureCommercialStatusConsistency(payload);
         ensureCatalogReferences(payload);
 
@@ -118,9 +123,13 @@ public class TenantProvisioningService {
 
             // 6. (Skip Phase B) Seed des référentiels initiaux → Phase C+ via migrations dédiées
 
-            // 7. Création de l'admin du tenant + token d'invitation
+            // 7. L'administrateur du tenant : un compte neuf avec son
+            //    lien d'activation, ou un compte déjà connu à qui l'on
+            //    ouvre la porte de cette structure de plus (SAAS-29).
             InvitationTokenService.InvitationToken token = invitationTokens.generate();
-            UserEntity admin = createTenantAdmin(payload, tenantId, token.hash());
+            UserEntity admin = knownAdmin != null
+                    ? adoptTenantAdmin(knownAdmin, tenant, token.hash())
+                    : createTenantAdmin(payload, tenantId, token.hash());
 
             // 8. Logo optionnel (avant activation pour cohérence). Le service met
             // à jour TenantBranding.{logoFileId, mimeType, sizeBytes} en interne.
@@ -142,7 +151,16 @@ public class TenantProvisioningService {
             tenant.updatedAt = tenant.activatedAt;
             tenants.update(tenant);
 
-            // 10. Publication de l'événement (déclenche l'envoi du mail)
+            // 10. Publication de l'événement (déclenche l'envoi du mail).
+            //     Un administrateur déjà actif ailleurs n'a pas de lien à
+            //     activer : il reçoit le mot que sa structure de plus est
+            //     ouverte, et rien d'autre.
+            if (knownAdmin != null && knownAdmin.status == UserStatus.ACTIVE) {
+                eventBus.publish(Events.TENANT_ADMIN_ADOPTED, new TenantAdminAdoptedEvent(
+                        tenant.id, tenant.name, admin.id, admin.email, admin.firstName,
+                        Locales.tag(Locales.firstOf(admin.locale,
+                                tenant.preferences != null ? tenant.preferences.language : null))));
+            } else
             eventBus.publish(Events.TENANT_PROVISIONED, new TenantProvisionedEvent(
                     tenant.id,
                     tenant.name,
@@ -197,11 +215,6 @@ public class TenantProvisioningService {
         }
     }
 
-    private void ensureAdminEmailIsUnique(String email) {
-        if (users.emailExists(email)) {
-            throw new ConflictException(Messages.msg("m.tnt-email-linked", email));
-        }
-    }
 
     /**
      * Vérifie que toutes les références aux catalogues existent en base :
@@ -298,6 +311,22 @@ public class TenantProvisioningService {
         sites.withDatabase(databaseName).insert(site);
     }
 
+    /**
+     * Un compte déjà connu devient administrateur de la structure neuve
+     * (SAAS-29). Jamais activé : son lien d'activation repart avec le
+     * mail de la structure ; actif : rien ne change à son identité.
+     */
+    private UserEntity adoptTenantAdmin(UserEntity admin, TenantEntity tenant, String invitationTokenHash) {
+        memberships.open(admin, tenant, Roles.TENANT_ADMIN, List.of(), currentActorEmail());
+        if (admin.status == UserStatus.INVITED) {
+            admin.invitationTokenHash = invitationTokenHash;
+            admin.invitationExpiresAt = Instant.now().plus(INVITATION_TTL);
+            admin.updatedAt = Instant.now();
+            users.update(admin);
+        }
+        return admin;
+    }
+
     private UserEntity createTenantAdmin(CreateTenantPayloadDto payload, UUID tenantId, String invitationTokenHash) {
         UserEntity admin = new UserEntity();
         admin.id = idGenerator.newId();
@@ -315,6 +344,7 @@ public class TenantProvisioningService {
         admin.createdAt = Instant.now();
         admin.updatedAt = admin.createdAt;
         users.persist(admin);
+        memberships.open(admin, tenants.findById(tenantId), Roles.TENANT_ADMIN, List.of(), currentActorEmail());
         return admin;
     }
 

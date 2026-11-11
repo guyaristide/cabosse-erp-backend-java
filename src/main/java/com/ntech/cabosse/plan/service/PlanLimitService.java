@@ -8,7 +8,6 @@ import com.ntech.cabosse.shared.exception.ErrorCode;
 import com.ntech.cabosse.shared.i18n.Messages;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.tenant.entity.TenantEntity;
-import com.ntech.cabosse.user.repository.UserRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
@@ -31,7 +30,7 @@ import java.util.UUID;
 public class PlanLimitService {
 
     @Inject PlanRepository plans;
-    @Inject UserRepository users;
+    @Inject com.ntech.cabosse.user.service.MembershipService memberships;
     @Inject MemberRepository members;
     @Inject TenantContext tenantContext;
     @Inject com.ntech.cabosse.tenant.repository.TenantRepository tenants;
@@ -40,12 +39,14 @@ public class PlanLimitService {
      * Refuse l'invitation d'un compte au-delà du plafond du plan.
      *
      * <p>Les comptes désactivés ne consomment pas de siège : désactiver un
-     * ancien collaborateur doit libérer la place du suivant.</p>
+     * ancien collaborateur doit libérer la place du suivant. Un compte qui
+     * entre dans plusieurs structures occupe une place dans chacune
+     * (SAAS-29, DEC-60).</p>
      */
     public void enforceUserSeat(TenantEntity tenant) {
         PlanEntity plan = planOf(tenant);
         if (plan == null || plan.maxUsers <= 0) return;
-        long active = users.countActiveByTenant(tenant.id);
+        long active = memberships.countSeatsOf(tenant.id);
         if (active >= plan.maxUsers) {
             throw new BusinessException(ErrorCode.PLAN_LIMIT,
                     Messages.msg("m.pln-user-seat-limit", plan.maxUsers, active));
@@ -73,7 +74,7 @@ public class PlanLimitService {
     /** Consommation courante face aux plafonds, pour le back-office. */
     public Usage usageOf(TenantEntity tenant) {
         PlanEntity plan = planOf(tenant);
-        long activeUsers = users.countActiveByTenant(tenant.id);
+        long activeUsers = memberships.countSeatsOf(tenant.id);
         return new Usage(
                 activeUsers,
                 plan != null ? plan.maxUsers : 0,

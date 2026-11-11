@@ -61,6 +61,22 @@ public class RefreshTokenRepository implements PanacheMongoRepositoryBase<Refres
         return result.getModifiedCount();
     }
 
+    /** Révoque les jetons encore vivants d'un compte sur une seule structure (SAAS-29). */
+    public long revokeAllForUserInTenant(UUID userId, UUID tenantId, Instant revokedAt, String reason) {
+        UpdateResult result = mongoCollection().updateMany(
+                Filters.and(
+                        Filters.eq("userId", userId),
+                        Filters.eq("tenantId", tenantId),
+                        Filters.eq("revokedAt", null)
+                ),
+                Updates.combine(
+                        Updates.set("revokedAt", revokedAt),
+                        Updates.set("revokedReason", reason)
+                )
+        );
+        return result.getModifiedCount();
+    }
+
     /**
      * Révocation atomique d'un token par hash, seulement s'il n'est pas
      * déjà révoqué. Mono-document et conditionnelle : deux appels

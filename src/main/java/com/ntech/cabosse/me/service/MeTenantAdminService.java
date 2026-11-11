@@ -5,7 +5,6 @@ import com.ntech.cabosse.shared.audit.AuditService;
 import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.i18n.Messages;
-import com.ntech.cabosse.shared.security.Roles;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.permission.entity.Permission;
 import com.ntech.cabosse.permission.service.PermissionResolver;
@@ -14,6 +13,9 @@ import com.ntech.cabosse.tenant.dto.UserPermissionExceptionDto;
 import com.ntech.cabosse.tenant.entity.TenantEntity;
 import com.ntech.cabosse.tenant.repository.TenantRepository;
 import com.ntech.cabosse.user.entity.PermissionExceptionMode;
+import com.ntech.cabosse.tenant.service.TenantUserSummaries;
+import com.ntech.cabosse.user.entity.MembershipEntity;
+import com.ntech.cabosse.user.entity.MembershipStatus;
 import com.ntech.cabosse.user.entity.UserEntity;
 import com.ntech.cabosse.user.entity.UserPermissionException;
 import com.ntech.cabosse.user.entity.UserStatus;
@@ -39,6 +41,7 @@ import java.util.UUID;
 public class MeTenantAdminService {
 
     @Inject UserRepository users;
+    @Inject com.ntech.cabosse.user.service.MembershipService memberships;
     @Inject TenantRepository tenants;
     @Inject AuditService audit;
     @Inject TenantContext tenantContext;
@@ -75,7 +78,9 @@ public class MeTenantAdminService {
     @Transactional
     public TenantUserSummaryDto assignSites(UUID tenantId, UUID userId, java.util.List<UUID> siteIds) {
         UserEntity target = users.findById(userId);
-        if (target == null || !tenantId.equals(target.tenantId)) {
+        MembershipEntity membership = target == null ? null
+                : memberships.resolve(target, tenantId).orElse(null);
+        if (membership == null) {
             throw new NotFoundException(Messages.msg("m.tnt-user-not-found"));
         }
         java.util.List<UUID> wanted = siteIds == null ? java.util.List.of()
@@ -85,9 +90,8 @@ public class MeTenantAdminService {
                 throw new BusinessException(Messages.msg("m.tnt-site-unknown", siteId));
             }
         }
-        target.allowedSiteIds = new java.util.ArrayList<>(wanted);
-        target.updatedAt = java.time.Instant.now();
-        users.update(target);
+        membership.allowedSiteIds = new java.util.ArrayList<>(wanted);
+        memberships.save(membership);
         audit.event(AuditEventType.USER_ROLES_CHANGED)
                 .actorEmail(currentActor())
                 .target("user", target.id.toString(), target.email)
@@ -96,13 +100,15 @@ public class MeTenantAdminService {
                         ? "Sites de travail de " + target.email + " : tous"
                         : "Sites de travail de " + target.email + " : " + wanted.size())
                 .record();
-        return summary(target);
+        return TenantUserSummaries.of(target, membership);
     }
 
     @Transactional
     public TenantUserSummaryDto setActive(UUID tenantId, UUID userId, boolean active) {
         UserEntity target = users.findById(userId);
-        if (target == null || !tenantId.equals(target.tenantId)) {
+        MembershipEntity membership = target == null ? null
+                : memberships.resolve(target, tenantId).orElse(null);
+        if (membership == null) {
             throw new NotFoundException(Messages.msg("m.tnt-user-not-found"));
         }
 
@@ -112,26 +118,34 @@ public class MeTenantAdminService {
             throw new BusinessException(Messages.msg("m.me-self-deactivation-forbidden"));
         }
 
-        if (active && target.status != UserStatus.DISABLED) {
+        UserStatus previous = TenantUserSummaries.statusOf(target, membership);
+        if (active && previous != UserStatus.DISABLED) {
             // Déjà actif (ou invité en attente) — no-op idempotent.
-            return summary(target);
+            return TenantUserSummaries.of(target, membership);
         }
-        if (!active && target.status == UserStatus.DISABLED) {
-            return summary(target);
+        if (!active && previous == UserStatus.DISABLED) {
+            return TenantUserSummaries.of(target, membership);
         }
 
-        if (!active && isLastActiveAdmin(tenantId, target)) {
+        if (!active && isLastActiveAdmin(tenantId, target, membership)) {
             throw new BusinessException(Messages.msg("m.me-last-admin-deactivation"));
         }
 
-        UserStatus previous = target.status;
-        target.status = active ? UserStatus.ACTIVE : UserStatus.DISABLED;
-        target.updatedAt = Instant.now();
-        users.update(target);
-        // Désactiver coupe les sessions : les droits sont relus à chaque
-        // appel et tombent avec le statut, et les jetons de
-        // rafraîchissement sont révoqués pour que rien ne revienne.
-        if (!active) refreshTokens.revokeAllForUser(target.id, "user_disabled");
+        // La porte se ferme ou s'ouvre ici seulement (SAAS-29) : les autres
+        // structures de cette personne ne voient rien. Un compte éteint
+        // partout avant la mise à jour se rallume en rouvrant la porte.
+        membership.status = active ? MembershipStatus.ACTIVE : MembershipStatus.DISABLED;
+        memberships.save(membership);
+        if (active && target.status == UserStatus.DISABLED) {
+            target.status = UserStatus.ACTIVE;
+            target.updatedAt = Instant.now();
+            users.update(target);
+        }
+        // Désactiver coupe les sessions ouvertes sur cette structure : les
+        // droits sont relus à chaque appel et tombent avec la porte, et
+        // les jetons de rafraîchissement sont révoqués pour que rien ne
+        // revienne.
+        if (!active) refreshTokens.revokeAllForUserInTenant(target.id, tenantId, "user_disabled");
 
         TenantEntity tenant = tenants.findById(tenantId);
         AuditEventType evt = active ? AuditEventType.USER_REACTIVATED : AuditEventType.USER_DISABLED;
@@ -144,15 +158,17 @@ public class MeTenantAdminService {
                 .payload(java.util.Map.of("previousStatus", previous.name()))
                 .record();
 
-        return summary(target);
+        return TenantUserSummaries.of(target, membership);
     }
 
-    private boolean isLastActiveAdmin(UUID tenantId, UserEntity target) {
-        if (target.roles == null || !target.roles.contains(Roles.TENANT_ADMIN)) return false;
-        long otherActiveAdmins = users.find("tenantId", tenantId).stream()
+    private boolean isLastActiveAdmin(UUID tenantId, UserEntity target, MembershipEntity membership) {
+        if (!membership.isTenantAdmin()) return false;
+        var byUser = memberships.membershipsByUserOf(tenantId);
+        long otherActiveAdmins = memberships.usersOf(tenantId).stream()
                 .filter(u -> !u.id.equals(target.id))
                 .filter(u -> u.status == UserStatus.ACTIVE)
-                .filter(u -> u.roles != null && u.roles.contains(Roles.TENANT_ADMIN))
+                .filter(u -> byUser.get(u.id) != null && byUser.get(u.id).isActive()
+                        && byUser.get(u.id).isTenantAdmin())
                 .count();
         return otherActiveAdmins == 0;
     }
@@ -173,12 +189,12 @@ public class MeTenantAdminService {
     public TenantUserSummaryDto setPermissionExceptions(
             UUID tenantId, UUID userId, java.util.List<UserPermissionExceptionDto> wanted) {
         UserEntity target = users.findById(userId);
-        if (target == null || !tenantId.equals(target.tenantId)) {
+        MembershipEntity membership = target == null ? null
+                : memberships.resolve(target, tenantId).orElse(null);
+        if (membership == null) {
             throw new NotFoundException(Messages.msg("m.tnt-user-not-found"));
         }
-        if (target.roles != null
-                && (target.roles.contains(Roles.TENANT_ADMIN)
-                        || target.roles.contains(Roles.PLATFORM_ADMIN))) {
+        if (com.ntech.cabosse.user.service.MembershipService.isAdmin(target, membership)) {
             throw new BusinessException(Messages.msg("m.per-exception-admin"));
         }
 
@@ -208,7 +224,7 @@ public class MeTenantAdminService {
                 throw new BusinessException(Messages.msg("m.per-exception-self-lockout"));
             }
 
-            UserPermissionException previous = find(target.permissionExceptions, code);
+            UserPermissionException previous = find(membership.permissionExceptions, code);
             UserPermissionException entry = new UserPermissionException();
             entry.code = code;
             entry.mode = dto.mode();
@@ -224,9 +240,8 @@ public class MeTenantAdminService {
             kept.add(entry);
         }
 
-        target.permissionExceptions = kept;
-        target.updatedAt = java.time.Instant.now();
-        users.update(target);
+        membership.permissionExceptions = kept;
+        memberships.save(membership);
 
         audit.event(AuditEventType.USER_ROLES_CHANGED)
                 .actorEmail(currentActor())
@@ -240,7 +255,7 @@ public class MeTenantAdminService {
                                                 + e.code)
                                         .collect(java.util.stream.Collectors.joining(", ")))
                 .record();
-        return summary(target);
+        return TenantUserSummaries.of(target, membership);
     }
 
     private static UserPermissionException find(
@@ -249,18 +264,4 @@ public class MeTenantAdminService {
         return existing.stream().filter(e -> code.equals(e.code)).findFirst().orElse(null);
     }
 
-    private static TenantUserSummaryDto summary(UserEntity u) {
-        return new TenantUserSummaryDto(
-                u.id, u.email, u.firstName, u.lastName, u.phone,
-                u.roles != null ? Set.copyOf(u.roles) : Set.of(),
-                u.status, u.createdAt, u.lastLoginAt, u.invitationExpiresAt,
-                u.tenantRoleIds != null ? java.util.List.copyOf(u.tenantRoleIds) : java.util.List.of(),
-                u.allowedSiteIds != null ? java.util.List.copyOf(u.allowedSiteIds) : java.util.List.of(),
-                u.permissionExceptions == null ? java.util.List.of()
-                        : u.permissionExceptions.stream()
-                                .map(e -> new UserPermissionExceptionDto(
-                                        e.code, e.mode, e.reason, e.grantedByEmail, e.grantedAt))
-                                .toList()
-        );
-    }
 }

@@ -20,6 +20,7 @@ import jakarta.transaction.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Lecture et édition du profil de l'utilisateur courant.
@@ -39,6 +40,8 @@ public class MeService {
     @Inject com.ntech.cabosse.shared.audit.AuditService audit;
     @Inject com.ntech.cabosse.tenant.capability.TenantCapabilityService capabilityService;
     @Inject com.ntech.cabosse.permission.service.PermissionResolver permissions;
+    @Inject com.ntech.cabosse.user.service.MembershipService memberships;
+    @Inject com.ntech.cabosse.auth.service.AuthService auth;
 
     /** Devise par défaut si le tenant n'a pas explicitement choisi. */
     private static final String DEFAULT_CURRENCY = "XOF";
@@ -46,7 +49,11 @@ public class MeService {
     /** Renvoie le profil de l'utilisateur courant. */
     public MeResponseDto getCurrent() {
         UserEntity user = loadCurrent();
-        TenantEntity tenant = tenants.findById(user.tenantId);
+        // La structure est celle du jeton, pas celle d'origine du compte :
+        // depuis SAAS-29 la même personne entre dans plusieurs structures.
+        UUID tenantId = tenantContext.tenantId();
+        TenantEntity tenant = tenants.findById(tenantId);
+        var membership = memberships.resolve(user, tenantId).orElse(null);
         String currency = tenant != null && tenant.preferences != null && tenant.preferences.currency != null
                 ? tenant.preferences.currency
                 : DEFAULT_CURRENCY;
@@ -60,7 +67,7 @@ public class MeService {
                 ? "/api/v1/admin/tenants/" + tenant.id + "/logo"
                 : null;
         var capsDto = caps.stream().map(Enum::name).sorted().toList();
-        var permsDto = permissions.of(user, user.tenantId).stream()
+        var permsDto = permissions.of(user, tenantId).stream()
                 .map(Enum::name).sorted().toList();
         return new MeResponseDto(
                 user.id,
@@ -69,16 +76,18 @@ public class MeService {
                 user.lastName,
                 user.phone,
                 user.locale,
-                List.copyOf(user.roles),
-                user.tenantId,
+                List.copyOf(memberships.groupsFor(user, membership)),
+                tenantId,
                 tenant != null ? tenant.name : null,
                 currency,
                 brandColor,
                 logoUrl,
                 capsDto,
                 permsDto,
-                user.allowedSiteIds != null ? List.copyOf(user.allowedSiteIds) : List.of(),
-                user.lastLoginAt
+                membership != null && membership.allowedSiteIds != null
+                        ? List.copyOf(membership.allowedSiteIds) : List.of(),
+                user.lastLoginAt,
+                auth.accessibleTenants(user)
         );
     }
 
@@ -102,11 +111,11 @@ public class MeService {
         user.updatedAt = Instant.now();
         users.update(user);
 
-        TenantEntity tenant = tenants.findById(user.tenantId);
+        TenantEntity tenant = tenants.findById(tenantContext.tenantId());
         audit.event(com.ntech.cabosse.shared.audit.AuditEventType.TENANT_UPDATED)
                 .actor(user.email, user.id)
                 .target("user", user.id.toString(), user.email)
-                .tenant(user.tenantId, tenant != null ? tenant.name : null)
+                .tenant(tenantContext.tenantId(), tenant != null ? tenant.name : null)
                 .description("Profil mis à jour par " + user.email)
                 .record();
 
@@ -131,11 +140,11 @@ public class MeService {
         user.updatedAt = Instant.now();
         users.update(user);
 
-        TenantEntity tenant = tenants.findById(user.tenantId);
+        TenantEntity tenant = tenants.findById(tenantContext.tenantId());
         audit.event(com.ntech.cabosse.shared.audit.AuditEventType.PASSWORD_CHANGED)
                 .actor(user.email, user.id)
                 .target("user", user.id.toString(), user.email)
-                .tenant(user.tenantId, tenant != null ? tenant.name : null)
+                .tenant(tenantContext.tenantId(), tenant != null ? tenant.name : null)
                 .description("Mot de passe changé par " + user.email)
                 .record();
     }

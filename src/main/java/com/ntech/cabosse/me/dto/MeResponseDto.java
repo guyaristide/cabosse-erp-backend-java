@@ -65,6 +65,13 @@ public record MeResponseDto(
                 example = "[\"01a0...\"]")
         List<UUID> allowedSiteIds,
 
-        Instant lastLoginAt
+        Instant lastLoginAt,
+
+        /**
+         * Les structures où ce compte peut entrer, la courante comprise
+         * (SAAS-29). Le sélecteur ne s'affiche qu'au-delà d'une.
+         */
+        @Schema(description = "Structures accessibles, la courante comprise")
+        List<com.ntech.cabosse.auth.dto.AccessibleTenantDto> tenants
 ) {
 }

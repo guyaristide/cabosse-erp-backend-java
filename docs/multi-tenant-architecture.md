@@ -1358,6 +1358,48 @@ Le JWT émis porte un claim supplémentaire `impersonatedBy` (le `userId` du sup
 
 ---
 
+### 12.4 Un compte, plusieurs structures (SAAS-29)
+
+Depuis le 11/11/2026, un compte du plan de contrôle est une **identité**
+(adresse, nom, mot de passe, langue, statut global, rôle de plateforme) et
+ce qu'il peut faire dans une structure vit dans une **appartenance**
+(`cabosse_control.memberships`, un document par couple utilisateur ×
+tenant : rôle `TENANT_ADMIN`/`USER`, profils, sites de travail,
+exceptions de droits, porte ouverte ou fermée, dernière visite). Une même
+équipe qui travaille pour deux entreprises d'un groupe a un compte par
+personne et une appartenance par entreprise.
+
+- **Compatibilité** : `users.tenantId` devient la *structure d'origine*.
+  L'appartenance à cette structure est sous-entendue tant qu'aucun
+  document ne l'a écrite : `MembershipService.resolve` la matérialise au
+  premier passage depuis les champs historiques du compte, et
+  `MembershipBackfill` le fait pour tous au démarrage. Aucune migration à
+  rejouer, un retour arrière du code relit les champs historiques figés.
+- **Jeton** : `JwtIssuer.issueAccessToken(user, tenant)` prend ses groupes
+  dans l'appartenance (plus `PLATFORM_ADMIN` si le compte le porte). Le
+  filtre, le contexte et le routage de base ne changent pas.
+- **Connexion** : `AuthService.login` ouvre la dernière structure visitée,
+  à défaut celle d'origine, à défaut la première où la porte est ouverte ;
+  la réponse liste toutes les structures accessibles (`user.tenants`),
+  comme `GET /me`.
+- **Bascule** : `POST /api/v1/auth/switch-tenant {tenantId, refreshToken}`
+  vérifie l'appartenance, ferme le jeton de rafraîchissement présenté et
+  émet un couple neuf pour la structure visée (audit `TENANT_SWITCHED`).
+- **Invitation d'une adresse connue** : `TenantUserService.invite` ouvre
+  une appartenance au lieu de refuser (audit `USER_ADDED_TO_TENANT`, mail
+  `user-added-to-tenant.html` sans lien d'activation) ; même chose pour
+  l'administrateur d'une structure neuve au provisionnement.
+- **Désactivation** : `MeTenantAdminService.setActive` ferme la porte de
+  cette structure seule et révoque ses jetons sur cette structure
+  (`revokeAllForUserInTenant`). La réinitialisation du mot de passe reste
+  un geste sur l'identité, possible depuis n'importe laquelle de ses
+  structures (DEC-60).
+- **Places du plan** : comptées par appartenance active
+  (`MembershipService.countSeatsOf`).
+- **Archive** : la tranche `memberships` part avec le tenant ; les comptes
+  emportés sont ceux qui y entrent, un compte déjà présent à la
+  restauration est reconnu comme la même personne et laissé tel quel.
+
 ## 13. Backup, restauration, suppression
 
 ### 13.1 Backup par tenant — script shell

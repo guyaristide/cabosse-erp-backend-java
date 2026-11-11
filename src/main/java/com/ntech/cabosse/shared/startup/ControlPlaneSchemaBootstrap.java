@@ -65,6 +65,23 @@ public class ControlPlaneSchemaBootstrap {
                         new IndexOptions().name("idx_users_tenantId")
                 );
 
+        // ─── memberships (SAAS-29) ───
+        // Un seul document par (compte, structure) : c'est l'index qui
+        // départage deux écritures concurrentes de la même appartenance.
+        controlPlane.collection(ControlPlane.Collections.MEMBERSHIPS, Document.class)
+                .createIndex(
+                        Indexes.compoundIndex(
+                                Indexes.ascending("userId"),
+                                Indexes.ascending("tenantId")
+                        ),
+                        new IndexOptions().unique(true).name("uniq_memberships_user_tenant")
+                );
+        controlPlane.collection(ControlPlane.Collections.MEMBERSHIPS, Document.class)
+                .createIndex(
+                        Indexes.ascending("tenantId"),
+                        new IndexOptions().name("idx_memberships_tenantId")
+                );
+
         // ─── support tickets ───
         controlPlane.collection(ControlPlane.Collections.SUPPORT_TICKETS, Document.class)
                 .createIndex(

@@ -35,10 +35,10 @@ public class AdvanceRefundNotifier {
     private static final Logger LOG = Logger.getLogger(AdvanceRefundNotifier.class);
 
     /** Au-delà, on cesse de parcourir : une structure n'a pas mille comptes. */
-    private static final int MAX_USERS = 500;
 
     @Inject com.ntech.cabosse.notification.service.NotificationRouter router;
     @Inject UserRepository users;
+    @Inject com.ntech.cabosse.user.service.MembershipService memberships;
     @Inject PermissionResolver permissions;
     @Inject TenantPreferencesLookup preferences;
     @Inject TenantContext tenantContext;
@@ -62,7 +62,7 @@ public class AdvanceRefundNotifier {
         try {
             if (refund.requestedByEmail == null) return;
             UUID tenantId = tenantContext.tenantId();
-            UserEntity requester = users.findByTenant(tenantId, 0, MAX_USERS).stream()
+            UserEntity requester = memberships.usersOf(tenantId).stream()
                     .filter(u -> u.status == UserStatus.ACTIVE && u.email != null
                             && u.email.equalsIgnoreCase(refund.requestedByEmail))
                     .findFirst().orElse(null);
@@ -83,7 +83,7 @@ public class AdvanceRefundNotifier {
             UUID tenantId = tenantContext.tenantId();
             if (tenantId == null) return;
             List<UserEntity> audience = holdersOf(tenantId, right, excludedEmail);
-            List<UUID> excluded = users.findByTenant(tenantId, 0, MAX_USERS).stream()
+            List<UUID> excluded = memberships.usersOf(tenantId).stream()
                     .filter(u -> excludedEmail != null && u.email != null
                             && excludedEmail.equalsIgnoreCase(u.email))
                     .map(u -> u.id).toList();
@@ -106,7 +106,7 @@ public class AdvanceRefundNotifier {
      */
     private List<UserEntity> holdersOf(UUID tenantId, Permission right, String excludedEmail) {
         List<UserEntity> out = new ArrayList<>();
-        for (UserEntity user : users.findByTenant(tenantId, 0, MAX_USERS)) {
+        for (UserEntity user : memberships.usersOf(tenantId)) {
             if (user.status != UserStatus.ACTIVE || user.email == null) continue;
             if (excludedEmail != null && excludedEmail.equalsIgnoreCase(user.email)) continue;
             if (!permissions.of(user, tenantId).contains(right)) continue;

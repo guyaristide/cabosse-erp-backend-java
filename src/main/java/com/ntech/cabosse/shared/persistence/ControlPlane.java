@@ -20,6 +20,8 @@ public final class ControlPlane {
 
         public static final String TENANTS         = "tenants";
         public static final String USERS           = "users";
+        /** Appartenances d'un compte à des structures (SAAS-29) : un document par (utilisateur, tenant). */
+        public static final String MEMBERSHIPS     = "memberships";
         public static final String SUBSCRIPTIONS   = "subscriptions";
         public static final String GLOBAL_AUDIT    = "global_audit";
         public static final String SUPPORT_TICKETS = "support_tickets";

@@ -3,14 +3,14 @@ package com.ntech.cabosse.permission.service;
 import com.ntech.cabosse.permission.entity.Permission;
 import com.ntech.cabosse.permission.entity.TenantRoleEntity;
 import com.ntech.cabosse.permission.repository.TenantRoleRepository;
-import com.ntech.cabosse.shared.security.Roles;
 import com.ntech.cabosse.shared.tenant.TenantContext;
 import com.ntech.cabosse.tenant.capability.TenantCapability;
 import com.ntech.cabosse.tenant.capability.TenantCapabilityService;
 import com.ntech.cabosse.user.entity.PermissionExceptionMode;
+import com.ntech.cabosse.user.entity.MembershipEntity;
 import com.ntech.cabosse.user.entity.UserEntity;
+import com.ntech.cabosse.user.service.MembershipService;
 import com.ntech.cabosse.user.entity.UserPermissionException;
-import com.ntech.cabosse.user.entity.UserStatus;
 import com.ntech.cabosse.user.repository.UserRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -45,6 +45,7 @@ import java.util.UUID;
 public class PermissionResolver {
 
     @Inject UserRepository users;
+    @Inject com.ntech.cabosse.user.service.MembershipService memberships;
     @Inject TenantRoleRepository roles;
     @Inject TenantCapabilityService capabilities;
     @Inject TenantContext tenantContext;
@@ -62,16 +63,23 @@ public class PermissionResolver {
 
     public Set<Permission> of(UserEntity user, UUID tenantId) {
         // Les droits sont relus à chaque appel pour qu'un retrait prenne
-        // effet tout de suite ; la désactivation du compte doit en faire
+        // effet tout de suite ; la fermeture de la porte doit en faire
         // autant, sans attendre l'expiration du jeton d'accès.
-        if (user.status != UserStatus.ACTIVE) return EnumSet.noneOf(Permission.class);
+        MembershipEntity membership = memberships.resolve(user, tenantId).orElse(null);
+        if (!MembershipService.canEnter(user, membership)) return EnumSet.noneOf(Permission.class);
+        return of(user, membership, tenantId);
+    }
+
+    /** Les droits d'une appartenance déjà chargée, le compte et la porte supposés ouverts. */
+    public Set<Permission> of(UserEntity user, MembershipEntity membership, UUID tenantId) {
         Set<TenantCapability> caps = capabilities.capabilitiesOf(tenantId);
         Set<Permission> granted = EnumSet.noneOf(Permission.class);
+        boolean admin = MembershipService.isAdmin(user, membership);
 
-        if (isAdmin(user)) {
+        if (admin) {
             granted.addAll(EnumSet.allOf(Permission.class));
-        } else if (user.tenantRoleIds != null && !user.tenantRoleIds.isEmpty()) {
-            for (TenantRoleEntity role : roles.listByIds(user.tenantRoleIds)) {
+        } else if (membership.tenantRoleIds != null && !membership.tenantRoleIds.isEmpty()) {
+            for (TenantRoleEntity role : roles.listByIds(membership.tenantRoleIds)) {
                 if (!role.active || role.permissions == null) continue;
                 for (String code : role.permissions) {
                     Permission p = Permission.ofCode(code);
@@ -99,8 +107,8 @@ public class PermissionResolver {
         // Les exceptions passent après les profils et avant les capacités.
         // Un administrateur en est exempt : un retrait sur lui enfermerait
         // la structure hors de sa propre administration.
-        if (!isAdmin(user) && user.permissionExceptions != null) {
-            for (UserPermissionException exception : user.permissionExceptions) {
+        if (!admin && membership.permissionExceptions != null) {
+            for (UserPermissionException exception : membership.permissionExceptions) {
                 Permission p = Permission.ofCode(exception.code);
                 if (p == null || exception.mode == null) continue;
                 if (exception.mode == PermissionExceptionMode.GRANT) granted.add(p);
@@ -110,12 +118,6 @@ public class PermissionResolver {
 
         granted.removeIf(p -> !p.availableFor(caps));
         return granted;
-    }
-
-    /** Administrateur du tenant, ou de la plateforme. */
-    private static boolean isAdmin(UserEntity user) {
-        return user.roles != null
-                && (user.roles.contains(Roles.TENANT_ADMIN) || user.roles.contains(Roles.PLATFORM_ADMIN));
     }
 
     /** Le catalogue proposable à ce tenant, capacités comprises. */
@@ -138,6 +140,8 @@ public class PermissionResolver {
      */
     public boolean currentIsTenantAdmin() {
         UserEntity user = users.findById(tenantContext.userId());
-        return user != null && isAdmin(user);
+        if (user == null) return false;
+        return MembershipService.isAdmin(user,
+                memberships.resolve(user, tenantContext.tenantId()).orElse(null));
     }
 }

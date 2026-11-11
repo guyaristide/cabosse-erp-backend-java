@@ -67,6 +67,7 @@ public class TenantUserService {
             "$2a$12$pending-invitation-redemption-placeholder-not-usable";
 
     @Inject UserRepository users;
+    @Inject com.ntech.cabosse.user.service.MembershipService memberships;
     @Inject com.mongodb.client.MongoClient mongoClient;
     @Inject com.ntech.cabosse.plan.service.PlanLimitService planLimits;
     @Inject TenantRepository tenants;
@@ -89,38 +90,54 @@ public class TenantUserService {
     @Location("mail/password-reset.html")
     Template passwordResetTemplate;
 
+    @Inject
+    @Location("mail/user-added-to-tenant.html")
+    Template addedToTenantTemplate;
+
     @Inject ApplicationConfig appConfig;
 
-    /** Liste les users d'un tenant, triés par date de création desc. */
+    /** Liste les comptes d'une structure, triés par date de création desc. */
     public List<TenantUserSummaryDto> listByTenant(UUID tenantId) {
         ensureTenantExists(tenantId);
-        return users.find("tenantId", tenantId).list().stream()
+        var byUser = memberships.membershipsByUserOf(tenantId);
+        return memberships.usersOf(tenantId).stream()
                 .sorted(Comparator.comparing(
                         (UserEntity u) -> u.createdAt,
                         Comparator.nullsLast(Comparator.reverseOrder())
                 ))
-                .map(TenantUserService::toSummary)
+                .map(u -> TenantUserSummaries.of(u, byUser.get(u.id)))
                 .toList();
     }
 
     /**
-     * Invite un nouvel utilisateur sur un tenant. Crée le user en statut
-     * {@code INVITED} avec un token d'invitation, envoie le mail.
+     * Invite un utilisateur sur un tenant.
+     *
+     * <p>Adresse inconnue : le compte naît en statut {@code INVITED} avec
+     * un token d'invitation, et le mail l'invite à choisir son mot de
+     * passe. Adresse déjà connue (SAAS-29) : le compte existe, on lui
+     * ouvre la porte de cette structure de plus, et le mail le lui dit ;
+     * s'il n'a jamais activé son compte, le lien d'activation repart.
+     * Une adresse déjà de la maison est refusée, comme avant.</p>
      */
     @Transactional
     public TenantUserSummaryDto invite(UUID tenantId, InviteTenantUserPayloadDto payload) {
         TenantEntity tenant = ensureTenantExists(tenantId);
         String email = payload.email().trim().toLowerCase();
-        if (users.emailExists(email)) {
-            throw new ConflictException(Messages.msg("m.tnt-email-in-use", email));
-        }
         if (!Roles.HUMAN_ASSIGNABLE.contains(payload.role())) {
             throw new BusinessException(Messages.msg("m.tnt-role-not-assignable", payload.role()));
+        }
+        UserEntity existing = users.findByEmail(email).orElse(null);
+        if (existing != null && memberships.resolve(existing, tenant.id).isPresent()) {
+            throw new ConflictException(Messages.msg("m.tnt-email-in-use", email));
         }
         List<UUID> profiles = resolveInvitedProfiles(tenant, payload);
         // Le plafond de comptes du plan se consomme ici, quelle que soit la
         // porte d'entrée (back-office ou administrateur du tenant).
         planLimits.enforceUserSeat(tenant);
+
+        if (existing != null) {
+            return addExistingAccount(tenant, existing, payload, profiles);
+        }
 
         InvitationTokenService.InvitationToken token = invitationTokens.generate();
         UserEntity user = new UserEntity();
@@ -138,8 +155,9 @@ public class TenantUserService {
         user.createdAt = Instant.now();
         user.updatedAt = user.createdAt;
         users.persist(user);
+        var membership = memberships.open(user, tenant, payload.role(), profiles, currentActorEmail());
 
-        sendInvitationMail(tenant, user, token.clearValue());
+        sendInvitationMail(tenant, user, membership, token.clearValue());
         log.infof("User invited: %s (tenant=%s, role=%s)", user.email, tenant.id, payload.role());
 
         audit.event(com.ntech.cabosse.shared.audit.AuditEventType.INVITATION_SENT)
@@ -150,7 +168,46 @@ public class TenantUserService {
                 .payload(java.util.Map.of("role", payload.role()))
                 .record();
 
-        return toSummary(user);
+        return TenantUserSummaries.of(user, membership);
+    }
+
+    /**
+     * Un compte déjà connu reçoit l'accès à cette structure (SAAS-29).
+     * Prénom et nom du formulaire sont ignorés : l'identité appartient à
+     * la personne, pas à la structure qui l'accueille.
+     */
+    private TenantUserSummaryDto addExistingAccount(TenantEntity tenant, UserEntity user,
+                                                    InviteTenantUserPayloadDto payload,
+                                                    List<UUID> profiles) {
+        if (user.status == UserStatus.DISABLED) {
+            throw new BusinessException(Messages.msg("m.tnt-account-disabled"));
+        }
+        var membership = memberships.open(user, tenant, payload.role(), profiles, currentActorEmail());
+
+        if (user.status == UserStatus.INVITED) {
+            // Jamais activé : le lien d'activation repart, nouveau jeton,
+            // nouvelle échéance ; l'ancien lien meurt.
+            InvitationTokenService.InvitationToken token = invitationTokens.generate();
+            user.invitationTokenHash = token.hash();
+            user.invitationExpiresAt = Instant.now().plus(INVITATION_TTL);
+            user.updatedAt = Instant.now();
+            users.update(user);
+            sendInvitationMail(tenant, user, membership, token.clearValue());
+        } else {
+            sendAddedToTenantMail(tenant, user, membership);
+        }
+        log.infof("Existing user added: %s (tenant=%s, role=%s)", user.email, tenant.id, payload.role());
+
+        audit.event(com.ntech.cabosse.shared.audit.AuditEventType.USER_ADDED_TO_TENANT)
+                .actorEmail(currentActorEmail())
+                .target("user", user.id.toString(), user.email)
+                .tenant(tenant.id, tenant.name)
+                .description("Accès à « " + tenant.name + " » ouvert à " + user.email
+                        + " (rôle " + payload.role() + ")")
+                .payload(java.util.Map.of("role", payload.role()))
+                .record();
+
+        return TenantUserSummaries.of(user, membership);
     }
 
     /**
@@ -202,15 +259,21 @@ public class TenantUserService {
      * Réinitialise le mot de passe d'un utilisateur. Invalide l'ancien
      * hash, génère un nouveau token, repasse le user en {@code INVITED}
      * jusqu'à activation. Envoie le mail de reset.
+     *
+     * <p>Le mot de passe appartient à la personne, pas à la structure :
+     * le geste vaut pour toutes ses structures, et n'importe laquelle de
+     * celles qui l'accueillent peut le faire, tracé dans son journal
+     * (SAAS-29, DEC-60).</p>
      */
     @Transactional
     public void resetPassword(UUID tenantId, UUID userId) {
         TenantEntity tenant = ensureTenantExists(tenantId);
         UserEntity user = users.findById(userId);
-        if (user == null || !tenantId.equals(user.tenantId)) {
+        var membership = user == null ? null : memberships.resolve(user, tenantId).orElse(null);
+        if (membership == null) {
             throw new NotFoundException(Messages.msg("m.tnt-user-not-found"));
         }
-        if (user.status == UserStatus.DISABLED) {
+        if (TenantUserSummaries.statusOf(user, membership) == UserStatus.DISABLED) {
             throw new BusinessException(Messages.msg("m.tnt-account-disabled"));
         }
 
@@ -245,7 +308,8 @@ public class TenantUserService {
     public TenantUserSummaryDto resendInvitation(UUID tenantId, UUID userId, String newEmailRaw) {
         TenantEntity tenant = ensureTenantExists(tenantId);
         UserEntity user = users.findById(userId);
-        if (user == null || !tenantId.equals(user.tenantId)) {
+        var membership = user == null ? null : memberships.resolve(user, tenantId).orElse(null);
+        if (membership == null) {
             throw new NotFoundException(Messages.msg("m.tnt-user-not-found"));
         }
         if (user.status != UserStatus.INVITED) {
@@ -267,7 +331,7 @@ public class TenantUserService {
         user.updatedAt = Instant.now();
         users.update(user);
 
-        sendInvitationMail(tenant, user, token.clearValue());
+        sendInvitationMail(tenant, user, membership, token.clearValue());
         log.infof("Invitation resent to %s (tenant=%s)", user.email, tenant.id);
 
         audit.event(com.ntech.cabosse.shared.audit.AuditEventType.INVITATION_SENT)
@@ -277,7 +341,7 @@ public class TenantUserService {
                 .description("Invitation renvoyée à " + user.email)
                 .record();
 
-        return toSummary(user);
+        return TenantUserSummaries.of(user, membership);
     }
 
     // ─── Helpers ───
@@ -290,7 +354,9 @@ public class TenantUserService {
         return tenant;
     }
 
-    private void sendInvitationMail(TenantEntity tenant, UserEntity user, String tokenClear) {
+    private void sendInvitationMail(TenantEntity tenant, UserEntity user,
+                                    com.ntech.cabosse.user.entity.MembershipEntity membership,
+                                    String tokenClear) {
         String url = "%s/invitation/%s".formatted(appConfig.frontendBaseUrl(), tokenClear);
         // Langue du destinataire, pas celle de l'administrateur qui invite :
         // le courriel s'adresse à l'invité.
@@ -311,7 +377,7 @@ public class TenantUserService {
         String html = invitationTemplate
                 .data("firstName", user.firstName)
                 .data("tenantName", tenant.name)
-                .data("roleLabel", humanRoleLabel(user.roles))
+                .data("roleLabel", humanRoleLabel(TenantUserSummaries.rolesOf(user, membership)))
                 .data("activationUrl", url)
                 .data("t", texts.build())
                 .render();
@@ -351,6 +417,39 @@ public class TenantUserService {
         );
     }
 
+    /**
+     * Le compte existe et vit déjà : on lui dit simplement qu'une
+     * structure de plus l'attend, et où la trouver.
+     */
+    public void sendAddedToTenantMail(TenantEntity tenant, UserEntity user,
+                                       com.ntech.cabosse.user.entity.MembershipEntity membership) {
+        String url = "%s/login".formatted(appConfig.frontendBaseUrl());
+        Locale locale = Locales.firstOf(user.locale,
+                tenant.preferences != null ? tenant.preferences.language : null);
+        MailTexts texts = MailTexts.in(locale)
+                .put("title", "m.mail-user-added-title", tenant.name)
+                .put("greeting", "m.mail-user-added-greeting", user.firstName)
+                .put("addedBefore", "m.mail-user-added-added-before")
+                .put("addedMiddle", "m.mail-user-added-added-middle")
+                .put("addedAfter", "m.mail-user-added-added-after")
+                .put("howTo", "m.mail-user-added-how-to")
+                .put("cta", "m.mail-user-added-cta")
+                .put("fallbackHint", "m.mail-fallback-hint")
+                .put("notExpected", "m.mail-user-added-not-expected");
+        String html = addedToTenantTemplate
+                .data("firstName", user.firstName)
+                .data("tenantName", tenant.name)
+                .data("roleLabel", humanRoleLabel(TenantUserSummaries.rolesOf(user, membership)))
+                .data("loginUrl", url)
+                .data("t", texts.build())
+                .render();
+        mailer.sendHtml(
+                user.email,
+                Messages.msg(locale, "m.mail-user-added-subject", tenant.name),
+                html
+        );
+    }
+
     /** Libellé lisible pour le rôle technique stocké en base. */
     private static String humanRoleLabel(Set<String> roles) {
         if (roles == null) return "Utilisateur";
@@ -359,25 +458,4 @@ public class TenantUserService {
         return "Utilisateur";
     }
 
-    private static TenantUserSummaryDto toSummary(UserEntity u) {
-        return new TenantUserSummaryDto(
-                u.id,
-                u.email,
-                u.firstName,
-                u.lastName,
-                u.phone,
-                u.roles != null ? Set.copyOf(u.roles) : Set.of(),
-                u.status,
-                u.createdAt,
-                u.lastLoginAt,
-                u.invitationExpiresAt,
-                u.tenantRoleIds != null ? java.util.List.copyOf(u.tenantRoleIds) : java.util.List.of(),
-                u.allowedSiteIds != null ? java.util.List.copyOf(u.allowedSiteIds) : java.util.List.of(),
-                u.permissionExceptions == null ? java.util.List.of()
-                        : u.permissionExceptions.stream()
-                                .map(e -> new com.ntech.cabosse.tenant.dto.UserPermissionExceptionDto(
-                                        e.code, e.mode, e.reason, e.grantedByEmail, e.grantedAt))
-                                .toList()
-        );
-    }
 }

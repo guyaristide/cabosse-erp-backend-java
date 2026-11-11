@@ -11,8 +11,8 @@ import com.ntech.cabosse.shared.exception.BusinessException;
 import com.ntech.cabosse.shared.exception.ConflictException;
 import com.ntech.cabosse.shared.exception.NotFoundException;
 import com.ntech.cabosse.shared.i18n.Messages;
-import com.ntech.cabosse.shared.security.Roles;
 import com.ntech.cabosse.shared.tenant.TenantContext;
+import com.ntech.cabosse.user.entity.MembershipEntity;
 import com.ntech.cabosse.user.entity.UserEntity;
 import com.ntech.cabosse.user.repository.UserRepository;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -36,6 +36,7 @@ public class TenantRoleService {
 
     @Inject TenantRoleRepository repo;
     @Inject UserRepository users;
+    @Inject com.ntech.cabosse.user.service.MembershipService memberships;
     @Inject PermissionResolver resolver;
     @Inject TenantContext tenantContext;
     @Inject AuditService audit;
@@ -55,14 +56,14 @@ public class TenantRoleService {
 
     public List<PermissionDtos.RoleResponseDto> list() {
         Set<Permission> catalog = resolver.catalogFor(tenantContext.tenantId());
-        List<UserEntity> tenantUsers = users.findByTenant(tenantContext.tenantId(), 0, 10_000);
-        return repo.listAll().stream().map(r -> toDto(r, catalog, tenantUsers)).toList();
+        List<MembershipEntity> members = memberships.membersOf(tenantContext.tenantId());
+        return repo.listAll().stream().map(r -> toDto(r, catalog, members)).toList();
     }
 
     public PermissionDtos.RoleResponseDto getById(UUID id) {
         Set<Permission> catalog = resolver.catalogFor(tenantContext.tenantId());
         return toDto(loadOrFail(id), catalog,
-                users.findByTenant(tenantContext.tenantId(), 0, 10_000));
+                memberships.membersOf(tenantContext.tenantId()));
     }
 
     public PermissionDtos.RoleResponseDto create(PermissionDtos.RoleUpsertDto p) {
@@ -117,8 +118,8 @@ public class TenantRoleService {
      */
     public void delete(UUID id) {
         TenantRoleEntity e = loadOrFail(id);
-        long holders = users.findByTenant(tenantContext.tenantId(), 0, 10_000).stream()
-                .filter(u -> u.tenantRoleIds != null && u.tenantRoleIds.contains(id))
+        long holders = memberships.membersOf(tenantContext.tenantId()).stream()
+                .filter(m -> m.tenantRoleIds != null && m.tenantRoleIds.contains(id))
                 .count();
         if (holders > 0) {
             throw new BusinessException(
@@ -133,10 +134,12 @@ public class TenantRoleService {
     /** Rattache un utilisateur à des profils. Remplace l'affectation existante. */
     public void assign(UUID userId, List<UUID> roleIds) {
         UserEntity user = users.findById(userId);
-        if (user == null || !tenantContext.tenantId().equals(user.tenantId)) {
+        MembershipEntity membership = user == null ? null
+                : memberships.resolve(user, tenantContext.tenantId()).orElse(null);
+        if (membership == null) {
             throw new NotFoundException(Messages.msg("m.per-user-not-found-in-tenant", userId));
         }
-        if (user.roles != null && user.roles.contains(Roles.TENANT_ADMIN)) {
+        if (membership.isTenantAdmin()) {
             throw new BusinessException(Messages.msg("m.per-tenant-admin-has-all-rights"));
         }
         List<UUID> wanted = roleIds != null ? roleIds : List.of();
@@ -144,9 +147,9 @@ public class TenantRoleService {
             repo.findById(roleId).orElseThrow(
                     () -> new NotFoundException(Messages.msg("m.per-role-not-found", roleId)));
         }
-        user.tenantRoleIds = new ArrayList<>(new LinkedHashSet<>(wanted));
-        user.updatedAt = Instant.now();
-        users.update(user);
+        membership.tenantRoleIds = new ArrayList<>(new LinkedHashSet<>(wanted));
+        membership.updatedAt = Instant.now();
+        memberships.save(membership);
 
         audit.event(AuditEventType.USER_ROLES_CHANGED)
                 .actorEmail(actor())
@@ -160,15 +163,15 @@ public class TenantRoleService {
     // ─── Internes ───────────────────────────────────────────────────
 
     private PermissionDtos.RoleResponseDto toDto(TenantRoleEntity e, Set<Permission> catalog,
-                                                 List<UserEntity> tenantUsers) {
+                                                 List<MembershipEntity> members) {
         List<String> inactive = (e.permissions == null ? List.<String>of() : e.permissions).stream()
                 .filter(code -> {
                     Permission p = Permission.ofCode(code);
                     return p == null || !catalog.contains(p);
                 })
                 .toList();
-        int holders = (int) tenantUsers.stream()
-                .filter(u -> u.tenantRoleIds != null && u.tenantRoleIds.contains(e.id))
+        int holders = (int) members.stream()
+                .filter(m -> m.tenantRoleIds != null && m.tenantRoleIds.contains(e.id))
                 .count();
         return PermissionDtos.RoleResponseDto.from(e, inactive, holders);
     }

@@ -34,6 +34,7 @@ public class TenantRegistryService {
 
     @Inject TenantRepository tenants;
     @Inject UserRepository users;
+    @Inject com.ntech.cabosse.user.service.MembershipService memberships;
 
     /**
      * Liste paginée des tenants. Tri par défaut : {@code createdAt} desc.
@@ -72,7 +73,7 @@ public class TenantRegistryService {
         int totalOfPages = (int) Math.ceil((double) total / safePerPage);
 
         List<TenantSummaryResponseDto> items = entities.stream()
-                .map(entity -> TenantMapper.toSummary(entity, users.countByTenant(entity.id)))
+                .map(entity -> TenantMapper.toSummary(entity, memberships.countByTenant(entity.id)))
                 .toList();
 
         return new Pagination<>(
@@ -94,7 +95,7 @@ public class TenantRegistryService {
         if (entity == null) {
             throw new NotFoundException(Messages.msg("m.tnt-not-found", tenantId));
         }
-        long usersCount = users.countByTenant(entity.id);
+        long usersCount = memberships.countByTenant(entity.id);
         return TenantMapper.toDetail(entity, usersCount);
     }
 

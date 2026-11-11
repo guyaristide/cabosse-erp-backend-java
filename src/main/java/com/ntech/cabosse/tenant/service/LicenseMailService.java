@@ -51,6 +51,7 @@ public class LicenseMailService {
 
     @Inject PlatformMailerService mailer;
     @Inject UserRepository users;
+    @Inject com.ntech.cabosse.user.service.MembershipService memberships;
     @Inject com.ntech.cabosse.tenant.repository.TenantRepository tenants;
     @Inject Logger log;
     @Inject AuditService audit;
@@ -101,7 +102,7 @@ public class LicenseMailService {
         // Les comptes de la structure font foi pour les adresses
         // cochées : l'écran les propose, une inconnue n'y vient que par
         // accident.
-        List<UserEntity> known = users.find("tenantId", tenant.id).list();
+        List<UserEntity> known = memberships.usersOf(tenant.id);
         int sent = 0;
         Set<String> served = new LinkedHashSet<>();
         for (String address : recipients == null ? List.<String>of() : recipients) {
