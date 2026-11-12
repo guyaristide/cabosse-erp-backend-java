@@ -154,6 +154,19 @@ public class RefreshTokenService {
         return repo.revokeByHash(hash(presentedSecret), Instant.now(), reason);
     }
 
+    /**
+     * Ferme la session dont ce jeton fait partie : toute sa famille, et pas
+     * seulement le secret présenté. Le poste qui bascule de structure peut
+     * avoir rafraîchi entre-temps (son jeton d'accès avait expiré, le
+     * client a rejoué l'appel avec un jeton neuf) : il présente alors un
+     * secret déjà rotaté, dont le successeur resterait vivant si l'on ne
+     * révoquait que lui.
+     */
+    public void revokeFamily(UUID familyId, String reason) {
+        long n = repo.revokeFamily(familyId, Instant.now(), reason);
+        if (n > 0) log.infof("Revoked %d refresh token(s) of family %s (%s)", n, familyId, reason);
+    }
+
     /** Le jeton tel qu'il est en base, sans le toucher : pour savoir à qui il appartient. */
     public Optional<RefreshTokenEntity> peek(String presentedSecret) {
         if (presentedSecret == null || presentedSecret.isBlank()) return Optional.empty();

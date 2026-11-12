@@ -264,8 +264,11 @@ public class AuthService {
             var presented = refreshTokens.peek(request.refreshToken()).orElse(null);
             // On ne ferme que sa propre session : un jeton d'un autre
             // compte, présenté par erreur ou par malice, reste intact.
+            // Et on ferme la session entière (sa famille) : le secret
+            // présenté peut avoir été rotaté juste avant par le client
+            // qui rafraîchissait un jeton d'accès expiré.
             if (presented != null && userId.equals(presented.userId)) {
-                refreshTokens.revoke(request.refreshToken(), "tenant_switch");
+                refreshTokens.revokeFamily(presented.familyId, "tenant_switch");
             }
         }
 

@@ -126,6 +126,28 @@ class MultiTenantUserTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void switching_with_a_secret_rotated_just_before_still_closes_the_session_left() {
+        var first = login(awa).then().statusCode(200).extract();
+        String staleRefresh = first.path("data.refreshToken");
+
+        // Le jeton d'accès avait expiré : le client a rafraîchi, puis rejoué
+        // la bascule avec le jeton neuf et le secret d'avant dans le corps.
+        var refreshed = RestAssured.given().contentType("application/json")
+                .body("{\"refreshToken\":\"" + staleRefresh + "\"}")
+                .when().post("/api/v1/auth/refresh").then().statusCode(200).extract();
+        String freshAccess = refreshed.path("data.accessToken");
+        String freshRefresh = refreshed.path("data.refreshToken");
+
+        switchTo(freshAccess, staleRefresh, rubber).then().statusCode(200)
+                .body("data.user.tenantId", equalTo(rubber.id.toString()));
+
+        // La session quittée est fermée en entier : son successeur ne vaut plus rien.
+        RestAssured.given().contentType("application/json")
+                .body("{\"refreshToken\":\"" + freshRefresh + "\"}")
+                .when().post("/api/v1/auth/refresh").then().statusCode(401);
+    }
+
+    @Test
     void a_structure_the_account_does_not_belong_to_does_not_exist_for_it() {
         TenantEntity other = fixtures.createActiveTenant("coop-autre-" + TestFixtures.randomSlugSuffix(), "Autre");
         var first = login(awa).then().statusCode(200).extract();
