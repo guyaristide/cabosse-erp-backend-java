@@ -92,6 +92,7 @@ public final class TenantCollections {
             "cash_supply_requests",
             "cloud_files",
             "collector_advances",
+            "commodity_sale_drafts",
             "commodity_sales",
             "counters",
             "deforestation_alerts",

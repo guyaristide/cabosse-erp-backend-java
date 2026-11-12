@@ -67,6 +67,67 @@ public class CommoditySaleResource {
     }
     @Inject CommoditySaleImportService importService;
     @Inject com.ntech.cabosse.commodity.service.DeliveryShareService shareService;
+    @Inject com.ntech.cabosse.commodity.service.CommoditySaleDraftService drafts;
+
+    // ─── Brouillons (VTE-28) ────────────────────────────────────────
+    //
+    // Une saisie laissée en l'état, pour la valider plus tard. Elle n'est
+    // pas validée à l'entrée : un brouillon a le droit d'être incomplet.
+    // La validation, elle, passe par les contrôles d'une création.
+
+    @GET
+    @Path("/drafts")
+    public Response listDrafts() {
+        ensureCapability();
+        return Response.ok(ApiResponse.ok(drafts.list())).build();
+    }
+
+    @GET
+    @Path("/drafts/{id}")
+    public Response getDraft(@PathParam("id") UUID id) {
+        ensureCapability();
+        return Response.ok(ApiResponse.ok(drafts.get(id))).build();
+    }
+
+    @POST
+    @Path("/drafts")
+    @RequiresPermission(Permission.SALE_WRITE)
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    public Response createDraft(CommoditySaleUpsertDto payload) {
+        ensureCapability();
+        return Response.status(Response.Status.CREATED)
+                .entity(ApiResponse.created(drafts.save(null, payload))).build();
+    }
+
+    @PUT
+    @Path("/drafts/{id}")
+    @RequiresPermission(Permission.SALE_WRITE)
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    public Response updateDraft(@PathParam("id") UUID id, CommoditySaleUpsertDto payload) {
+        ensureCapability();
+        return Response.ok(ApiResponse.ok(drafts.save(id, payload))).build();
+    }
+
+    /** La vente naît de la saisie envoyée, et le brouillon s'efface si elle est acceptée. */
+    @POST
+    @Path("/drafts/{id}/validate")
+    @RequiresPermission(Permission.SALE_WRITE)
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    public Response validateDraft(@PathParam("id") UUID id, @Valid CommoditySaleUpsertDto payload) {
+        ensureCapability();
+        return Response.status(Response.Status.CREATED)
+                .entity(ApiResponse.created(drafts.validate(id, payload))).build();
+    }
+
+    @DELETE
+    @Path("/drafts/{id}")
+    @RequiresPermission(Permission.SALE_WRITE)
+    @RolesAllowed({ Roles.TENANT_ADMIN, Roles.USER })
+    public Response deleteDraft(@PathParam("id") UUID id) {
+        ensureCapability();
+        drafts.delete(id);
+        return Response.noContent().build();
+    }
 
     @GET
     public Response list(@QueryParam("q") String q,
