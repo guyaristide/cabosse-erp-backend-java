@@ -354,7 +354,8 @@ public class TenantUserService {
         return tenant;
     }
 
-    private void sendInvitationMail(TenantEntity tenant, UserEntity user,
+    /** Partagé avec l'équipe de l'éditeur (SAAS-34) : même lien d'activation, même courrier. */
+    public void sendInvitationMail(TenantEntity tenant, UserEntity user,
                                     com.ntech.cabosse.user.entity.MembershipEntity membership,
                                     String tokenClear) {
         String url = "%s/invitation/%s".formatted(appConfig.frontendBaseUrl(), tokenClear);
