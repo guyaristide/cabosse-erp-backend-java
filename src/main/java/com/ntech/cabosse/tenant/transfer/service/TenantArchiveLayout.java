@@ -43,7 +43,11 @@ public final class TenantArchiveLayout {
             new Slice("support_tickets", "tenantId"),
             new Slice("cloud_files", "tenantId"),
             new Slice("global_audit", "tenantId"),
-            new Slice("notification_providers", "tenantId"));
+            new Slice("notification_providers", "tenantId"),
+            // Le fil commercial d'une structure la suit (SAAS-31) ; les
+            // prospects, eux, n'appartiennent à aucune structure.
+            new Slice("crm_interactions", "tenantId"),
+            new Slice("crm_tenant_followups", "tenantId"));
 
     /** Ce qu'on laisse volontairement de côté, dit à l'utilisateur. */
     public static final List<String> EXCLUDED = List.of(

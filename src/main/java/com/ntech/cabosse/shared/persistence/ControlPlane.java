@@ -43,5 +43,13 @@ public final class ControlPlane {
 
         /** Passerelles d'envoi configurées (moteur + valeurs + usages). */
         public static final String NOTIFICATION_PROVIDERS = "notification_providers";
+
+        // ─── CRM de l'éditeur (SAAS-31) ───
+        /** Les prospects : organisations approchées avant de devenir des structures. */
+        public static final String CRM_PROSPECTS = "crm_prospects";
+        /** Le fil des échanges, avec un prospect ou avec une structure. */
+        public static final String CRM_INTERACTIONS = "crm_interactions";
+        /** La prochaine action prévue sur une structure existante. */
+        public static final String CRM_TENANT_FOLLOWUPS = "crm_tenant_followups";
     }
 }
