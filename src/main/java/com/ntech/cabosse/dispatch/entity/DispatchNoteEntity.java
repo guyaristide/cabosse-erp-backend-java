@@ -70,6 +70,12 @@ public class DispatchNoteEntity {
 
     public String notes;
 
+    // ─── Correction (14/11/2026) ───
+    /** Posé le temps d'une correction : une vente n'appelle pas un chargement qui bouge. */
+    public Instant editLockedAt;
+    public Instant correctedAt;
+    public String correctedByEmail;
+
     // ─── Annulation ───
     public String cancellationReason;
     public Instant cancelledAt;

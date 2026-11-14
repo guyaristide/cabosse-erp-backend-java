@@ -8,6 +8,8 @@ import java.util.UUID;
 /** Une ligne du bordereau, telle qu'elle a été écrite (CE-195). */
 public record DispatchLineView(
         UUID receiptId,
+        /** Le stock de départ appelé, quand la ligne vient de là : une correction en repart. */
+        UUID openingMovementId,
         String receiptRef,
         String lotRef,
         BigDecimal grossKg,
@@ -17,7 +19,7 @@ public record DispatchLineView(
         String comment
 ) {
     public static DispatchLineView from(DispatchLine l) {
-        return new DispatchLineView(l.receiptId, l.receiptRef, l.lotRef,
+        return new DispatchLineView(l.receiptId, l.openingMovementId, l.receiptRef, l.lotRef,
                 l.grossKg, l.bagsCount, l.netKg, l.cmupAtDispatch, l.comment);
     }
 }

@@ -165,12 +165,42 @@ public class DispatchNoteRepository {
     public boolean tryMarkSold(UUID id, UUID saleId, String saleRef) {
         return coll().updateOne(
                 Filters.and(Filters.eq("_id", id),
-                        Filters.eq("status", DispatchNoteStatus.OPEN.name())),
+                        Filters.eq("status", DispatchNoteStatus.OPEN.name()),
+                        notLockedForEdit()),
                 Updates.combine(
                         Updates.set("status", DispatchNoteStatus.SOLD.name()),
                         Updates.set("saleId", saleId),
                         Updates.set("saleRef", saleRef)))
                 .getModifiedCount() == 1;
+    }
+
+    /**
+     * Un verrou de correction oublié (processus tombé en route) ne
+     * bloque pas le chargement indéfiniment : il expire.
+     */
+    private static final java.time.Duration EDIT_LOCK_TTL = java.time.Duration.ofMinutes(2);
+
+    private static Bson notLockedForEdit() {
+        return Filters.or(
+                Filters.eq("editLockedAt", null),
+                Filters.lt("editLockedAt", java.time.Instant.now().minus(EDIT_LOCK_TTL)));
+    }
+
+    /**
+     * Verrouille un chargement encore ouvert pour le corriger : ni une
+     * vente ni une seconde correction ne l'appellent pendant ce temps.
+     */
+    public boolean tryLockForEdit(UUID id) {
+        return coll().updateOne(
+                Filters.and(Filters.eq("_id", id),
+                        Filters.eq("status", DispatchNoteStatus.OPEN.name()),
+                        notLockedForEdit()),
+                Updates.set("editLockedAt", java.time.Instant.now()))
+                .getModifiedCount() == 1;
+    }
+
+    public void unlockEdit(UUID id) {
+        coll().updateOne(Filters.eq("_id", id), Updates.unset("editLockedAt"));
     }
 
     /** Défait le marquage vendu, quand l'écriture de la vente a échoué. */

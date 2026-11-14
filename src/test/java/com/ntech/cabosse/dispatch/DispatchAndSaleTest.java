@@ -220,6 +220,87 @@ class DispatchAndSaleTest extends AbstractIntegrationTest {
                 .when().post("/api/v1/dispatch-notes").then().statusCode(422);
     }
 
+    /**
+     * Corriger un chargement à vendre garde son numéro (demandé le
+     * 14/11/2026) : les anciennes lignes rendent leurs kilos et leurs
+     * sorties, les nouvelles appellent et sortent à leur place. Une fois
+     * vendu, il ne se corrige plus.
+     */
+    @Test
+    void un_chargement_a_vendre_se_corrige_sous_le_meme_numero() {
+        UserEntity admin = tenantAdmin();
+        Seed s = seed(admin);
+        String noteId = createNote(admin, s, """
+                { "receiptId": "%s", "netKg": 3084, "bagsCount": 47 },
+                { "receiptId": "%s", "netKg": 500, "bagsCount": 8 }
+                """.formatted(s.receipt1(), s.receipt2()), 201);
+        String ref = givenAs(admin).when().get("/api/v1/dispatch-notes/" + noteId)
+                .then().statusCode(200).extract().path("data.ref");
+
+        String body = """
+                { "date": "%s", "siteId": "%s", "customerId": "%s",
+                  "truckNumber": "CI-9900-ZZ", "lines": [%s] }
+                """;
+        // Le reçu 1 garde ses kilos mais compte deux sacs de plus, et le
+        // reçu 2 donne tout : 3 084 + 2 290, ce qui dépasse ce que le
+        // chargement tenait sur lui.
+        givenAs(admin).contentType("application/json")
+                .body(body.formatted(LocalDate.now(), s.siteId(), s.customerId(), """
+                        { "receiptId": "%s", "netKg": 3084, "bagsCount": 49 },
+                        { "receiptId": "%s", "netKg": 2290, "bagsCount": 36 }
+                        """.formatted(s.receipt1(), s.receipt2())))
+                .when().put("/api/v1/dispatch-notes/" + noteId).then().statusCode(200)
+                .body("data.ref", equalTo(ref))
+                .body("data.totalNetKg", equalTo(5374))
+                .body("data.totalBags", equalTo(85))
+                .body("data.truckNumber", equalTo("CI-9900-ZZ"))
+                .body("data.correctedAt", notNullValue());
+        givenAs(admin).when()
+                .get("/api/v1/stocks/" + s.articleId() + "/sites/" + s.siteId())
+                .then().statusCode(200).body("data.quantity", equalTo(0.0F));
+
+        // Trop demander échoue, et laisse le chargement tel quel.
+        givenAs(admin).contentType("application/json")
+                .body(body.formatted(LocalDate.now(), s.siteId(), s.customerId(), """
+                        { "receiptId": "%s", "netKg": 3100 }
+                        """.formatted(s.receipt1())))
+                .when().put("/api/v1/dispatch-notes/" + noteId).then().statusCode(422);
+        givenAs(admin).when().get("/api/v1/dispatch-notes/" + noteId)
+                .then().statusCode(200).body("data.totalNetKg", equalTo(5374));
+        createNote(admin, s, """
+                { "receiptId": "%s", "netKg": 1 }
+                """.formatted(s.receipt1()), 422);
+
+        // Réduire le chargement rend le reliquat au reçu et au stock.
+        givenAs(admin).contentType("application/json")
+                .body(body.formatted(LocalDate.now(), s.siteId(), s.customerId(), """
+                        { "receiptId": "%s", "netKg": 3084, "bagsCount": 49 }
+                        """.formatted(s.receipt1())))
+                .when().put("/api/v1/dispatch-notes/" + noteId).then().statusCode(200)
+                .body("data.lines", hasSize(1));
+        givenAs(admin).when()
+                .get("/api/v1/stocks/" + s.articleId() + "/sites/" + s.siteId())
+                .then().statusCode(200).body("data.quantity", equalTo(2290.0F));
+        createNote(admin, s, """
+                { "receiptId": "%s", "netKg": 2290 }
+                """.formatted(s.receipt2()), 201);
+
+        // Vendu, il ne bouge plus.
+        givenAs(admin).contentType("application/json")
+                .body("""
+                        { "date": "%s", "customerId": "%s", "articleId": "%s", "siteId": "%s",
+                          "dispatchNoteId": "%s",
+                          "weights": { "acceptedKg": 3000 }, "pricePerKg": 1200 }
+                        """.formatted(LocalDate.now(), s.customerId(), s.articleId(), s.siteId(), noteId))
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                .when().post("/api/v1/commodity/sales").then().statusCode(201);
+        givenAs(admin).contentType("application/json")
+                .body(body.formatted(LocalDate.now(), s.siteId(), s.customerId(), """
+                        { "receiptId": "%s", "netKg": 3000 }
+                        """.formatted(s.receipt1())))
+                .when().put("/api/v1/dispatch-notes/" + noteId).then().statusCode(422);
+    }
+
     @Test
     void the_full_journey_from_loading_to_collection() {
         UserEntity admin = tenantAdmin();

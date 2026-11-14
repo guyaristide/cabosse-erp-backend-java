@@ -35,6 +35,9 @@ public record DispatchNoteResponseDto(
         String notes,
         String cancellationReason,
         Instant createdAt,
+        /** La dernière correction, quand le chargement en a connu une (14/11/2026). */
+        Instant correctedAt,
+        String correctedByEmail,
         List<com.ntech.cabosse.shared.storage.AttachmentDto> attachments
 ) {
     public static DispatchNoteResponseDto from(DispatchNoteEntity e) {
@@ -47,6 +50,7 @@ public record DispatchNoteResponseDto(
                 e.totalGrossKg, e.totalBags, e.totalNetKg,
                 e.status, e.saleId, e.saleRef, e.notes,
                 e.cancellationReason, e.createdAt,
+                e.correctedAt, e.correctedByEmail,
                 com.ntech.cabosse.shared.storage.AttachmentDto.fromAll(e.attachments));
     }
 }

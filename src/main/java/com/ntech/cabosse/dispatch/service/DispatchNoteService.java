@@ -34,6 +34,7 @@ import org.eclipse.microprofile.jwt.JsonWebToken;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
@@ -109,23 +110,145 @@ public class DispatchNoteService {
         if (p.siteId() == null) {
             throw new BusinessException(Messages.msg("m.stk-site-required"));
         }
+        List<CalledSource> called = resolveSources(p.siteId(), p.lines());
+        takeAll(p.lines(), called);
 
-        // Les sources appelées, toutes du même article et du même site :
-        // un camion charge une matière, pas un assortiment. Une source
-        // est un reçu d'achat, ou le stock de départ quand la matière
-        // vient de là (expert, 14/10/2026).
-        // Le vrac appelable du site, brassage déjà réparti : c'est lui
-        // qui dit ce qui reste sur chaque source, et une perte ne se
-        // retranche qu'une fois même quand le magasin tient plusieurs
-        // vracs, amorçage et transferts reçus (16/10/2026).
+        DispatchNoteEntity e = new DispatchNoteEntity();
+        try {
+            Instant now = Instant.now();
+            e.id = idGenerator.newId();
+            e.ref = refService.next();
+            e.siteId = p.siteId();
+            e.siteName = sites.findById(p.siteId()).map(s -> s.name).orElse(null);
+            fill(e, p, called);
+            e.createdAt = now;
+            e.updatedAt = now;
+            e.createdByEmail = actor();
+            repo.insert(e);
+            for (DispatchLine line : e.lines) applyOut(e, line, false);
+        } catch (RuntimeException ex) {
+            releaseAll(p.lines());
+            throw ex;
+        }
+
+        audit.event(AuditEventType.STOCK_MOVEMENT_RECORDED)
+                .actorEmail(actor())
+                .target("dispatch_note", e.id.toString(), e.ref)
+                .tenant(tenantContext.tenantId(), null)
+                .description("Bordereau de sortie " + e.ref + " : " + e.totalNetKg + " kg "
+                        + e.articleName + " en " + e.lines.size() + " appel(s)"
+                        + (e.customerName != null ? " vers " + e.customerName : ""))
+                .record();
+        return DispatchNoteResponseDto.from(e);
+    }
+
+    // ─── Correction ─────────────────────────────────────────────────
+
+    /**
+     * Corrige un chargement tant qu'aucune vente ne l'a appelé (demandé
+     * le 14/11/2026) : lignes, sacs, client, camion, date.
+     *
+     * <p>Annuler puis refaire consommait un nouveau numéro, alors que le
+     * papier du camion porte déjà le premier. La correction garde la
+     * référence et les pièces jointes : les anciennes lignes rendent
+     * leurs kilos aux sources et contre-passent leurs sorties, les
+     * nouvelles appellent et sortent comme à la création. Le bordereau
+     * est verrouillé le temps de l'opération, et une vente ne peut pas
+     * l'appeler pendant ce temps.</p>
+     */
+    public DispatchNoteResponseDto update(UUID id, CreateDispatchNoteDto p) {
+        DispatchNoteEntity e = loadOrFail(id);
+        if (e.status != DispatchNoteStatus.OPEN) {
+            throw new BusinessException(Messages.msg("m.dsp-edit-not-open", e.ref));
+        }
+        if (p.siteId() != null && !p.siteId().equals(e.siteId)) {
+            throw new BusinessException(Messages.msg("m.dsp-edit-other-site", e.ref));
+        }
+        if (!repo.tryLockForEdit(e.id)) {
+            throw new BusinessException(Messages.msg("m.dsp-edit-busy", e.ref));
+        }
+        try {
+            List<DispatchLine> previous = e.lines;
+            List<DispatchLineInputDto> previousInputs = previous.stream()
+                    .map(l -> new DispatchLineInputDto(l.receiptId, l.openingMovementId,
+                            l.netKg, l.bagsCount, l.comment))
+                    .toList();
+
+            // Les anciennes lignes rendent leurs kilos : la nouvelle
+            // composition peut reprendre ce que le chargement tenait.
+            releaseAll(previousInputs);
+            List<CalledSource> called;
+            try {
+                called = resolveSources(e.siteId, p.lines());
+                takeAll(p.lines(), called);
+            } catch (RuntimeException ex) {
+                retakeAll(previousInputs);
+                throw ex;
+            }
+
+            // Les sorties : contre-passer les anciennes, puis sortir les
+            // nouvelles. Chaque mouvement passé est noté pour être défait
+            // si une sortie échoue en route.
+            List<Runnable> undo = new ArrayList<>();
+            DispatchNoteEntity before = headerOf(e);
+            try {
+                for (DispatchLine line : List.copyOf(previous)) {
+                    applyReversal(before, line, "Correction " + e.ref);
+                    undo.add(() -> applyOutAt(before, line, before.date, true));
+                }
+                fill(e, p, called);
+                for (DispatchLine line : e.lines) {
+                    applyOut(e, line, false);
+                    undo.add(() -> applyReversal(e, line, "Correction " + e.ref));
+                }
+            } catch (RuntimeException ex) {
+                for (int i = undo.size() - 1; i >= 0; i--) undo.get(i).run();
+                releaseAll(p.lines());
+                retakeAll(previousInputs);
+                throw ex;
+            }
+
+            e.editLockedAt = null;
+            e.updatedAt = Instant.now();
+            e.correctedAt = e.updatedAt;
+            e.correctedByEmail = actor();
+            repo.replace(e);
+        } catch (RuntimeException ex) {
+            repo.unlockEdit(e.id);
+            throw ex;
+        }
+
+        audit.event(AuditEventType.STOCK_MOVEMENT_RECORDED)
+                .actorEmail(actor())
+                .target("dispatch_note", e.id.toString(), e.ref)
+                .tenant(tenantContext.tenantId(), null)
+                .description("Correction du bordereau de sortie " + e.ref + " : " + e.totalNetKg
+                        + " kg en " + e.totalBags + " sacs, " + e.lines.size() + " appel(s)"
+                        + (e.customerName != null ? " vers " + e.customerName : ""))
+                .record();
+        return DispatchNoteResponseDto.from(e);
+    }
+
+    // ─── Composition ────────────────────────────────────────────────
+
+    /**
+     * Les sources appelées, toutes du même article et du même site : un
+     * camion charge une matière, pas un assortiment. Une source est un
+     * reçu d'achat, ou le stock de départ quand la matière vient de là
+     * (expert, 14/10/2026). Le vrac appelable du site, brassage déjà
+     * réparti, dit ce qui reste sur chaque source, et une perte ne se
+     * retranche qu'une fois même quand le magasin tient plusieurs vracs
+     * (16/10/2026).
+     */
+    private List<CalledSource> resolveSources(UUID siteId, List<DispatchLineInputDto> lines) {
         java.util.Map<UUID, com.ntech.cabosse.stock.dto.DispatchableOpeningDto> bulk =
                 new java.util.HashMap<>();
-        for (var source : stockService.dispatchableOpenings(p.siteId(), null)) {
+        for (var source : stockService.dispatchableOpenings(siteId, null)) {
             bulk.put(source.movementId(), source);
         }
 
         List<CalledSource> called = new ArrayList<>();
-        for (DispatchLineInputDto line : p.lines()) {
+        for (DispatchLineInputDto line : lines) {
             if ((line.receiptId() == null) == (line.openingMovementId() == null)) {
                 throw new BusinessException(Messages.msg("m.dsp-source-exclusive"));
             }
@@ -136,7 +259,7 @@ public class DispatchNoteService {
                 if (receipt.isCancelled()) {
                     throw new BusinessException(Messages.msg("m.dsp-receipt-cancelled", receipt.ref));
                 }
-                if (!p.siteId().equals(receipt.siteId)) {
+                if (!siteId.equals(receipt.siteId)) {
                     throw new BusinessException(Messages.msg("m.dsp-receipt-other-site", receipt.ref));
                 }
                 called.add(CalledSource.of(receipt));
@@ -144,7 +267,7 @@ public class DispatchNoteService {
                 var opening = movements.findById(line.openingMovementId()).orElseThrow(
                         () -> new NotFoundException(
                                 Messages.msg("m.dsp-opening-not-found", line.openingMovementId())));
-                if (!p.siteId().equals(opening.siteId)) {
+                if (!siteId.equals(opening.siteId)) {
                     throw new BusinessException(
                             Messages.msg("m.dsp-receipt-other-site", opening.ref));
                 }
@@ -163,12 +286,17 @@ public class DispatchNoteService {
                         called.get(0).articleName(), source.articleName()));
             }
         }
+        return called;
+    }
 
-        // Appels atomiques sur le disponible de chaque reçu, avec retour
-        // arrière complet si l'un d'eux ne peut pas suivre.
+    /**
+     * Appels atomiques sur le disponible de chaque source, avec retour
+     * arrière complet si l'une d'elles ne peut pas suivre.
+     */
+    private void takeAll(List<DispatchLineInputDto> lines, List<CalledSource> called) {
         List<DispatchLineInputDto> consumed = new ArrayList<>();
-        for (int i = 0; i < p.lines().size(); i++) {
-            DispatchLineInputDto line = p.lines().get(i);
+        for (int i = 0; i < lines.size(); i++) {
+            DispatchLineInputDto line = lines.get(i);
             boolean taken = line.receiptId() != null
                     ? receipts.tryDispatch(line.receiptId(), line.netKg())
                     : movements.tryDispatchOpening(line.openingMovementId(), line.netKg(),
@@ -181,101 +309,107 @@ public class DispatchNoteService {
             }
             consumed.add(line);
         }
+    }
 
-        Instant now = Instant.now();
-        DispatchNoteEntity e = new DispatchNoteEntity();
-        try {
-            e.id = idGenerator.newId();
-            e.ref = refService.next();
-            e.date = p.date();
-            e.siteId = p.siteId();
-            e.siteName = sites.findById(p.siteId()).map(s -> s.name).orElse(null);
-            CalledSource first = called.get(0);
-            e.articleId = first.articleId();
-            e.articleCode = first.articleCode();
-            e.articleName = first.articleName();
-            e.articleUnit = first.articleUnit();
-            if (p.customerId() != null) {
-                customers.findById(p.customerId()).ifPresent(c -> {
-                    e.customerId = c.id;
-                    e.customerName = c.name;
-                });
-            }
-            e.truckNumber = blankToNull(p.truckNumber());
-            e.destination = blankToNull(p.destination());
-            // La campagne vient de la date du bordereau, pas de l'heure de
-            // la saisie : une expédition de juillet enregistrée en octobre
-            // appartient à la campagne de juillet (04/10/2026).
-            CampaignEntity campaign = campaignResolver.resolveOptionalForDate(e.date, null);
-            e.campaignId = campaign != null ? campaign.id : null;
-            e.campaignYear = campaign != null ? campaign.campaignYear : null;
-            e.notes = blankToNull(p.notes());
-
-            BigDecimal cmup = stockItems.findByArticleAndSite(e.articleId, e.siteId)
-                    .map(it -> it.cmup).orElse(BigDecimal.ZERO);
-
-            List<DispatchLine> lines = new ArrayList<>(p.lines().size());
-            BigDecimal totalGross = BigDecimal.ZERO;
-            int totalBags = 0;
-            BigDecimal totalNet = BigDecimal.ZERO;
-            for (int i = 0; i < p.lines().size(); i++) {
-                DispatchLineInputDto input = p.lines().get(i);
-                CalledSource source = called.get(i);
-                DispatchLine line = new DispatchLine();
-                line.receiptId = input.receiptId();
-                line.openingMovementId = input.openingMovementId();
-                line.receiptRef = source.ref();
-                line.lotRef = source.lotRef();
-                line.netKg = input.netKg();
-                line.comment = input.comment() == null || input.comment().isBlank()
-                        ? null : input.comment().trim();
-                line.bagsCount = input.bagsCount();
-                line.grossKg = input.bagsCount() != null
-                        ? input.netKg().add(BigDecimal.valueOf(input.bagsCount()))
-                        : input.netKg();
-                line.cmupAtDispatch = cmup;
-                lines.add(line);
-                totalGross = totalGross.add(line.grossKg);
-                totalBags += input.bagsCount() != null ? input.bagsCount() : 0;
-                totalNet = totalNet.add(input.netKg());
-            }
-            e.lines = lines;
-            e.totalGrossKg = totalGross;
-            e.totalBags = totalBags;
-            e.totalNetKg = totalNet;
-            e.createdAt = now;
-            e.updatedAt = now;
-            e.createdByEmail = actor();
-            repo.insert(e);
-
-            // Une sortie de stock par ligne, chacune sous le lot de son
-            // reçu : la traçabilité aval y lira l'exact. Les sacs partent
-            // avec elle : le registre du magasin compte en sacs autant
-            // qu'en kilos, et une sortie sans sacs laissait son compte
-            // intact pendant que le poids baissait (expert, 16/10/2026).
-            for (DispatchLine line : lines) {
-                stockService.applyMovement(new MovementInput(
-                        e.articleId, e.siteId, MovementKind.OUT, line.netKg, cmup,
-                        MovementSource.DISPATCH_NOTE, e.ref, e.id, null,
-                        "Chargement " + e.ref + (e.customerName != null ? " vers " + e.customerName : ""),
-                        null,
-                        p.date().atStartOfDay(ZoneOffset.UTC).toInstant(),
-                        false, line.lotRef, false, line.bagsCount));
-            }
-        } catch (RuntimeException ex) {
-            releaseAll(consumed);
-            throw ex;
+    /** Pose sur le bordereau ce que la saisie décrit : en-tête, lignes et totaux. */
+    private void fill(DispatchNoteEntity e, CreateDispatchNoteDto p, List<CalledSource> called) {
+        e.date = p.date();
+        CalledSource first = called.get(0);
+        e.articleId = first.articleId();
+        e.articleCode = first.articleCode();
+        e.articleName = first.articleName();
+        e.articleUnit = first.articleUnit();
+        e.customerId = null;
+        e.customerName = null;
+        if (p.customerId() != null) {
+            customers.findById(p.customerId()).ifPresent(c -> {
+                e.customerId = c.id;
+                e.customerName = c.name;
+            });
         }
+        e.truckNumber = blankToNull(p.truckNumber());
+        e.destination = blankToNull(p.destination());
+        // La campagne vient de la date du bordereau, pas de l'heure de
+        // la saisie : une expédition de juillet enregistrée en octobre
+        // appartient à la campagne de juillet (04/10/2026).
+        CampaignEntity campaign = campaignResolver.resolveOptionalForDate(e.date, null);
+        e.campaignId = campaign != null ? campaign.id : null;
+        e.campaignYear = campaign != null ? campaign.campaignYear : null;
+        e.notes = blankToNull(p.notes());
 
-        audit.event(AuditEventType.STOCK_MOVEMENT_RECORDED)
-                .actorEmail(actor())
-                .target("dispatch_note", e.id.toString(), e.ref)
-                .tenant(tenantContext.tenantId(), null)
-                .description("Bordereau de sortie " + e.ref + " : " + e.totalNetKg + " kg "
-                        + e.articleName + " en " + e.lines.size() + " appel(s)"
-                        + (e.customerName != null ? " vers " + e.customerName : ""))
-                .record();
-        return DispatchNoteResponseDto.from(e);
+        BigDecimal cmup = stockItems.findByArticleAndSite(e.articleId, e.siteId)
+                .map(it -> it.cmup).orElse(BigDecimal.ZERO);
+
+        List<DispatchLine> lines = new ArrayList<>(p.lines().size());
+        BigDecimal totalGross = BigDecimal.ZERO;
+        int totalBags = 0;
+        BigDecimal totalNet = BigDecimal.ZERO;
+        for (int i = 0; i < p.lines().size(); i++) {
+            DispatchLineInputDto input = p.lines().get(i);
+            CalledSource source = called.get(i);
+            DispatchLine line = new DispatchLine();
+            line.receiptId = input.receiptId();
+            line.openingMovementId = input.openingMovementId();
+            line.receiptRef = source.ref();
+            line.lotRef = source.lotRef();
+            line.netKg = input.netKg();
+            line.comment = input.comment() == null || input.comment().isBlank()
+                    ? null : input.comment().trim();
+            line.bagsCount = input.bagsCount();
+            line.grossKg = input.bagsCount() != null
+                    ? input.netKg().add(BigDecimal.valueOf(input.bagsCount()))
+                    : input.netKg();
+            line.cmupAtDispatch = cmup;
+            lines.add(line);
+            totalGross = totalGross.add(line.grossKg);
+            totalBags += input.bagsCount() != null ? input.bagsCount() : 0;
+            totalNet = totalNet.add(input.netKg());
+        }
+        e.lines = lines;
+        e.totalGrossKg = totalGross;
+        e.totalBags = totalBags;
+        e.totalNetKg = totalNet;
+    }
+
+    /**
+     * Une sortie de stock par ligne, sous le lot de son reçu : la
+     * traçabilité aval y lira l'exact. Les sacs partent avec elle : le
+     * registre du magasin compte en sacs autant qu'en kilos (expert,
+     * 16/10/2026).
+     */
+    private void applyOut(DispatchNoteEntity e, DispatchLine line, boolean force) {
+        applyOutAt(e, line, e.date, force);
+    }
+
+    private void applyOutAt(DispatchNoteEntity e, DispatchLine line, LocalDate date, boolean force) {
+        stockService.applyMovement(new MovementInput(
+                e.articleId, e.siteId, MovementKind.OUT, line.netKg, line.cmupAtDispatch,
+                MovementSource.DISPATCH_NOTE, e.ref, e.id, null,
+                "Chargement " + e.ref + (e.customerName != null ? " vers " + e.customerName : ""),
+                null,
+                date.atStartOfDay(ZoneOffset.UTC).toInstant(),
+                force, line.lotRef, false, line.bagsCount));
+    }
+
+    /** L'en-tête d'avant une correction, de quoi défaire ses mouvements. */
+    private static DispatchNoteEntity headerOf(DispatchNoteEntity e) {
+        DispatchNoteEntity h = new DispatchNoteEntity();
+        h.id = e.id;
+        h.ref = e.ref;
+        h.siteId = e.siteId;
+        h.articleId = e.articleId;
+        h.customerName = e.customerName;
+        h.date = e.date;
+        return h;
+    }
+
+    /** Rend au stock ce qu'une ligne en avait sorti. */
+    private void applyReversal(DispatchNoteEntity e, DispatchLine line, String label) {
+        stockService.applyMovement(new MovementInput(
+                e.articleId, e.siteId, MovementKind.IN, line.netKg, line.cmupAtDispatch,
+                MovementSource.DISPATCH_NOTE, e.ref, e.id, null,
+                label, null,
+                Instant.now(), true, line.lotRef, false, line.bagsCount));
     }
 
     // ─── Annulation ─────────────────────────────────────────────────
@@ -292,11 +426,7 @@ public class DispatchNoteService {
         // Le stock revient ligne à ligne, chaque source retrouve son
         // reliquat : un reçu d'achat, ou le stock de départ.
         for (DispatchLine line : e.lines) {
-            stockService.applyMovement(new MovementInput(
-                    e.articleId, e.siteId, MovementKind.IN, line.netKg, line.cmupAtDispatch,
-                    MovementSource.DISPATCH_NOTE, e.ref, e.id, null,
-                    "Contre-passation " + e.ref, null,
-                    Instant.now(), true, line.lotRef, false, line.bagsCount));
+            applyReversal(e, line, "Contre-passation " + e.ref);
             if (line.receiptId != null) {
                 receipts.releaseDispatch(line.receiptId, line.netKg);
             } else if (line.openingMovementId != null) {
@@ -333,6 +463,21 @@ public class DispatchNoteService {
 
     private static String blankToNull(String s) {
         return s == null || s.isBlank() ? null : s.trim();
+    }
+
+    /**
+     * Reprend sur leurs sources les kilos qu'une correction avait rendus,
+     * quand la nouvelle composition échoue : le chargement retrouve
+     * exactement ce qu'il tenait.
+     */
+    private void retakeAll(List<DispatchLineInputDto> lines) {
+        for (DispatchLineInputDto line : lines) {
+            if (line.receiptId() != null) {
+                receipts.releaseDispatch(line.receiptId(), line.netKg().negate());
+            } else {
+                movements.releaseDispatchOpening(line.openingMovementId(), line.netKg().negate());
+            }
+        }
     }
 
     /** Rend à leurs sources les kilos déjà appelés. */

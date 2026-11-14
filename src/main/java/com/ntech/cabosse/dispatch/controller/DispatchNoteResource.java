@@ -25,6 +25,7 @@ import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
+import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
@@ -89,6 +90,15 @@ public class DispatchNoteResource {
         ensureCapability();
         return Response.status(Response.Status.CREATED)
                 .entity(ApiResponse.ok(service.create(payload))).build();
+    }
+
+    /** Corrige un chargement que nulle vente n'a encore appelé (14/11/2026). */
+    @PUT
+    @Path("/{id}")
+    @RequiresPermission(Permission.STOCK_MOVE)
+    public Response update(@PathParam("id") UUID id, @Valid CreateDispatchNoteDto payload) {
+        ensureCapability();
+        return Response.ok(ApiResponse.ok(service.update(id, payload))).build();
     }
 
     @POST
